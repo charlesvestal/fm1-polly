@@ -32,7 +32,9 @@ screen and seven encoders, so every common value gets a knob.
 
 **Later (not v1):** intro sections, step entry of notes, the 16 free song tracks, groove templates,
 event editing, SMF export, a MIDI-file importer (a multitrack loop in, a pattern out: your own material),
-phrase library.
+a QY700 style-file importer (the format undocumented: check what the community has mapped first; for
+styles you made yourself: Yamaha's downloadable converted QY70 styles forbid modification and derivative
+works, so Polly never ships or converts them), phrase library.
 
 ## Architecture
 
@@ -178,6 +180,9 @@ button. Sections are played with **SEL held + a black key**, which leaves ENV, L
   sketchpad, for backing tracks, and as a sound module.
 
 ## Decided
+
+- Drum grooves: Google Magenta's Groove MIDI Dataset (real drummers, MIDI; CC BY 4.0 to be confirmed)
+  as the source for the factory styles' drums, credited; bass, chord and phrase parts written for Polly.
 
 - The name: Polly.
 - 16 factory styles, well made, our own.
