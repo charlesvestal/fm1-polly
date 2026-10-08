@@ -142,7 +142,7 @@ button. Sections are played with **SEL held + a black key**, which leaves ENV, L
 | OCT- / OCT+ | the keys' octave; held + a key in step chord entry: slash bass |
 | SELECT | tempo |
 | ALGORITHM | the track (1..8) |
-| PRESETS | the pattern (Pattern pages), the song (Song, Chords, Arrange), the template (Templates) |
+| PRESETS | the pattern (Pattern pages), the song (Song, Arrange), the cursor (Chords), the template (Templates) |
 | KNOB 1-4 | the page's four values |
 | keys | play the selected track (through the transposer if it is not Bypass, so you play "in C" and hear it in the current chord), or chords (CHORD on) |
 
