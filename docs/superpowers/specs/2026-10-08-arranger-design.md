@@ -1,7 +1,7 @@
-# A pocket arranger for the FM-1 (after the Yamaha QY70) — design
+# Polly: a pocket arranger for the FM-1 (after the Yamaha QY70) — design
 
-Status: draft for review, 2026-10-08. Repo: `fm1-gm` (the GM sound module grows into this). Working name
-**"Pocket"** until a real one is chosen (no Yamaha or QY in the product name).
+Status: draft for review, 2026-10-08. Repo: `fm1-gm` (the GM sound module grows into this; renamed
+`fm1-polly` when the arranger lands). Name: **Polly** (no Yamaha or QY in it).
 
 ## What it is
 
@@ -18,7 +18,9 @@ screen and seven encoders, so every common value gets a knob.
 ## Scope
 
 **v1:**
-- 16 patterns, each 1-8 bars, 8 tracks; 8 factory patterns to start from (our own, written for this)
+- 16 user patterns, each 1-8 bars, 8 tracks
+- 16 factory styles, well made and our own (written for Polly, not taken from Yamaha's ROM: its styles are
+  Yamaha's copyright), each with Main A, Main B, a fill and an ending
 - the transposition engine: five track types (Bypass, Chord 1, Chord 2, Bass, Parallel) with range limits
 - chords: 26 types plus slash bass; entered live (held chords recognised) or step by step; one per beat
 - 4 sections per song: Main A, Main B, Fill, Ending
@@ -29,7 +31,8 @@ screen and seven encoders, so every common value gets a knob.
 - MIDI: clock in / out, all tracks out on their channels, MIDI in plays the synth (as the GM module)
 
 **Later (not v1):** intro sections, step entry of notes, the 16 free song tracks, groove templates,
-event editing, SMF export / import, phrase library.
+event editing, SMF export, a MIDI-file importer (a multitrack loop in, a pattern out: your own material),
+phrase library.
 
 ## Architecture
 
@@ -115,21 +118,29 @@ unspecified; this keeps pads following the changes).
 
 ## Controls
 
+Rule: a page button holds at most three pages (pressed again: the next); more than that gets its own
+button. Sections are played with **SEL held + a black key**, which leaves ENV, LFO, ARP and SEQ for pages.
+
 | Control | Does |
 |---|---|
-| PLAY | start / stop (on the next bar, sections wait for it too: "NEXT" on screen) |
-| REC | record into the selected track (loops the pattern, overdubs); on the Song page: records chords and sections |
-| SEL | CHORD on / off: the keys enter chords (lit) or play the selected track |
-| ENV LFO ARP SEQ | sections: Main A, Main B, Fill, Ending (lit: playing; blinking: next) |
-| HOME | the Song page (PLAY screen) |
-| EDIT | the Pattern page; again: the selected track's settings |
-| FX | the Mixer |
-| GLO | Setup (tempo source, MIDI, key, lights), then Templates |
-| SAVE | saves; held: copy / clear (pattern, track, song) |
-| OCT- / OCT+ | the keys' octave; held with a key: slash bass (on the Song page, in step chord entry) |
+| PLAY | start / stop (stops at the bar end when an Ending is queued) |
+| REC | record: into the selected track (Pattern pages: the pattern loops, overdubs); on the Song and Chords pages: the chords and sections played |
+| SEL tap | CHORD on / off: the keys enter chords (lit) or play the selected track |
+| SEL held + black key | the section, from the next bar ("NEXT" on screen): 1 Main A, 2 Main B, 3 Fill (A->B or B->A by where it is), 4 Ending, 5 Intro (later); 6-11 jump to song bar markers (later) |
+| SEL held + white key | the chord template 1-16 (a white key each), playing at once |
+| HOME | Song: the play screen |
+| SEQ | Pattern: the 8 tracks; again: the pattern's length, time, name |
+| EDIT | Track: the selected track's sound (GM program by family), its type and limits |
+| FX | Mixer: volume, pan, reverb, chorus per track; again: the master effects |
+| LFO | Chords: the song's chord track, step by step (a beat at a time) |
+| ENV | Arrange: the song's section track and its four patterns (its style) |
+| ARP | Templates: the 16 progressions, browse and audition; again: copy one into the song |
+| GLO | Setup: tempo source, MIDI, key, lights; again: Panel (CPU, version) |
+| SAVE | saves; held: jobs (copy / clear a pattern, a track, a song) |
+| OCT- / OCT+ | the keys' octave; held + a key in step chord entry: slash bass |
 | SELECT | tempo |
 | ALGORITHM | the track (1..8) |
-| PRESETS | the pattern (Pattern page) or the song (Song page) |
+| PRESETS | the pattern (Pattern pages), the song (Song, Chords, Arrange), the template (Templates) |
 | KNOB 1-4 | the page's four values |
 | keys | play the selected track (through the transposer if it is not Bypass, so you play "in C" and hear it in the current chord), or chords (CHORD on) |
 
@@ -164,8 +175,8 @@ unspecified; this keeps pads following the changes).
   screen, menu diving, slow browsing, fiddly editing, weak acoustic sounds, battery life; most use it as a
   sketchpad, for backing tracks, and as a sound module.
 
-## Open questions
+## Decided
 
-1. The name.
-2. Whether the factory patterns should be few and good (8) or more and simpler (16).
-3. Sections on ENV / LFO / ARP / SEQ, or on keys with a modifier (frees those buttons for pages).
+- The name: Polly.
+- 16 factory styles, well made, our own.
+- Sections and templates on SEL held + keys; ENV, LFO, ARP, SEQ are pages; three pages at most per button.
