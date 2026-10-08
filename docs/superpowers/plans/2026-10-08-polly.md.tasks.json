@@ -37,7 +37,7 @@
   {
    "id": 4,
    "subject": "Task 4: The engine: playing a pattern over a chord",
-   "status": "pending",
+   "status": "completed",
    "description": "**Goal:** `dsp/arr.c` plays a pattern's 8 tracks through the transposer over the current chord, on time, into the GM synth and MIDI out.\n\n**Files:**\n- Modify: `firmware/src/dsp/arr.h` (the engine API), `firmware/src/dsp/gm.c` (a hook to tick the arranger inside the render), `tools/build.py`, `host/build_host.sh`, `web/emu/build.sh`, `firmware/src/app/main_fm1.c` (call `arr_init`)\n- Create: `firmware/src/dsp/arr.c`, `tests/host/arr_test.c`\n\n**Acceptance Criteria:**\n- [ ] `arr_play(1)` starts at tick 0; at 120 BPM a note at tick 24 sounds 0.5 s \u00b1 3 ms later (the render is split at tick boundaries)\n- [ ] a Chord 1 track's C4 sounds as A4 while the chord is Am7 (`gm` receives note 69 on the track's channel)\n- [ ] notes end after their length (a note-off for each note-on, on the same note number, even across a chord change)\n- [ ] at a chord change, a Chord 1/2/Bass note with more than 12 ticks left is cut and restruck on its new pitch; shorter ones are left to end\n- [ ] mute: a muted track sends nothing; unmuting mid-pattern plays from the next note\n- [ ] MIDI out: every note to the track's channel when MIDI out is on (`lf_midi_out`-style callback `arr_midi_out`)\n- [ ] MIDI clock in drives the tick when present (24 a quarter), as Life's (`lf_clock`); on its own clock with MIDI out on, it sends F8 24 a quarter, FA at start, FC at stop\n- [ ] `arr_test` prints `arr test passed`\n\n**Verify:** `sh tests/run_tests.sh | grep -E \"arr|all tests\"` \u2192 `ok   arr` and `all tests passed`\n\n```json:metadata\n{\"files\": [\"firmware/src/app/main_fm1.c\", \"firmware/src/dsp/arr.c\", \"firmware/src/dsp/arr.h\", \"firmware/src/dsp/gm.c\", \"host/build_host.sh\", \"tests/host/arr_test.c\", \"tools/build.py\", \"web/emu/build.sh\"], \"verifyCommand\": \"`sh tests/run_tests.sh | grep -E \\\"arr|all tests\\\"` \\u2192 `ok   arr` and `all tests passed`\", \"acceptanceCriteria\": [\"`arr_play(1)` starts at tick 0; at 120 BPM a note at tick 24 sounds 0.5 s \\u00b1 3 ms later (the render is split at tick boundaries)\", \"a Chord 1 track's C4 sounds as A4 while the chord is Am7 (`gm` receives note 69 on the track's channel)\", \"notes end after their length (a note-off for each note-on, on the same note number, even across a chord change)\", \"at a chord change, a Chord 1/2/Bass note with more than 12 ticks left is cut and restruck on its new pitch; shorter ones are left to end\", \"mute: a muted track sends nothing; unmuting mid-pattern plays from the next note\", \"MIDI out: every note to the track's channel when MIDI out is on (`lf_midi_out`-style callback `arr_midi_out`)\", \"MIDI clock in drives the tick when present (24 a quarter), as Life's (`lf_clock`); on its own clock with MIDI out on, it sends F8 24 a quarter, FA at start, FC at stop\", \"`arr_test` prints `arr test passed`\"], \"modelTier\": \"standard\"}\n```",
    "blockedBy": [
     3
@@ -115,7 +115,16 @@
    "blockedBy": [
     11
    ]
+  },
+  {
+   "id": "4b",
+   "subject": "Task 4b: Sample-accurate note starts",
+   "status": "pending",
+   "blockedBy": [
+    4
+   ],
+   "description": "### Task 4b: Sample-accurate note starts\n\n**Goal:** Every note the arranger starts begins on its exact sample (\u00b11 at 22.05 kHz), not at the next 128-frame EAS block, with the synth's sound unchanged.\n\n**Files:**\n- Modify: `firmware/src/dsp/eas/eas_wtsynth.c`, `eas_wtengine.c` (and their headers / `eas_voicemgt.c` as needed): a per-voice start offset in samples within the current block; `firmware/src/dsp/gm.c` / `gm.h` (`gm_midi_now` takes an offset); `firmware/src/dsp/arr.c` (passes each note's offset into its block); `tests/host/arr_test.c`; `LICENSING.md` (Sonivox row: \"modified: per-voice start offset\")\n\n**Acceptance Criteria:**\n- [ ] A note due at sample k of a block (0 <= k < 128 at 22.05 kHz) is silent for samples 0..k-1 of that block and starts at k: a test renders the real synth (not the stub) and finds the first non-silent output sample of an isolated note within \u00b11 sample (22.05 kHz) of its due time, for several k across the block and for several tempos\n- [ ] Envelopes, LFOs, levels unchanged: an isolated note started at k = 0 renders bit-identically to the unmodified engine (compare against a render taken before the change)\n- [ ] Note-offs may stay block-quantised (release timing), documented\n- [ ] The arranger's timing tests tighten to \u00b11 frame at 22.05 kHz (\u00b12 at 44.1 kHz)\n- [ ] CPU: no measurable increase on the host render benchmark (<5%)\n\n**Verify:** `sh tests/run_tests.sh | tail -1` \u2192 `all tests passed`\n\n---\n\n```json:metadata\n{\"files\": [\"firmware/src/dsp/eas/eas_wtsynth.c\", \"firmware/src/dsp/eas/eas_wtengine.c\", \"firmware/src/dsp/gm.c\", \"firmware/src/dsp/arr.c\", \"tests/host/arr_test.c\", \"LICENSING.md\"], \"verifyCommand\": \"sh tests/run_tests.sh | tail -1\", \"acceptanceCriteria\": [\"notes start within 1 sample of due time\", \"k=0 render bit-identical\", \"arranger timing tests at +-1 frame\", \"CPU <5% more\"], \"modelTier\": \"standard\"}\n```"
   }
  ],
- "lastUpdated": "2026-10-08T22:46:04.845340"
+ "lastUpdated": "2026-10-08T23:13:33.857422"
 }
