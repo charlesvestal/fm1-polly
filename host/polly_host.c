@@ -103,6 +103,7 @@ void plat_midi_out(uint32_t pkt)
         fprintf(midi_log, "%u ms: %02X %02X %02X\n", now_ms, (pkt >> 8) & 0xFF, (pkt >> 16) & 0xFF, (pkt >> 24) & 0xFF);
 }
 /* the engine's MIDI out, as the device's glue sends it (USB-MIDI packet, cable 0) */
+void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { plat_midi_out(st >> 4 | st << 8 | d1 << 16 | d2 << 24); }
 
 /* flash: one buffer per object, kept across a simulated reboot. store_len starts at -1 (absent) for
  * every object (a GNU range initialiser, so a new object added to plat.h is covered automatically;
@@ -274,6 +275,7 @@ static double now_ns(void)
 static void boot(void)
 {
     gm_init();
+    arr_init();
     project_load();
     project_apply();
     lcd_fill(0, 0, 240, 240, 0);

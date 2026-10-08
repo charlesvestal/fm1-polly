@@ -58,3 +58,34 @@ typedef struct {
 
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
 _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
+
+/* ---- the engine. Threads as Life's: the sequencer runs inside the audio render (gm_render calls arr_block
+ * before each EAS block); everything else posts commands, drained at the start of a block.
+ *
+ * Timing: EAS renders only whole blocks of 128 frames at 22.05 kHz (EAS_Render refuses any other count, and
+ * its envelopes and LFOs step once a block, by increments the sound set bakes in for that block), so MIDI
+ * reaches the synth on 256-frame boundaries of the 44.1 kHz output (5.8 ms). The clock itself is exact (a
+ * Q16 frames-to-the-next-tick count, no drift); each tick goes to the block boundary nearest its exact time:
+ * at most 128 frames (2.9 ms) early or late. */
+void arr_init(void);
+void arr_play(int on);
+void arr_set_tempo(int bpm);                     /* 40..240 */
+void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
+void arr_load_pattern(int slot, const pattern_t *p);   /* slot 0..3: Main A, Main B, Fill, Ending (copied) */
+void arr_section(int sec);                       /* SEC_A..SEC_END: from the next bar */
+void arr_track_mute(int trk, int on);
+void arr_midi_out_on(int on);
+enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
+void arr_clock(int msg);
+/* called by gm_render before each EAS block of `frames` output frames (the render's thread): the commands
+ * posted since, then the ticks that fall nearest this block's start; their notes go to the synth with
+ * gm_midi_now, sounding from this block on */
+void arr_block(uint32_t frames);
+void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2);    /* provided by the app (from the render) */
+
+/* state for the screen */
+extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
+extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
+extern volatile chord_t arr_chord_now;
+extern volatile uint32_t arr_track_hit[ARR_TRACKS];  /* render ticks of each track's last note-on */
+extern volatile uint32_t arr_ticks;                  /* render ticks since arr_init */

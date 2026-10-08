@@ -4,7 +4,8 @@
  * rendered at 22.05 kHz and doubled to the FM-1's 44.1.
  *
  * Threads: gm_render() runs in the audio interrupt and is the only caller of the library. MIDI is posted
- * (gm_midi) and handed to it at the start of a render; the state marked (UI) is written by the render. */
+ * (gm_midi) and handed to it at the start of a render; the arranger (arr.c), which runs inside the render,
+ * writes with gm_midi_now between EAS blocks. The state marked (UI) is written by the render. */
 #pragma once
 #include <stdint.h>
 
@@ -12,6 +13,9 @@
 
 int gm_init(void);                         /* 0 = ready */
 void gm_midi(uint32_t st, uint32_t d1, uint32_t d2);   /* a channel message (2 or 3 bytes) */
+/* the same, straight into the synth: only from inside gm_render (the arranger, between EAS blocks). The
+ * queue above keeps its single producer (the main loop); the render writes the synth itself. */
+void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2);
 void gm_panic(void);                       /* all notes off, all channels */
 void gm_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);   /* the audio ISR: n stereo frames */
 

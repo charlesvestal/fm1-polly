@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The GM module (gm.h): Sonivox EAS behind a MIDI queue, its 22.05 kHz doubled to 44.1. One unit, -O2. */
 #include "gm.h"
+#include "arr.h"
 #include "eas/eas.h"
 #include "eas/eas_data.h"
 #include "eas/eas_synth.h"
@@ -37,18 +38,28 @@ void gm_panic(void)
     }
 }
 
+static void synth_write(uint32_t m)
+{
+    EAS_U8 b[3] = {(EAS_U8)m, (EAS_U8)(m >> 8), (EAS_U8)(m >> 16)};
+    uint32_t st = b[0] & 0xF0u;
+    if (st == 0xC0u)
+        gm_program[b[0] & 15u] = b[1];
+    EAS_WriteMIDIStream(eas, stream, b, (st == 0xC0u || st == 0xD0u) ? 2 : 3);
+}
 static void drain(void)
 {
     while (q_r != q_w) {
         uint32_t m = q[q_r % QN];
-        EAS_U8 b[3] = {(EAS_U8)m, (EAS_U8)(m >> 8), (EAS_U8)(m >> 16)};
-        uint32_t st = b[0] & 0xF0u;
         BARRIER();
         q_r++;
-        if (st == 0xC0u)
-            gm_program[b[0] & 15u] = b[1];
-        EAS_WriteMIDIStream(eas, stream, b, (st == 0xC0u || st == 0xD0u) ? 2 : 3);
+        synth_write(m);
     }
+}
+/* the arranger's notes: it runs inside the render, so it writes the synth itself rather than through the
+ * queue, which keeps one producer (the main loop) */
+void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2)
+{
+    synth_write((st & 0xFFu) | (d1 & 0x7Fu) << 8 | (d2 & 0x7Fu) << 16);
 }
 
 int gm_init(void)
@@ -75,6 +86,9 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
     while (n >= 2) {
         uint32_t k = n / 2 > EAS_FRAMES ? EAS_FRAMES : n / 2, i;
         EAS_I32 got = 0;
+        /* the arranger's ticks nearest this block's start, their notes into the synth now: EAS takes MIDI
+         * only between whole blocks (EAS_Render renders exactly EAS_FRAMES, its envelopes step once a block) */
+        arr_block(2 * k);
         EAS_Render(eas, pcm, (EAS_I32)k, &got);
         for (i = 0; i < k; i++) {
             int32_t l = (i < (uint32_t)got) ? pcm[2 * i] : 0, r = (i < (uint32_t)got) ? pcm[2 * i + 1] : 0;

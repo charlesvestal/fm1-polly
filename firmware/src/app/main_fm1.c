@@ -282,6 +282,7 @@ static void fm1_main(void)
     panel_init();
     led_pos_init();
     gm_init();
+    arr_init();
     project_load();                                 /* defaults when nothing (or another format) is saved */
     project_apply();
     audio_init();
