@@ -150,7 +150,7 @@ static void synth_off(uint32_t chan, uint32_t note)
     else
         gm_midi_now(0x80u | chan, note, 0, 0);
 }
-static void late_offs(void)                        /* the held note-offs, now */
+void arr_late_offs(void)                           /* the held note-offs, now (arr.h) */
 {
     for (int i = 0; i < n_late; i++)
         gm_midi_now(0x80u | (late_off[i] >> 8), late_off[i] & 0x7Fu, 0, 0);
@@ -497,7 +497,7 @@ void arr_block(uint32_t frames)
 {
     const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
-    late_offs();                                   /* the last block's late note-offs: at this one's start */
+    arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
     drain();
     sync();
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */

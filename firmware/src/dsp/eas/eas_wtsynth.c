@@ -362,7 +362,9 @@ static EAS_RESULT WT_StartVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNT
     pWTVoice->modLFO.lfoValue = 0;
     pWTVoice->modLFO.lfoPhase = -pArt->lfoDelay;
 
-    /* Polly: a note-on due within the coming block starts there (0 for a stolen voice's note, started at render) */
+    /* Polly: a note-on due within the coming block starts there. A stolen voice's note starts here at render
+     * (VMRetargetStolenVoice), with the voice manager's startDelay set from the voice's nextStartDelay: its
+     * sample when retargeted in the block it was due in, 0 in a later block */
     pWTVoice->startDelay = pVoiceMgr->startDelay;
 
     pVoice->gain = 0;

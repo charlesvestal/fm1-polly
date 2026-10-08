@@ -6,7 +6,9 @@
  *   offsets:   an isolated note started k samples into a block (k 0..127, six sounds) is silent before k
  *              and sounds from output frame 2k (+-2; plus the sound's own first-sample silence at k = 0)
  *   attack:    a note started k samples in renders its first 128 - k samples exactly as one started at 0
- *   steal:     a note-on stealing a voice started in the same block starts on its own sample
+ *   steal:     a note-on stealing a voice started in the same block starts on its own sample; one stealing
+ *              a sounding voice at the next block's start
+ *   live:      the arranger's held note-offs go before the live notes of a block (the real gm_render)
  *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2)
  *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only)
  *
@@ -18,6 +20,22 @@
 #include <time.h>
 #include "arr.h"
 #include "gm.h"
+#include "eas_data.h"
+#include "eas_synth.h"
+
+void *gm_host_eas(void);                           /* gm.c, GM_HOST: the synth's state */
+static S_VOICE_MGR *vm(void) { return ((S_EAS_DATA *)gm_host_eas())->pVoiceMgr; }
+static int voice_of(int ch, int note)             /* the voice playing (or about to) ch / note; -1 none */
+{
+    for (int v = 0; v < MAX_SYNTH_VOICES; v++) {
+        S_SYNTH_VOICE *p = &vm()->voices[v];
+        if (p->voiceState == eVoiceStateFree)
+            continue;
+        if (p->voiceState == eVoiceStateStolen ? (p->nextChannel == ch && p->nextNote == note) : (p->channel == ch && p->note == note))
+            return v;
+    }
+    return -1;
+}
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -242,13 +260,24 @@ static void test_attack(void)
     };
     static const int ks[] = {1, 37, 64, 100, 127};
     for (int s = 0; s < (int)(sizeof snd / sizeof snd[0]); s++) {
+        int32_t g1 = 0;
         for (int j = -1; j < (int)(sizeof ks / sizeof ks[0]); j++) {
-            int k = j < 0 ? 0 : ks[j], diff = 0, sum0 = 0, sumk = 0;
+            int k = j < 0 ? 0 : ks[j], diff = 0, sum0 = 0, sumk = 0, v;
+            int32_t g, want;
             fresh(snd[s].ch, snd[s].prog);
             mark();
             render_blocks(1);
             gm_midi_now(0x90u | snd[s].ch, snd[s].note, 127, (uint32_t)k);
-            render_blocks(SNAP_BLOCKS - 1);
+            render_blocks(1);
+            /* the gain carried into the second block: at k 0 the first block's target g1; at k the ramp's
+             * value after 128 - k of its 128 steps, (g1 / 128 in Q16) * (128 - k), not g1 */
+            v = voice_of(snd[s].ch, snd[s].note);
+            g = v >= 0 ? vm()->voices[v].gain : -1;
+            if (k == 0)
+                g1 = g;
+            want = (int32_t)(((int64_t)g1 * 65536 / 128 * (128 - k)) / 65536);
+            CHECK(g == want && (k == 0 || g1 <= 1 || g != g1), "%s k %d: gain carried %d, want %d (g1 %d)", snd[s].name, k, (int)g, (int)want, (int)g1);
+            render_blocks(SNAP_BLOCKS - 2);
             gm_midi_now(0x80u | snd[s].ch, snd[s].note, 0, 0);
             if (k == 0) {
                 memcpy(snap0, snap, sizeof snap);
@@ -297,6 +326,66 @@ static void test_steal(void)
                ks[t][0], ks[t][1], ks[t][2], first, diff);
         CHECK(diff == 0, "steal %d %d %d: as the two notes alone (%d samples differ)", ks[t][0], ks[t][1], ks[t][2], diff);
     }
+}
+
+/* a voice still sounding when stolen: it fades out over the block the new note was due in, and the new note
+ * starts at the next block's start (its offset not carried there): C4 at block 0, then C4 at 30 and C4 at 90
+ * in block 5 (the one from block 0 stolen) */
+static void test_steal_sounding(void)
+{
+    int v, vs;
+    int32_t g1;
+    fresh(0, 0);                                   /* g1: a C4's first-block gain, started on a block */
+    gm_midi_now(0x90u, 60, 100, 0);
+    render_blocks(1);
+    v = voice_of(0, 60);
+    g1 = v >= 0 ? vm()->voices[v].gain : -1;
+    fresh(0, 0);
+    gm_midi_now(0x90u, 60, 100, 0);
+    render_blocks(5);
+    vs = voice_of(0, 60);
+    gm_midi_now(0x90u, 60, 100, 30);
+    gm_midi_now(0x90u, 60, 100, 90);
+    CHECK(vs >= 0 && vm()->voices[vs].voiceState == eVoiceStateStolen && vm()->voices[vs].nextStartDelay == 90,
+          "the sounding C4's voice stolen for the one at 90");
+    render_blocks(1);                              /* block 5: it fades */
+    CHECK(vs >= 0 && vm()->voices[vs].voiceState == eVoiceStateStolen && vm()->voices[vs].nextStartDelay == 0,
+          "after its fade block, still stolen, the offset dropped");
+    render_blocks(1);                              /* block 6: the new note from the block's start */
+    CHECK(vs >= 0 && vm()->voices[vs].voiceState != eVoiceStateStolen && vm()->voices[vs].note == 60 &&
+              vm()->voices[vs].gain == g1,
+          "the new C4 started at block 6's start: a full first block (gain %d, want %d)", vs >= 0 ? vm()->voices[vs].gain : -1, (int)g1);
+}
+
+/* a note-off the arranger holds for the next block goes before the live MIDI of that block: through the real
+ * gm_render, an organ C4 from the arranger (tick 0, 1 tick: its off due 150 frames into block 3, held for
+ * block 4) and a live C4 on the same channel posted for block 4 keep sounding */
+static void test_live_after_held_off(void)
+{
+    int v;
+    fresh(3, 16);
+    memset(&P, 0, sizeof P);
+    P.bars = 1;
+    P.beats = 4;
+    for (int i = 0; i < ARR_TRACKS; i++)
+        trk_init(i, i < 3 ? 9 : i - 2, 16, XT_BYPASS, 0, 0);
+    trk_init(0, 3, 16, XT_BYPASS, 0, 0);
+    add(0, 0, 1, 60, 100);
+    arr_init();
+    arr_load_pattern(0, &P);
+    arr_set_tempo(120);
+    arr_play(1);
+    render_blocks(4);                              /* blocks 0..3: the C4, its off held */
+    gm_midi(0x93u, 60, 100);                       /* the live C4, for block 4 */
+    render_blocks(1);
+    arr_play(0);
+    render_blocks(40);                             /* 0.23 s */
+    v = voice_of(3, 60);
+    CHECK(v >= 0 && vm()->voices[v].voiceState == eVoiceStatePlay, "the live C4 still sounds (voice %d, state %d)",
+          v, v >= 0 ? vm()->voices[v].voiceState : -1);
+    gm_midi(0x83u, 60, 0);
+    render_blocks(1);
+    quiet();
 }
 
 /* the arranger on the real synth: a hat at ticks 0, 25, 49, 74 of a bar, two bars, at tempos whose ticks fall
@@ -364,6 +453,8 @@ int main(int argc, char **argv)
     test_offsets();
     test_attack();
     test_steal();
+    test_steal_sounding();
+    test_live_after_held_off();
     test_arranger();
     CHECK(h == REF_HASH, "plain MIDI renders as the unmodified engine: hash 0x%08x, want 0x%08x", h, REF_HASH);
     printf("%d checks, %d failed\n", checks, fails);

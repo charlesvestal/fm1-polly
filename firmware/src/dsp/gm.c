@@ -66,6 +66,9 @@ void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2, uint32_t at)
 {
     synth_write((st & 0xFFu) | (d1 & 0x7Fu) << 8 | (d2 & 0x7Fu) << 16, at);
 }
+#ifdef GM_HOST
+void *gm_host_eas(void) { return eas; }          /* the tests (timing_test.c): the synth's state */
+#endif
 
 int gm_init(void)
 {
@@ -87,6 +90,7 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             out[i] = 0;
         return;
     }
+    arr_late_offs();                              /* the arranger's held note-offs before the live notes */
     drain();
     while (n >= 2) {
         uint32_t k = n / 2 > EAS_FRAMES ? EAS_FRAMES : n / 2, i;

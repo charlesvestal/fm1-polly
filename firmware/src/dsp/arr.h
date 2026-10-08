@@ -85,6 +85,9 @@ void arr_clock(int msg);
  * posted since, then the ticks that fall within this block; their notes go to the synth with gm_midi_now,
  * each note-on starting on its sample within the block */
 void arr_block(uint32_t frames);
+/* called by gm_render first, before the MIDI queued by the main loop: the note-offs the arranger held from the
+ * last block's second half (arr.h's Timing), so they never end a note the keys or MIDI in start now */
+void arr_late_offs(void);
 /* provided by the app, called from the render only: MIDI out (a USB ring that drops when full), the ring's
  * free slots, and a count that changes at each new connection (the far side's sounds are then unknown).
  * Priorities: the clock (F8, FA, FC) whenever a note-off owed still fits; note-ons with a reserve to spare;

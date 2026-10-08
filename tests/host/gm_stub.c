@@ -31,6 +31,7 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
 {
     (void)gain_q12;
     memset(out, 0, 2 * n * sizeof *out);
+    arr_late_offs();                          /* as gm.c: before the queued MIDI */
     while (n >= 2) {
         uint32_t k = n > 256u ? 256u : n;     /* gm.c: 128 EAS frames = 256 output frames */
         arr_block(k);
