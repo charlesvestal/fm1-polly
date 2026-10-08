@@ -22,7 +22,7 @@ static int project_valid(void)
 {
     int c;
     if (proj.magic != PROJ_MAGIC || proj.format != PROJ_FORMAT || proj.ch > 15u || proj.oct < -3 || proj.oct > 3 ||
-        proj.leds > 2u)
+        proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS)
         return 0;
     for (c = 0; c < GM_NCH; c++)
         if (proj.program[c] > 127u || proj.volume[c] > 127u || proj.pan[c] > 127u || proj.reverb[c] > 127u ||
@@ -55,3 +55,80 @@ void project_apply(void)
         gm_midi(0xB0u | c, 93, proj.chorus[c]);
     }
 }
+
+/* the QY70's default pattern (manual p.140): 2 bars of 4, D1/D2/PC bypass on the drum channel, BA bass,
+ * C1/C2/C4 chord 1 and C3 chord 2 (a pad); vol/pan/rev/cho as the project's channel defaults. */
+void pattern_empty(pattern_t *p)
+{
+    int i;
+    memset(p, 0, sizeof *p);
+    p->bars = 2;
+    p->beats = 4;
+    for (i = 0; i < ARR_TRACKS; i++) {
+        arr_trk_t *t = &p->trk[i];
+        t->x.lo = 0;
+        t->x.hi = 127;
+        t->x.hikey = XT_NOKEY;
+        t->vol = 100;
+        t->pan = 64;
+        t->rev = 40;
+        t->cho = 0;
+    }
+    for (i = 0; i < 3; i++) {                        /* D1, D2, PC */
+        p->trk[i].chan = 9;
+        p->trk[i].x.type = XT_BYPASS;
+    }
+    p->trk[3].program = 33;                          /* BA */
+    p->trk[3].chan = 1;
+    p->trk[3].x.type = XT_BASS;
+    p->trk[3].x.lo = 28;
+    p->trk[3].x.hi = 55;
+    p->trk[3].x.hikey = 7;
+    for (i = 4; i < ARR_TRACKS; i++) {                /* C1..C4 */
+        p->trk[i].chan = (uint8_t)(i - 2);
+        p->trk[i].x.type = XT_CHORD1;
+        p->trk[i].x.lo = 48;
+        p->trk[i].x.hi = 84;
+    }
+    p->trk[6].x.type = XT_CHORD2;                     /* C3: a pad */
+    p->trk[6].program = 48;
+}
+
+int project_pattern_load(int i, pattern_t *p)
+{
+    int n;
+    if (i < 0 || i >= ARR_USER_PATTERNS) {
+        pattern_empty(p);
+        return -1;
+    }
+    n = plat_store_load((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
+    if (n == (int)sizeof *p)
+        return 0;
+    pattern_empty(p);
+    return -1;
+}
+
+int project_pattern_save(int i, const pattern_t *p)
+{
+    if (i < 0 || i >= ARR_USER_PATTERNS)
+        return -1;
+    return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
+}
+
+static void songs_defaults(songs_t *s)
+{
+    memset(s, 0, sizeof *s);
+    s->magic = SONGS_MAGIC;
+    s->format = SONGS_FORMAT;
+}
+
+int project_songs_load(songs_t *s)
+{
+    int n = plat_store_load(OBJ_SONGS, s, sizeof *s);
+    if (n >= 8 && s->magic == SONGS_MAGIC && s->format == SONGS_FORMAT)
+        return 0;
+    songs_defaults(s);
+    return -1;
+}
+
+int project_songs_save(const songs_t *s) { return plat_store_save(OBJ_SONGS, s, sizeof *s); }

@@ -90,19 +90,18 @@ int main(void)
     nor[st_sector(OBJ_PANEL, 0) + 8] ^= 0x01;    /* both headers broken */
     nor[st_sector(OBJ_PANEL, 1) + 8] ^= 0x01;
     bad += check("both headers broken -> nothing", st_load(OBJ_PANEL, got, sizeof got) < 0);
-    {   /* POLLY map: every object in a data region, none in the sample slots (0xA0000..0xDBFFF), no overlaps */
+    {   /* POLLY map: every object inside 0x97000..0xDFFFF or at 0xFC000, two sectors, no overlaps */
         uint32_t o, p, ok = 1;
         for (o = 0; o < OBJ_NOBJ; o++) {
             uint32_t a0 = st_sector(o, 0), a1 = st_sector(o, 1) + 4096;
-            int in_data = (a0 >= 0x97000 && a1 <= 0xA0000) || (a0 >= 0xDC000 && a1 <= 0xE0000) ||
-                          (a0 >= 0xFC000 && a1 <= 0xFF000);
+            int in_data = (a0 >= 0x97000 && a1 <= 0xE0000) || (a0 >= 0xFC000 && a1 <= 0xFF000);
             if (!in_data || a1 - a0 != 8192)
                 ok = 0;
             for (p = 0; p < o; p++)
                 if (a0 < st_sector(p, 1) + 4096 && st_sector(p, 0) < a1)
                     ok = 0;
         }
-        bad += check("objects in data regions, clear of the sample slots", (int)ok);
+        bad += check("objects inside Felucca's data area, no overlaps", (int)ok);
     }
     printf("%s\n", bad ? "STORAGE TEST FAILED" : "storage test passed");
     return bad != 0;

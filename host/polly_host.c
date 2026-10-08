@@ -104,10 +104,13 @@ void plat_midi_out(uint32_t pkt)
 }
 /* the engine's MIDI out, as the device's glue sends it (USB-MIDI packet, cable 0) */
 
-/* flash: one buffer per object, kept across a simulated reboot */
+/* flash: one buffer per object, kept across a simulated reboot. store_len starts at -1 (absent) for
+ * every object (a GNU range initialiser, so a new object added to plat.h is covered automatically;
+ * a plain {-1, -1} would leave the rest at 0, which reads as "present"). */
 static uint8_t store[OBJ_NOBJ][PLAT_STORE_MAX];
-static int store_len[OBJ_NOBJ] = {-1, -1};
+static int store_len[OBJ_NOBJ] = { [0 ... OBJ_NOBJ - 1] = -1 };
 static uint32_t store_writes;
+
 int plat_store_load(uint32_t obj, void *dst, uint32_t max)
 {
     int n;
@@ -343,6 +346,11 @@ static int key_of(const char *s)
     return atoi(s);
 }
 
+/* host-only debug buffers for poke_pattern and the pat0_ / song0_ expects (Step 4): static, as
+ * pattern_t and songs_t are too big for a stack frame. */
+static pattern_t dbg_pat;
+static songs_t dbg_songs;
+
 static int expect(const char *what, const char *val)
 {
     int got;
@@ -360,6 +368,16 @@ static int expect(const char *what, const char *val)
         got = ui.dirty;
     else if (!strcmp(what, "store_writes"))
         got = (int)store_writes;
+    else if (!strcmp(what, "pat0_nev")) {          /* user pattern 0's event count */
+        project_pattern_load(0, &dbg_pat);
+        got = dbg_pat.nev;
+    } else if (!strcmp(what, "song0_bars")) {      /* song 0's length in bars */
+        project_songs_load(&dbg_songs);
+        got = dbg_songs.song[0].bars;
+    } else if (!strcmp(what, "song0_chord0")) {    /* song 0, bar 0 beat 0's chord: root*100 + type */
+        project_songs_load(&dbg_songs);
+        got = dbg_songs.song[0].chord[0].root * 100 + dbg_songs.song[0].chord[0].type;
+    }
     else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);
@@ -501,7 +519,31 @@ int main(int argc, char **argv)
             printf("\n");
         } else if (!strcmp(cmd, "expect"))
             fails += expect(a, b);
-        else if (!strcmp(cmd, "reboot")) {
+        else if (!strcmp(cmd, "poke_pattern")) {     /* host-only debug (Step 4): a known pattern and song */
+            pattern_empty(&dbg_pat);
+            dbg_pat.nev = 3;
+            dbg_pat.trk[3].first = 0;
+            dbg_pat.trk[3].count = 3;
+            dbg_pat.ev[0].tick = 0;
+            dbg_pat.ev[0].len = ARR_PPQ;
+            dbg_pat.ev[0].note = 36;
+            dbg_pat.ev[0].vel = 100;
+            dbg_pat.ev[1].tick = ARR_PPQ;
+            dbg_pat.ev[1].len = ARR_PPQ;
+            dbg_pat.ev[1].note = 40;
+            dbg_pat.ev[1].vel = 100;
+            dbg_pat.ev[2].tick = 2 * ARR_PPQ;
+            dbg_pat.ev[2].len = ARR_PPQ;
+            dbg_pat.ev[2].note = 43;
+            dbg_pat.ev[2].vel = 100;
+            project_pattern_save(0, &dbg_pat);
+            songs_defaults(&dbg_songs);
+            dbg_songs.song[0].bars = 4;
+            dbg_songs.song[0].chord[0].root = 9;      /* A */
+            dbg_songs.song[0].chord[0].type = CH_MIN7;
+            dbg_songs.song[0].chord[0].bass = CH_NOBASS;
+            project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "reboot")) {
             memset(&proj, 0, sizeof proj);
             boot();
         } else if (!strcmp(cmd, "echo"))
