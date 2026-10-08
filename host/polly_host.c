@@ -543,6 +543,10 @@ int main(int argc, char **argv)
             dbg_songs.song[0].chord[0].type = CH_MIN7;
             dbg_songs.song[0].chord[0].bass = CH_NOBASS;
             project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_bad_pattern")) {   /* host-only debug: an invalid nev, straight into storage */
+            pattern_empty(&dbg_pat);
+            dbg_pat.nev = ARR_NEV + 1;
+            project_pattern_save(0, &dbg_pat);
         } else if (!strcmp(cmd, "reboot")) {
             memset(&proj, 0, sizeof proj);
             boot();

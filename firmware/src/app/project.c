@@ -94,6 +94,20 @@ void pattern_empty(pattern_t *p)
     p->trk[6].program = 48;
 }
 
+/* every field that indexes or sizes something is in range, so ev[] is never read out of bounds */
+static int pattern_valid(const pattern_t *p)
+{
+    int t;
+    if (p->bars < 1u || p->bars > ARR_MAXBARS || p->beats < 2u || p->beats > 7u || p->nev > ARR_NEV)
+        return 0;
+    for (t = 0; t < ARR_TRACKS; t++) {
+        const arr_trk_t *k = &p->trk[t];
+        if (k->x.type >= NXT || k->count > ARR_NEV || k->first + (uint32_t)k->count > p->nev)
+            return 0;
+    }
+    return 1;
+}
+
 int project_pattern_load(int i, pattern_t *p)
 {
     int n;
@@ -102,7 +116,7 @@ int project_pattern_load(int i, pattern_t *p)
         return -1;
     }
     n = plat_store_load((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
-    if (n == (int)sizeof *p)
+    if (n == (int)sizeof *p && pattern_valid(p))
         return 0;
     pattern_empty(p);
     return -1;

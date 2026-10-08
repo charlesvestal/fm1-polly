@@ -6,6 +6,8 @@
 #include "chords.h"
 #include "xpose.h"
 
+/* stored as raw bytes, native (little-endian) order, no packing pragma: every member is naturally
+ * aligned by the rsv fields placed by hand, so the layout is stable without padding surprises. */
 #define ARR_TRACKS 8
 #define ARR_PPQ 24
 #define ARR_MAXBARS 8
