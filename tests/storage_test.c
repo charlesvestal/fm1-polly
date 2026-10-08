@@ -28,9 +28,9 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
         nor[off + i] &= s[i];
     return 0;
 }
-#include "../firmware/src/app/plat.h"     /* LIFE: the object map */
+#include "../firmware/src/app/plat.h"     /* POLLY: the object map */
 #include "../firmware/src/storage.c"
-#define OBJ_PROJECT0 OBJ_PROJ                  /* LIFE has two objects: the project and the panel */
+#define OBJ_PROJECT0 OBJ_PROJ                  /* POLLY has two objects: the project and the panel */
 #define OBJ_SETTINGS OBJ_PANEL
 
 static int check(const char *what, int ok)
@@ -90,7 +90,7 @@ int main(void)
     nor[st_sector(OBJ_PANEL, 0) + 8] ^= 0x01;    /* both headers broken */
     nor[st_sector(OBJ_PANEL, 1) + 8] ^= 0x01;
     bad += check("both headers broken -> nothing", st_load(OBJ_PANEL, got, sizeof got) < 0);
-    {   /* LIFE map: every object in a data region, none in the sample slots (0xA0000..0xDBFFF), no overlaps */
+    {   /* POLLY map: every object in a data region, none in the sample slots (0xA0000..0xDBFFF), no overlaps */
         uint32_t o, p, ok = 1;
         for (o = 0; o < OBJ_NOBJ; o++) {
             uint32_t a0 = st_sector(o, 0), a1 = st_sector(o, 1) + 4096;

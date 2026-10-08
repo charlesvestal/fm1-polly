@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LIFE in the browser: the host simulator (host/polly_host.c: the whole app, UI and instrument,
+/* POLLY in the browser: the host simulator (host/polly_host.c: the whole app, UI and instrument,
  * against a simulated FM-1) compiled to WebAssembly and run in an AudioWorklet (from X0X's). The worklet asks
  * for audio; producing it advances the device's clock one millisecond at a time, which runs the
  * engine every 256 samples (the I2S half buffer) and the UI every 16 ms, as on the FM-1. The page

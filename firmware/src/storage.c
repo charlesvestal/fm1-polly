@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
- * X0X / LIFE: object map changed (see below). */
+ * X0X / POLLY: object map changed (see below). */
 /* Persistent storage on the SPI NOR.
  *
  * Every object has an A/B sector pair. A save goes to the copy that is not
@@ -17,7 +17,7 @@
 #define ST_PAYLOAD_OFF 256u
 #define ST_PAYLOAD_MAX (ST_SECTOR - ST_PAYLOAD_OFF)
 
-/* flash map, LIFE (plat.h OBJ_*): the project at 0xFC000 (Felucca's FL_GLOB), the panel calibration at
+/* flash map, POLLY (plat.h OBJ_*): the project at 0xFC000 (Felucca's FL_GLOB), the panel calibration at
  * 0xDC000 (Felucca's user-preset area). Nothing above 0xDFFFF: 0xE0000.. is the update loader's
  * staging area. The magic is X0X's, so a project is told apart by its own magic (project.c). */
 typedef struct {

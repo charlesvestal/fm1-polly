@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polly in the browser</title>
-<meta name="description" content="Polly, a Game of Life sequencer for the M-VAVE FM-1 playing Plinky's synth, in your browser: the same code the FM-1 runs.">
+<meta name="description" content="Polly, a General MIDI sound module for the M-VAVE FM-1 playing Sonivox EAS's sound set, in your browser: the same code the FM-1 runs.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -67,8 +67,8 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <body>
 <main>
 <header>
-  <h1>Life</h1>
-  <p>a Game of Life sequencer for the FM-1, playing Plinky's synth: the same code the FM-1 runs</p>
+  <h1>Polly</h1>
+  <p>a General MIDI sound module for the FM-1 (becoming a pocket arranger), playing Sonivox EAS's sound set: the same code the FM-1 runs</p>
 </header>
 
 <p class="turn">Turn your phone sideways for bigger controls.</p>
@@ -81,62 +81,27 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <div class="bar">
   <span id="status">Off. Sound starts when you switch it on.</span>
   <span class="cpu" id="cpu"></span>
-  <button id="reset" type="button" title="Forget your world, sounds and scenes, and start again from the factory settings">Factory reset</button>
+  <button id="reset" type="button" title="Forget your saved settings and start again from the factory settings">Factory reset</button>
 </div>
 
 <section class="help">
   <div class="knobs">
     <h2>How it plays</h2>
-    <p>The 16 &times; 16 grid is a Game of Life world. Columns are steps, rows are notes of the scale (lowest at the bottom). Four voices walk across it at their own speeds and play the live cells they find, each with its own sound; an empty column is a rest. The world changes on its own clock, so the music keeps moving. Press <b>PLAY</b>.</p>
-    <h2>Pages and knobs</h2>
-    <p>Each page puts four values on KNOB 1&ndash;4. Press a page's button again for its next page.</p>
-    <div class="pages">
-      <div>
-        <h3>World <span>HOME</span></h3>
-        <dl>
-          <dt>Gen rate, Rule, Swing, Loop</dt><dd>How often the world evolves; the law it lives by (Life, HighLife, Maze, Coral, 34, Seeds); swing for every voice; a loop of 1 to 32 generations, locking at the next boundary (Off runs free).</dd>
-          <dt>Seed, Floor, Amount, Stall</dt><dd>The shape a key plants (a cell, a glider, a blinker, an R-pentomino, a block); and keeping the world alive: when it falls under Floor cells, or nothing has changed for Stall generations, Amount cells are sprinkled in.</dd>
-        </dl>
-      </div>
-      <div>
-        <h3>Voice <span>EDIT</span></h3>
-        <dl>
-          <dt>Rate, Pick, Order, Pitch</dt><dd>How fast the selected voice walks (1/32 to 8 bars); which live cell in a column it plays (First, Last, Up, Down, Walk, Random, All for chords...); which way it walks; and a shift in scale steps.</dd>
-          <dt>Length, Accent, Chance, Ratchet</dt><dd>The note's length; how much a crowded cell hits harder; how often lone cells are skipped; how much crowded cells repeat inside their step.</dd>
-          <dt>Tie, Every, MIDI ch, Octave</dt><dd>How often a cell that survived holds its note; playing only every 2nd to 4th crossing; the voice&rsquo;s MIDI channel; and the voice moved up or down by octaves.</dd>
-        </dl>
-      </div>
-      <div>
-        <h3>Sound <span>FX</span></h3>
-        <dl>
-          <dt>Sound, Shape, Decay, Level</dt><dd>The selected voice's sound (Glass, Pluck, Pad, Bass, Plinky, Bell, Keys, Square, Reed, Noise) and its oscillator shape, decay and level.</dd>
-          <dt>Attack, Sustain, Release</dt><dd>The rest of its envelope.</dd>
-          <dt>Reverb, Space, Echo, Echo time</dt><dd>The shared effects: Plinky's shimmer reverb and wobbling tape delay.</dd>
-        </dl>
-      </div>
-      <div>
-        <h3>Setup <span>GLO</span></h3>
-        <dl>
-          <dt>Key, Scale, Octave, Output</dt><dd>The harmony (29 scales) and where the notes go: the synth, MIDI, or both.</dd>
-          <dt>CC in, CC out, World CCs, Note in</dt><dd>plinky-life's block of controllers from CC in up (channel 1), mirrored back out; the world's density, births, deaths and stillness as CCs 20&ndash;27; MIDI notes planting seeds.</dd>
-          <dt>Tune, Lights</dt><dd>Fine tuning; the keys lighting up the notes playing. The audio load shows here too.</dd>
-        </dl>
-      </div>
-      <div>
-        <h3>Scenes <span>SAVE</span></h3>
-        <dl>
-          <dt>Slot</dt><dd>Eight scenes, each a world and every voice and sound. In this page <b>SAVE</b> saves into the slot and <b>SEL</b> loads it.</dd>
-        </dl>
-      </div>
-    </div>
+    <p>Polly is, today, a General MIDI sound module: sixteen channels (10 is the drum kit), each with its own program, volume, pan, reverb and chorus, playing <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a>'s 200&nbsp;KB GM sound set. <b>ALGORITHM</b> picks which channel the keys and knobs act on; the keys then play notes on it. MIDI in (USB) plays all 16 channels at once, whichever is selected on screen. Press <b>PLAY</b> for a demo song, both to hear it and to load the synth.</p>
+    <h2>Knobs</h2>
+    <dl>
+      <dt>PRESETS</dt><dd>The selected channel's program, one at a time.</dd>
+      <dt>SELECT</dt><dd>The same program, by a bank of eight at a time.</dd>
+      <dt>KNOB 1&ndash;4</dt><dd>The selected channel's volume, pan, reverb and chorus.</dd>
+    </dl>
   </div>
   <div>
     <h2>Buttons</h2>
     <ul>
-      <li><b>Keys</b> plant a seed: the key's note is a row, the seed lands just ahead of the selected voice (at the cursor when stopped), and the note sounds through that voice.</li>
-      <li><b>PLAY</b> start / stop. <b>REC</b> freezes the world. <b>OCT&minus;</b> sprinkles cells in (held 1 s: clears the world). <b>OCT+</b> one generation.</li>
-      <li><b>ENV</b>, <b>LFO</b>, <b>ARP</b>, <b>SEQ</b> select voices 1&ndash;4; hold one to mute it.</li>
-      <li><b>ALGORITHM</b> / <b>PRESETS</b> move the cursor; <b>SEL</b> flips the cell under it. <b>SELECT</b> tempo.</li>
+      <li><b>Keys</b> play notes on the selected channel.</li>
+      <li><b>PLAY</b> plays a demo song. <b>HOME</b> all notes off.</li>
+      <li><b>OCT&minus;</b> / <b>OCT+</b> the keys' octave.</li>
+      <li><b>GLO</b> lights. <b>SAVE</b> saves (it also saves by itself, a few seconds after a change).</li>
     </ul>
   </div>
   <div>
@@ -151,15 +116,15 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
     <h2>Keyboard</h2>
     <ul>
       <li>White keys 1&ndash;8: <kbd>Q</kbd>&ndash;<kbd>I</kbd>, 9&ndash;16: <kbd>A</kbd>&ndash;<kbd>K</kbd>. Black keys 1&ndash;11: <kbd>1</kbd>&ndash;<kbd>0</kbd>, <kbd>-</kbd>.</li>
-      <li><kbd>Space</kbd> PLAY, <kbd>Enter</kbd> REC (freeze), <kbd>Esc</kbd> HOME, <kbd>Z</kbd> / <kbd>X</kbd> OCT&minus; / OCT+, <kbd>V</kbd> <kbd>B</kbd> <kbd>N</kbd> <kbd>M</kbd> voices 1&ndash;4.</li>
-      <li>Arrow keys move the cursor, <kbd>.</kbd> flips the cell.</li>
+      <li><kbd>Space</kbd> PLAY, <kbd>Esc</kbd> HOME, <kbd>Z</kbd> / <kbd>X</kbd> OCT&minus; / OCT+.</li>
+      <li>Up / down arrow keys step PRESETS (the channel's program); left / right step ALGORITHM (the channel).</li>
     </ul>
   </div>
   <div>
     <h2>Saving and credits</h2>
-    <p>Saving keeps your world, sounds and scenes in this browser, as the FM-1 keeps them in its memory. Factory reset forgets them.
-      It is the firmware, not a recording: what you hear is Life running, at the FM-1's 44.1 kHz.</p>
-    <p>The synth is <a href="https://github.com/plinkysynth/plinky_public">Plinky</a>'s, by mmalex (MIT). The sequencer is <a href="https://github.com/charlesvestal/plinky-life">plinky-life</a>. The platform is <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Running FM-1 firmware in the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
+    <p>Saving keeps each channel's program, volume, pan, reverb and chorus in this browser, as the FM-1 keeps them in its memory; it also saves by itself, a few seconds after a change, while stopped. Factory reset forgets them.
+      It is the firmware, not a recording: what you hear is Polly running, at the FM-1's 44.1 kHz.</p>
+    <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Running FM-1 firmware in the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
   </div>
 </section>
 </main>
@@ -260,10 +225,9 @@ function hit(c, cls) {
   c.hit = d;
 }
 // what each control does, on hover (the Buttons list below says the same)
-const TIP = { FX: "Sound page", SEL: "Flip the cell under the cursor (Scenes: load)", ENV: "Voice 1 (hold: mute)", LFO: "Voice 2 (hold: mute)",
-  ARP: "Voice 3 (hold: mute)", SEQ: "Voice 4 (hold: mute)", EDIT: "Voice page", GLO: "Setup page", HOME: "World page", SAVE: "Scenes (there: save)",
-  PLAY: "Start / stop", REC: "Freeze the world", "OCT-": "Seed now (hold: clear)", "OCT+": "One generation",
-  SELECT: "Tempo", ALGORITHM: "Cursor across", PRESETS: "Cursor up and down", MASTER: "Volume" };
+const TIP = { HOME: "All notes off", SAVE: "Save (it also saves itself)", GLO: "Lights",
+  PLAY: "Demo song", "OCT-": "Octave down", "OCT+": "Octave up",
+  SELECT: "Program, by a bank of eight", ALGORITHM: "Channel (1-16, 10 is the drums)", PRESETS: "Program", MASTER: "Volume" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
 for (const k of Object.values(knobs)) hit(k, "knob");
 for (const b of Object.values(buttons)) hit(b);
@@ -372,9 +336,8 @@ const KEYMAP = {};
 "asdfghjk".split("").forEach((c, i) => KEYMAP["Key" + c.toUpperCase()] = { key: WHITE_K[8 + i] });
 "1234567890".split("").forEach((c, i) => KEYMAP["Digit" + c] = { key: BLACK_K[i] });
 KEYMAP.Minus = { key: BLACK_K[10] };
-Object.assign(KEYMAP, { Space: { btn: BTN.PLAY }, Enter: { btn: BTN.REC }, KeyV: { btn: BTN.ENV }, KeyB: { btn: BTN.LFO },
-                        KeyN: { btn: BTN.ARP }, KeyM: { btn: BTN.SEQ }, Period: { btn: BTN.SEL },
-                        Escape: { btn: BTN.HOME }, KeyZ: { btn: BTN["OCT-"] }, KeyX: { btn: BTN["OCT+"] } });
+Object.assign(KEYMAP, { Space: { btn: BTN.PLAY }, Escape: { btn: BTN.HOME },
+                        KeyZ: { btn: BTN["OCT-"] }, KeyX: { btn: BTN["OCT+"] } });
 addEventListener("keydown", (e) => {
   if (!node || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "ArrowUp" || e.code === "ArrowDown") { turn(knobs.PRESETS, e.code === "ArrowUp" ? -1 : 1); e.preventDefault(); return; }
@@ -451,8 +414,8 @@ async function switchOn() {
         else if (m.type === "frame") {
           if (m.fb) drawScreen(m.fb);
           drawLights(m.buttons, m.keys);
-          window.lifeLast = m;
-          if (m.load !== undefined) cpu.textContent = `Life uses ${m.load}% of this computer's time`;
+          window.pollyLast = m;
+          if (m.load !== undefined) cpu.textContent = `Polly uses ${m.load}% of this computer's time`;
           if (m.store) saveStore(m.store);
         }
       };

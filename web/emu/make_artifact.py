@@ -21,7 +21,7 @@ old = 'fetch("polly.wasm").then((r) => { if (!r.ok) throw new Error(`polly.wasm:
 assert old in s
 s = s.replace(old, "Promise.resolve(Uint8Array.from(atob(ENO_WASM), (c) => c.charCodeAt(0)).buffer)")
 s = s.replace('<script>\n"use strict";', f'<script>\n"use strict";\nconst ENO_WASM = "{wasm}";', 1)
-s = s.replace("<title>Life in the browser</title>", "<title>Life Emulator</title>", 1)
+s = s.replace("<title>Polly in the browser</title>", "<title>Polly Emulator</title>", 1)
 (OUT / "index.html").write_text(s)
 (OUT / "worklet.js").write_text((EMU / "worklet.js").read_text())
 print(f"artifact: {OUT / 'index.html'} ({len(s)} B), worklet.js")

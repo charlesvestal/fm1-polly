@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LIFE on the host: the whole app (UI, project, engine) against a simulated FM-1 driven by a script.
+/* POLLY on the host: the whole app (UI, project, engine) against a simulated FM-1 driven by a script.
  * Audio goes to a WAV, the screen to PNGs, the lights to text, MIDI out to a log. The device-only
  * parts (HAL, USB, OTA, flash driver) are replaced by plat.h implemented here. (From X0X's x0x_host.)
  *
