@@ -1,0 +1,29 @@
+# GM, first: the keys play the selected channel; programs change; the demo loads the synth.
+wait 500
+shot boot.png
+wav first.wav
+key 7 down
+key 11 down
+key 14 down
+wait 600
+expect voices >2
+key 7 up
+key 11 up
+key 14 up
+turn PRESET 24
+wait 200
+expect program1 25
+key 12 down
+wait 500
+key 12 up
+shot program.png
+tap PLAY
+wait 6000
+expect demo 1
+expect voices >8
+expect peak_db_min -24
+expect peak_db_max -0.1
+shot demo.png
+tap PLAY
+wait 1500
+wavstop

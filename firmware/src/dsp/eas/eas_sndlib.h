@@ -1,0 +1,288 @@
+/*----------------------------------------------------------------------------
+ *
+ * File:
+ * eas_sndlib.h
+ *
+ * Contents and purpose:
+ * Declarations for the sound library
+ *
+ * Copyright Sonic Network Inc. 2005
+
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ *----------------------------------------------------------------------------
+ * Revision Control:
+ *   $Revision: 550 $
+ *   $Date: 2007-02-02 09:37:03 -0800 (Fri, 02 Feb 2007) $
+ *----------------------------------------------------------------------------
+*/
+
+#ifndef _EAS_SNDLIB_H
+#define _EAS_SNDLIB_H
+
+#include "eas_options.h"
+#include "eas_synthcfg.h"
+#include "eas_types.h"
+
+/*----------------------------------------------------------------------------
+ * This is bit of a hack to allow us to keep the same structure
+ * declarations for the DLS parser. Normally, the data is located
+ * in read-only memory, but for DLS, we store the data in RW
+ * memory.
+ *----------------------------------------------------------------------------
+*/
+#ifndef SCNST
+#define SCNST const
+#endif
+
+/*----------------------------------------------------------------------------
+ * sample size
+ *----------------------------------------------------------------------------
+*/
+#ifdef _16_BIT_SAMPLES
+typedef EAS_I16 EAS_SAMPLE;
+#else
+typedef EAS_I8 EAS_SAMPLE;
+#endif
+
+/*----------------------------------------------------------------------------
+ * EAS Library ID - quick check for valid library and version
+ *----------------------------------------------------------------------------
+*/
+#define _EAS_LIBRARY_VERSION        0x01534145
+
+#define NUM_PROGRAMS_IN_BANK        128
+#define INVALID_REGION_INDEX        0xffff
+
+/* this bit in region index indicates that region is for secondary synth */
+#define FLAG_RGN_IDX_FM_SYNTH       0x8000
+#define FLAG_RGN_IDX_DLS_SYNTH      0x4000
+#define REGION_INDEX_MASK           0x3fff
+
+/*----------------------------------------------------------------------------
+ * Generic region data structure
+ *
+ * This must be the first element in each region structure
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_region_tag
+{
+    EAS_U16     keyGroupAndFlags;
+    EAS_U8      rangeLow;
+    EAS_U8      rangeHigh;
+} S_REGION;
+
+/*
+ * Bit fields for m_nKeyGroupAndFlags
+ * Bits 0-7 are flags
+ * Bits 8-14 are the key group
+ */
+#define REGION_FLAG_IS_LOOPED                   0x01
+#define REGION_FLAG_USE_WAVE_GENERATOR          0x02
+#define REGION_FLAG_USE_ADPCM                   0x04
+#define REGION_FLAG_ONE_SHOT                    0x08
+#define REGION_FLAG_SQUARE_WAVE                 0x10
+#define REGION_FLAG_OFF_CHIP                    0x20
+#define REGION_FLAG_NON_SELF_EXCLUSIVE          0x40
+#define REGION_FLAG_LAST_REGION                 0x8000
+#define REGION_KEY_GROUP_MASK                   0x7f00
+
+/*----------------------------------------------------------------------------
+ * Envelope data structure
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_envelope_tag
+{
+    EAS_I16     attackTime;
+    EAS_I16     decayTime;
+    EAS_I16     sustainLevel;
+    EAS_I16     releaseTime;
+} S_ENVELOPE;
+
+/*----------------------------------------------------------------------------
+ * LFO data structure
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_lfo_params_tag
+{
+    EAS_I16     lfoFreq;
+    EAS_I16     lfoDelay;
+} S_LFO_PARAMS;
+
+/*----------------------------------------------------------------------------
+ * Articulation data structure
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_articulation_tag
+{
+    S_ENVELOPE  eg1;
+    S_ENVELOPE  eg2;
+    EAS_I16     lfoToPitch;
+    EAS_I16     lfoDelay;
+    EAS_I16     lfoFreq;
+    EAS_I16     eg2ToPitch;
+    EAS_I16     eg2ToFc;
+    EAS_I16     filterCutoff;
+    EAS_I8      lfoToGain;
+    EAS_U8      filterQ;
+    EAS_I8      pan;
+} S_ARTICULATION;
+
+/*----------------------------------------------------------------------------
+ * Wavetable region data structure
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_wt_region_tag
+{
+    S_REGION    region;
+    EAS_I16     tuning;
+    EAS_I16     gain; // DLS: (in centibels, or 0.1 dB); WT: EG1 (.15) frac
+    EAS_U32     loopStart; // in samples
+    EAS_U32     loopEnd; // in samples, past end
+    EAS_U16     waveIndex;
+    EAS_U16     artIndex;
+} S_WT_REGION;
+
+/*----------------------------------------------------------------------------
+ * FM synthesizer data structures
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_fm_oper_tag
+{
+    EAS_I16     tuning;
+    EAS_U8      attackDecay;
+    EAS_U8      velocityRelease;
+    EAS_U8      egKeyScale;
+    EAS_U8      sustain;
+    EAS_U8      gain;
+    EAS_U8      flags;
+} S_FM_OPER;
+
+/* defines for S_FM_OPER.m_nFlags */
+#define FM_OPER_FLAG_MONOTONE           0x01
+#define FM_OPER_FLAG_NO_VIBRATO         0x02
+#define FM_OPER_FLAG_NOISE              0x04
+#define FM_OPER_FLAG_LINEAR_VELOCITY    0x08
+
+/* NOTE: The first two structure elements are common with S_WT_REGION
+ * and we will rely on that in the voice management code and must
+ * remain there unless the voice management code is revisited.
+ */
+typedef struct s_fm_region_tag
+{
+    S_REGION        region;
+    EAS_U8          vibTrem;
+    EAS_U8          lfoFreqDelay;
+    EAS_U8          feedback;
+    EAS_I8          pan;
+    S_FM_OPER       oper[4];
+} S_FM_REGION;
+
+/*----------------------------------------------------------------------------
+ * Common data structures
+ *----------------------------------------------------------------------------
+*/
+
+/*----------------------------------------------------------------------------
+ * Program data structure
+ * Used for individual programs not stored as a complete bank.
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_program_tag
+{
+    EAS_U32 locale; // 0xdmmllpp d=0(melodic)/1(drums) (only exist in DLS programs), mm=bank MSB, ll=bank LSB, pp=program
+    EAS_U16 regionIndex;
+} S_PROGRAM;
+
+/*----------------------------------------------------------------------------
+ * Bank data structure
+ *
+ * A bank always consists of 128 programs. If a bank is less than 128
+ * programs, it should be stored as a spare matrix in the pPrograms
+ * array.
+ *
+ * bankNum:     MSB/LSB of MIDI bank select controller
+ * regionIndex: Index of first region in program
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_bank_tag
+{
+    EAS_U16 locale;
+    EAS_U16 regionIndex[NUM_PROGRAMS_IN_BANK];
+} S_BANK;
+
+
+// note that the original comment seems to be completely false
+// the libAttr field is: 0x0010xxxx for 8-bit samples and 0x0020xxxx for 16-bit samples
+// xxxx is sample rate (e.g. 0x5622 = 22050, 0xac44 = 44100)
+
+// /* defines for libFormat field
+//  * bits 0-17 are the sample rate
+//  * bit 18 is true if wavetable is present
+//  * bit 19 is true if FM is present
+//  * bit 20 is true if filter is enabled
+//  * bit 21 is sample depth (0 = 8-bits, 1 = 16-bits)
+//  * bits 22-31 are reserved
+//  */
+#define LIBFORMAT_SAMPLE_RATE_MASK      0x0003ffff
+// #define LIB_FORMAT_TYPE_MASK            0x000c0000
+// #define LIB_FORMAT_WAVETABLE            0x00000000
+// #define LIB_FORMAT_FM                   0x00040000
+// #define LIB_FORMAT_HYBRID               0x00080000
+// #define LIB_FORMAT_FILTER_ENABLED       0x00100000
+#define LIB_FORMAT_16_BIT_SAMPLES       0x00200000
+
+/*----------------------------------------------------------------------------
+ * Sound library data structure
+ *
+ * pBanks           pointer to array of banks
+ * pPrograms        pointer to array of programs
+ * pWTRegions       pointer to array of wavetable regions
+ * pFMRegions       pointer to array of FM regions
+ * pArticulations   pointer to array of articulations
+ * pSampleLen       pointer to array of sample lengths
+ * ppSamples        pointer to array of sample pointers
+ * numBanks         number of banks
+ * numPrograms      number of individual program
+ * numRegions       number of regions
+ * numArticulations number of articulations
+ * numSamples       number of samples
+ *----------------------------------------------------------------------------
+*/
+typedef struct s_eas_sndlib_tag
+{
+    SCNST EAS_U32               identifier;
+    SCNST EAS_U32               libAttr;
+
+    SCNST S_BANK                *pBanks;
+    SCNST S_PROGRAM             *pPrograms;
+
+    SCNST S_WT_REGION           *pWTRegions;
+    SCNST S_ARTICULATION        *pArticulations;
+    SCNST EAS_U32               *pSampleLen; // in bytes // TODO: in samples may be better?
+    SCNST EAS_U32               *pSampleOffsets; // in bytes
+    SCNST EAS_SAMPLE            *pSamples;
+
+    SCNST S_FM_REGION           *pFMRegions;
+
+    SCNST EAS_U16               numBanks;
+    SCNST EAS_U16               numPrograms;
+
+    SCNST EAS_U16               numWTRegions;
+    SCNST EAS_U16               numArticulations;
+    SCNST EAS_U16               numSamples;
+
+    SCNST EAS_U16               numFMRegions;
+} S_EAS;
+
+#endif
