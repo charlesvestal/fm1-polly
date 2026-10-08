@@ -68,8 +68,9 @@ sample-accurate rather than block-quantised.
   or "same"): ~0.6 KB.
 - **Settings**: the mixer is per pattern; tempo, key transpose, MIDI and lights are global.
 - **Flash**: Felucca's data area (0x97000..0xDFFFF) holds ~30 objects of 3.75 KB (two sectors each, torn-
-  write safe): 16 patterns + 1 for the songs + 1 for settings fits, with room. The 8 factory patterns live
-  in the firmware image (a user pattern starts as a copy of one, or empty).
+  write safe): 16 patterns + 1 for the songs + 1 for settings fits, with room. The 16 factory styles (64
+  patterns: Main A, Main B, Fill, Ending each) live in the firmware image, budget ~64 KB of the ~236 KB the
+  slot has left (a user pattern starts as a copy of one, or empty).
 - **Sections**: a pattern *is* a section's music; a song's section track picks which pattern plays as Main A,
   Main B, Fill, Ending: each song holds four pattern numbers (its "style"). A fill plays one bar and returns
   (A -> Fill -> B, B -> Fill -> A, as the QY's FILL AB / BA); Ending plays once and stops.
@@ -109,8 +110,9 @@ unspecified; this keeps pads following the changes).
   extended to the 26 types; the lowest note held below the chord is a slash bass). The chord changes when a
   new shape is recognised, held after release (as the QY's fingered mode). While recording, chord changes
   land on the beat (to the nearest beat, or an eighth early when played within a 16th before it).
-- **Step (on the Song page):** the cursor on a beat, KNOB 1 root, KNOB 2 type, KNOB 3 slash bass; or hold a
-  chord on the keys and press SEL to write it.
+- **Step (the Chords page, LFO):** the cursor on a beat (PRESETS moves it), KNOB 1 root, KNOB 2 type, KNOB 3
+  slash bass, KNOB 4 the cursor's step (beat, half bar, bar); or with CHORD on, play a chord: it is written
+  at the cursor, which moves on a step.
 - **Templates:** 16 progressions in C (I-V-vi-IV, vi-IV-I-V, I-vi-ii-V, ii-V-I, 12-bar blues, minor blues,
   I-IV, i-VI-III-VII, Canon, Andalusian, I-bVII-IV, doo-wop, jazz I-VI-ii-V, modal vamp, gospel IV-I, and a
   waltz), transposed by Key; picking one fills the song's chord track (or plays it live, looping, before
