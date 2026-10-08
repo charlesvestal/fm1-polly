@@ -28,7 +28,7 @@
   {
    "id": 3,
    "subject": "Task 3: Data model and storage",
-   "status": "pending",
+   "status": "completed",
    "description": "**Goal:** Patterns, songs and settings have fixed binary layouts that round-trip through flash objects in Felucca's data area.\n\n**Files:**\n- Create: `firmware/src/dsp/arr.h` (data types only in this task)\n- Modify: `firmware/src/app/plat.h` (objects), `firmware/src/storage.c` (addresses), `firmware/src/app/app.h`, `firmware/src/app/project.c`, `tests/storage_test.c`, `host/polly_host.c` (store arrays sized by `OBJ_NOBJ`)\n\n**Acceptance Criteria:**\n- [ ] `sizeof(pattern_t) <= PLAT_STORE_MAX` (3840) and `sizeof(songs_t) <= PLAT_STORE_MAX`, checked by `_Static_assert`\n- [ ] objects: `OBJ_PROJ` (settings), `OBJ_PANEL`, `OBJ_SONGS`, `OBJ_PAT0 .. OBJ_PAT0+15`, at addresses inside 0x97000..0xDFFFF, two sectors each, no overlaps, `OBJ_PANEL` still 0xDC000 and `OBJ_PROJ` still 0xFC000; `tests/storage_test.c` checks this map\n- [ ] a scenario saves a pattern and a song, reboots the simulator, and finds them identical (`expect pat0_nev N`, `expect song0_chord0 ...`)\n\n**Verify:** `sh tests/run_tests.sh | tail -1` \u2192 `all tests passed`\n\n```json:metadata\n{\"files\": [\"firmware/src/app/app.h\", \"firmware/src/app/plat.h\", \"firmware/src/app/project.c\", \"firmware/src/dsp/arr.h\", \"firmware/src/storage.c\", \"host/polly_host.c\", \"tests/storage_test.c\"], \"verifyCommand\": \"`sh tests/run_tests.sh | tail -1` \\u2192 `all tests passed`\", \"acceptanceCriteria\": [\"`sizeof(pattern_t) <= PLAT_STORE_MAX` (3840) and `sizeof(songs_t) <= PLAT_STORE_MAX`, checked by `_Static_assert`\", \"objects: `OBJ_PROJ` (settings), `OBJ_PANEL`, `OBJ_SONGS`, `OBJ_PAT0 .. OBJ_PAT0+15`, at addresses inside 0x97000..0xDFFFF, two sectors each, no overlaps, `OBJ_PANEL` still 0xDC000 and `OBJ_PROJ` still 0xFC000; `tests/storage_test.c` checks this map\", \"a scenario saves a pattern and a song, reboots the simulator, and finds them identical (`expect pat0_nev N`, `expect song0_chord0 ...`)\"], \"modelTier\": \"standard\"}\n```",
    "blockedBy": [
     2
@@ -117,5 +117,5 @@
    ]
   }
  ],
- "lastUpdated": "2026-10-08T22:33:36.609379"
+ "lastUpdated": "2026-10-08T22:46:04.845340"
 }
