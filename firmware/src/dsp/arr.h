@@ -76,7 +76,27 @@ void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */
 void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
 void arr_load_pattern(int slot, const pattern_t *p);   /* slot 0..3: Main A, Main B, Fill, Ending (copied) */
-void arr_section(int sec);                       /* SEC_A..SEC_END: from the next bar */
+/* SEC_A..SEC_END: from the next bar (arr_next_sect shows it meanwhile). A fill plays one bar, then the other
+ * Main (from A: B; from B: A); an ending plays its pattern once, then stops. PLAY starts with the section
+ * queued, else Main A or B as it was (after a fill or an ending: Main A). */
+void arr_section(int sec);
+/* a song (copied; 0: none, back to free play): its section track switches sections at its bars, its chord
+ * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last); it stops at the
+ * end of its last bar, or with loop goes round. It starts at bar 1 with PLAY, or at the next bar line when
+ * set while playing (a song set again while it plays keeps its place). A section queued by arr_section wins
+ * over the section track's mark at that bar. A song turns a template off. The app loads its four patterns
+ * (style) into the slots with arr_load_pattern. */
+void arr_song(const song_t *s, int loop);
+/* a chord template (templates.h) as the chord track, looping, transposed by the key; -1: off (the chord
+ * stays). Picked while playing, its first chord sounds at once and its bars count from the playing bar's
+ * downbeat; a template's bar is its own beats (3 for the waltz). Turns a song off; the transport is the
+ * app's (arr_play). */
+void arr_template(int i);
+void arr_set_key(int key);                       /* 0..11 semitones over C: the templates' key */
+/* live chords (fingered): the keys held, as MIDI notes; recognised (chord_recognize) here, in the caller's
+ * thread, and set as the chord, ending a template. 1 = a chord; 0 = none (fewer than 3 pitch classes, or no
+ * type fits, or the keys released): the chord stays as it was. */
+int arr_keys_held(const uint8_t *notes, int n);
 void arr_track_mute(int trk, int on);
 void arr_midi_out_on(int on);
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
@@ -100,6 +120,8 @@ uint32_t arr_midi_out_link(void);
 /* state for the screen */
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
+extern volatile uint8_t arr_song_bar;               /* the song's bar playing (0..63), with a song */
+extern volatile int8_t arr_template_now;            /* the template playing, -1 none */
 extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
 static inline uint32_t arr_chord_pack(chord_t c) { return (uint32_t)c.root | (uint32_t)c.type << 8 | (uint32_t)c.bass << 16; }
 static inline chord_t arr_chord_unpack(uint32_t v)

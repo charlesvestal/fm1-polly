@@ -10,6 +10,7 @@
 #include <string.h>
 #include "arr.h"
 #include "gm_stub.h"
+#include "templates.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -730,6 +731,279 @@ static void test_lengths(void)
     }
 }
 
+/* ---- sections, songs, templates, live chords (Task 5) ---- */
+/* the section slots' patterns: track 0 (drums, channel 10) a note every beat, its own for each slot (A 36,
+ * B 38, Fill 40, Ending 42), `bars` bars long; track 3 (Parallel, channel 2) C3 every beat, so its pitch
+ * minus 48 is the chord's root on that beat */
+static const int SLOT_NOTE[ARR_NSECT] = {36, 38, 40, 42};
+static void load_slot(int slot, int bars, int beats)
+{
+    pat_new();
+    P.bars = (uint8_t)bars;
+    P.beats = (uint8_t)beats;
+    P.trk[3].x.type = XT_PARALLEL;
+    for (int t = 0; t < bars * beats * ARR_PPQ; t += ARR_PPQ)
+        add(0, t, 6, SLOT_NOTE[slot]);
+    for (int t = 0; t < bars * beats * ARR_PPQ; t += ARR_PPQ)
+        add(3, t, 6, 48);
+    arr_load_pattern(slot, &P);
+}
+static void load_slots(int beats)
+{
+    for (int s = 0; s < ARR_NSECT; s++)
+        load_slot(s, s == SEC_END - 1 ? 2 : 1, beats);
+}
+/* the drum note-on nearest `frame` (+-ON_TOL): which slot's, or -1 none */
+static int slot_at(float frame)
+{
+    for (int i = 0; i < stub_n; i++)
+        if (stub_log[i].st == 0x99 && is_on(&stub_log[i]) && near(stub_log, i, frame))
+            for (int s = 0; s < ARR_NSECT; s++)
+                if (stub_log[i].d1 == SLOT_NOTE[s])
+                    return s;
+    return -1;
+}
+/* the probe's root on the beat at `frame`: -1 no note there */
+static int root_at(float frame)
+{
+    for (int i = 0; i < stub_n; i++)
+        if (stub_log[i].st == 0x91 && is_on(&stub_log[i]) && near(stub_log, i, frame))
+            return stub_log[i].d1 - 48;
+    return -1;
+}
+static int ons_after(float frame)
+{
+    int n = 0;
+    for (int i = 0; i < stub_n; i++)
+        n += is_on(&stub_log[i]) && (float)stub_log[i].frame > frame;
+    return n;
+}
+#define BAR (96 * FPT)
+
+static void test_section_on_bar(void)
+{
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.4f * BAR));
+    arr_section(SEC_B);
+    run_blocks(1);
+    CHECK(arr_next_sect == SEC_B && arr_sect == SEC_A, "B queued, A still playing (%d %d)", arr_next_sect, arr_sect);
+    run_to((uint32_t)(BAR - 300));
+    CHECK(arr_next_sect == SEC_B && arr_sect == SEC_A, "still A just before the bar line");
+    CHECK(slot_at(3 * 24 * FPT) == 0, "beat 4 of bar 1 still A");
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(slot_at(BAR) == 1, "B from the bar line (%d)", slot_at(BAR));
+    CHECK(arr_sect == SEC_B && arr_next_sect == SEC_SAME, "B playing, nothing queued");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "sections: offs match");
+}
+
+static void test_fill(void)
+{
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);                    /* bar 2 the fill, bar 3 Main B */
+    run_to((uint32_t)(2.5f * BAR));
+    arr_section(SEC_FILL);                    /* bar 4 the fill, bar 5 Main A */
+    run_to((uint32_t)(5 * BAR + 512));
+    CHECK(slot_at(0) == 0 && slot_at(BAR) == 2 && slot_at(1.5f * BAR) == 2, "A, then the fill (%d %d)", slot_at(0), slot_at(BAR));
+    CHECK(slot_at(2 * BAR) == 1 && slot_at(2.75f * BAR) == 1, "a fill from A goes to B (%d)", slot_at(2 * BAR));
+    CHECK(slot_at(3 * BAR) == 2, "the second fill (%d)", slot_at(3 * BAR));
+    CHECK(slot_at(4 * BAR) == 0 && slot_at(4.5f * BAR) == 0, "a fill from B goes to A (%d)", slot_at(4 * BAR));
+    CHECK(arr_sect == SEC_A, "A playing");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "fills: offs match");
+}
+
+static void test_ending(void)
+{
+    reset();
+    load_slots(4);
+    pat_new();                                /* the ending: two bars, a long note held over its end */
+    P.bars = 2;
+    for (int t = 0; t < 192; t += 24)
+        add(0, t, 6, 42);
+    add(5, 96, 400, 60);
+    arr_load_pattern(SEC_END - 1, &P);
+    arr_play(1);
+    run_to((uint32_t)(0.3f * BAR));
+    arr_section(SEC_END);
+    run_to((uint32_t)(3 * BAR - 512));
+    CHECK(arr_playing == 1 && arr_sect == SEC_END, "the ending plays");
+    CHECK(slot_at(BAR) == 3 && slot_at(2.75f * BAR) == 3, "both its bars (%d %d)", slot_at(BAR), slot_at(2.75f * BAR));
+    run_to((uint32_t)(4 * BAR));
+    CHECK(arr_playing == 0, "then it stops");
+    CHECK(ons_after(3 * BAR - 4) == 0, "nothing after its end (%d)", ons_after(3 * BAR - 4));
+    CHECK(offs_match(stub_log, stub_n), "all notes off at the end (the long one too)");
+    {
+        int i = find(stub_log, stub_n, 0, 0x83, 60);
+        CHECK(near(stub_log, i, 3 * BAR), "the long note ends with the ending, got %u", i >= 0 ? stub_log[i].frame : 0);
+    }
+    arr_play(1);                              /* played again: from Main A */
+    run_blocks(2);
+    CHECK(arr_playing == 1 && arr_sect == SEC_A, "PLAY again: Main A (%d)", arr_sect);
+    arr_play(0);
+    run_blocks(1);
+}
+
+static song_t S;
+static void song_new(int bars)
+{
+    memset(&S, 0, sizeof S);
+    S.bars = (uint8_t)bars;
+    for (int i = 0; i < ARR_SONGBARS * 4; i++)
+        S.chord[i] = ch(0, CH_NTYPES);        /* no change */
+}
+static void test_song(void)
+{
+    reset();
+    load_slots(4);
+    song_new(4);
+    S.sect[0] = SEC_A;
+    S.sect[2] = SEC_B;
+    S.chord[0] = ch(9, CH_MIN7);              /* bar 1: Am7 for two beats, F on beat 3 */
+    S.chord[2] = ch(5, CH_MAJ);
+    S.chord[4] = ch(7, CH_7);                 /* bar 2: G7 */
+    S.chord[3 * 4 + 1] = ch(2, CH_MIN);       /* bar 4 beat 2: Dm */
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(5 * BAR));
+    CHECK(root_at(0) == 9 && root_at(24 * FPT) == 9, "Am7, and no change keeps it (%d %d)", root_at(0), root_at(24 * FPT));
+    CHECK(root_at(48 * FPT) == 5 && root_at(72 * FPT) == 5, "F on beat 3 (%d)", root_at(48 * FPT));
+    CHECK(root_at(BAR) == 7 && root_at(2 * BAR) == 7, "G7 from bar 2 on (%d %d)", root_at(BAR), root_at(2 * BAR));
+    CHECK(root_at(3 * BAR) == 7 && root_at(3 * BAR + 24 * FPT) == 2, "Dm on bar 4 beat 2 (%d)", root_at(3 * BAR + 24 * FPT));
+    CHECK(slot_at(0) == 0 && slot_at(BAR) == 0 && slot_at(2 * BAR) == 1 && slot_at(3 * BAR) == 1,
+          "the section track: A A B B (%d %d %d %d)", slot_at(0), slot_at(BAR), slot_at(2 * BAR), slot_at(3 * BAR));
+    CHECK(arr_playing == 0, "stopped at the end of its last bar");
+    CHECK(ons_after(4 * BAR - 4) == 0, "nothing after bar 4");
+    CHECK(offs_match(stub_log, stub_n), "song: offs match");
+    /* looping: bar 5 is bar 1 again */
+    reset();
+    load_slots(4);
+    arr_song(&S, 1);
+    arr_play(1);
+    run_to((uint32_t)(5 * BAR + 512));
+    CHECK(arr_playing == 1, "looping: still playing");
+    CHECK(slot_at(4 * BAR) == 0 && root_at(4 * BAR) == 9, "bar 1 again: A over Am7 (%d %d)", slot_at(4 * BAR), root_at(4 * BAR));
+    CHECK(arr_song_bar == 1, "the song's bar for the screen (%d)", arr_song_bar);
+    /* a fill in the song: one bar, then the other Main */
+    reset();
+    load_slots(4);
+    song_new(3);
+    S.sect[0] = SEC_B;
+    S.sect[1] = SEC_FILL;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(3 * BAR + 512));
+    CHECK(slot_at(0) == 1 && slot_at(BAR) == 2 && slot_at(2 * BAR) == 0, "B, fill, A (%d %d %d)", slot_at(0), slot_at(BAR), slot_at(2 * BAR));
+    CHECK(arr_playing == 0, "stopped");
+    /* no song: back to free play */
+    reset();
+    load_slots(4);
+    arr_song(&S, 0);
+    arr_song(0, 0);
+    arr_play(1);
+    run_to((uint32_t)(4 * BAR));
+    CHECK(arr_playing == 1 && slot_at(3 * BAR) == 0, "song off: Main A loops");
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_templates(void)
+{
+    static const char *names[NTEMPLATES] = {"Pop", "Sensitive", "Fifties", "ii-V-I", "Blues", "Minor blues", "One-four",
+                                            "Minor", "Canon", "Andalusian", "Mixolydian", "Doo-wop", "Jazz", "Vamp",
+                                            "Gospel", "Waltz"};
+    for (int t = 0; t < NTEMPLATES; t++) {
+        const template_t *m = &TEMPLATES[t];
+        int ok = m->nbars >= 2 && m->nbars <= 12 && (m->beats == 3 || m->beats == 4);
+        for (int b = 0; b < m->nbars && ok; b++)
+            ok = m->bars[b].root < 12 && m->bars[b].type < CH_NONE && m->bars[b].bass == CH_NOBASS;
+        CHECK(ok && strcmp(m->name, names[t]) == 0, "template %d (%s)", t, m->name);
+    }
+    CHECK(TEMPLATES[4].nbars == 12 && TEMPLATES[15].beats == 3, "the blues 12 bars, the waltz in 3");
+    /* Pop in D (key 2): D A Bm G, a chord a bar, looping */
+    reset();
+    load_slots(4);
+    arr_set_key(2);
+    arr_template(0);
+    arr_play(1);
+    run_to((uint32_t)(5 * BAR + 512));
+    CHECK(root_at(0) == 2 && root_at(72 * FPT) == 2, "bar 1: D (%d)", root_at(0));
+    CHECK(root_at(BAR) == 9 && root_at(2 * BAR) == 11 && root_at(3 * BAR) == 7, "A Bm G (%d %d %d)", root_at(BAR),
+          root_at(2 * BAR), root_at(3 * BAR));
+    CHECK(root_at(4 * BAR) == 2 && root_at(5 * BAR) == 9, "loops (%d %d)", root_at(4 * BAR), root_at(5 * BAR));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9 && arr_chord_unpack(arr_chord_now).type == CH_MAJ, "the chord for the screen");
+    CHECK(arr_playing == 1, "a template loops on");
+    arr_set_key(0);                           /* the key: the next beat in C */
+    run_to((uint32_t)(5.5f * BAR + 512));
+    CHECK(root_at(5.5f * BAR) == 7, "key C: G (%d)", root_at(5.5f * BAR));
+    arr_template(-1);                         /* off: the chord stays */
+    run_to((uint32_t)(7 * BAR + 512));
+    CHECK(root_at(6 * BAR) == 7 && root_at(7 * BAR) == 7, "template off: the chord stays (%d)", root_at(7 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* the waltz in 3, on a pattern in 3, key F: F F C7 F */
+    reset();
+    load_slots(3);
+    arr_set_key(5);
+    arr_template(15);
+    arr_play(1);
+    run_to((uint32_t)(4 * 72 * FPT + 512));
+    CHECK(root_at(0) == 5 && root_at(72 * FPT) == 5 && root_at(2 * 72 * FPT) == 0 && root_at(3 * 72 * FPT) == 5 &&
+              root_at(4 * 72 * FPT) == 5, "the waltz in F, a chord a 3-beat bar (%d %d %d)", root_at(0), root_at(2 * 72 * FPT),
+          root_at(3 * 72 * FPT));
+    arr_play(0);
+    run_blocks(1);
+    /* picked while playing: its first chord at once, its bars with the pattern's */
+    reset();
+    load_slots(4);
+    arr_set_chord(ch(7, CH_7));
+    arr_play(1);
+    run_to((uint32_t)(1.3f * BAR));
+    CHECK(root_at(BAR) == 7, "G7 before the template");
+    arr_template(2);                          /* Fifties in C: C Am Dm G7 */
+    run_to((uint32_t)(3 * BAR + 512));
+    CHECK(root_at(1.5f * BAR) == 0 && root_at(2 * BAR) == 9 && root_at(3 * BAR) == 2, "from the next beat; Am at the bar (%d %d %d)",
+          root_at(1.5f * BAR), root_at(2 * BAR), root_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "templates: offs match");
+}
+
+static void test_live_chords(void)
+{
+    static const uint8_t am[] = {57, 60, 64}, e7[] = {52, 56, 59, 62}, two[] = {60, 64};
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.3f * BAR));
+    CHECK(arr_keys_held(am, 3) == 1, "A C E recognised");
+    run_to((uint32_t)(BAR + 512));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9 && arr_chord_unpack(arr_chord_now).type == CH_MIN, "Am");
+    CHECK(root_at(0.5f * BAR) == 9, "the band follows (%d)", root_at(0.5f * BAR));
+    CHECK(arr_keys_held(0, 0) == 0 && arr_keys_held(two, 2) == 0, "released, or two notes: no chord");
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9 && root_at(2 * BAR) == 9, "fingered: released, Am stays");
+    CHECK(arr_keys_held(e7, 4) == 1, "E G# B D");
+    run_blocks(2);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 4 && arr_chord_unpack(arr_chord_now).type == CH_7, "E7");
+    /* a live chord takes over from a template */
+    arr_template(0);
+    run_to((uint32_t)(3.1f * BAR));
+    arr_keys_held(am, 3);
+    run_to((uint32_t)(5 * BAR + 512));
+    CHECK(root_at(4 * BAR) == 9 && root_at(5 * BAR) == 9, "the keys end the template (%d %d)", root_at(4 * BAR), root_at(5 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "live chords: offs match");
+}
+
 int main(void)
 {
     test_timing();
@@ -747,6 +1021,12 @@ int main(void)
     test_sounds_first();
     test_clock_first();
     test_start_cap();
+    test_section_on_bar();
+    test_fill();
+    test_ending();
+    test_song();
+    test_templates();
+    test_live_chords();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;
