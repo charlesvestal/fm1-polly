@@ -19,8 +19,8 @@ s = re.sub(r"\s*<nav>.*?</nav>", "", s)
 wasm = base64.b64encode((EMU / "polly.wasm").read_bytes()).decode()
 old = 'fetch("polly.wasm").then((r) => { if (!r.ok) throw new Error(`polly.wasm: ${r.status}`); return r.arrayBuffer(); })'
 assert old in s
-s = s.replace(old, "Promise.resolve(Uint8Array.from(atob(ENO_WASM), (c) => c.charCodeAt(0)).buffer)")
-s = s.replace('<script>\n"use strict";', f'<script>\n"use strict";\nconst ENO_WASM = "{wasm}";', 1)
+s = s.replace(old, "Promise.resolve(Uint8Array.from(atob(POLLY_WASM), (c) => c.charCodeAt(0)).buffer)")
+s = s.replace('<script>\n"use strict";', f'<script>\n"use strict";\nconst POLLY_WASM = "{wasm}";', 1)
 s = s.replace("<title>Polly in the browser</title>", "<title>Polly Emulator</title>", 1)
 (OUT / "index.html").write_text(s)
 (OUT / "worklet.js").write_text((EMU / "worklet.js").read_text())

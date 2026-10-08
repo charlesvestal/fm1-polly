@@ -4,7 +4,7 @@
   {
    "id": 0,
    "subject": "Task 0: Rename to Polly and clean the inherited tests",
-   "status": "pending",
+   "status": "completed",
    "description": "**Goal:** The repo builds and tests as Polly (identity FM-1_300, USB name \"Polly FM-1\"), still behaving as the GM module.\n\n**Files:**\n- Rename: repo directory `fm1-gm` \u2192 `fm1-polly`; `host/gm_host.c` \u2192 `host/polly_host.c`; `web/emu/gm_web.c` \u2192 `web/emu/polly_web.c`; `web/gm_installer.html` \u2192 `web/polly_installer.html`\n- Modify: `tools/build.py` (outputs `polly.bin/.elf/.fwsc`), `firmware/src/usb.c` (STR1 \"Polly\", STR2 \"Polly FM-1\"), `firmware/src/app/main_fm1.c` (splash \"Polly\", subtitle \"A pocket arranger\", crash/safe-mode strings), `host/build_host.sh`, `web/emu/build.sh`, `web/emu/index.html` (title, worklet names), `tests/run_tests.sh`, `README.md`, `BUILDING.md`, `LICENSING.md`, fm1-parent `CLAUDE.md` row\n- Rename test: `tests/scenarios/first.gm` \u2192 `tests/scenarios/first.polly`\n\n**Acceptance Criteria:**\n- [ ] `sh tests/run_tests.sh` ends with `all tests passed`; it no longer mentions `life-headers` or `engine` (Life's tests); it runs `tests/scenarios/*.polly`\n- [ ] `./build.sh` ends `package .../build/polly.fwsc ... identity FM-1_300` with no `FAIL`\n- [ ] `LICENSING.md` lists Sonivox EAS (Apache-2.0, `firmware/src/dsp/eas/`, its NOTICE) and no longer mentions Plinky or plinky-life\n\n**Verify:** `sh tests/run_tests.sh | tail -1` \u2192 `all tests passed`; `./build.sh 2>&1 | grep package` \u2192 `... polly.fwsc ... FM-1_300`\n\n```json:metadata\n{\"files\": [\"BUILDING.md\", \"CLAUDE.md\", \"LICENSING.md\", \"README.md\", \"firmware/src/app/main_fm1.c\", \"firmware/src/usb.c\", \"host/build_host.sh\", \"host/gm_host.c\", \"host/polly_host.c\", \"tests/run_tests.sh\", \"tests/scenarios/first.polly\", \"tools/build.py\", \"web/emu/build.sh\", \"web/emu/gm_web.c\", \"web/emu/index.html\", \"web/emu/polly_web.c\", \"web/gm_installer.html\", \"web/polly_installer.html\"], \"verifyCommand\": \"`sh tests/run_tests.sh | tail -1` \\u2192 `all tests passed`; `./build.sh 2>&1 | grep package` \\u2192 `... polly.fwsc ... FM-1_300`\", \"acceptanceCriteria\": [\"`sh tests/run_tests.sh` ends with `all tests passed`; it no longer mentions `life-headers` or `engine` (Life's tests); it runs `tests/scenarios/*.polly`\", \"`./build.sh` ends `package .../build/polly.fwsc ... identity FM-1_300` with no `FAIL`\", \"`LICENSING.md` lists Sonivox EAS (Apache-2.0, `firmware/src/dsp/eas/`, its NOTICE) and no longer mentions Plinky or plinky-life\"], \"modelTier\": \"standard\"}\n```"
   },
   {
@@ -117,5 +117,5 @@
    ]
   }
  ],
- "lastUpdated": "2026-10-08T21:51:00.474926"
+ "lastUpdated": "2026-10-08T22:08:59.820976"
 }
