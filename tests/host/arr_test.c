@@ -1004,6 +1004,222 @@ static void test_live_chords(void)
     CHECK(offs_match(stub_log, stub_n), "live chords: offs match");
 }
 
+/* ---- review fixes ---- */
+static void test_song_marks_continue(void)    /* a mark on every bar of a region: the section plays on */
+{
+    reset();
+    load_slots(4);
+    pat_new();                                /* Main A in two bars: 36 in the first, 37 in the second */
+    P.bars = 2;
+    for (int t = 0; t < 192; t += 24)
+        add(0, t, 6, t < 96 ? 36 : 37);
+    arr_load_pattern(0, &P);
+    song_new(4);
+    for (int b = 0; b < 4; b++)
+        S.sect[b] = SEC_A;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(4 * BAR));
+    {
+        int i = find(stub_log, stub_n, 0, 0x99, 37);
+        CHECK(near(stub_log, i, BAR), "A's second bar plays under a second A mark (%d)", i);
+    }
+    /* END marked on both bars of a two-bar ending: it plays once and stops */
+    reset();
+    load_slots(4);
+    song_new(8);
+    for (int b = 0; b < 8; b++)
+        S.sect[b] = SEC_END;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(3 * BAR));
+    CHECK(arr_playing == 0, "the ending stops under its own marks");
+    CHECK(ons_after(2 * BAR - 4) == 0, "nothing after it");
+}
+
+static void test_keys_release(void)           /* lifting keys one by one keeps the chord */
+{
+    static const uint8_t g7[] = {55, 59, 62, 65}, no_g[] = {59, 62, 65}, no_b[] = {62, 65}, c[] = {60, 64, 67};
+    reset();
+    load_slots(4);
+    arr_play(1);
+    CHECK(arr_keys_held(g7, 4) == 1, "G7");
+    run_blocks(2);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 7 && arr_chord_unpack(arr_chord_now).type == CH_7, "G7 set");
+    CHECK(arr_keys_held(no_g, 3) == 0, "G lifted (B D F): not a new chord");
+    arr_keys_held(no_b, 2);
+    arr_keys_held(0, 0);
+    run_blocks(2);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 7 && arr_chord_unpack(arr_chord_now).type == CH_7, "released one by one: G7 stays");
+    CHECK(arr_keys_held(c, 3) == 1, "pressed again: C");
+    run_blocks(2);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 0 && arr_chord_unpack(arr_chord_now).type == CH_MAJ, "C set");
+    arr_keys_held(0, 0);
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_template_now(void)           /* the template for the screen, stopped too */
+{
+    reset();
+    arr_template(3);
+    run_blocks(1);
+    CHECK(arr_template_now == 3, "stopped: template 4 shown (%d)", arr_template_now);
+    arr_template(-1);
+    run_blocks(1);
+    CHECK(arr_template_now == -1, "off");
+}
+
+static void test_ending_twice(void)           /* Ending pressed again in its last bar: it still stops */
+{
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_END);
+    run_to((uint32_t)(2.5f * BAR));
+    arr_section(SEC_END);
+    run_to((uint32_t)(4 * BAR));
+    CHECK(arr_playing == 0, "stopped after one ending");
+    CHECK(ons_after(3 * BAR - 4) == 0, "nothing after it");
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+static void test_switch_keeps_voicing(void)   /* a note held over a section change keeps its voicing */
+{
+    reset();
+    load_slots(4);
+    pat_new();
+    P.trk[4].x.type = XT_BYPASS;               /* Main A: track 4 Bypass, C4 held over the bar line */
+    add(4, 72, 200, 60);
+    arr_load_pattern(0, &P);
+    pat_new();                                /* Main B: track 4 Chord 1, nothing on it */
+    arr_load_pattern(1, &P);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_B);
+    run_to((uint32_t)(1.25f * BAR));
+    arr_set_chord(ch(9, CH_MIN7));
+    run_to((uint32_t)(2 * BAR));
+    CHECK(find(stub_log, stub_n, 0, 0x92, 69) < 0, "not re-voiced by Main B's track type");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+static void test_catchup_no_restrike(void)    /* a song chord on a dropped clock tick: set, not restruck */
+{
+    int n0;
+    reset();
+    pat_new();
+    add(4, 0, 90, 60);
+    arr_load_pattern(0, &P);
+    song_new(4);
+    S.chord[0] = ch(0, CH_MAJ7);
+    S.chord[1] = ch(9, CH_MIN7);
+    arr_song(&S, 1);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    CHECK(find(stub_log, stub_n, 0, 0x92, 60) >= 0, "C4 at tick 0");
+    n0 = stub_n;
+    for (int k = 0; k < 30; k++)
+        arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9, "Am7 set on the dropped tick 24");
+    CHECK(find(stub_log, stub_n, n0, 0x92, 69) < 0, "no restrike on a dropped tick");
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+/* the drum note-ons in order: the k-th one's note */
+static int drum_on(int k)
+{
+    for (int i = 0; i < stub_n; i++)
+        if (stub_log[i].st == 0x99 && is_on(&stub_log[i]) && k-- == 0)
+            return stub_log[i].d1;
+    return -1;
+}
+static void test_section_clock_in(void)       /* sections on the bar under MIDI clock in */
+{
+    reset();
+    load_slots(4);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    for (int k = 0; k < 2 * 96 + 1; k++) {
+        if (k == 40)
+            arr_section(SEC_B);
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(1);
+        if (k == 95)
+            CHECK(arr_next_sect == SEC_B && arr_sect == SEC_A, "B queued until tick 96");
+    }
+    CHECK(drum_on(3) == 36 && drum_on(4) == 38 && drum_on(8) == 38, "A to beat 4, B from tick 96 (%d %d)", drum_on(3), drum_on(4));
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+}
+
+static void test_fill_variants(void)
+{
+    /* fill during a fill: one more fill bar, then the other Main */
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(4 * BAR));
+    CHECK(slot_at(BAR) == 2 && slot_at(2 * BAR) == 2 && slot_at(3 * BAR) == 1, "A, fill, fill, B (%d %d %d)",
+          slot_at(BAR), slot_at(2 * BAR), slot_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* ending during a fill: the ending at the bar, once */
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_section(SEC_END);
+    run_to((uint32_t)(5 * BAR));
+    CHECK(slot_at(BAR) == 2 && slot_at(2 * BAR) == 3 && slot_at(3 * BAR) == 3, "fill, ending (%d %d)", slot_at(2 * BAR), slot_at(3 * BAR));
+    CHECK(arr_playing == 0 && ons_after(4 * BAR - 4) == 0, "stopped after the ending");
+}
+
+static void test_song_while_playing(void)     /* a song set mid-bar: from its bar 1 at the next bar line */
+{
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    song_new(4);
+    S.sect[0] = SEC_B;
+    S.chord[0] = ch(9, CH_MIN7);
+    arr_song(&S, 0);
+    run_to((uint32_t)(1.5f * BAR));
+    CHECK(root_at(0.75f * BAR) == 0 && slot_at(0.75f * BAR) == 0, "the bar plays out as it was");
+    CHECK(root_at(BAR) == 9 && slot_at(BAR) == 1, "the song's bar 1 at the bar line (%d %d)", root_at(BAR), slot_at(BAR));
+    CHECK(arr_song_bar == 0, "its bar 1 (%d)", arr_song_bar);
+    run_to((uint32_t)(6 * BAR));
+    CHECK(arr_playing == 0 && ons_after(5 * BAR - 4) == 0, "four bars, then stopped");
+}
+
+static void test_template_beats(void)         /* a 4-beat template on a 3-beat pattern: a chord every 4 beats */
+{
+    reset();
+    load_slots(3);
+    arr_template(0);                          /* Pop in C: C G Am F */
+    arr_play(1);
+    run_to((uint32_t)(4 * 72 * FPT));
+    CHECK(root_at(72 * FPT) == 0 && root_at(96 * FPT) == 7 && root_at(192 * FPT) == 9,
+          "the template's own bars of 4 (%d %d %d)", root_at(72 * FPT), root_at(96 * FPT), root_at(192 * FPT));
+    arr_play(0);
+    run_blocks(1);
+}
+
 int main(void)
 {
     test_timing();
@@ -1027,6 +1243,16 @@ int main(void)
     test_song();
     test_templates();
     test_live_chords();
+    test_song_marks_continue();
+    test_keys_release();
+    test_template_now();
+    test_ending_twice();
+    test_switch_keeps_voicing();
+    test_catchup_no_restrike();
+    test_section_clock_in();
+    test_fill_variants();
+    test_song_while_playing();
+    test_template_beats();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

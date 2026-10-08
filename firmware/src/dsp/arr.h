@@ -77,11 +77,14 @@ void arr_set_tempo(int bpm);                     /* 40..240 */
 void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
 void arr_load_pattern(int slot, const pattern_t *p);   /* slot 0..3: Main A, Main B, Fill, Ending (copied) */
 /* SEC_A..SEC_END: from the next bar (arr_next_sect shows it meanwhile). A fill plays one bar, then the other
- * Main (from A: B; from B: A); an ending plays its pattern once, then stops. PLAY starts with the section
+ * Main (from A: B; from B: A); a fill during a fill adds a bar. An ending plays its pattern once, then stops
+ * (Ending again during it: it still stops). Notes sounding over a section change keep their voicing to their
+ * end, not re-voiced by the new pattern's track types. PLAY starts with the section
  * queued, else Main A or B as it was (after a fill or an ending: Main A). */
 void arr_section(int sec);
 /* a song (copied; 0: none, back to free play): its section track switches sections at its bars, its chord
- * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last); it stops at the
+ * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last). A section mark
+ * switches only to a section other than the one playing (marks over a region play it on). It stops at the
  * end of its last bar, or with loop goes round. It starts at bar 1 with PLAY, or at the next bar line when
  * set while playing (a song set again while it plays keeps its place). A section queued by arr_section wins
  * over the section track's mark at that bar. A song turns a template off. The app loads its four patterns
@@ -92,10 +95,12 @@ void arr_song(const song_t *s, int loop);
  * downbeat; a template's bar is its own beats (3 for the waltz). Turns a song off; the transport is the
  * app's (arr_play). */
 void arr_template(int i);
-void arr_set_key(int key);                       /* 0..11 semitones over C: the templates' key */
-/* live chords (fingered): the keys held, as MIDI notes; recognised (chord_recognize) here, in the caller's
- * thread, and set as the chord, ending a template. 1 = a chord; 0 = none (fewer than 3 pitch classes, or no
- * type fits, or the keys released): the chord stays as it was. */
+/* 0..11 semitones over C: the templates' key. Key transposes templates only: songs are entered at real pitch */
+void arr_set_key(int key);
+/* live chords (fingered): the keys held, as MIDI notes, called on every change (one caller: the main loop).
+ * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord, ending
+ * a template; keys lifted one by one never re-recognise. 1 = a new chord; 0 = none (no key pressed, fewer
+ * than 3 pitch classes, or no type fits): the chord stays as it was. */
 int arr_keys_held(const uint8_t *notes, int n);
 void arr_track_mute(int trk, int on);
 void arr_midi_out_on(int on);
