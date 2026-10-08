@@ -60,6 +60,16 @@ int main(void)
         CHECK(xpose(&t, &s, 60, ch(7, CH_MAJ)) == 55, "high key F: G's root is above: C4 -> G3");
         CHECK(xpose(&t, &s, 60, ch(4, CH_MAJ)) == 64, "E's root is not: C4 -> E4");
     }
+    {   /* "---" (no chord): every type is plain transposition to the root, high key ignored */
+        int types[3] = {XT_CHORD1, XT_CHORD2, XT_BASS};
+        for (int i = 0; i < 3; i++) {
+            xtrack_t t = {(uint8_t)types[i], 0, 127, 5};
+            xstate_t s;
+            xpose_reset(&s);
+            xpose_chord_changed(&s);
+            CHECK(xpose(&t, &s, 64, ch(7, CH_NONE)) == 71, "no chord, type %d: E4 + 7 = B4", types[i]);
+        }
+    }
     printf("%d checks, %d failures\n%s\n", checks, fails, fails ? "XPOSE TEST FAILED" : "xpose test passed");
     return fails ? 1 : 0;
 }

@@ -32,6 +32,8 @@ static int nearest(int pc_note, int target)          /* pc_note moved by octaves
     return pc_note;
 }
 
+/* Chord 1's degree-to-degree map; also the base of Chord 2 and Bass, which is why the high key (Chord 1 and
+ * Bass only) is decided here from the track's type */
 static int chord1(const xtrack_t *t, int note, chord_t c)
 {
     int rel = note % 12, base = note - rel, d = SRC_DEG[rel], off = rel - SRC_SEMI[d], shift = c.root;
@@ -43,8 +45,11 @@ static int chord1(const xtrack_t *t, int note, chord_t c)
 int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c)
 {
     int out;
+    if (t->type == XT_BYPASS)
+        return note;                              /* drums: as written, no limits */
+    if (c.type == CH_NONE)                        /* "---", no chord: every type only moves to the root */
+        t = &(const xtrack_t){XT_PARALLEL, t->lo, t->hi, XT_NOKEY};
     switch (t->type) {
-    case XT_BYPASS: return note;
     case XT_PARALLEL: out = note + c.root; break;
     case XT_CHORD2:
         out = chord1(t, note, c);
@@ -57,7 +62,7 @@ int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c)
             out = nearest(out - (out % 12) + (c.bass != CH_NOBASS ? c.bass : c.root), out);
         break;
     default:
-        out = c.type == CH_NONE ? note + c.root : chord1(t, note, c);
+        out = chord1(t, note, c);
         break;
     }
     out = fold(out, t->lo, t->hi);
