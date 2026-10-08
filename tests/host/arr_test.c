@@ -14,16 +14,24 @@ static int fails, checks;
 #define TOL 132
 #define FPT 918.75f                           /* frames a tick at 120 BPM: 44100 * 60 / (120 * 24) */
 
-/* the app's MIDI out, recorded */
+/* the app's MIDI out, recorded, through a ring like usb.c's: ring_cap slots, ring_drain sent a block; a
+ * message that finds it full is dropped (and counted) */
 static stub_msg_t out_log[STUB_MAX];
-static int out_n;
+static int out_n, dropped;
+static uint32_t ring_cap, ring_used, ring_drain;
 void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2)
 {
+    if (ring_used >= ring_cap) {
+        dropped++;
+        return;
+    }
+    ring_used++;
     if (out_n < STUB_MAX) {
         stub_msg_t m = {stub_frame, (uint8_t)st, (uint8_t)d1, (uint8_t)d2};
         out_log[out_n++] = m;
     }
 }
+uint32_t arr_midi_out_room(void) { return ring_cap - ring_used; }
 
 static chord_t ch(int root, int type) { chord_t c = {(uint8_t)root, (uint8_t)type, CH_NOBASS}; return c; }
 
@@ -64,12 +72,18 @@ static void reset(void)
     stub_n = 0;
     stub_frame = 0;
     out_n = 0;
+    dropped = 0;
+    ring_cap = 100000;
+    ring_used = 0;
+    ring_drain = 100000;
 }
 static void run_to(uint32_t frame)              /* render until the output has passed `frame` */
 {
     static int32_t buf[2 * 256];
-    while (stub_frame < frame)
+    while (stub_frame < frame) {
         gm_render(buf, 256, 4096);
+        ring_used = ring_used > ring_drain ? ring_used - ring_drain : 0;
+    }
 }
 static void run_blocks(int n)
 {
@@ -164,7 +178,7 @@ static void test_timing(void)
     run_blocks(1);
     CHECK(arr_playing == 0, "stopped");
     CHECK(offs_match(stub_log, stub_n), "a note-off for each note-on");
-    CHECK(arr_chord_now.root == 9 && arr_chord_now.type == CH_MIN7, "the chord for the screen");
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9 && arr_chord_unpack(arr_chord_now).type == CH_MIN7, "the chord for the screen");
 }
 
 static void test_restrike(void)
@@ -288,6 +302,215 @@ static void test_clock_in(void)
     CHECK(arr_ext == 0, "no clock for 0.6 s: our own again");
 }
 
+static int count_ons(const stub_msg_t *log, int from, int to)
+{
+    int n = 0;
+    for (int i = from; i < to; i++)
+        n += is_on(&log[i]);
+    return n;
+}
+/* a note on track 4 every tick (C4, 1 tick long), and pattern_one's */
+static void pattern_dense(void)
+{
+    pat_new();
+    add(0, 0, 6, 36);
+    add(0, 48, 6, 36);
+    for (int t = 0; t < 96; t++)
+        add(4, t, 1, 60);
+}
+
+static void test_stop_same_block(void)        /* a clock and a stop in one block: no note after the stop */
+{
+    int n0;
+    reset();
+    pattern_dense();
+    arr_load_pattern(0, &P);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    for (int k = 0; k < 5; k++) {
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(1);
+    }
+    n0 = stub_n;
+    arr_clock(ARR_CLK_TICK);                  /* F8 then FC, from a DAW, within one block */
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(2);
+    CHECK(count_ons(stub_log, n0, stub_n) == 0, "F8 + FC: no note-on after the stop");
+    CHECK(offs_match(stub_log, stub_n), "F8 + FC: offs match");
+    /* the same with our own stop */
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    n0 = stub_n;
+    arr_clock(ARR_CLK_TICK);
+    arr_play(0);
+    run_blocks(2);
+    CHECK(arr_playing == 0, "stopped");
+    CHECK(count_ons(stub_log, n0, stub_n) == 0, "F8 + arr_play(0): no note-on after the stop");
+    CHECK(offs_match(stub_log, stub_n), "F8 + arr_play(0): offs match");
+}
+
+static void test_out_ring(void)               /* MIDI out never drops a note-off, however full the ring */
+{
+    int synth_ons, out_ons, pcs = 0, pcs2 = 0, i;
+    reset();
+    pat_new();
+    for (int t = 3; t < 8; t++)               /* five tracks, a note every 3 ticks, 30 long: 50 held at once */
+        for (int k = 0; k < 96; k += 3)
+            add(t, k, 30, 48 + 3 * t + (k / 3) % 7);
+    arr_load_pattern(0, &P);
+    ring_cap = 64;                            /* usb.c's ring */
+    ring_drain = 0;                           /* the host not reading for a second */
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_to(44100);
+    ring_drain = 1;                           /* then slowly */
+    run_to(3 * 44100);
+    arr_play(0);
+    run_to(4 * 44100);
+    synth_ons = count_ons(stub_log, 0, stub_n);
+    out_ons = count_ons(out_log, 0, out_n);
+    CHECK(dropped == 0, "nothing dropped by the ring (%d)", dropped);
+    CHECK(out_ons > 0 && out_ons < synth_ons, "some notes out, the rest only in the synth (%d of %d)", out_ons, synth_ons);
+    CHECK(offs_match(out_log, out_n), "MIDI out: an off for each on sent");
+    CHECK(offs_match(stub_log, stub_n), "the synth: an off for each on");
+    /* the sounds out: at a start, only what changed */
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_blocks(2);
+    for (i = 0; i < out_n; i++)
+        pcs += (out_log[i].st & 0xF0) == 0xC0;
+    CHECK(pcs == 6, "programs out once a channel (6 channels), got %d", pcs);
+    arr_play(0);
+    run_blocks(1);
+    i = out_n;
+    arr_play(1);
+    run_blocks(2);
+    for (; i < out_n; i++)
+        pcs2 += (out_log[i].st & 0xF0) == 0xC0 || (out_log[i].st & 0xF0) == 0xB0;
+    CHECK(pcs2 == 0, "started again: no sounds out, none changed (%d)", pcs2);
+    CHECK(find(stub_log, stub_n, 0, 0xC2, 14) >= 0, "the synth gets them");
+}
+
+static void test_reload(void)                 /* a pattern reloaded while it plays: no stale positions */
+{
+    int n0, i, ok = 1;
+    reset();
+    pat_new();
+    for (int t = 0; t < 96; t += 6)
+        add(4, t, 3, 60);
+    arr_load_pattern(0, &P);
+    arr_play(1);
+    run_to(13000);                            /* past tick 12 */
+    pat_new();                                /* track 4's events now after track 0's: a stale place would */
+    for (int t = 0; t < 96; t += 6)           /* walk track 4 through track 0's kicks */
+        add(0, t, 3, 36);
+    for (int t = 3; t < 96; t += 6)
+        add(4, t, 3, 72);
+    n0 = stub_n;
+    arr_load_pattern(0, &P);
+    run_to(44100);
+    for (i = n0; i < stub_n; i++)
+        if (is_on(&stub_log[i]) && !(stub_log[i].st == 0x99 && stub_log[i].d1 == 36) &&
+            !(stub_log[i].st == 0x92 && stub_log[i].d1 == 72))
+            ok = 0;
+    CHECK(ok, "after the reload only the new pattern's notes, on their channel");
+    i = find(stub_log, stub_n, n0, 0x99, 36);
+    CHECK(near(stub_log, i, 18 * FPT), "from its next event (tick 18), got %u", i >= 0 ? stub_log[i].frame : 0);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "reload: offs match");
+}
+
+static void test_bounds(void)                 /* the work a block is bounded */
+{
+    int n0;
+    uint32_t t0;
+    reset();
+    pat_new();
+    for (int t = 0; t < ARR_TRACKS; t++) {    /* 64 notes on tick 0 */
+        P.trk[t].x.type = XT_BYPASS;
+        for (int k = 0; k < 8; k++)
+            add(t, 0, 12, 40 + 8 * t + k);
+    }
+    arr_load_pattern(0, &P);
+    arr_play(1);
+    run_blocks(1);
+    CHECK(count_ons(stub_log, 0, stub_n) == 48, "48 note-ons a block at most, got %d", count_ons(stub_log, 0, stub_n));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "capped: offs match");
+    /* 20 clocks in one block: the position moves 20, 4 of them play */
+    reset();
+    pattern_dense();
+    arr_load_pattern(0, &P);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    t0 = arr_ticks;
+    n0 = stub_n;
+    for (int k = 0; k < 20; k++)
+        arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    CHECK(arr_ticks - t0 == 20 && arr_beat_tick == 20, "20 ticks on (%u, at %u)", arr_ticks - t0, arr_beat_tick);
+    CHECK(count_ons(stub_log, n0, stub_n) <= 4, "at most 4 played, got %d", count_ons(stub_log, n0, stub_n));
+    arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    CHECK(find(stub_log, stub_n, n0, 0x92, 60) >= 0, "playing on");
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "bunched: offs match");
+}
+
+static void test_transport_out(void)
+{
+    int i, f8 = 0, fc = -1;
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_play(1);
+    run_to(22050);
+    CHECK(out_n == 0, "MIDI out off: nothing");
+    arr_midi_out_on(1);                       /* on while playing: FA, then the clock */
+    run_to(44100);
+    CHECK(out_n > 0 && out_log[0].st == 0xFA, "FA when MIDI out comes on");
+    for (i = 0; i < out_n; i++)
+        f8 += out_log[i].st == 0xF8;
+    CHECK(f8 >= 20, "then F8s (%d)", f8);
+    arr_midi_out_on(0);                       /* off: FC, no more clock */
+    run_to(66150);
+    for (i = 0; i < out_n; i++)
+        if (out_log[i].st == 0xFC)
+            fc = i;
+    CHECK(fc >= 0, "FC when MIDI out goes off");
+    for (i = fc + 1; i < out_n; i++)
+        CHECK(out_log[i].st != 0xF8 && is_off(&out_log[i]), "after FC only the note-offs owed");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(out_log, out_n), "out on and off: offs match");
+    /* an external clock gone: our own clock plays on, but nothing new is sent until the next start */
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_midi_out_on(1);
+    arr_clock(ARR_CLK_START);
+    for (int k = 0; k < 3; k++) {
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(1);
+    }
+    run_to(2 * 44100);
+    CHECK(arr_ext == 0 && arr_playing == 1, "the clock gone: ours, still playing");
+    f8 = 0;
+    for (i = 0; i < out_n; i++)
+        f8 += out_log[i].st == 0xF8 || out_log[i].st == 0xFA;
+    CHECK(f8 == 0, "no clock out after falling back (%d)", f8);
+}
+
 int main(void)
 {
     test_timing();
@@ -295,6 +518,11 @@ int main(void)
     test_mute();
     test_midi_out();
     test_clock_in();
+    test_stop_same_block();
+    test_out_ring();
+    test_reload();
+    test_bounds();
+    test_transport_out();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

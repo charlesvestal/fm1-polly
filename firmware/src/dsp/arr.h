@@ -81,11 +81,21 @@ void arr_clock(int msg);
  * posted since, then the ticks that fall nearest this block's start; their notes go to the synth with
  * gm_midi_now, sounding from this block on */
 void arr_block(uint32_t frames);
-void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2);    /* provided by the app (from the render) */
+/* provided by the app, called from the render only: MIDI out (a USB ring that drops when full), and the
+ * ring's free slots. Note-ons, the sounds and the clock go out only with room to spare, so a note-off owed
+ * is never dropped; a note-on not sent has no note-off sent either. */
+void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2);
+uint32_t arr_midi_out_room(void);
 
 /* state for the screen */
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
-extern volatile chord_t arr_chord_now;
+extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
+static inline uint32_t arr_chord_pack(chord_t c) { return (uint32_t)c.root | (uint32_t)c.type << 8 | (uint32_t)c.bass << 16; }
+static inline chord_t arr_chord_unpack(uint32_t v)
+{
+    chord_t c = {(uint8_t)(v & 0xFFu), (uint8_t)(v >> 8 & 0xFFu), (uint8_t)(v >> 16 & 0xFFu)};
+    return c;
+}
 extern volatile uint32_t arr_track_hit[ARR_TRACKS];  /* render ticks of each track's last note-on */
 extern volatile uint32_t arr_ticks;                  /* render ticks since arr_init */

@@ -81,8 +81,10 @@ int plat_midi_in(uint32_t *pkt)
     return 1;
 }
 void plat_midi_out(uint32_t pkt) { midi_out_event(pkt); }
+uint32_t plat_midi_out_room(void) { return midi_out_room(); }
 /* the engine's MIDI out (from the render): a USB-MIDI packet, cable 0, CIN = the status's high nibble */
 void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { plat_midi_out(st >> 4 | st << 8 | d1 << 16 | d2 << 24); }
+uint32_t arr_midi_out_room(void) { return plat_midi_out_room(); }
 
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { return flash_ok ? st_load(obj, dst, max) : -1; }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len) { return flash_ok ? st_save(obj, src, len) : -9; }

@@ -35,7 +35,10 @@ void plat_play_red(int red);           /* PLAY lights green; red (its other LED)
 
 /* USB MIDI, 4-byte USB-MIDI event packets (cable 0) */
 int plat_midi_in(uint32_t *pkt);       /* 1 = got one (called from the audio ISR) */
-void plat_midi_out(uint32_t pkt);      /* queue one (audio ISR or main loop) */
+/* queue one; a single producer: the render (the arranger, in the audio ISR). The main loop must not call it.
+ * A full ring drops: check plat_midi_out_room first. */
+void plat_midi_out(uint32_t pkt);
+uint32_t plat_midi_out_room(void);     /* free slots in the out ring */
 
 /* persistent storage (Felucca storage.c objects: A/B sectors, CRC, torn-write safe) */
 int plat_store_load(uint32_t obj, void *dst, uint32_t max);   /* bytes loaded, < 0 = none / bad */
