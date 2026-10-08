@@ -52,12 +52,13 @@ int main(void)
     /* recognition: every type, every root, root position and every inversion of its core tones.
      * Some types share an identical tone set with another type's inversion (the QY resolves these by
      * the bass, same as the slash notation): a 6 chord's tones (R 3 5 6) are exactly a m7 built a minor
-     * third below (its 6th read as that chord's root, its root read as that chord's b7) -- so CH_6 and
-     * CH_MIN7 trade places across inversions, and likewise CH_MIN6 and CH_MIN7_B5. Everywhere else, the
-     * An augmented triad (CH_AUG) is itself symmetric -- R, 3 and 5 are a stack of major thirds, so its
-     * tone set repeats every 4 semitones and "root" C aug, E aug and Ab aug are the same three notes; any
-     * of the three readings is accepted.
-     * recognised root and type must match the one the notes were built from, even inverted. */
+     * third below (its 6th read as that chord's root, its root read as that chord's b7) -- so CH_6 at
+     * root r and CH_MIN7 at root (r+9)%12 are the same notes, and likewise CH_MIN6 at root r and
+     * CH_MIN7_B5 at root (r+9)%12. An augmented triad (CH_AUG) is itself symmetric -- R, 3 and 5 are a
+     * stack of major thirds, so its tone set repeats every 4 semitones and "root" C aug, E aug and Ab aug
+     * are the same three notes. Everywhere else, the recognised root and type must match the one the
+     * notes were built from, even inverted; for these exceptions, any of the correct alternate readings
+     * is accepted. */
     for (int t = 0; t < CH_NONE; t++)
         for (int r = 0; r < 12; r++) {
             uint16_t m = chord_tones(t);
@@ -73,14 +74,18 @@ int main(void)
                     int k = (i + inv) % n, iv = core[k] + (i + inv >= n ? 12 : 0);
                     notes[i] = (uint8_t)(48 + r + iv);
                 }
-                int ok = chord_recognize(notes, n, &c) && c.root == r && c.type == t;
-                if (!ok && (t == CH_6 || t == CH_MIN7))
-                    ok = chord_recognize(notes, n, &c) && (c.type == CH_6 || c.type == CH_MIN7);
-                if (!ok && (t == CH_MIN6 || t == CH_MIN7_B5))
-                    ok = chord_recognize(notes, n, &c) && (c.type == CH_MIN6 || c.type == CH_MIN7_B5);
-                if (!ok && t == CH_AUG)
-                    ok = chord_recognize(notes, n, &c) && c.type == CH_AUG &&
-                         (c.root == r || c.root == (r + 4) % 12 || c.root == (r + 8) % 12);
+                int rec = chord_recognize(notes, n, &c);
+                int ok = rec && c.root == r && c.type == t;
+                if (!ok && rec && (t == CH_6 || t == CH_MIN7)) {
+                    int alt = (t == CH_6) ? (r + 9) % 12 : (r + 3) % 12;
+                    ok = (c.type == CH_6 || c.type == CH_MIN7) && c.root == alt;
+                }
+                if (!ok && rec && (t == CH_MIN6 || t == CH_MIN7_B5)) {
+                    int alt = (t == CH_MIN6) ? (r + 9) % 12 : (r + 3) % 12;
+                    ok = (c.type == CH_MIN6 || c.type == CH_MIN7_B5) && c.root == alt;
+                }
+                if (!ok && rec && t == CH_AUG)
+                    ok = c.type == CH_AUG && (c.root == r || c.root == (r + 4) % 12 || c.root == (r + 8) % 12);
                 CHECK(ok, "type %s root %d inversion %d -> %d %d", chord_type_name(t), r, inv, c.root, c.type);
             }
         }
