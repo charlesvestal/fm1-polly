@@ -109,7 +109,8 @@ void arr_load_pattern(int slot, const pattern_t *p)
 typedef struct {
     uint8_t out, in, vel, chan;
     uint8_t mo;                                    /* its note-on went to MIDI out: its note-off goes there too */
-    uint8_t fixed;                                 /* from the section before: never re-voiced */
+    uint8_t fixed;                                 /* from the section before: 1 kept as is, 2 (it was on a
+                                                    * Chord 1 / 2 or Bass track) ended at a chord change */
     uint16_t left;                                 /* ticks to its end */
 } held_t;
 typedef struct {
@@ -400,13 +401,15 @@ static void stop_ours(void)                        /* a stop of ours (PLAY, an e
 }
 
 static void chord_change(chord_t c, int restrike);
-/* a section from its start, now (on a bar line). Notes still sounding from the section before keep their
- * voicing to their end: the new pattern's tracks may be of other types */
+static int follows_chord(uint8_t type) { return type == XT_CHORD1 || type == XT_CHORD2 || type == XT_BASS; }
+/* a section from its start, now (on a bar line). Notes still sounding from the section before are never
+ * re-voiced by the new pattern's track types: they keep their pitch to their end, except that those from a
+ * Chord 1 / 2 or Bass track end at the next chord change (with more than RESTRIKE_MIN left), not clash */
 static void switch_to(uint8_t sec)
 {
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
-            tk[t].h[i].fixed = 1;
+            tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
     if (sec == SEC_FILL && (arr_sect == SEC_A || arr_sect == SEC_B))
         fill_from = arr_sect;
     cur = (uint8_t)(sec - 1);
@@ -543,6 +546,9 @@ static void chord_change(chord_t c, int restrike)
         track_t *k = &tk[t];
         const xtrack_t *x = &p->trk[t].x;
         xpose_chord_changed(&k->xs);
+        for (int i = k->nh - 1; i >= 0; i--)       /* the section before's chord notes: they end */
+            if (k->h[i].fixed == 2 && k->h[i].left > RESTRIKE_MIN)
+                note_end(k, i);
         if (!restrike || busy[cur] || !(x->type == XT_CHORD1 || x->type == XT_CHORD2 || x->type == XT_BASS))
             continue;
         for (int i = k->nh - 1; i >= 0; i--) {

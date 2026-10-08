@@ -1220,6 +1220,31 @@ static void test_template_beats(void)         /* a 4-beat template on a 3-beat p
     run_blocks(1);
 }
 
+static void test_switch_chord_ends(void)      /* a chord change on a section's bar line ends A's chord notes */
+{
+    int i;
+    reset();
+    load_slots(4);
+    pat_new();                                /* Main A: track 4 Chord 1, C4 held over the bar line */
+    add(4, 72, 200, 60);
+    arr_load_pattern(0, &P);
+    pat_new();
+    arr_load_pattern(1, &P);
+    song_new(4);
+    S.sect[0] = SEC_A;
+    S.sect[1] = SEC_B;
+    S.chord[0] = ch(0, CH_MAJ7);
+    S.chord[4] = ch(9, CH_MIN7);
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(2 * BAR));
+    i = find(stub_log, stub_n, 0, 0x82, 60);
+    CHECK(near(stub_log, i, BAR), "C4 ends at the change, not at its own end (%u)", i >= 0 ? stub_log[i].frame : 0);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
 int main(void)
 {
     test_timing();
@@ -1253,6 +1278,7 @@ int main(void)
     test_fill_variants();
     test_song_while_playing();
     test_template_beats();
+    test_switch_chord_ends();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

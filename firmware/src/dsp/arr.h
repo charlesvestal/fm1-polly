@@ -100,7 +100,8 @@ void arr_set_key(int key);
 /* live chords (fingered): the keys held, as MIDI notes, called on every change (one caller: the main loop).
  * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord, ending
  * a template; keys lifted one by one never re-recognise. 1 = a new chord; 0 = none (no key pressed, fewer
- * than 3 pitch classes, or no type fits): the chord stays as it was. */
+ * than 3 pitch classes, or no type fits): the chord stays as it was. The app calls arr_keys_held(0, 0) when
+ * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
 void arr_track_mute(int trk, int on);
 void arr_midi_out_on(int on);
