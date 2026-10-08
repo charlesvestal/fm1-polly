@@ -2,7 +2,7 @@
 /* LIFE platform interface (from X0X's): everything the app needs from the hardware.
  *
  * The device implementation (plat_fm1.c) wraps Felucca's HAL and panel map; the
- * host implementation (host/gm_host.c) is a simulator fed by a script, which is
+ * host implementation (host/polly_host.c) is a simulator fed by a script, which is
  * what lets the whole app — UI, sequencer, engines — run and be tested on a Mac.
  * Drawing goes through Felucca's lcd_fill / lcd_blit (lcd.c on the device, a
  * framebuffer on the host) and gfx.c on top. */

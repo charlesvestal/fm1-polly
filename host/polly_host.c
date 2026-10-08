@@ -3,7 +3,7 @@
  * Audio goes to a WAV, the screen to PNGs, the lights to text, MIDI out to a log. The device-only
  * parts (HAL, USB, OTA, flash driver) are replaced by plat.h implemented here. (From X0X's x0x_host.)
  *
- *   gm_host SCRIPT [OUTDIR]
+ *   polly_host SCRIPT [OUTDIR]
  *
  * Script, one command per line (# comments):
  *   wait MS                      run the device for MS milliseconds
@@ -394,7 +394,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 2 ? argv[2] : ".";
     int lineno = 0, fails = 0;
     if (argc < 2) {
-        fprintf(stderr, "usage: gm_host SCRIPT [OUTDIR]\n");
+        fprintf(stderr, "usage: polly_host SCRIPT [OUTDIR]\n");
         return 2;
     }
     sc = fopen(argv[1], "r");

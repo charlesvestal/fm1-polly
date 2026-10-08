@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Boot, audio ISR and main loop adapted from Felucca's main.c / audio.c, Copyright (C) 2026
  * Leo Kuroshita (@kurogedelic), Hugelton Instruments. */
-/* GM on the FM-1 (from X0X's): boot (WDT first, boot-loop guard, guards), LCD, input (TIMER5
+/* Polly on the FM-1 (from X0X's): boot (WDT first, boot-loop guard, guards), LCD, input (TIMER5
  * 10 kHz), audio (ALNK0), USB; then the main loop: UI at ~60 frames/s, input polled in between. */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
@@ -145,7 +145,7 @@ static void fm1_fault(const fm1_crash_t *c)
     uint32_t t0;
     fm1_audio_stop();
     lcd_fill(0, 0, 240, 240, RGB(160, 0, 0));
-    draw_text_box(0, 8, 240, &FONT_S, "GM CRASH", C_WHITE, 1);
+    draw_text_box(0, 8, 240, &FONT_S, "Polly CRASH", C_WHITE, 1);
     hexs(b, c->vec);
     draw_text_box(10, 40, 220, &FONT_S, b, C_WHITE, 0);
     hexs(b, c->pc);
@@ -182,7 +182,7 @@ static void safe_main(void)
     char b[24];
     uint32_t t0, play;
     lcd_fill(0, 0, 240, 240, C_BLACK);
-    draw_text_box(0, 18, 240, &FONT_B, "GM SAFE MODE", C_HI, 1);
+    draw_text_box(0, 18, 240, &FONT_B, "Polly SAFE MODE", C_HI, 1);
     draw_text_box(0, 52, 240, &FONT_S, "IT CRASHED TWICE", C_WHITE, 1);
     draw_text_box(0, 72, 240, &FONT_S, "WHILE STARTING.", C_WHITE, 1);
     draw_text_box(0, 102, 240, &FONT_S, "NO SOUND. USB IS ON:", C_WHITE, 1);
@@ -212,7 +212,7 @@ static void safe_main(void)
         if ((fm1_in.buttons & play) && fm1_ms - t0 > 500u) {
             bootguard.failed = 0;                   /* try GM again, from scratch */
             bootguard.pending = 0;
-            draw_text_box(0, 172, 240, &FONT_S, "STARTING GM...", C_HI, 1);
+            draw_text_box(0, 172, 240, &FONT_S, "STARTING Polly...", C_HI, 1);
             usb_detach();
             fm1_delay_ms(30);
             fm1_reboot();
@@ -233,10 +233,10 @@ static void splash(void)
     lcd_fill(0, 0, 240, 240, RGB(250, 244, 232));
     cv_begin(240, 64, RGB(250, 244, 232));
     {
-        int32_t w = text_w(&FONT_L, "GM");
-        cv_text((240 - w) / 2, 0, &FONT_L, "GM", RGB(242, 120, 72));
-        w = text_w(&FONT_S, "A General MIDI sound module");
-        cv_text((240 - w) / 2, 42, &FONT_S, "A General MIDI sound module", RGB(150, 136, 118));
+        int32_t w = text_w(&FONT_L, "Polly");
+        cv_text((240 - w) / 2, 0, &FONT_L, "Polly", RGB(242, 120, 72));
+        w = text_w(&FONT_S, "A pocket arranger");
+        cv_text((240 - w) / 2, 42, &FONT_S, "A pocket arranger", RGB(150, 136, 118));
     }
     cv_blit(0, 92);
     lcd_sync();

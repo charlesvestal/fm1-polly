@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// LIFE in an AudioWorklet: gm.wasm is the whole FM-1 app (web/emu/gm_web.c). Each render
+// Polly in an AudioWorklet: polly.wasm is the whole FM-1 app (web/emu/polly_web.c). Each render
 // quantum asks it for 128 frames, which runs the device's clock forward; between quanta the page's
 // input goes in and, about 30 times a second, the screen, the lights and any saved objects go out.
 
 const clock = globalThis.performance ? () => globalThis.performance.now() : () => Date.now();
 
-class Life extends AudioWorkletProcessor {
+class Polly extends AudioWorkletProcessor {
   constructor() {
     super();
     this.ex = null;
@@ -102,4 +102,4 @@ class Life extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("gm", Life);
+registerProcessor("polly", Polly);

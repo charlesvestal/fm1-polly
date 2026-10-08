@@ -1,12 +1,12 @@
-# Building Life
+# Building Polly
 
 The build makes three files in `build/`:
 
 | File | What |
 | --- | --- |
-| `gm.bin` | the firmware app |
+| `polly.bin` | the firmware app |
 | `loader/ota.bin` | the update loader |
-| `gm.fwsc` | the installable package (app + loader) |
+| `polly.fwsc` | the installable package (app + loader) |
 
 ## Prerequisites (macOS)
 
@@ -41,7 +41,7 @@ On Linux x86-64 the toolchain runs natively and Docker is not needed.
 `JIELI_TOOLCHAIN` and `AC79_SDK` override the default locations
 (`~/.jieli/toolchain`, `~/fw-AC79_AIoT_SDK`).
 
-`./build.sh --release 0.1` makes a release build; the package is `build/gm-0.1.fwsc`.
+`./build.sh --release 0.1` makes a release build; the package is `build/polly-0.1.fwsc`.
 
 On macOS with podman instead of Docker, put a `docker` script that runs `exec podman "$@"` first
 on your PATH. `GM_JOBS` (default 4) limits parallel compiles: a podman machine drops
@@ -59,20 +59,20 @@ The build also generates `build/gen/` (the font). It fails if a soft-double rout
 tests/run_tests.sh
 ```
 
-Runs, on the build machine: the maths library against libm; the instrument (`tests/host/life_test.c`:
-Euclidean patterns, scales and chords, voice leading, the render's levels, drift, evolving loops, freeze); flash
-storage; Felucca's update-path tests against `build/gm.fwsc`; and the whole app in the simulator
-(`tests/scenarios/*.life`), with its screenshots and audio in `build/scenarios/`.
+Runs, on the build machine: the maths library against libm; the platform pieces kept from
+Felucca / X0X (encoder, UAC, TRS); flash storage; Felucca's update-path tests against
+`build/polly.fwsc`; and the whole app in the simulator
+(`tests/scenarios/*.polly`), with its screenshots and audio in `build/scenarios/`.
 
-`host/build_host.sh` builds the simulator alone; `build/host/gm_host SCRIPT OUTDIR` runs one
-script (the command list is at the top of `host/gm_host.c`).
+`host/build_host.sh` builds the simulator alone; `build/host/polly_host SCRIPT OUTDIR` runs one
+script (the command list is at the top of `host/polly_host.c`).
 
 ## Install
 
 From the command line (needs `pip3 install mido python-rtmidi`):
 
 ```
-python3 tools/fm1_install.py build/gm.fwsc
+python3 tools/fm1_install.py build/polly.fwsc
 python3 tools/fm1_install.py --info          # identity of the connected FM-1
 ```
 
@@ -86,5 +86,5 @@ mode. If the FM-1 no longer starts but reaches the chip's update mode (4C4A:8057
 1. `./build.sh --release X.Y` (the identity, FM-1_3XXYYZZ, is what the installer checks).
 2. `tools/publish_pages.sh X.Y`: builds the site (landing page, browser emulator, web installer,
    firmware) with `tools/make_pages.py` and pushes it to the `gh-pages` branch, which GitHub Pages
-   serves at <https://charlesvestal.github.io/fm1-gm/>.
-3. `gh release create vX.Y build/gm-X.Y.fwsc` for the command-line download.
+   serves at <https://charlesvestal.github.io/fm1-polly/>.
+3. `gh release create vX.Y build/polly-X.Y.fwsc` for the command-line download.

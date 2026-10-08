@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The emulator as a private claude.ai Artifact (the repo stays private, there is no public site):
 build/emu (web/emu/build.sh) -> build/artifact/{index.html, worklet.js}. The page loses its
-document wrapper (the Artifact host adds one) and its site links; gm.wasm goes into it as base64,
+document wrapper (the Artifact host adds one) and its site links; polly.wasm goes into it as base64,
 so nothing is fetched."""
 import base64
 import re
@@ -16,8 +16,8 @@ s = re.sub(r"<!doctype html>\s*<html[^>]*>\s*<head>\s*", "", s)
 s = re.sub(r'<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*', "", s)
 s = s.replace("</head>\n<body>\n", "").replace("</body>\n</html>\n", "")
 s = re.sub(r"\s*<nav>.*?</nav>", "", s)
-wasm = base64.b64encode((EMU / "gm.wasm").read_bytes()).decode()
-old = 'fetch("gm.wasm").then((r) => { if (!r.ok) throw new Error(`gm.wasm: ${r.status}`); return r.arrayBuffer(); })'
+wasm = base64.b64encode((EMU / "polly.wasm").read_bytes()).decode()
+old = 'fetch("polly.wasm").then((r) => { if (!r.ok) throw new Error(`polly.wasm: ${r.status}`); return r.arrayBuffer(); })'
 assert old in s
 s = s.replace(old, "Promise.resolve(Uint8Array.from(atob(ENO_WASM), (c) => c.charCodeAt(0)).buffer)")
 s = s.replace('<script>\n"use strict";', f'<script>\n"use strict";\nconst ENO_WASM = "{wasm}";', 1)
