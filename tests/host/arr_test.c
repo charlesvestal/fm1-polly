@@ -518,25 +518,25 @@ static void test_sounds_first(void)           /* at a start, the sounds before F
 
 static void test_clock_first(void)            /* the clock is never squeezed out by notes or sounds */
 {
-    int i, last_sound = -1;
+    int i, fa;
     reset();
-    pattern_busy_downbeat(8, 2);              /* 40 sounds and 16 notes do not fit 64: the notes first */
-    arr_load_pattern(0, &P);
+    pattern_busy_downbeat(8, 2);              /* 40 sounds and 16 notes do not fit 64 at once: */
+    arr_load_pattern(0, &P);                  /* the sounds now, the start a block later */
     ring_cap = 64;                            /* usb.c's ring, a healthy host reading it every block */
     ring_drain = 64;
     arr_midi_out_on(1);
     arr_play(1);
-    run_to(44100 - 200);
-    CHECK(count_st(0, out_n, 0xF8) == 48, "48 F8 in the first second at 120, got %d", count_st(0, out_n, 0xF8));
-    CHECK(out_log[0].st == 0xFA && out_log[1].st == 0xF8, "FA, then tick 0's F8 first");
-    CHECK(count_st(0, out_n, 0xC0) == 8 && count_st(0, out_n, 0xB0) == 32, "all 40 sounds out (%d %d)",
-          count_st(0, out_n, 0xC0), count_st(0, out_n, 0xB0));
-    CHECK(count_ons(out_log, 0, out_n) == 16, "the 16 notes of tick 0 out (%d)", count_ons(out_log, 0, out_n));
-    for (i = 0; i < out_n; i++)
-        if ((out_log[i].st & 0xF0) == 0xC0 || (out_log[i].st & 0xF0) == 0xB0)
-            last_sound = i;
-    CHECK(last_sound >= 0 && out_log[last_sound].frame <= 3 * 256, "the sounds within the first blocks (by %u)",
-          last_sound >= 0 ? out_log[last_sound].frame : 0);
+    run_to(256 + 44100 - 200);
+    for (i = 0; i < 40; i++)
+        CHECK(is_sound(&out_log[i]) && out_log[i].frame == 0, "the 40 sounds first, in the first block");
+    fa = find(out_log, out_n, 0, 0xFA, 0);
+    CHECK(fa == 40 && out_log[fa].frame == 256, "FA a block later (%d at %u)", fa, fa >= 0 ? out_log[fa].frame : 0);
+    CHECK(out_log[41].st == 0xF8 && count_ons(out_log, 42, 58) == 16, "then F8 and all 16 notes of tick 0");
+    CHECK(count_st(0, out_n, 0xF8) == 48, "48 F8 in the second from FA at 120, got %d", count_st(0, out_n, 0xF8));
+    i = 0;
+    while (i < stub_n && !is_on(&stub_log[i]))
+        i++;
+    CHECK(i < stub_n && stub_log[i].frame == 256, "the synth starts with it (%u)", i < stub_n ? stub_log[i].frame : 0);
     CHECK(dropped == 0, "nothing dropped");
     /* a new USB connection: the sounds again */
     i = out_n;
@@ -558,6 +558,26 @@ static void test_clock_first(void)            /* the clock is never squeezed out
     arr_play(0);
     run_blocks(1);
     CHECK(offs_match(out_log, out_n), "offs match");
+}
+
+static void test_start_cap(void)              /* a stalled host: the start waits 8 blocks at most */
+{
+    int fa;
+    reset();
+    pattern_busy_downbeat(8, 2);
+    arr_load_pattern(0, &P);
+    ring_cap = 64;
+    ring_drain = 0;
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_to(20 * 256);
+    fa = find(out_log, out_n, 0, 0xFA, 0);
+    CHECK(fa >= 0 && out_log[fa].frame <= 9 * 256, "started anyway (%u)", fa >= 0 ? out_log[fa].frame : 0);
+    CHECK(count_ons(stub_log, 0, stub_n) == 16, "the synth plays");
+    ring_drain = 64;
+    arr_play(0);
+    run_to(44100);
+    CHECK(dropped == 0 && offs_match(out_log, out_n), "nothing dropped, offs match");
 }
 
 static void test_transport_out(void)
@@ -618,6 +638,7 @@ int main(void)
     test_transport_out();
     test_sounds_first();
     test_clock_first();
+    test_start_cap();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

@@ -14,6 +14,7 @@
 #define FRAMES_PER_TICK_1BPM 110250u               /* 44100 * 60 / 24 */
 #define MAX_ONS 48                                 /* note-ons a block, at most: the interrupt's work bounded */
 #define MAX_CATCHUP 4                              /* bunched clocks in played a block; the rest only move on */
+#define START_WAIT 8                               /* blocks a start may wait for its sounds to go out */
 #define OUT_RESERVE 8u                             /* MIDI out slots kept free beyond the note-offs owed */
 
 volatile uint8_t arr_playing, arr_sect = SEC_A, arr_next_sect, arr_ext;
@@ -88,6 +89,7 @@ static uint8_t out_sent[16][5];                    /* each channel's sounds as l
 static uint8_t out_pend;                           /* the playing pattern's sounds still to send out */
 static uint32_t out_link;                          /* the connection they were sent on */
 static int ons_left;                               /* note-ons this block may still start */
+static uint8_t start_wait;                         /* a start waiting for its sounds to go out: blocks waited + 1 */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length */
 static int32_t ftt;
@@ -285,6 +287,7 @@ static void transport_start(void)
 static void transport_stop(void)
 {
     arr_playing = 0;
+    start_wait = 0;
     ext_pend = 0;                                  /* no tick after a stop */
     all_off();
 }
@@ -375,6 +378,7 @@ static void chord_change(chord_t c)
 
 static void clock_in(int msg)
 {
+    start_wait = 0;                                /* following a clock: its start, not ours */
     if (msg == ARR_CLK_TICK) {
         arr_ext = 1;
         clk_out = 0;                               /* following a clock: ours is not sent */
@@ -410,14 +414,12 @@ static void drain(void)
             if (a) {
                 clk_out = mout && !arr_ext;
                 transport_start();
-                if (clk_out) {                     /* the far side's sounds before its first downbeat, */
-                    if (sounds_fit_first())        /* when they fit with tick 0's notes; else after them */
-                        sounds_out();
-                    out_rt(0xFAu);                 /* then FA; tick 0 (F8, its notes) in this block */
-                }
+                if (clk_out)                       /* the far side's sounds before its first downbeat */
+                    start_wait = 1;                /* (arr_block: then FA, and tick 0, F8 and its notes) */
             } else if (arr_playing) {
+                int started = !start_wait;
                 transport_stop();
-                if (clk_out)
+                if (clk_out && started)
                     out_rt(0xFCu);
                 clk_out = 0;
             }
@@ -447,8 +449,9 @@ static void drain(void)
                     out_rt(0xFAu);
                 }
             } else if (!a && mout) {
-                if (clk_out)
+                if (clk_out && !start_wait)
                     out_rt(0xFCu);
+                start_wait = 0;
                 clk_out = 0;
                 mout = 0;                          /* the notes already out still get their note-offs */
             }
@@ -488,6 +491,15 @@ void arr_block(uint32_t frames)
     }
     if (!arr_playing)
         return;
+    if (start_wait) {                              /* our start with MIDI out: the sounds first; the start */
+        sounds_out();                              /* (FA, tick 0) when tick 0's notes fit after them, a few */
+        if ((out_pend || !sounds_fit_first()) && start_wait <= START_WAIT) {   /* blocks later at most */
+            start_wait++;
+            return;                                /* the synth waits too: everything starts together */
+        }
+        start_wait = 0;
+        out_rt(0xFAu);
+    }
     while (ftt < half) {                           /* ticks due in [-half, +half): at this block's start */
         tick(1);
         ftt += (int32_t)fpt;
