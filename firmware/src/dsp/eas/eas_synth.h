@@ -368,6 +368,8 @@ typedef struct s_voice_mgr_tag
 
     EAS_U16                 age;
 
+    EAS_U8                  startDelay;         /* Polly: note-ons now start this many samples into the next block (set by gm.c around a write; 0 otherwise) */
+
 /* limits the number of voice starts in a frame for split architecture */
 #ifdef MAX_VOICE_STARTS
     EAS_U16                 numVoiceStarts;

@@ -89,6 +89,7 @@ static uint8_t out_sent[16][5];                    /* each channel's sounds as l
 static uint8_t out_pend;                           /* the playing pattern's sounds still to send out */
 static uint32_t out_link;                          /* the connection they were sent on */
 static int ons_left;                               /* note-ons this block may still start */
+static uint32_t at;                                /* the tick playing: its sample within the EAS block (gm_midi_now) */
 static uint8_t start_wait;                         /* a start waiting for its sounds to go out: blocks waited + 1 */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length */
@@ -139,7 +140,7 @@ static void on_out(held_t *h)
 static void note_end(track_t *t, int i)            /* the note-off goes to the note it struck */
 {
     held_t *h = &t->h[i];
-    gm_midi_now(0x80u | h->chan, h->out, 0);
+    gm_midi_now(0x80u | h->chan, h->out, 0, at);
     off_out(h);
     held_remove(t, i);
 }
@@ -169,7 +170,7 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
     h->chan = (uint8_t)chan;
     h->mo = 0;
     h->left = (uint16_t)(len ? len : 1);
-    gm_midi_now(0x90u | (uint32_t)chan, (uint32_t)out, h->vel);
+    gm_midi_now(0x90u | (uint32_t)chan, (uint32_t)out, h->vel, at);
     on_out(h);
     arr_track_hit[ti] = arr_ticks;
 }
@@ -198,7 +199,7 @@ static void setup(void)
         for (int k = 0; k < 5; k++) {
             uint8_t v;
             uint32_t m = sound(&p->trk[i], k, &v);
-            gm_midi_now(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu);
+            gm_midi_now(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu, at);
         }
     out_pend = mout;
 }
@@ -367,10 +368,10 @@ static void chord_change(chord_t c)
                 continue;
             }
             ons_left--;
-            gm_midi_now(0x80u | h->chan, h->out, 0);
+            gm_midi_now(0x80u | h->chan, h->out, 0, 0);
             off_out(h);
             h->out = (uint8_t)out;
-            gm_midi_now(0x90u | h->chan, h->out, h->vel);
+            gm_midi_now(0x90u | h->chan, h->out, h->vel, 0);
             on_out(h);
         }
     }
@@ -465,7 +466,7 @@ static void drain(void)
 /* ---------------------------------------------------------------- the render's hook --- */
 void arr_block(uint32_t frames)
 {
-    const int32_t half = (int32_t)(frames << 15);  /* half a block, Q16 */
+    const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
     drain();
     sync();
@@ -500,11 +501,16 @@ void arr_block(uint32_t frames)
         start_wait = 0;
         out_rt(0xFAu);
     }
-    while (ftt < half) {                           /* ticks due in [-half, +half): at this block's start */
+    while (ftt < end) {                            /* the ticks due within this block, each note-on on its */
+        int32_t f = ftt < 0 ? 0 : ftt;             /* sample: output frames / 2, rounded (EAS's 22.05 kHz) */
+        at = (uint32_t)(f + (1 << 16)) >> 17;
+        if (at >= frames / 2)
+            at = frames / 2 - 1;
         tick(1);
         ftt += (int32_t)fpt;
     }
-    ftt -= (int32_t)(frames << 16);
+    at = 0;                                        /* the rest (commands, MIDI clock in): the block's start */
+    ftt -= end;
     sounds_out();
 }
 
@@ -535,6 +541,7 @@ void arr_init(void)                                /* at boot, before the render
     out_pend = 0;
     out_link = arr_midi_out_link();
     ftt = 0;
+    at = 0;
     fpt = (FRAMES_PER_TICK_1BPM / 120u) << 16 | ((FRAMES_PER_TICK_1BPM % 120u) << 16) / 120u;
     ext_pend = ext_age = 0;
     arr_playing = 0;

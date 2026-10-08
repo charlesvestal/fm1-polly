@@ -2,8 +2,10 @@
 /* The arranger engine (arr.c) against a recording GM stub (gm_stub.c): the notes it sends, their frame times
  * (44.1 kHz output frames), note-offs, chord changes, mutes, MIDI out and MIDI clock in.
  *
- * Timing tolerance: EAS renders whole 256-frame output blocks (128 at 22.05 kHz), so a tick sounds at the block
- * boundary nearest its exact time: +-128 frames (2.9 ms). The test allows +-132 (3 ms). */
+ * Timing: EAS renders whole 256-frame output blocks (128 at 22.05 kHz) and takes MIDI between them; a note-on
+ * starts on its sample within the block (gm_midi_now's at, recorded so by the stub): +-1 sample at 22.05 kHz,
+ * +-2 output frames (ON_TOL). Everything else takes effect at the start of the block its tick falls in: up to
+ * 256 frames early (TOL, for note-offs and chord changes). */
 #include <stdio.h>
 #include <string.h>
 #include "arr.h"
@@ -11,7 +13,8 @@
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
-#define TOL 132
+#define ON_TOL 2
+#define TOL 256
 #define FPT 918.75f                           /* frames a tick at 120 BPM: 44100 * 60 / (120 * 24) */
 
 /* the app's MIDI out, recorded, through a ring like usb.c's: ring_cap slots, ring_drain sent a block; a
@@ -99,12 +102,16 @@ static int find(const stub_msg_t *log, int n, int from, int st, int d1)
             return i;
     return -1;
 }
+static int is_on(const stub_msg_t *m) { return (m->st & 0xF0) == 0x90 && m->d2; }
+/* a note-on on its frame (+-ON_TOL); anything else at the start of the block its frame falls in */
 static int near(const stub_msg_t *log, int i, float frame)
 {
-    float d = (float)log[i].frame - frame;
-    return i >= 0 && d <= TOL && d >= -TOL;
+    float d;
+    if (i < 0)
+        return 0;
+    d = (float)log[i].frame - frame;
+    return is_on(&log[i]) ? d <= ON_TOL && d >= -ON_TOL : d <= 0.f && d > -TOL;
 }
-static int is_on(const stub_msg_t *m) { return (m->st & 0xF0) == 0x90 && m->d2; }
 static int is_off(const stub_msg_t *m) { return (m->st & 0xF0) == 0x80 || ((m->st & 0xF0) == 0x90 && !m->d2); }
 /* every note-on has a later note-off on the same channel and note, and no off is left over */
 static int offs_match(const stub_msg_t *log, int n)
@@ -624,9 +631,49 @@ static void test_transport_out(void)
     CHECK(f8 == 0, "no clock out after falling back (%d)", f8);
 }
 
+/* every tick a note-on, at tempos whose ticks fall all over the blocks: each on its exact frame (+-ON_TOL) */
+static void test_tempos(void)
+{
+    static const int bpm[] = {40, 97, 120, 133, 240};
+    for (int b = 0; b < (int)(sizeof bpm / sizeof bpm[0]); b++) {
+        static uint8_t seen_at[128];
+        int ons = 0, worst = 0, places = 0, bad = 0;
+        float fpt = 110250.f / (float)bpm[b];
+        reset();
+        pat_new();
+        for (int t = 0; t < 96; t++)
+            add(0, t, 1, 35 + t % 8);
+        arr_load_pattern(0, &P);
+        arr_set_tempo(bpm[b]);
+        arr_play(1);
+        run_to((uint32_t)(192.f * fpt) + 256);   /* two bars */
+        memset(seen_at, 0, sizeof seen_at);
+        for (int i = 0; i < stub_n; i++) {
+            float want, d;
+            if (!is_on(&stub_log[i]) || stub_log[i].st != 0x99)
+                continue;
+            want = (float)ons * fpt;
+            d = (float)stub_log[i].frame - want;
+            if (d > ON_TOL || d < -ON_TOL)
+                bad++;
+            if ((int)(d < 0 ? -d : d) > worst)
+                worst = (int)(d < 0 ? -d : d);
+            seen_at[(stub_log[i].frame % 256u) / 2u] = 1;
+            ons++;
+        }
+        for (int k = 0; k < 128; k++)
+            places += seen_at[k];
+        CHECK(ons >= 192, "%d BPM: every tick a note (%d)", bpm[b], ons);
+        CHECK(bad == 0, "%d BPM: %d note-ons off their frame by more than %d (worst %d)", bpm[b], bad, ON_TOL, worst);
+        CHECK(places > 20, "%d BPM: notes at %d places in the block", bpm[b], places);
+        printf("  %3d BPM: %d note-ons, worst %d frames off, at %d places in the block\n", bpm[b], ons, worst, places);
+    }
+}
+
 int main(void)
 {
     test_timing();
+    test_tempos();
     test_restrike();
     test_mute();
     test_midi_out();

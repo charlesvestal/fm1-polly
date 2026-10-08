@@ -68,6 +68,7 @@ typedef struct s_wt_int_frame_tag
     EAS_I32         *pMixBuffer;
     EAS_I32         numSamples;
     EAS_I32         prevGain;
+    EAS_I32         rampSamples;    /* Polly: the gain ramps from prevGain to gainTarget over this many samples */
 } S_WT_INT_FRAME;
 
 
@@ -151,6 +152,7 @@ typedef struct s_wt_voice_tag
     EAS_U8              eg2State;
 
     EAS_U16             artIndex;               /* index to articulation params */
+    EAS_U8              startDelay;             /* Polly: its first block starts this many samples in (0..BUFFER_SIZE_IN_MONO_SAMPLES-1) */
 
 } S_WT_VOICE;
 

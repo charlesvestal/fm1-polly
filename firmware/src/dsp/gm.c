@@ -8,6 +8,7 @@
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define EAS_FRAMES BUFFER_SIZE_IN_MONO_SAMPLES        /* 128 at 22.05 kHz: half of the FM-1's 256 */
+_Static_assert(EAS_FRAMES == GM_BLOCK, "gm.h's block is EAS's");
 
 volatile uint8_t gm_voices;
 volatile uint8_t gm_program[GM_NCH];
@@ -38,13 +39,17 @@ void gm_panic(void)
     }
 }
 
-static void synth_write(uint32_t m)
+static void synth_write(uint32_t m, uint32_t at)
 {
     EAS_U8 b[3] = {(EAS_U8)m, (EAS_U8)(m >> 8), (EAS_U8)(m >> 16)};
     uint32_t st = b[0] & 0xF0u;
     if (st == 0xC0u)
         gm_program[b[0] & 15u] = b[1];
+    /* a note-on's start within the next block: the voices it starts read it (WT_StartVoice); EAS parses the
+     * message at once, so it is cleared again straight after */
+    eas->pVoiceMgr->startDelay = (EAS_U8)(st == 0x90u && b[2] ? (at < GM_BLOCK ? at : GM_BLOCK - 1) : 0);
     EAS_WriteMIDIStream(eas, stream, b, (st == 0xC0u || st == 0xD0u) ? 2 : 3);
+    eas->pVoiceMgr->startDelay = 0;
 }
 static void drain(void)
 {
@@ -52,14 +57,14 @@ static void drain(void)
         uint32_t m = q[q_r % QN];
         BARRIER();
         q_r++;
-        synth_write(m);
+        synth_write(m, 0);
     }
 }
 /* the arranger's notes: it runs inside the render, so it writes the synth itself rather than through the
  * queue, which keeps one producer (the main loop) */
-void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2)
+void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2, uint32_t at)
 {
-    synth_write((st & 0xFFu) | (d1 & 0x7Fu) << 8 | (d2 & 0x7Fu) << 16);
+    synth_write((st & 0xFFu) | (d1 & 0x7Fu) << 8 | (d2 & 0x7Fu) << 16, at);
 }
 
 int gm_init(void)
@@ -86,8 +91,9 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
     while (n >= 2) {
         uint32_t k = n / 2 > EAS_FRAMES ? EAS_FRAMES : n / 2, i;
         EAS_I32 got = 0;
-        /* the arranger's ticks nearest this block's start, their notes into the synth now: EAS takes MIDI
-         * only between whole blocks (EAS_Render renders exactly EAS_FRAMES, its envelopes step once a block) */
+        /* the arranger's ticks due within this block, their notes into the synth now: EAS takes MIDI only
+         * between whole blocks (EAS_Render renders exactly EAS_FRAMES, its envelopes step once a block), and
+         * starts each note-on on its sample within the block (gm_midi_now's at) */
         arr_block(2 * k);
         EAS_Render(eas, pcm, (EAS_I32)k, &got);
         for (i = 0; i < k; i++) {

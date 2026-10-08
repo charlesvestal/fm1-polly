@@ -64,9 +64,12 @@ _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
  *
  * Timing: EAS renders only whole blocks of 128 frames at 22.05 kHz (EAS_Render refuses any other count, and
  * its envelopes and LFOs step once a block, by increments the sound set bakes in for that block), so MIDI
- * reaches the synth on 256-frame boundaries of the 44.1 kHz output (5.8 ms). The clock itself is exact (a
- * Q16 frames-to-the-next-tick count, no drift); each tick goes to the block boundary nearest its exact time:
- * at most 128 frames (2.9 ms) early or late. */
+ * reaches the synth between blocks, on 256-frame boundaries of the 44.1 kHz output (5.8 ms). The clock itself
+ * is exact (a Q16 frames-to-the-next-tick count, no drift): each tick due within a block is played before it,
+ * its note-ons with their sample in it (gm_midi_now's at), so they start on their exact sample (+-1 at
+ * 22.05 kHz). The rest takes effect at the start of the block the tick falls in: note-offs (a release up to
+ * 5.8 ms early), programs and controllers, MIDI out (up to 5.8 ms late: the USB ring is sent from the main
+ * loop anyway), and everything when following a MIDI clock in. */
 void arr_init(void);
 void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */
@@ -78,8 +81,8 @@ void arr_midi_out_on(int on);
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
 void arr_clock(int msg);
 /* called by gm_render before each EAS block of `frames` output frames (the render's thread): the commands
- * posted since, then the ticks that fall nearest this block's start; their notes go to the synth with
- * gm_midi_now, sounding from this block on */
+ * posted since, then the ticks that fall within this block; their notes go to the synth with gm_midi_now,
+ * each note-on starting on its sample within the block */
 void arr_block(uint32_t frames);
 /* provided by the app, called from the render only: MIDI out (a USB ring that drops when full), the ring's
  * free slots, and a count that changes at each new connection (the far side's sounds are then unknown).

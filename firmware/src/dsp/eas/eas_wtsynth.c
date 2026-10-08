@@ -362,6 +362,9 @@ static EAS_RESULT WT_StartVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNT
     pWTVoice->modLFO.lfoValue = 0;
     pWTVoice->modLFO.lfoPhase = -pArt->lfoDelay;
 
+    /* Polly: a note-on due within the coming block starts there (0 for a stolen voice's note, started at render) */
+    pWTVoice->startDelay = pVoiceMgr->startDelay;
+
     pVoice->gain = 0;
 
 #if (NUM_OUTPUT_CHANNELS == 2)
@@ -539,6 +542,7 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
     const S_ARTICULATION *pArt;
     EAS_I32 temp;
     EAS_BOOL done;
+    EAS_I32 delay;
 
 #ifdef DLS_SYNTHESIZER
     if (pVoice->regionIndex & FLAG_RGN_IDX_DLS_SYNTH)
@@ -546,6 +550,14 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
 #endif
     /* establish pointers to critical data */
     pWTVoice = &pVoiceMgr->wtVoices[voiceNum];
+
+    /* Polly: a note's first block may start `delay` samples in (its note-on was due there): silent before, and
+     * the rest of the block rendered as the first block always is (envelopes, LFO, filter, pitch the same),
+     * only shorter, its gain ramp over the samples it has. Every later block is untouched. */
+    delay = pWTVoice->startDelay;
+    pWTVoice->startDelay = 0;
+    if (delay >= numSamples)
+        delay = 0;
     pWTRegion = &pSynth->pEAS->pWTRegions[pVoice->regionIndex & REGION_INDEX_MASK];
     pArt = &pSynth->pEAS->pArticulations[pWTVoice->artIndex];
     pChannel = &pSynth->channels[pVoice->channel & 15];
@@ -603,8 +615,9 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
 
     /* call into engine to generate samples */
     intFrame.pAudioBuffer = pVoiceMgr->voiceBuffer;
-    intFrame.pMixBuffer = pMixBuffer;
+    intFrame.pMixBuffer = pMixBuffer + delay * NUM_OUTPUT_CHANNELS;    /* Polly: + delay */
     intFrame.numSamples = numSamples;
+    intFrame.rampSamples = numSamples - delay;                          /* Polly */
 
     /* check for end of sample */
     if ((pWTVoice->loopStart != WT_NOISE_GENERATOR) && (pWTVoice->loopStart == pWTVoice->loopEnd))
@@ -612,13 +625,24 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
     else
         done = EAS_FALSE;
 
+    /* Polly: a shortened first block. The end of the sample, found over a whole block, is this block's only
+     * when it falls within the samples rendered */
+    if (delay && intFrame.numSamples > numSamples - delay)
+    {
+        intFrame.numSamples = numSamples - delay;
+        done = EAS_FALSE;
+    }
+
     if (intFrame.numSamples < 0) intFrame.numSamples = 0;
 
     if (intFrame.numSamples > BUFFER_SIZE_IN_MONO_SAMPLES)
         intFrame.numSamples = BUFFER_SIZE_IN_MONO_SAMPLES;
 
-    if (intFrame.numSamples < BUFFER_SIZE_IN_MONO_SAMPLES)
-        memset(pMixBuffer + intFrame.numSamples * NUM_OUTPUT_CHANNELS, 0, (BUFFER_SIZE_IN_MONO_SAMPLES - intFrame.numSamples) * NUM_OUTPUT_CHANNELS * sizeof(EAS_I32));
+    /* Polly: silence before the start, and after the end (from the start) */
+    if (delay)
+        memset(pMixBuffer, 0, delay * NUM_OUTPUT_CHANNELS * sizeof(EAS_I32));
+    if (intFrame.numSamples < BUFFER_SIZE_IN_MONO_SAMPLES - delay)
+        memset(intFrame.pMixBuffer + intFrame.numSamples * NUM_OUTPUT_CHANNELS, 0, (BUFFER_SIZE_IN_MONO_SAMPLES - delay - intFrame.numSamples) * NUM_OUTPUT_CHANNELS * sizeof(EAS_I32));
 
 #ifdef EAS_SPLIT_WT_SYNTH
     if (voiceNum < NUM_PRIMARY_VOICES)
