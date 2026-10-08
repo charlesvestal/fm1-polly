@@ -138,6 +138,8 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
         mo_w++;
     }
 }
+static volatile uint32_t midi_links;                /* counts up at each new connection (SET_CONFIGURATION 1) */
+static uint32_t midi_out_link(void) { return midi_links; }
 static uint32_t midi_out_room(void)                  /* free slots in the out ring (0: no host) */
 {
     return usb.config ? MQ - (mo_w - mo_r) : 0u;
@@ -467,8 +469,10 @@ static void ep0_service(void)
         if (s[2] > 1u)
             goto stall;
         usb.config = s[2];
-        if (usb.config == 1u)
+        if (usb.config == 1u) {
             ep1_config();
+            midi_links++;
+        }
         else
             sie_wr(S_INTRRX1E, 0);
 #if FELUCCA_UAC

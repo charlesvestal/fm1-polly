@@ -81,11 +81,14 @@ void arr_clock(int msg);
  * posted since, then the ticks that fall nearest this block's start; their notes go to the synth with
  * gm_midi_now, sounding from this block on */
 void arr_block(uint32_t frames);
-/* provided by the app, called from the render only: MIDI out (a USB ring that drops when full), and the
- * ring's free slots. Note-ons, the sounds and the clock go out only with room to spare, so a note-off owed
- * is never dropped; a note-on not sent has no note-off sent either. */
+/* provided by the app, called from the render only: MIDI out (a USB ring that drops when full), the ring's
+ * free slots, and a count that changes at each new connection (the far side's sounds are then unknown).
+ * Priorities: the clock (F8, FA, FC) whenever a note-off owed still fits; note-ons with a reserve to spare;
+ * the sounds (programs, CCs) last, what does not fit going out in later blocks. So a note-off owed is never
+ * dropped, and a note-on not sent has no note-off sent either. */
 void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2);
 uint32_t arr_midi_out_room(void);
+uint32_t arr_midi_out_link(void);
 
 /* state for the screen */
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;

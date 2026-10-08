@@ -85,6 +85,8 @@ static uint8_t mout;                               /* MIDI out on */
 static uint8_t clk_out;                            /* we send the clock: since our own start with MIDI out on */
 static uint32_t out_owed;                          /* note-offs owed to MIDI out */
 static uint8_t out_sent[16][5];                    /* each channel's sounds as last sent out; 0xFF unknown */
+static uint8_t out_pend;                           /* the playing pattern's sounds still to send out */
+static uint32_t out_link;                          /* the connection they were sent on */
 static int ons_left;                               /* note-ons this block may still start */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length */
@@ -175,27 +177,46 @@ static void all_off(void)
         track_off(&tk[t]);
 }
 
-/* the playing pattern's sounds: program, volume, pan, sends, to the synth whenever a pattern starts; to MIDI
- * out only at a start of the transport, and only what changed since it was last sent */
-static void setup(int start)
+/* the playing pattern's sounds: program, volume, pan, sends. To the synth whenever a pattern starts (setup);
+ * to MIDI out after the block's notes, only what changed since it was last sent, the rest in later blocks
+ * (sounds_out). sound(): track t's message k (0 the program, 1..4 the CCs) as st | d1 << 8 | d2 << 16 */
+static const uint8_t SOUND_CC[5] = {0, 7, 10, 91, 93};
+static uint32_t sound(const arr_trk_t *t, int k, uint8_t *v)
+{
+    uint32_t c = t->chan & 15u;
+    *v = k == 0 ? t->program : k == 1 ? t->vol : k == 2 ? t->pan : k == 3 ? t->rev : t->cho;
+    return k ? (0xB0u | c) | (uint32_t)SOUND_CC[k] << 8 | (uint32_t)*v << 16 : (0xC0u | c) | (uint32_t)*v << 8;
+}
+static void setup(void)
 {
     const pattern_t *p = &pat[cur];
     if (busy[cur])
         return;
-    for (int i = 0; i < ARR_TRACKS; i++) {
-        const arr_trk_t *t = &p->trk[i];
-        uint32_t c = t->chan & 15u;
-        const uint8_t v[5] = {t->program, t->vol, t->pan, t->rev, t->cho};
-        static const uint8_t cc[5] = {0, 7, 10, 91, 93};
+    for (int i = 0; i < ARR_TRACKS; i++)
         for (int k = 0; k < 5; k++) {
-            uint32_t st = k ? 0xB0u | c : 0xC0u | c, d1 = k ? cc[k] : v[k], d2 = k ? v[k] : 0;
-            gm_midi_now(st, d1, d2);
-            if (start && mout && out_sent[c][k] != v[k] && out_room(1)) {
-                arr_midi_out(st, d1, d2);
-                out_sent[c][k] = v[k];
-            }
+            uint8_t v;
+            uint32_t m = sound(&p->trk[i], k, &v);
+            gm_midi_now(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu);
         }
-    }
+    out_pend = mout;
+}
+static void sounds_out(void)
+{
+    const pattern_t *p = &pat[cur];
+    if (!out_pend || !mout || busy[cur])
+        return;
+    for (int i = 0; i < ARR_TRACKS; i++)
+        for (int k = 0; k < 5; k++) {
+            uint8_t v;
+            uint32_t m = sound(&p->trk[i], k, &v), c = m & 15u;
+            if (out_sent[c][k] == v)
+                continue;
+            if (!out_room(1))
+                return;                            /* the rest in a later block */
+            arr_midi_out(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu);
+            out_sent[c][k] = v;
+        }
+    out_pend = 0;
 }
 static void seek(void)                             /* each track's next event, from pos */
 {
@@ -216,7 +237,7 @@ static void sync(void)                             /* the playing slot reloaded:
         pos = 0;
     seek();
     if (arr_playing)
-        setup(0);
+        setup();
 }
 
 /* ------------------------------------------------------------ the clock --- */
@@ -233,7 +254,7 @@ static void transport_start(void)
     arr_sect = (uint8_t)(cur + 1);
     seen[cur] = gen[cur];
     seek();
-    setup(1);
+    setup();
     arr_playing = 1;
 }
 static void transport_stop(void)
@@ -249,6 +270,8 @@ static void tick(int play)
     const pattern_t *p = &pat[cur];
     uint32_t len, bar;
     arr_ticks++;
+    if (clk_out && !arr_ext)
+        out_rt(0xF8u);                             /* clock out first, 24 a quarter: a lost F8 is never made up */
     for (int t = 0; t < ARR_TRACKS; t++)           /* notes ending first */
         for (int i = tk[t].nh - 1; i >= 0; i--)
             if (--tk[t].h[i].left == 0)
@@ -261,7 +284,7 @@ static void tick(int play)
         pos = 0;
         seen[cur] = gen[cur];
         seek();
-        setup(0);
+        setup();
     }
     if (!busy[cur])
         for (int t = 0; t < ARR_TRACKS; t++) {
@@ -279,8 +302,6 @@ static void tick(int play)
             }
             tk[t].nx = (uint16_t)n;
         }
-    if (clk_out && !arr_ext && out_room(0))
-        arr_midi_out(0xF8u, 0, 0);                 /* clock out, 24 a quarter: our tick */
     len = pat_len(p);
     bar = bar_len(p);
     arr_bar = (uint16_t)(pos / bar);
@@ -343,7 +364,7 @@ static void clock_in(int msg)
     } else if (msg == ARR_CLK_CONTINUE) {
         if (!arr_playing) {
             seek();
-            setup(0);
+            setup();
         }
         clk_out = 0;
         arr_playing = 1;
@@ -392,6 +413,7 @@ static void drain(void)
             if (a && !mout) {
                 memset(out_sent, 0xFF, sizeof out_sent);   /* what the far side has: unknown */
                 mout = 1;
+                out_pend = arr_playing;
                 if (arr_playing && !arr_ext) {     /* playing on our clock: start the far side now */
                     clk_out = 1;
                     out_rt(0xFAu);
@@ -416,6 +438,11 @@ void arr_block(uint32_t frames)
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
     drain();
     sync();
+    if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
+        out_link = arr_midi_out_link();
+        memset(out_sent, 0xFF, sizeof out_sent);
+        out_pend = mout && arr_playing;
+    }
     if (arr_ext) {
         int n = 0;
         while (ext_pend && arr_playing) {          /* the clocks that came in since the last block */
@@ -423,6 +450,7 @@ void arr_block(uint32_t frames)
             tick(n++ < MAX_CATCHUP);
         }
         ext_pend = 0;
+        sounds_out();
         ext_age += frames;
         if (ext_age > EXT_TIMEOUT) {               /* the clock is gone: ours again, a tick from now; */
             arr_ext = 0;                           /* no clock out until our own next start */
@@ -437,6 +465,7 @@ void arr_block(uint32_t frames)
         ftt += (int32_t)fpt;
     }
     ftt -= (int32_t)(frames << 16);
+    sounds_out();
 }
 
 void arr_init(void)                                /* at boot, before the render runs */
@@ -463,6 +492,8 @@ void arr_init(void)                                /* at boot, before the render
     mout = clk_out = 0;
     out_owed = 0;
     memset(out_sent, 0xFF, sizeof out_sent);
+    out_pend = 0;
+    out_link = arr_midi_out_link();
     ftt = 0;
     fpt = (FRAMES_PER_TICK_1BPM / 120u) << 16 | ((FRAMES_PER_TICK_1BPM % 120u) << 16) / 120u;
     ext_pend = ext_age = 0;

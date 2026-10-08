@@ -108,6 +108,8 @@ void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { plat_midi_out(st >> 4
  * limits are tested in tests/host/arr_test.c, against a ring it fills and drains) */
 uint32_t plat_midi_out_room(void) { return 64u; }
 uint32_t arr_midi_out_room(void) { return plat_midi_out_room(); }
+uint32_t plat_midi_out_link(void) { return 0u; }
+uint32_t arr_midi_out_link(void) { return plat_midi_out_link(); }
 
 /* flash: one buffer per object, kept across a simulated reboot. store_len starts at -1 (absent) for
  * every object (a GNU range initialiser, so a new object added to plat.h is covered automatically;

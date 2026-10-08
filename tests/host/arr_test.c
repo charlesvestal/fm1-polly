@@ -32,6 +32,8 @@ void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2)
     }
 }
 uint32_t arr_midi_out_room(void) { return ring_cap - ring_used; }
+static uint32_t link_count;                   /* the USB connection: a new one when it counts up */
+uint32_t arr_midi_out_link(void) { return link_count; }
 
 static chord_t ch(int root, int type) { chord_t c = {(uint8_t)root, (uint8_t)type, CH_NOBASS}; return c; }
 
@@ -467,6 +469,70 @@ static void test_bounds(void)                 /* the work a block is bounded */
     CHECK(offs_match(stub_log, stub_n), "bunched: offs match");
 }
 
+static int count_st(int from, int to, int st)  /* MIDI out messages with this status high nibble (or exact F8) */
+{
+    int n = 0;
+    for (int i = from; i < to; i++)
+        n += st >= 0xF0 ? out_log[i].st == st : (out_log[i].st & 0xF0) == st;
+    return n;
+}
+/* every track on its own channel with its own program; 2 notes each on tick 0 */
+static void pattern_busy_downbeat(void)
+{
+    pat_new();
+    for (int t = 0; t < ARR_TRACKS; t++) {
+        P.trk[t].chan = (uint8_t)t;
+        P.trk[t].program = (uint8_t)(20 + t);
+        P.trk[t].x.type = XT_BYPASS;
+        add(t, 0, 12, 50 + 2 * t);
+        add(t, 0, 12, 51 + 2 * t);
+    }
+}
+
+static void test_clock_first(void)            /* the clock is never squeezed out by notes or sounds */
+{
+    int i, last_sound = -1;
+    reset();
+    pattern_busy_downbeat();
+    arr_load_pattern(0, &P);
+    ring_cap = 64;                            /* usb.c's ring, a healthy host reading it every block */
+    ring_drain = 64;
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_to(44100 - 200);
+    CHECK(count_st(0, out_n, 0xF8) == 48, "48 F8 in the first second at 120, got %d", count_st(0, out_n, 0xF8));
+    CHECK(out_log[0].st == 0xFA && out_log[1].st == 0xF8, "FA, then tick 0's F8 first");
+    CHECK(count_st(0, out_n, 0xC0) == 8 && count_st(0, out_n, 0xB0) == 32, "all 40 sounds out (%d %d)",
+          count_st(0, out_n, 0xC0), count_st(0, out_n, 0xB0));
+    CHECK(count_ons(out_log, 0, out_n) == 16, "the 16 notes of tick 0 out (%d)", count_ons(out_log, 0, out_n));
+    for (i = 0; i < out_n; i++)
+        if ((out_log[i].st & 0xF0) == 0xC0 || (out_log[i].st & 0xF0) == 0xB0)
+            last_sound = i;
+    CHECK(last_sound >= 0 && out_log[last_sound].frame <= 3 * 256, "the sounds within the first blocks (by %u)",
+          last_sound >= 0 ? out_log[last_sound].frame : 0);
+    CHECK(dropped == 0, "nothing dropped");
+    /* a new USB connection: the sounds again */
+    i = out_n;
+    link_count++;
+    run_blocks(4);
+    CHECK(count_st(i, out_n, 0xC0) == 8, "a new connection: the programs again (%d)", count_st(i, out_n, 0xC0));
+    /* a section change: Main B's changed sounds go out at its bar */
+    for (int t = 0; t < ARR_TRACKS; t++)
+        P.trk[t].program = (uint8_t)(40 + t);
+    P.trk[0].program = 20;                    /* one unchanged: not sent again */
+    arr_load_pattern(1, &P);
+    i = out_n;
+    arr_section(SEC_B);
+    run_to(2 * 44100 + 4 * 256);
+    CHECK(arr_sect == SEC_B, "Main B playing");
+    CHECK(count_st(i, out_n, 0xC0) == 7 && count_st(i, out_n, 0xB0) == 0, "Main B: its 7 new programs out (%d, %d CCs)",
+          count_st(i, out_n, 0xC0), count_st(i, out_n, 0xB0));
+    CHECK(find(out_log, out_n, i, 0xC1, 41) >= 0, "track 1's new program");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(out_log, out_n), "offs match");
+}
+
 static void test_transport_out(void)
 {
     int i, f8 = 0, fc = -1;
@@ -523,6 +589,7 @@ int main(void)
     test_reload();
     test_bounds();
     test_transport_out();
+    test_clock_first();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;
