@@ -244,7 +244,9 @@ static void test_midi_out(void)
     arr_set_chord(ch(9, CH_MIN7));
     arr_play(1);
     run_to(44100 - 200);
-    CHECK(out_n > 0 && out_log[0].st == 0xFA, "FA at start");
+    for (i = 0; i < out_n && ((out_log[i].st & 0xF0) == 0xC0 || (out_log[i].st & 0xF0) == 0xB0); i++)
+        ;                                     /* the sounds first */
+    CHECK(i < out_n && out_log[i].st == 0xFA, "FA at start, after the sounds");
     for (i = 0; i < out_n; i++)
         f8 += out_log[i].st == 0xF8;
     CHECK(f8 == 48, "24 clocks a quarter: 48 in a second at 120, got %d", f8);
@@ -476,24 +478,49 @@ static int count_st(int from, int to, int st)  /* MIDI out messages with this st
         n += st >= 0xF0 ? out_log[i].st == st : (out_log[i].st & 0xF0) == st;
     return n;
 }
-/* every track on its own channel with its own program; 2 notes each on tick 0 */
-static void pattern_busy_downbeat(void)
+/* every track on its own channel with its own program (40 sounds to send); `per` notes on tick 0 on the
+ * first `ntr` tracks */
+static void pattern_busy_downbeat(int ntr, int per)
 {
     pat_new();
     for (int t = 0; t < ARR_TRACKS; t++) {
         P.trk[t].chan = (uint8_t)t;
         P.trk[t].program = (uint8_t)(20 + t);
         P.trk[t].x.type = XT_BYPASS;
-        add(t, 0, 12, 50 + 2 * t);
-        add(t, 0, 12, 51 + 2 * t);
+        for (int k = 0; k < per && t < ntr; k++)
+            add(t, 0, 12, 50 + 2 * t + k);
     }
+}
+static int is_sound(const stub_msg_t *m) { return (m->st & 0xF0) == 0xC0 || (m->st & 0xF0) == 0xB0; }
+
+static void test_sounds_first(void)           /* at a start, the sounds before FA when they fit */
+{
+    int i, ok = 1;
+    reset();
+    pattern_busy_downbeat(4, 1);              /* 40 sounds, FA, F8, 4 notes and their offs: fits 64 */
+    arr_load_pattern(0, &P);
+    ring_cap = 64;
+    ring_drain = 64;
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_to(44100 - 200);
+    for (i = 0; i < 40; i++)
+        ok &= is_sound(&out_log[i]);
+    CHECK(ok && count_st(0, 40, 0xC0) == 8, "the 40 sounds first");
+    CHECK(out_log[40].st == 0xFA && out_log[41].st == 0xF8, "then FA, then tick 0's F8 (%02X %02X)", out_log[40].st, out_log[41].st);
+    CHECK(count_ons(out_log, 42, 46) == 4, "then tick 0's 4 notes");
+    CHECK(count_st(0, out_n, 0xF8) == 48, "48 F8 in the first second at 120, got %d", count_st(0, out_n, 0xF8));
+    CHECK(dropped == 0, "nothing dropped");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(out_log, out_n), "offs match");
 }
 
 static void test_clock_first(void)            /* the clock is never squeezed out by notes or sounds */
 {
     int i, last_sound = -1;
     reset();
-    pattern_busy_downbeat();
+    pattern_busy_downbeat(8, 2);              /* 40 sounds and 16 notes do not fit 64: the notes first */
     arr_load_pattern(0, &P);
     ring_cap = 64;                            /* usb.c's ring, a healthy host reading it every block */
     ring_drain = 64;
@@ -589,6 +616,7 @@ int main(void)
     test_reload();
     test_bounds();
     test_transport_out();
+    test_sounds_first();
     test_clock_first();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)

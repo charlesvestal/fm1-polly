@@ -218,6 +218,31 @@ static void sounds_out(void)
         }
     out_pend = 0;
 }
+/* at a start: the changed sounds to send, and tick 0's notes, fit the ring now with the note-offs owed and
+ * the reserve (each note-on needs room for itself and its note-off, see on_out)? */
+static int sounds_fit_first(void)
+{
+    const pattern_t *p = &pat[cur];
+    uint32_t need = 2;                             /* FA and tick 0's F8 */
+    if (busy[cur])
+        return 0;
+    for (int i = 0; i < ARR_TRACKS; i++) {
+        const arr_trk_t *t = &p->trk[i];
+        uint32_t e = ev_end(t);
+        for (int k = 0; k < 5; k++) {
+            uint8_t v, w;
+            uint32_t m = sound(t, k, &v), c = m & 15u;
+            int dup = 0;
+            for (int j = 0; j < i && !dup; j++)    /* an earlier track sends the same */
+                dup = (p->trk[j].chan & 15u) == c && (sound(&p->trk[j], k, &w), w == v);
+            need += out_sent[c][k] != v && !dup;
+        }
+        if (!tk[i].mute && !t->mute)
+            for (uint32_t n = t->first; n < e && p->ev[n].tick == 0; n++)
+                need += 2;
+    }
+    return arr_midi_out_room() >= out_owed + OUT_RESERVE + need;
+}
 static void seek(void)                             /* each track's next event, from pos */
 {
     const pattern_t *p = &pat[cur];
@@ -384,9 +409,12 @@ static void drain(void)
         case C_PLAY:
             if (a) {
                 clk_out = mout && !arr_ext;
-                if (clk_out)
-                    out_rt(0xFAu);                 /* first: the sounds and tick 0's notes follow */
                 transport_start();
+                if (clk_out) {                     /* the far side's sounds before its first downbeat, */
+                    if (sounds_fit_first())        /* when they fit with tick 0's notes; else after them */
+                        sounds_out();
+                    out_rt(0xFAu);                 /* then FA; tick 0 (F8, its notes) in this block */
+                }
             } else if (arr_playing) {
                 transport_stop();
                 if (clk_out)
