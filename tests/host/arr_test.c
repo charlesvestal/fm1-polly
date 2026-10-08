@@ -4,8 +4,8 @@
  *
  * Timing: EAS renders whole 256-frame output blocks (128 at 22.05 kHz) and takes MIDI between them; a note-on
  * starts on its sample within the block (gm_midi_now's at, recorded so by the stub): +-1 sample at 22.05 kHz,
- * +-2 output frames (ON_TOL). Everything else takes effect at the start of the block its tick falls in: up to
- * 256 frames early (TOL, for note-offs and chord changes). */
+ * +-2 output frames (ON_TOL). A note-off goes to the block start nearest its time (+-128 frames); everything
+ * else (chord changes) to the start of the block its time falls in, up to 256 frames early (TOL). */
 #include <stdio.h>
 #include <string.h>
 #include "arr.h"
@@ -103,14 +103,20 @@ static int find(const stub_msg_t *log, int n, int from, int st, int d1)
     return -1;
 }
 static int is_on(const stub_msg_t *m) { return (m->st & 0xF0) == 0x90 && m->d2; }
-/* a note-on on its frame (+-ON_TOL); anything else at the start of the block its frame falls in */
+static int is_off(const stub_msg_t *m);
+/* a note-on on its frame (+-ON_TOL), a note-off at the block start nearest it, anything else at the start of
+ * the block its frame falls in */
 static int near(const stub_msg_t *log, int i, float frame)
 {
     float d;
     if (i < 0)
         return 0;
     d = (float)log[i].frame - frame;
-    return is_on(&log[i]) ? d <= ON_TOL && d >= -ON_TOL : d <= 0.f && d > -TOL;
+    if (is_on(&log[i]))
+        return d <= ON_TOL && d >= -ON_TOL;
+    if (is_off(&log[i]))
+        return d <= 128.f + ON_TOL && d >= -128.f - ON_TOL;
+    return d <= 0.f && d > -TOL;
 }
 static int is_off(const stub_msg_t *m) { return (m->st & 0xF0) == 0x80 || ((m->st & 0xF0) == 0x90 && !m->d2); }
 /* every note-on has a later note-off on the same channel and note, and no off is left over */
@@ -670,10 +676,65 @@ static void test_tempos(void)
     }
 }
 
+/* note lengths right on average: note-offs at the block start nearest their time, so a note's length is
+ * within +-128 frames of its own and right on average; and a note-off never lands after a note-on of the same
+ * note that follows it (the same note again, its off held for the next block, would end the new one).
+ * Within 3 frames on average (block-start note-offs were 128 short): a tempo's ticks fall on a few dozen
+ * places in the block, not all, so the rounding does not quite average out (97..240 BPM: 1.2 to 2.0) */
+static void test_lengths(void)
+{
+    static const int bpm[] = {97, 120, 133, 240};
+    for (int b = 0; b < 4; b++) {
+        float fpt = 110250.f / (float)bpm[b], sum = 0.f, worst = 0.f;
+        int n = 0, cut = 0;
+        reset();
+        pat_new();
+        for (int t = 0; t < 96; t++)                /* track 0: lengths 1..5, eight notes round */
+            add(0, t, 1 + t % 5, 35 + t % 8);
+        for (int t = 0; t < 96; t += 2)             /* track 1: one note again and again, each ending as the next starts */
+            add(1, t, 2, 60);
+        arr_load_pattern(0, &P);
+        arr_set_tempo(bpm[b]);
+        arr_play(1);
+        run_to((uint32_t)(8 * 96 * fpt));          /* eight bars */
+        arr_play(0);
+        run_blocks(2);
+        for (int i = 0; i < stub_n; i++) {
+            int len;
+            if (!is_on(&stub_log[i]) || stub_log[i].st != 0x99)
+                continue;
+            for (int j = i + 1; j < stub_n; j++) {
+                if (stub_log[j].d1 != stub_log[i].d1 || (stub_log[j].st & 15) != 9)
+                    continue;
+                if (is_on(&stub_log[j])) {         /* the same note again before its off: cut */
+                    cut++;
+                    break;
+                }
+                len = (int)(stub_log[j].frame - stub_log[i].frame);
+                if (stub_log[i].d1 != 60 && stub_log[j].frame < (uint32_t)(8 * 96 * fpt) - 512) {
+                    /* track 0's: the nominal length from the tick (each note's index in the log is its tick) */
+                    float want = (float)(1 + (int)((float)stub_log[i].frame / fpt + 0.5f) % 96 % 5) * fpt, d = (float)len - want;
+                    sum += d;
+                    if ((d < 0 ? -d : d) > worst)
+                        worst = d < 0 ? -d : d;
+                    n++;
+                }
+                break;
+            }
+        }
+        printf("  %3d BPM: %d notes, length off by %.2f frames on average, %.0f at most\n", bpm[b], n, sum / (float)n, worst);
+        CHECK(n > 600, "%d BPM: notes measured (%d)", bpm[b], n);
+        CHECK(sum / (float)n < 3.f && sum / (float)n > -3.f, "%d BPM: lengths right on average (%.2f frames off)", bpm[b], sum / (float)n);
+        CHECK(worst <= 128.f + ON_TOL, "%d BPM: each within half a block (%.0f)", bpm[b], worst);
+        CHECK(cut == 0, "%d BPM: %d notes ended by a later note-off of their own", bpm[b], cut);
+    }
+}
+
 int main(void)
 {
     test_timing();
     test_tempos();
+    test_lengths();
     test_restrike();
     test_mute();
     test_midi_out();

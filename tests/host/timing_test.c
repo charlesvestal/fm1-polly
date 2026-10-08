@@ -5,6 +5,8 @@
  *              engine's (REF_HASH, taken from the engine before the start offsets went in)
  *   offsets:   an isolated note started k samples into a block (k 0..127, six sounds) is silent before k
  *              and sounds from output frame 2k (+-2; plus the sound's own first-sample silence at k = 0)
+ *   attack:    a note started k samples in renders its first 128 - k samples exactly as one started at 0
+ *   steal:     a note-on stealing a voice started in the same block starts on its own sample
  *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2)
  *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only)
  *
@@ -152,11 +154,15 @@ static double bench(void)
 static uint32_t frame_now;                         /* output frames rendered since the start */
 static int32_t trace[6 * 44100];                   /* 6 s from mark(): nonzero where either side is */
 static uint32_t trace_from, trace_n;
+#define SNAP_BLOCKS 8
+static int32_t snap[2 * BLK * SNAP_BLOCKS];         /* the first blocks from mark(), both sides */
 static void mark(void) { trace_from = frame_now; trace_n = 0; }
 static void render_blocks(int n)
 {
     while (n-- > 0) {
         gm_render(buf, BLK, 4096);
+        if (trace_n < BLK * SNAP_BLOCKS)
+            memcpy(&snap[2 * trace_n], buf, sizeof buf);
         for (int i = 0; i < BLK; i++)
             if (trace_n < sizeof trace / sizeof trace[0])
                 trace[trace_n++] = buf[2 * i] | buf[2 * i + 1];    /* nonzero when either side is */
@@ -211,6 +217,85 @@ static void test_offsets(void)
             CHECK(first_sound(0) >= BLK, "%s k %d: silent before its block", snd[s].name, k);
             CHECK(f >= 2 * k - 2 && f <= 2 * k + 2 + f0, "%s k %d: first sound at %d, want %d (+-2)", snd[s].name, k, f, 2 * k);
         }
+    }
+}
+
+/* the attack is the same wherever a note starts: the first 128 - k samples of a note started k samples into a
+ * block equal a note started on a block's, sample for sample (EAS's 22.05 kHz samples are gm.c's odd output
+ * frames). Each render from a fresh synth: Sonivox leaves a voice's fractional sample phase where its last
+ * note left it (WT_StartVoice does not reset phaseFrac), so a note's sub-sample phase depends on the voice's
+ * history; a fresh synth gives both notes the same */
+static void fresh(uint32_t ch, uint32_t prog)
+{
+    gm_init();                                     /* the host pool starts over (eas_host_fm1.c) */
+    if (ch != 9)
+        gm_midi(0xC0u | ch, prog, 0);
+    sends_off(ch);
+    render_blocks(2);
+}
+static int32_t snap0[2 * BLK * SNAP_BLOCKS];
+static void test_attack(void)
+{
+    static const struct { uint8_t ch, prog, note; const char *name; } snd[] = {
+        {0, 0, 60, "piano C4"}, {1, 16, 64, "organ E4"}, {2, 56, 72, "trumpet C5"},
+        {9, 0, 38, "snare"}, {9, 0, 42, "closed hat"}, {9, 0, 36, "kick"},
+    };
+    static const int ks[] = {1, 37, 64, 100, 127};
+    for (int s = 0; s < (int)(sizeof snd / sizeof snd[0]); s++) {
+        for (int j = -1; j < (int)(sizeof ks / sizeof ks[0]); j++) {
+            int k = j < 0 ? 0 : ks[j], diff = 0, sum0 = 0, sumk = 0;
+            fresh(snd[s].ch, snd[s].prog);
+            mark();
+            render_blocks(1);
+            gm_midi_now(0x90u | snd[s].ch, snd[s].note, 127, (uint32_t)k);
+            render_blocks(SNAP_BLOCKS - 1);
+            gm_midi_now(0x80u | snd[s].ch, snd[s].note, 0, 0);
+            if (k == 0) {
+                memcpy(snap0, snap, sizeof snap);
+                continue;
+            }
+            for (int i = 0; i < GM_BLOCK - k; i++)
+                for (int c = 0; c < 2; c++) {
+                    int32_t a = snap0[2 * (BLK + 2 * i + 1) + c], b = snap[2 * (BLK + 2 * (i + k) + 1) + c];
+                    diff += a != b;
+                    if (i < 8) {
+                        sum0 += a < 0 ? -a : a;
+                        sumk += b < 0 ? -b : b;
+                    }
+                }
+            CHECK(diff == 0, "%s k %d: the first %d samples as at k 0 (%d differ)", snd[s].name, k, GM_BLOCK - k, diff);
+            CHECK(sum0 == sumk, "%s k %d: the first 8 samples' level %d, at k 0 %d", snd[s].name, k, sumk, sum0);
+        }
+    }
+}
+
+/* a note-on that steals a voice started in the same block (a third C4 on a channel: Sonivox keeps two) starts
+ * on its own sample: C4 at 20, 50, 100 (the one at 20 stolen) sounds as C4 at 50 and 100 alone */
+static void test_steal(void)
+{
+    static const int ks[][3] = {{20, 50, 100}, {0, 10, 127}, {90, 30, 60}};
+    for (int t = 0; t < 3; t++) {
+        int diff = 0, first = -1;
+        for (int pass = 0; pass < 2; pass++) {
+            fresh(0, 0);
+            mark();
+            render_blocks(1);
+            for (int n = pass; n < 3; n++)          /* pass 0: all three; pass 1: the two that stay */
+                gm_midi_now(0x90u, 60, 100, (uint32_t)ks[t][n]);
+            render_blocks(SNAP_BLOCKS - 1);
+            gm_midi_now(0x80u, 60, 0, 0);
+            gm_midi_now(0x80u, 60, 0, 0);
+            if (pass == 0)
+                memcpy(snap0, snap, sizeof snap);
+        }
+        for (int i = 0; i < 2 * BLK * SNAP_BLOCKS; i++)
+            diff += snap0[i] != snap[i];
+        for (int i = 0; i < BLK * SNAP_BLOCKS && first < 0; i++)
+            if (snap0[2 * i] | snap0[2 * i + 1])
+                first = i - BLK;
+        printf("  steal %3d %3d %3d: first sound at frame %d of its block, %d samples differ from the two alone\n",
+               ks[t][0], ks[t][1], ks[t][2], first, diff);
+        CHECK(diff == 0, "steal %d %d %d: as the two notes alone (%d samples differ)", ks[t][0], ks[t][1], ks[t][2], diff);
     }
 }
 
@@ -277,6 +362,8 @@ int main(int argc, char **argv)
         return 0;
     }
     test_offsets();
+    test_attack();
+    test_steal();
     test_arranger();
     CHECK(h == REF_HASH, "plain MIDI renders as the unmodified engine: hash 0x%08x, want 0x%08x", h, REF_HASH);
     printf("%d checks, %d failed\n", checks, fails);

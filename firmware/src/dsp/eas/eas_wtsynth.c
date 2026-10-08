@@ -551,9 +551,13 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
     /* establish pointers to critical data */
     pWTVoice = &pVoiceMgr->wtVoices[voiceNum];
 
-    /* Polly: a note's first block may start `delay` samples in (its note-on was due there): silent before, and
-     * the rest of the block rendered as the first block always is (envelopes, LFO, filter, pitch the same),
-     * only shorter, its gain ramp over the samples it has. Every later block is untouched. */
+    /* Polly: a note's first block may start `delay` samples in (its note-on was due there): silent before it,
+     * then the first 128 - delay samples of the first block exactly as a note started at the block's start
+     * renders them (the same pitch, filter, and gain ramp: 0 towards the block's target by the same step);
+     * the gain reached there, not the target, carries on into the next block, so the attack is the same
+     * wherever the note starts. The envelopes and the LFO still step once a block, a whole block on this
+     * shortened one: from here on the note's envelope runs up to `delay` samples (< 5.8 ms) ahead of a note
+     * started on a block, its attack and decay that much shorter. */
     delay = pWTVoice->startDelay;
     pWTVoice->startDelay = 0;
     if (delay >= numSamples)
@@ -617,7 +621,6 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
     intFrame.pAudioBuffer = pVoiceMgr->voiceBuffer;
     intFrame.pMixBuffer = pMixBuffer + delay * NUM_OUTPUT_CHANNELS;    /* Polly: + delay */
     intFrame.numSamples = numSamples;
-    intFrame.rampSamples = numSamples - delay;                          /* Polly */
 
     /* check for end of sample */
     if ((pWTVoice->loopStart != WT_NOISE_GENERATOR) && (pWTVoice->loopStart == pWTVoice->loopEnd))
@@ -669,6 +672,16 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
      * very close to the target gain.
      */
     pVoice->gain = (EAS_I16) intFrame.frame.gainTarget;
+
+    /* Polly: a shortened first block stops part way up its ramp: the gain reached (as WT_VoiceGain steps it) */
+    if (delay)
+    {
+        temp = (intFrame.frame.gainTarget - intFrame.prevGain) * (1 << 16) / BUFFER_SIZE_IN_MONO_SAMPLES;
+        if (temp < 0)
+            temp++;
+        temp = (intFrame.prevGain * (1 << 16) + temp * (numSamples - delay)) / (1 << 16);
+        pVoice->gain = (EAS_I16) temp;
+    }
 
     return done;
 }

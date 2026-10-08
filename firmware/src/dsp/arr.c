@@ -90,6 +90,9 @@ static uint8_t out_pend;                           /* the playing pattern's soun
 static uint32_t out_link;                          /* the connection they were sent on */
 static int ons_left;                               /* note-ons this block may still start */
 static uint32_t at;                                /* the tick playing: its sample within the EAS block (gm_midi_now) */
+#define LATE_OFFS 64                               /* note-offs held for the next block's start, at most */
+static uint16_t late_off[LATE_OFFS];               /* chan << 8 | note */
+static int n_late;
 static uint8_t start_wait;                         /* a start waiting for its sounds to go out: blocks waited + 1 */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length */
@@ -137,10 +140,36 @@ static void on_out(held_t *h)
         out_owed++;
     }
 }
+/* the synth takes a note-off at a block's start: one due in a block's second half goes at the next one's, so
+ * a release is +-2.9 ms from its time and a note's length right on average. A note-on of the same note before
+ * then sends it first (never after the note-on: it would end the new note). */
+static void synth_off(uint32_t chan, uint32_t note)
+{
+    if (at >= GM_BLOCK / 2 && n_late < LATE_OFFS)
+        late_off[n_late++] = (uint16_t)(chan << 8 | note);
+    else
+        gm_midi_now(0x80u | chan, note, 0, 0);
+}
+static void late_offs(void)                        /* the held note-offs, now */
+{
+    for (int i = 0; i < n_late; i++)
+        gm_midi_now(0x80u | (late_off[i] >> 8), late_off[i] & 0x7Fu, 0, 0);
+    n_late = 0;
+}
+static void synth_on(uint32_t chan, uint32_t note, uint32_t vel)
+{
+    for (int i = 0; i < n_late; i++)
+        if (late_off[i] == (chan << 8 | note)) {
+            gm_midi_now(0x80u | chan, note, 0, 0);
+            late_off[i] = late_off[--n_late];
+            break;
+        }
+    gm_midi_now(0x90u | chan, note, vel, at);
+}
 static void note_end(track_t *t, int i)            /* the note-off goes to the note it struck */
 {
     held_t *h = &t->h[i];
-    gm_midi_now(0x80u | h->chan, h->out, 0, at);
+    synth_off(h->chan, h->out);
     off_out(h);
     held_remove(t, i);
 }
@@ -170,7 +199,7 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
     h->chan = (uint8_t)chan;
     h->mo = 0;
     h->left = (uint16_t)(len ? len : 1);
-    gm_midi_now(0x90u | (uint32_t)chan, (uint32_t)out, h->vel, at);
+    synth_on((uint32_t)chan, (uint32_t)out, h->vel);
     on_out(h);
     arr_track_hit[ti] = arr_ticks;
 }
@@ -368,10 +397,10 @@ static void chord_change(chord_t c)
                 continue;
             }
             ons_left--;
-            gm_midi_now(0x80u | h->chan, h->out, 0, 0);
+            synth_off(h->chan, h->out);
             off_out(h);
             h->out = (uint8_t)out;
-            gm_midi_now(0x90u | h->chan, h->out, h->vel, 0);
+            synth_on(h->chan, h->out, h->vel);
             on_out(h);
         }
     }
@@ -468,6 +497,7 @@ void arr_block(uint32_t frames)
 {
     const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
+    late_offs();                                   /* the last block's late note-offs: at this one's start */
     drain();
     sync();
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
@@ -542,6 +572,7 @@ void arr_init(void)                                /* at boot, before the render
     out_link = arr_midi_out_link();
     ftt = 0;
     at = 0;
+    n_late = 0;
     fpt = (FRAMES_PER_TICK_1BPM / 120u) << 16 | ((FRAMES_PER_TICK_1BPM % 120u) << 16) / 120u;
     ext_pend = ext_age = 0;
     arr_playing = 0;

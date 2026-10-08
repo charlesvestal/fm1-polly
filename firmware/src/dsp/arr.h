@@ -67,9 +67,10 @@ _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
  * reaches the synth between blocks, on 256-frame boundaries of the 44.1 kHz output (5.8 ms). The clock itself
  * is exact (a Q16 frames-to-the-next-tick count, no drift): each tick due within a block is played before it,
  * its note-ons with their sample in it (gm_midi_now's at), so they start on their exact sample (+-1 at
- * 22.05 kHz). The rest takes effect at the start of the block the tick falls in: note-offs (a release up to
- * 5.8 ms early), programs and controllers, MIDI out (up to 5.8 ms late: the USB ring is sent from the main
- * loop anyway), and everything when following a MIDI clock in. */
+ * 22.05 kHz). Note-offs go to the block start nearest their time (+-2.9 ms: lengths right on average, a
+ * note-off never before its note-on). The rest takes effect at the start of the block the tick falls in:
+ * programs and controllers, MIDI out (up to 5.8 ms late: the USB ring is sent from the main loop anyway),
+ * and everything when following a MIDI clock in. */
 void arr_init(void);
 void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */

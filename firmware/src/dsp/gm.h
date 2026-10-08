@@ -16,10 +16,11 @@ void gm_midi(uint32_t st, uint32_t d1, uint32_t d2);   /* a channel message (2 o
 /* the same, straight into the synth: only from inside gm_render (the arranger, between EAS blocks). The
  * queue above keeps its single producer (the main loop); the render writes the synth itself.
  * at: when it is due within the coming EAS block, in its samples (22.05 kHz, 0..GM_BLOCK-1). A note-on starts
- * on that sample (the voice silent before it, its sound otherwise as from a block start); everything else,
- * note-offs included, takes effect at the block's start (a release up to a block early: 5.8 ms).
- * A note-on that has to steal a voice (all 32 busy, or a third of the same note on a channel) starts in a
- * later block, at its start, as Sonivox does. */
+ * on that sample (the voice silent before it, its first samples as a note started on a block renders them);
+ * everything else, note-offs included, takes effect at the block's start.
+ * A note-on that steals a voice (all 32 busy, or a third of the same note on a channel) starts on its sample
+ * too when the voice is already silent (say, itself started in this block); when the voice is still sounding
+ * it fades out over this block and the note starts at the next block's start, as Sonivox does. */
 #define GM_BLOCK 128                       /* samples an EAS block (22.05 kHz): 256 output frames */
 void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2, uint32_t at);
 void gm_panic(void);                       /* all notes off, all channels */

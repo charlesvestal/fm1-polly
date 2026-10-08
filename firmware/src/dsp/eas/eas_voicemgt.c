@@ -1418,6 +1418,7 @@ static void VMStolenVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_I32 voic
     pVoice->nextNote = note;
     pVoice->nextVelocity = velocity;
     pVoice->nextRegionIndex = regionIndex;
+    pVoice->nextStartDelay = pVoiceMgr->startDelay;     /* Polly */
 
     /* one more voice in new pool */
     IncVoicePoolCount(pVoiceMgr, pVoice);
@@ -3040,8 +3041,16 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
 
         /* retarget stolen voices */
         // TODO: do we really need gain <= 0
+        /* Polly: a voice stolen and already silent starts its new note on the sample it was due, when that is
+         * in this block (stolen since the last render); one still fading out starts it at a later block's
+         * start, as soon as it is silent */
         if ((pSynthVoice->voiceState == eVoiceStateStolen) && (pSynthVoice->gain <= 0))
+        {
+            pVoiceMgr->startDelay = pSynthVoice->nextStartDelay;
             VMRetargetStolenVoice(pVoiceMgr, voiceNum);
+            pVoiceMgr->startDelay = 0;
+        }
+        pSynthVoice->nextStartDelay = 0;                /* Polly: only for the block it was due in */
 
         /* get pointer to virtual synth */
         pSynth = pVoiceMgr->pSynth[channel >> 4];

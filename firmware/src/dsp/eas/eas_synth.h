@@ -242,6 +242,7 @@ typedef struct s_synth_voice_tag
     EAS_I16             gain;               /* current gain */
     EAS_U16             age;                /* large value means old note */
     EAS_U16             nextRegionIndex;    /* index to wave and playback params */
+    EAS_U8              nextStartDelay;     /* Polly: the stolen voice's new note-on: its sample in the block it was due in */
     EAS_U8              voiceState;         /* current voice state */
     EAS_U8              voiceFlags;         /* misc flags/bit fields */
     EAS_U8              channel;            /* this voice plays on this synth channel */

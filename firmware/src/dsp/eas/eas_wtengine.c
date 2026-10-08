@@ -113,9 +113,7 @@ void WT_VoiceGain (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pWTIntFrame)
     pMixBuffer = pWTIntFrame->pMixBuffer;
     pInputBuffer = pWTIntFrame->pAudioBuffer;
 
-    /* Polly: over rampSamples (BUFFER_SIZE_IN_MONO_SAMPLES, but fewer in the first block of a note started
-     * within it), so the ramp ends on the target where the block ends */
-    gainIncrement = (pWTIntFrame->frame.gainTarget - pWTIntFrame->prevGain) * (1 << 16) / pWTIntFrame->rampSamples;
+    gainIncrement = (pWTIntFrame->frame.gainTarget - pWTIntFrame->prevGain) * (1 << 16) / BUFFER_SIZE_IN_MONO_SAMPLES;
     // EAS_Report(_EAS_SEVERITY_DETAIL, "%s: prevGain %ld, gainTarget %ld\n", __func__, (long)pWTIntFrame->prevGain, (long)pWTIntFrame->frame.gainTarget);
     if (gainIncrement < 0)
         gainIncrement++;

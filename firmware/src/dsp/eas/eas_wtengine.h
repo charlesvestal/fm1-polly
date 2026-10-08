@@ -68,7 +68,6 @@ typedef struct s_wt_int_frame_tag
     EAS_I32         *pMixBuffer;
     EAS_I32         numSamples;
     EAS_I32         prevGain;
-    EAS_I32         rampSamples;    /* Polly: the gain ramps from prevGain to gainTarget over this many samples */
 } S_WT_INT_FRAME;
 
 
