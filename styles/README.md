@@ -123,6 +123,8 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 | 12 | Country | 114 | GMD drummer 1, country 114 (a train beat: sixteenths on the snare, accents on the ands): A bars 2-3, B 6-7 + tambourine and a crash, fill 12, ending 4 + hits | boom-chick: bass root on 1, fifth on 3, steel-string strums rolled on 2 and 4, a walk up 5-6-7 | a fiddle line (the GM set has no pedal steel), honky-tonk piano eighths | the bass walks up the chord | the 5-6-7 tag into the root, a rolled chord held |
 | 13 | Gospel | 66 (dotted quarters) | by hand (the dataset's 6/8 takes are rock): kick 1 and 3 with a triplet pickup, cross-stick (A) or snare and tambourine (B) on 2 and 4, hi-hat (A) or ride (B) triplets | bass root-fifth with triplet pickups, piano triplet chords, drawbar organ held | a choir on the chord, the bass walking in triplets, organ up, a crash | a triplet snare and tom run | the chord held |
 | 14 | Waltz | 150 (3/4) | by hand: kick on 1, snare and hi-hat on 2 and 3; B on the ride | oom-pah-pah: the bass on 1 (root, then the fifth), accordion on 2 and 3, soft strings | a violin melody, the bass walking on 3, strings up | the bass climbs, a violin pickup | the chord on the one |
+| 15 | Latin | 190 | by hand: the 2-3 son clave on claves, the conga tumbao (slap on 2, open tones on 4 and its and), maracas; B adds the cowbell on the beat, timbale accents and a crash | the bass tumbao (the and of 2, beat 4 held over the bar line), piano montuno in two alternating voicings, soft strings | a trombone mambo riff, strings up | a timbale roll | the clave's 3 side, the chord on the one |
+| 16 | Ambient | 70 | none in A; B a soft shaker and triangles | two pads on Chord 2 breathing in turn (a warm pad on the bar, a halo pad from beat 3 over the bar line), a celesta arpeggio, a sub bass holding the root | the shaker and triangles, a vibraphone second voice, pads up | the arpeggio climbs | the root chord held, the arpeggio thinning and fading |
 
 (The bar numbers above count from 1; `start=` counts from 0.)
 
@@ -132,7 +134,8 @@ style is written as 4/4 with each beat split in three triplet eighths, at ticks 
 ...` steps a triplet eighth), and its tempo counts the dotted quarters. The Gospel style does this; the chord
 track and sections then stay on the dotted-quarter beat, as they would in 12/8.
 
-House's drums are written by hand: the dataset is played on a kit, and house is programmed. Gospel's and the
+Latin's percussion is written by hand: the dataset's latin takes are kit grooves without the clave, congas
+and cowbell salsa needs. House's drums are written by hand: the dataset is played on a kit, and house is programmed. Gospel's and the
 Waltz's too: the dataset's 6/8 and 3/4 takes are rock, jazz and Latin. Bossa's drums are
 written by hand: the dataset's bossa takes (drummer 5, 127) are improvised around the
 groove, the cross-stick sparse and the kick at ghost level, and a style needs the steady bossa clave.
@@ -147,7 +150,7 @@ groove, the cross-stick sparse and the kick at ghost level, and a style needs th
   its `ALLOW` list (style, track, interval, chord type).
 - `sh tools/render_styles.sh [NN ...]` renders `build/styles/NN.wav`: the style at its tempo over the Pop
   template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz; Reggae and House
-over Pop and Minor; Disco and Country over Pop and Minor; Hip hop over Minor and Vamp; Gospel over Pop and
+over Pop and Minor; Disco, Country and Latin over Pop and Minor; Ambient over Pop and Canon; Hip hop over Minor and Vamp; Gospel over Pop and
 the Gospel template; the Waltz three times over the Waltz template), each pass Main A,
   Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit between -25 and -29 dBFS RMS at
   the default master, with no sample at the synth's limit).

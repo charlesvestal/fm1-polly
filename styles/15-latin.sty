@@ -1,0 +1,121 @@
+# Latin: a son / salsa at ~190 on a 2-3 son clave, written for Polly over C M7. Drums by hand: the Groove MIDI
+# Dataset's latin takes are kit grooves, and salsa needs the clave, congas, cowbell and timbales.
+# Patterns are two bars, the length of the clave: bar 1 its 2 side, bar 2 its 3 side.
+# Main A: claves, the conga tumbao (slap on 2, open tones on 4 and its and), maracas, the bass tumbao
+# (the and of 2 and beat 4, anticipating), the piano montuno in two alternating voicings, soft strings.
+# Main B: the cowbell on the beat, timbale accents, a crash, a trombone mambo riff, the strings up.
+style Latin
+tempo 190
+
+track d1 type=bypass chan=10 vol=100 rev=30
+track d2 type=bypass chan=10 vol=100 rev=30   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=100 rev=30
+track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=114 rev=16
+track c1 type=chord1 program=0 chan=3 lo=G3 hi=G5 hikey=F# vol=92 pan=50 rev=40
+track c2 type=chord1 program=57 chan=4 lo=G3 hi=E5 hikey=F# vol=74 pan=80 rev=40
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=46 pan=64 rev=60
+
+[main a]
+bars 2
+beats 4
+track d1
+# the 2-3 son clave
+grid 1.1 e claves ..7.7...|7..7..7.
+# congas: the tumbao, slap on 2, open tones on 4 and 4-and
+grid 1.1 e mhconga 3363.3..|3363.3..
+grid 1.1 e hconga  ......76|......76
+grid 1.1 e lconga  ....3...|....3...
+track pc
+grid 1.1 e maracas 43434343|43434343
+track ba
+# the tumbao: the and of 2, then beat 4 held across the bar line
+1.2.12 G1 30 100
+1.4.0  C2 34 108
+2.2.12 G1 30 100
+2.4.0  C2 34 108
+track c1
+# montuno: two voicings alternating in a syncopated eighth pattern over the clave
+grid 1.1 e G4+C5+E5 x..x..x.|..x..x.. len=10
+grid 1.1 e E4+G4+C5 ..x..x..|x..x..xx len=10
+track c3
+1.1.0  G3+C4+E4 96 40
+2.1.0  G3+C4+E4 96 36
+
+[main b]
+bars 2
+beats 4
+track d1
+grid 1.1 e claves ..7.7...|7..7..7.
+grid 1.1 e mhconga 3363.3..|3363.3..
+grid 1.1 e hconga  ......76|......76
+grid 1.1 e lconga  ....3...|....3...
+track d2
+1.1.0 crash 24 80
+# the campana (cowbell) on every beat, the downbeats strong
+grid 1.1 q cowbell 7565|7565
+grid 1.1 e htimbale .......6|...5...6
+track pc
+grid 1.1 e maracas 43434343|43434343
+track ba
+1.2.12 G1 30 102
+1.4.0  C2 34 110
+2.2.12 E2 30 100
+2.4.0  C2 34 110
+track c1
+grid 1.1 e G4+C5+E5 x..x..x.|..x..x.. len=10
+grid 1.1 e E4+G4+C5 ..x..x..|x..x..xx len=10
+track c2
+# trombones: a mambo riff, short and punchy, on the and of 2 and the and of 4
+1.2.12 E4+G4+C5 8 100
+1.3.0  E4+G4+C5 6 86
+1.4.12 E4+G4+C5 10 104
+2.2.12 G4+C5+E5 8 100
+2.3.0  G4+C5+E5 6 86
+2.4.12 E4+G4+C5 10 104
+track c3
+1.1.0  G3+C4+E4 96 58
+2.1.0  G3+C4+E4 96 54
+
+[fill]
+bars 1
+beats 4
+track d1
+grid 1.1 e claves ..7.7...
+grid 1.1 e mhconga 3363....
+# a timbale roll down into the next bar
+grid 1.3 s htimbale 5566
+grid 1.4 s ltimbale 6778
+track ba
+1.2.12 G1 30 100
+1.4.0  C2 10 108
+1.4.12 C2 10 110
+track c1
+grid 1.1 e G4+C5+E5 x..x..x. len=10
+1.4.12 E4+G4+C5 10 104
+track c3
+1.1.0  G3+C4+E4 96 44
+
+[ending]
+bars 2
+beats 4
+track d1
+grid 1.1 e claves ..7.7...|7.......
+grid 1.1 e mhconga 3363.3..|........
+grid 1.1 e hconga  ......76|........
+2.1.0 htimbale 12 100
+2.1.0 crash 72 84
+track ba
+1.2.12 G1 30 100
+1.4.0  C2 12 108
+1.4.12 C2 12 110
+2.1.0  C2 48 112
+track c1
+grid 1.1 e G4+C5+E5 x..x..x.|........ len=10
+1.4.12 E4+G4+C5 10 100
+2.1.0  E4+G4+C5 48 104
+track c2
+1.4.12 E4+G4+C5 10 100
+2.1.0  G4+C5+E5 36 108
+track c3
+1.1.0  G3+C4+E4 96 40
+2.1.0  G3+C4+E4 48 50

@@ -3,7 +3,7 @@
 # Render factory styles to WAVs in the host simulator, for listening: build/styles/NN.wav plays the style
 # (picked for song 1's four sections, at its own tempo) over the Pop template, the 12-bar blues and the
 # Minor template; Bossa and Swing also over ii-V-I and Jazz; Reggae, House, Disco and Country over Pop and
-# Minor; Hip hop over Minor and Vamp; Gospel over Pop and Gospel; Waltz over the Waltz template. Each pass: Main A, Main B, the fill, Main A,
+# Minor (and Latin); Ambient over Pop and Canon; Hip hop over Minor and Vamp; Gospel over Pop and Gospel; Waltz over the Waltz template. Each pass: Main A, Main B, the fill, Main A,
 # the ending (8 bars). Prints each WAV's level.
 #   sh tools/render_styles.sh [NN ...]        (default: every style)
 set -e
@@ -19,7 +19,9 @@ for nn in "$@"; do
     bar=$((60000 * ${beats:-4} / tempo))
     case "$f" in                                  # template numbers (templates.c): the progressions it suits
         *bossa*|*swing*) tmpls="0 4 7 3 12" ;;    # + ii-V-I, Jazz
+        *latin*) tmpls="0 7 0" ;;                 # Pop, Minor, Pop (its bars are short)
         *reggae*|*house*|*disco*|*country*) tmpls="0 7" ;;   # Pop, Minor
+        *ambient*) tmpls="0 8" ;;                 # Pop, Canon
         *gospel*) tmpls="0 14" ;;                 # Pop, Gospel
         *waltz*) tmpls="15 15 15" ;;              # Waltz, three times (its bars are short)
         *hiphop*) tmpls="7 13" ;;                 # Minor, Vamp

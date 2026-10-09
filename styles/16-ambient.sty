@@ -1,0 +1,136 @@
+# Ambient: a slow pad style at ~70, written for Polly over C M7 (no drums in A; a little percussion in B).
+# Main A: two pads on Chord 2 breathing in turn (a warm pad on the bar, a halo pad entering on beat 3 and
+# held into the next), a soft celesta arpeggio on Chord 1, a sub bass holding the root.
+# Main B: a shaker and a triangle, the arpeggio in a second voice an octave up, the pads up.
+# The ending holds the root chord and fades.
+style Ambient
+tempo 70
+
+track d1 type=bypass chan=10 vol=100 rev=90
+track d2 type=bypass chan=10 vol=100 rev=90   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=100 rev=90
+track ba type=bass program=38 chan=2 lo=C1 hi=C3 hikey=F# vol=120 rev=30
+track c1 type=chord1 program=8 chan=3 lo=G4 hi=G6 hikey=F# vol=96 pan=44 rev=110 cho=30
+track c2 type=chord2 program=94 chan=4 lo=G3 hi=E5 vol=88 pan=84 rev=110 cho=60
+track c3 type=chord2 program=89 chan=5 lo=E3 hi=C5 vol=94 pan=40 rev=110 cho=40
+track c4 type=chord1 program=11 chan=6 lo=C5 hi=C7 hikey=F# vol=80 pan=76 rev=120
+
+[main a]
+bars 2
+beats 4
+track ba
+1.1.0  C2 94 118
+2.1.0  C2 94 118
+track c1
+# celesta: up the chord in eighths, slowly, and back
+1.1.0  C5 12 83
+1.1.12 G5 12 70
+1.2.0  E5 12 77
+1.2.12 B5 12 64
+1.3.0  G5 12 74
+1.3.12 E5 12 64
+1.4.0  C6 12 70
+1.4.12 G5 12 61
+2.1.0  E5 12 80
+2.1.12 G5 12 67
+2.2.0  C6 12 74
+2.2.12 E6 12 64
+2.3.0  G5 12 70
+2.3.12 E5 12 61
+2.4.0  C5 12 67
+2.4.12 G4 12 58
+track c3
+# the warm pad on each bar
+1.1.0  G3+C4+E4 94 102
+2.1.0  G3+C4+E4 94 96
+track c2
+# the halo pad, entering on beat 3 and held over the bar line
+1.3.0  G4+C5 46 77
+2.3.0  G4+E5 46 70
+
+[main b]
+bars 2
+beats 4
+track pc
+grid 1.1 s shaker 2121312121213121|2121312121213121 len=6
+track d2
+1.1.0 otri 48 50
+2.3.0 mtri 12 40
+track ba
+1.1.0  C2 94 118
+2.1.0  C2 70 118
+2.4.0  G1 22 112
+track c1
+1.1.0  C5 12 90
+1.1.12 G5 12 74
+1.2.0  E5 12 83
+1.2.12 B5 12 70
+1.3.0  G5 12 80
+1.3.12 E5 12 70
+1.4.0  C6 12 77
+1.4.12 G5 12 64
+2.1.0  E5 12 86
+2.1.12 G5 12 74
+2.2.0  C6 12 80
+2.2.12 E6 12 70
+2.3.0  G5 12 77
+2.3.12 E5 12 67
+2.4.0  C5 12 74
+2.4.12 G4 12 64
+track c4
+# vibes, a slow second voice: the 5th, the 3rd, the 7th
+1.1.6  G6 30 70
+1.3.6  E6 30 64
+2.1.6  B5 30 67
+2.3.6  G5 30 61
+track c3
+1.1.0  G3+C4+E4 94 118
+2.1.0  G3+C4+E4 94 112
+track c2
+1.3.0  G4+C5 46 96
+2.3.0  G4+E5 46 90
+
+[fill]
+bars 1
+beats 4
+track d2
+1.1.0 otri 48 46
+grid 1.3 e shaker 2345
+track ba
+1.1.0  C2 70 118
+1.4.0  G1 22 115
+track c1
+1.1.0  C5 12 83
+1.1.12 E5 12 74
+1.2.0  G5 12 80
+1.2.12 C6 12 77
+1.3.0  E6 12 83
+1.3.12 G6 12 80
+1.4.0  E6 12 74
+1.4.12 C6 12 67
+track c3
+1.1.0  G3+C4+E4 94 106
+
+[ending]
+bars 2
+beats 4
+track ba
+1.1.0  C2 94 118
+2.1.0  C2 94 102
+track c1
+# the arpeggio thinning out, quieter each note
+1.1.0  C5 12 77
+1.1.12 G5 12 64
+1.2.0  E5 12 67
+1.3.0  G5 12 58
+1.4.0  C6 12 51
+2.1.0  E5 12 45
+2.2.0  G5 12 35
+2.3.0  C6 12 26
+track c3
+1.1.0  G3+C4+E4 94 93
+2.1.0  G3+C4+E4 94 64
+track c2
+1.3.0  G4+C5 70 64
+track d2
+1.1.0 otri 72 34
