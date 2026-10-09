@@ -1,0 +1,97 @@
+# Waltz: a waltz in 3/4 at ~150, written for Polly over C M7 (drums by hand: brushes rather than a kit).
+# Patterns of 3 beats: a song's bar and the Waltz template's bar are three beats while it plays.
+# Main A: oom-pah-pah: the bass on the one (root, then the fifth the next bar), the accordion on 2 and 3,
+# kick and brush-like snare, soft strings.
+# Main B: a violin melody on top, the bass walking on beat 3, the ride, the strings up.
+style Waltz
+tempo 150
+
+track d1 type=bypass chan=10 vol=96 rev=50
+track d2 type=bypass chan=10 vol=96 rev=50   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=96 rev=50
+track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=112 rev=24
+track c1 type=chord1 program=21 chan=3 lo=G3 hi=G5 hikey=F# vol=80 pan=44 rev=50
+track c2 type=chord1 program=40 chan=4 lo=G4 hi=G6 hikey=F# vol=72 pan=80 rev=70
+track c3 type=chord2 program=48 chan=5 lo=F3 hi=C5 vol=54 pan=64 rev=70
+
+[main a]
+bars 2
+beats 3
+track d1
+grid 1.1 q kick 6..|5..
+grid 1.2 q snare 43|.43 len=6
+grid 1.2 q chh 33|.33
+track ba
+1.1.0  C2 22 106
+2.1.0  G1 22 100
+track c1
+# pah-pah on 2 and 3
+grid 1.1 q E4+G4+C5 .xg|.xg len=10
+track c3
+1.1.0  G3+C4+E4 70 46
+2.1.0  G3+C4+E4 70 42
+
+[main b]
+bars 2
+beats 3
+track d1
+grid 1.1 q kick 6..|5..
+grid 1.2 q snare 54|.54
+grid 1.1 q ride 544|544
+track ba
+1.1.0  C2 22 108
+1.3.0  E2 22 90
+2.1.0  G1 22 102
+2.3.0  B1 22 92
+track c1
+grid 1.1 q E4+G4+C5 .xx|.xx len=10
+track c2
+# violin: the 5th held, a turn down through the 3rd to the root and up
+1.1.0  G5 48 82
+1.3.0  E5 24 72
+2.1.0  C5 36 76
+2.2.12 E5 12 66
+2.3.0  G5 24 74
+track c3
+1.1.0  G3+C4+E4 70 62
+2.1.0  G3+C4+E4 70 58
+
+[fill]
+bars 1
+beats 3
+track d1
+grid 1.1 q kick 6..
+grid 1.2 e snare 4567
+track ba
+1.1.0  C2 22 106
+1.2.0  E2 22 94
+1.3.0  G2 22 98
+track c1
+grid 1.1 q E4+G4+C5 .xX len=10
+track c2
+1.2.0  E5 12 70
+1.2.12 G5 12 74
+1.3.0  C6 22 80
+track c3
+1.1.0  G3+C4+E4 70 48
+
+[ending]
+bars 2
+beats 3
+track d1
+grid 1.1 q kick 6..|6..
+grid 1.2 q snare 43
+2.1.0 crash 72 70
+track ba
+1.1.0  C2 22 106
+1.2.0  G1 22 94
+1.3.0  G1 22 96
+2.1.0  C2 70 108
+track c1
+grid 1.1 q E4+G4+C5 .xx len=10
+2.1.0  E4+G4+C5 70 90
+track c2
+2.1.0  E5 70 76
+track c3
+1.1.0  G3+C4+E4 70 46
+2.1.0  G3+C4+E4 70 56

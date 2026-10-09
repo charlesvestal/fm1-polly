@@ -51,6 +51,11 @@ printf 'track c1\n' >> "$f"
 for k in 1 2 3 4 5 6; do printf '1.1.0 C%s 1 90 x96 1\n' $k >> "$f"; done
 out=$(python3 tools/make_styles.py --check "$f" 2>&1)
 case "$out" in "make_styles: $f:8: [main a] has "*" notes, more than 600 (ARR_NEV)") echo "  ok full" ;; *) echo "FAIL full: $out"; FAIL=1 ;; esac
+# a sharp is not a comment: the fields after hikey=F# are read
+f="$D/01-sharp.sty"
+printf '%s\n%s\n' "$HEAD" 'track ba hikey=F# vol=90 # a comment' > "$f"
+out=$(python3 tools/make_styles.py --dump "$f" 2>&1 | sed -n '/\[main a\]/,$p' | grep '^track ba')
+case "$out" in *"hikey=F# vol=90 "*) echo "  ok sharp" ;; *) echo "FAIL sharp: $out"; FAIL=1 ;; esac
 # style numbers: a gap, a twice, no number
 cp "$D/01-velocity.sty" "$D/03-x.sty"
 out=$(python3 tools/make_styles.py --check "$D/01-bars.sty" "$D/03-x.sty" 2>&1)

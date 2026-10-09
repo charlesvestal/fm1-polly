@@ -1,0 +1,165 @@
+# Country: a train beat at ~114. Drums from the Groove MIDI Dataset (drummer 1, country at 114, CC BY 4.0:
+# styles/README.md: sixteenths on the snare, accents on the ands, the kick on every beat); the rest written
+# for Polly over C M7.
+# Main A: boom-chick, the bass on 1 and 3 (root, then fifth) and the steel-string guitar strumming 2 and 4,
+# a walk up at the end of the phrase, soft strings.
+# Main B: a fiddle line on top (the pedal steel's job, on the GM set's fiddle), honky-tonk piano eighths,
+# tambourine and a crash, the strings up.
+style Country
+tempo 114
+
+track d1 type=bypass chan=10 vol=100 rev=30
+track d2 type=bypass chan=10 vol=100 rev=30   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=100 rev=30
+track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=112 rev=12
+track c1 type=chord1 program=25 chan=3 lo=G3 hi=G5 hikey=F# vol=88 pan=40 rev=40
+track c2 type=chord1 program=110 chan=4 lo=G4 hi=G6 hikey=F# vol=70 pan=84 rev=60
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=48 pan=64 rev=60
+track c4 type=chord1 program=3 chan=6 lo=G4 hi=G6 hikey=F# vol=62 pan=60 rev=40
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=1 bars=2 scale=kick:200,snare:90
+track ba
+# boom: root on 1, fifth on 3; the walk up 5-6-7 into the next bar
+1.1.0  C2 20 108
+1.3.0  G1 20 100
+2.1.0  C2 20 108
+2.3.0  G1 12 100
+2.3.12 A1 10 88
+2.4.0  B1 10 94
+2.4.12 B1 8 70
+track c1
+# chick: the strum on 2 and 4, rolled up the strings, a light upstroke after
+1.2.0  G3 10 92
+1.2.1  C4 9 88
+1.2.2  E4 8 86
+1.2.3  C5 7 84
+1.2.12 C4+E4+G4 6 56
+1.4.0  G3 10 92
+1.4.1  C4 9 88
+1.4.2  E4 8 86
+1.4.3  C5 7 84
+1.4.12 C4+E4+G4 6 56
+2.2.0  G3 10 92
+2.2.1  C4 9 88
+2.2.2  E4 8 86
+2.2.3  C5 7 84
+2.2.12 C4+E4+G4 6 56
+2.4.0  G3 10 92
+2.4.1  C4 9 88
+2.4.2  E4 8 86
+2.4.3  C5 7 84
+track c3
+1.1.0  G3+C4+E4 94 40
+2.1.0  G3+C4+E4 94 36
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=5 bars=2 scale=kick:200,snare:90
+track d2
+1.1.0 crash 24 80
+grid 1.2 h tamb 55|55
+track ba
+1.1.0  C2 20 110
+1.3.0  G1 20 102
+2.1.0  C2 20 110
+2.3.0  E2 12 100
+2.3.12 G1 10 88
+2.4.0  A1 10 94
+2.4.12 B1 10 92
+track c1
+1.2.0  G3 10 96
+1.2.1  C4 9 92
+1.2.2  E4 8 90
+1.2.3  C5 7 88
+1.2.12 C4+E4+G4 6 60
+1.4.0  G3 10 96
+1.4.1  C4 9 92
+1.4.2  E4 8 90
+1.4.3  C5 7 88
+1.4.12 C4+E4+G4 6 60
+2.2.0  G3 10 96
+2.2.1  C4 9 92
+2.2.2  E4 8 90
+2.2.3  C5 7 88
+2.2.12 C4+E4+G4 6 60
+2.4.0  G3 10 96
+2.4.1  C4 9 92
+2.4.2  E4 8 90
+2.4.3  C5 7 88
+track c2
+# the fiddle: a slide up to the 3rd, held, then down the chord
+1.1.0  D5 4 60
+1.1.4  E5 44 84
+1.3.0  G5 24 78
+1.4.0  E5 12 72
+1.4.12 C5 12 70
+2.1.0  E5 36 80
+2.2.12 G5 12 72
+2.3.0  C6 36 80
+2.4.12 G5 10 66
+track c4
+# honky-tonk piano eighths high up, the 3rd over the 5th
+grid 1.1 e G4+E5 .4.4.4.4|.4.4.4.4 len=8
+track c3
+1.1.0  G3+C4+E4 94 56
+2.1.0  G3+C4+E4 94 52
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=11 bars=1 scale=kick:200,snare:90
+track ba
+1.1.0  C2 20 108
+1.3.0  E2 10 96
+1.3.12 G2 10 98
+1.4.0  A2 10 96
+1.4.12 B2 10 100
+track c1
+1.2.0  G3 10 92
+1.2.1  C4 9 88
+1.2.2  E4 8 86
+1.2.3  C5 7 84
+1.4.0  G3+C4+E4+C5 6 96 x2 12
+track c3
+1.1.0  G3+C4+E4 94 44
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=3 bars=1 scale=kick:200,snare:90
+2.1.0 kick 24 96
+2.1.0 crash 96 84
+track ba
+# the classic tag: 5-6-7 into the root
+1.1.0  C2 20 108
+1.3.0  G1 12 100
+1.3.12 A1 12 92
+1.4.0  B1 12 96
+1.4.12 B1 8 80
+2.1.0  C2 60 110
+track c1
+1.2.0  G3 10 92
+1.2.1  C4 9 88
+1.2.2  E4 8 86
+1.2.3  C5 7 84
+1.4.0  G3 10 92
+1.4.1  C4 9 88
+1.4.2  E4 8 86
+1.4.3  C5 7 84
+2.1.0  G3 60 92
+2.1.1  C4 59 88
+2.1.2  E4 58 86
+2.1.3  C5 57 84
+track c2
+2.1.0  E5 60 76
+track c3
+1.1.0  G3+C4+E4 94 40
+2.1.0  G3+C4+E4 72 50

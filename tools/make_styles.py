@@ -247,7 +247,7 @@ def parse(path, text=None):
     pat = None
     trk = None
     for lineno, raw in enumerate(text.splitlines(), 1):
-        line = raw.split("#", 1)[0].strip()
+        line = re.sub(r"(^|\s)#.*", "", raw).strip()   # a comment: "#" at the start or after a space (F#4 is a note)
         if not line:
             continue
         try:

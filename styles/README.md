@@ -21,7 +21,8 @@ with no chords written yet also sets the tempo to the style's (`tempo`); otherwi
 
 ## The format
 
-`#` starts a comment. Blank lines are ignored.
+`#` at the start of a line or after a space starts a comment (`F#4`, `hikey=F#` are not comments). Blank
+lines are ignored.
 
 ```
 style Pop                  # the name, up to 8 characters (shown on the screen)
@@ -118,10 +119,21 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 | 8 | Reggae | 78 | GMD drummer 1, reggae 78 (kick and cross-stick on 2 and 4: a one drop felt in double time): A bars 6-7, B 9-10, fill 13, ending 17 + a hit | the skank on every offbeat (muted guitar), an organ doubling it, the bass leaving the one open | the organ bubble in sixteenths, a melodica line, a busier bass, strings up | the bass climbs | the chord on the one |
 | 9 | Hip hop | 90 | GMD drummer 8, hip hop 90: A bars 2-3 without the open hats (`skip=ohh`), B 10-11 with them, fill 15 (the drummer stops after beat 2: a break), ending 14 + a hit | synth bass on the kick, Rhodes 3-5-7 chords laid back two ticks, a soft pad | the open hats, a vibraphone loop, pad up | the break | one hit |
 | 10 | House | 122 | by hand: four on the floor, clap on 2 and 4, open hat on the offbeats; B adds sixteenth hats, a shaker and a crash | the bass on the offbeats, organ stabs, a soft pad | piano stabs 3-3-2 (3-5-7-9, short), the bass jumping octaves, pad up | a snare build into 32nds | the chord on the one |
+| 11 | Disco | 120 | GMD drummer 1, disco 120: A bars 2-3, B 14-15 (open hats on the offbeats) + a crash, fill 9 (toms), ending 4 + hits; a snare and clap on 2 and 4 added by hand (the drummer plays none) | octave bass in eighths, muted guitar sixteenths, Rhodes offbeat stabs, soft strings | string stabs and a held string line, the bass with sixteenth pickups | the bass runs the chord in sixteenths, string hits | the chord on the one |
+| 12 | Country | 114 | GMD drummer 1, country 114 (a train beat: sixteenths on the snare, accents on the ands): A bars 2-3, B 6-7 + tambourine and a crash, fill 12, ending 4 + hits | boom-chick: bass root on 1, fifth on 3, steel-string strums rolled on 2 and 4, a walk up 5-6-7 | a fiddle line (the GM set has no pedal steel), honky-tonk piano eighths | the bass walks up the chord | the 5-6-7 tag into the root, a rolled chord held |
+| 13 | Gospel | 66 (dotted quarters) | by hand (the dataset's 6/8 takes are rock): kick 1 and 3 with a triplet pickup, cross-stick (A) or snare and tambourine (B) on 2 and 4, hi-hat (A) or ride (B) triplets | bass root-fifth with triplet pickups, piano triplet chords, drawbar organ held | a choir on the chord, the bass walking in triplets, organ up, a crash | a triplet snare and tom run | the chord held |
+| 14 | Waltz | 150 (3/4) | by hand: kick on 1, snare and hi-hat on 2 and 3; B on the ride | oom-pah-pah: the bass on 1 (root, then the fifth), accordion on 2 and 3, soft strings | a violin melody, the bass walking on 3, strings up | the bass climbs, a violin pickup | the chord on the one |
 
 (The bar numbers above count from 1; `start=` counts from 0.)
 
-House's drums are written by hand: the dataset is played on a kit, and house is programmed. Bossa's drums are
+**12/8 and 3/4.** Patterns can be 2 to 7 beats a bar, so the Waltz is plain 3/4 (`beats 3`; a song's bar
+and the Waltz template's bar are three beats while it plays). There is no compound meter: a 12/8 (or 6/8)
+style is written as 4/4 with each beat split in three triplet eighths, at ticks 0, 8 and 16 (`grid 1.1 8
+...` steps a triplet eighth), and its tempo counts the dotted quarters. The Gospel style does this; the chord
+track and sections then stay on the dotted-quarter beat, as they would in 12/8.
+
+House's drums are written by hand: the dataset is played on a kit, and house is programmed. Gospel's and the
+Waltz's too: the dataset's 6/8 and 3/4 takes are rock, jazz and Latin. Bossa's drums are
 written by hand: the dataset's bossa takes (drummer 5, 127) are improvised around the
 groove, the cross-stick sparse and the kick at ghost level, and a style needs the steady bossa clave.
 
@@ -135,7 +147,8 @@ groove, the cross-stick sparse and the kick at ghost level, and a style needs th
   its `ALLOW` list (style, track, interval, chord type).
 - `sh tools/render_styles.sh [NN ...]` renders `build/styles/NN.wav`: the style at its tempo over the Pop
   template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz; Reggae and House
-over Pop and Minor; Hip hop over Minor and Vamp), each pass Main A,
+over Pop and Minor; Disco and Country over Pop and Minor; Hip hop over Minor and Vamp; Gospel over Pop and
+the Gospel template; the Waltz three times over the Waltz template), each pass Main A,
   Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit between -25 and -29 dBFS RMS at
   the default master, with no sample at the synth's limit).
 

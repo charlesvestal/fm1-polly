@@ -1,0 +1,132 @@
+# Gospel: a slow 12/8 gospel ballad, written for Polly over C M7 (drums by hand: the Groove MIDI Dataset's
+# 6/8 takes are rock).
+# 12/8 in Polly's 4/4: a bar of four beats, each a dotted quarter split in three triplet eighths (ticks 0, 8
+# and 16); the tempo counts the dotted quarters (66: a slow 12/8). Polly's chord track and sections stay on
+# the beat, and the patterns read as 12/8.
+# Main A: kick on 1 and 3, a cross-stick on 2 and 4, hi-hat triplets; the bass on root and fifth with
+# pickups; piano triplet chords; a drawbar organ held under it.
+# Main B: the snare and a tambourine on 2 and 4, the ride, a choir on the chord, the bass walking, the organ up.
+style Gospel
+tempo 66
+
+track d1 type=bypass chan=10 vol=94 rev=50
+track d2 type=bypass chan=10 vol=94 rev=50   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=94 rev=50
+track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=104 rev=20
+track c1 type=chord1 program=0 chan=3 lo=G3 hi=G5 hikey=F# vol=84 pan=50 rev=60
+track c2 type=chord1 program=52 chan=4 lo=G3 hi=E5 hikey=F# vol=68 pan=76 rev=80
+track c3 type=chord2 program=16 chan=5 lo=G3 hi=C5 vol=56 pan=64 rev=50 cho=40
+
+[main a]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 7.6.|7.6.
+1.2.16 kick 6 60
+2.2.16 kick 6 60
+grid 1.2 h rim 66|66
+grid 1.1 8 chh 534534534534|534534534534
+track ba
+1.1.0  C2 20 108
+1.2.16 G1 8 84
+1.3.0  C2 20 104
+1.4.8  E2 8 86
+1.4.16 G2 8 90
+2.1.0  C2 20 108
+2.2.16 G1 8 84
+2.3.0  A1 16 100
+2.4.0  G1 8 90
+2.4.8  A1 8 84
+2.4.16 B1 8 92
+track c1
+# triplet chords, the first of each beat leaning
+grid 1.1 8 E4+G4+C5 XggxggXggxgg|XggxggXggxgg len=7
+track c3
+1.1.0  G3+C4+E4 94 54
+2.1.0  G3+C4+E4 94 50
+
+[main b]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 7.6.|7.6.
+1.2.16 kick 6 64
+2.2.16 kick 6 64
+grid 1.2 h snare 77|77
+grid 1.1 8 ride 544544544544|544544544544
+track d2
+1.1.0 crash 24 80
+grid 1.2 h tamb 66|66
+track ba
+1.1.0  C2 20 110
+1.2.16 G1 8 86
+1.3.0  E2 16 104
+1.4.0  G2 8 92
+1.4.8  A2 8 86
+1.4.16 G2 8 90
+2.1.0  C2 20 110
+2.2.0  E2 8 86
+2.2.8  G2 8 84
+2.2.16 C3 8 92
+2.3.0  A2 16 100
+2.4.0  G2 8 90
+2.4.8  E2 8 84
+2.4.16 B1 8 92
+track c1
+grid 1.1 8 E4+G4+C5 XxxxxxXxxxxx|XxxxxxXxxxxx len=7
+track c2
+# the choir, an "ooh" on the chord, swelling into each bar
+1.1.0  E4+G4+C5 92 74
+2.1.0  G4+C5+E5 92 70
+track c3
+1.1.0  G3+C4+E4 94 74
+2.1.0  G3+C4+E4 94 70
+
+[fill]
+bars 1
+beats 4
+track d1
+grid 1.1 q kick 7...
+grid 1.2 q snare 6
+grid 1.3 8 snare 456
+1.4.0  htom 8 98
+1.4.8  ltom 8 98
+1.4.16 ftom 8 112
+track ba
+1.1.0  C2 20 108
+1.2.16 G1 8 84
+1.3.0  E2 8 92
+1.3.8  G2 8 94
+1.3.16 A2 8 96
+1.4.0  B2 8 98
+1.4.8  A2 8 92
+1.4.16 G2 8 96
+track c1
+grid 1.1 8 E4+G4+C5 XggxggXxXxXX len=7
+track c3
+1.1.0  G3+C4+E4 94 64
+
+[ending]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 7.6.|8...
+grid 1.2 h rim 66
+grid 1.1 8 chh 534534534534
+2.1.0 crash 96 84
+track ba
+1.1.0  C2 20 108
+1.2.16 G1 8 84
+1.3.0  E2 16 100
+1.4.0  G1 8 90
+1.4.8  G1 8 90
+1.4.16 G1 8 96
+2.1.0  C2 90 108
+track c1
+grid 1.1 8 E4+G4+C5 XggxggXggxXX len=7
+2.1.0  E4+G4+C5 90 92
+track c2
+2.1.0  G4+C5+E5 90 74
+track c3
+1.1.0  G3+C4+E4 94 54
+2.1.0  G3+C4+E4 90 64
