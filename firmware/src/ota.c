@@ -153,12 +153,14 @@ static uint32_t ota_take(void)
     return d;
 }
 
-/* main loop, outside a session: answer handshakes */
-static void ota_service(void)
+/* main loop, outside a session: answer handshakes. Returns the frame's decoded length (0: none), the frame in
+ * ota_dec, for the app's own commands (Polly: bank_rx.c's 0x40) */
+static uint32_t ota_service(void)
 {
     uint32_t d = ota_take();
     if (d == 7u && ota_dec[2] == 0x11)
         ota_reply_identity();
+    return d;
 }
 
 /* one read request (3 tries x 5 s); data -> dst */

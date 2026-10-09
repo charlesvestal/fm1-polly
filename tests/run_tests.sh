@@ -58,6 +58,11 @@ else
     echo "  skip qy70-import, qy70-codec, qy70-bank (set QY70_ROM=path/to/qy70main.bin)"
 fi
 run storage sh -c "$CC -O2 -Ifirmware/src/dsp -o $OUT/storage_test tests/storage_test.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c && $OUT/storage_test"
+# the bank written from the host (firmware/src/bank_rx.c) on a simulated flash: only its sectors, the guard bytes,
+# the directory last (a cut cable, a changed byte, a failed write: no half bank); tools/qy70_install.py against a
+# simulated Polly
+run bank-rx sh -c "$CC -std=c99 -Wall -Wextra -Werror -O2 -Ifirmware/src/dsp -o $OUT/bank_rx_test tests/bank_rx_test.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c && $OUT/bank_rx_test $OUT/synth.qyi"
+run qy70-install python3 tests/qy70_install_test.py $OUT/synth.qyi
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then
     run ota-entry sh -c "$CC -o $OUT/ota_test tests/ota_test.c && $OUT/ota_test build/polly.fwsc"

@@ -337,7 +337,17 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
             }
         }
-        ota_service();                              /* M-UPGRADE handshake (other SysEx is dropped) */
+        if (ota_service() == 15u && ota_dec[2] == BK_REQ && flash_ok) {   /* the QY70 bank from the host */
+            uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);
+            arr_play(0);
+            fm1_delay_ms(20);                       /* the render takes the stop, then silence */
+            gm_panic();
+            ota_deadline = ota_now_ms() + 300000u;  /* 5 min at most (it takes some 30 s) */
+            bank_rx(len, crc);
+            ota_deadline = 0;
+            app_bank_changed();
+            ui_init();
+        }
         if (usb.ota_req) {
             usb.ota_req = 0;
                         gm_panic();
