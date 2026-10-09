@@ -170,15 +170,44 @@ static int bank_get(int b)
     }
     return free_;
 }
+/* the song's mutes to the engine (only the tracks that changed: the command queue is short) */
+static void mutes_apply(void)
+{
+    uint8_t m = songs.song[proj.song].mute, d = m ^ app.mute_sent;
+    for (int t = 0; t < ARR_TRACKS; t++)
+        if (d >> t & 1u)
+            arr_track_mute(t, m >> t & 1u);
+    app.mute_sent = m;
+}
+/* a pattern's own mutes (saved before mutes were the song's) become the song's, and leave the pattern: 1 = some
+ * did (a user pattern is then saved without them) */
+static int mute_fold(pattern_t *p)
+{
+    int n = 0;
+    for (int t = 0; t < ARR_TRACKS; t++)
+        if (p->trk[t].mute) {
+            p->trk[t].mute = 0;
+            songs.song[proj.song].mute |= (uint8_t)(1u << t);
+            n = 1;
+        }
+    if (n) {
+        app.songs_dirty = 1;
+        app.chg++;
+        mutes_apply();
+    }
+    return n;
+}
 /* slot s (Intro, Main A, Main B, Fill AB, Fill BA, Ending) gets pattern `style`: a user pattern, a factory style's
  * (ARR_FACTORY0..: copied out of flash), a QY70 bank style's section (played from its decoded phrases), or an empty
  * one when it has none */
 static void slot_load(int s, int style)
 {
+    int folded;
     if (style >= ARR_BANK0) {
         int b = (style - ARR_BANK0) / ARR_NSECT, k = (style - ARR_BANK0) % ARR_NSECT, i = bank_get(b);
         if (i >= 0) {
             arr_bank_pattern(&qbuf[i], k, &scratch);
+            mute_fold(&scratch);
             arr_load_bank(s, &qbuf[i], k, &scratch);
             app.slot_buf[s] = (int8_t)i;
             slot_cache(s, &scratch);
@@ -191,11 +220,12 @@ static void slot_load(int s, int style)
     } else if (style < ARR_USER_PATTERNS ? project_pattern_load(style, &scratch) != 0
                                          : arr_factory_pattern(style, &scratch) != 0)
         pattern_empty(&scratch);
+    folded = mute_fold(&scratch);
     arr_load_pattern(s, &scratch);
     app.slot_buf[s] = -1;
     slot_cache(s, &scratch);
     app.saved[s] = arr_dirty[s];
-    app.edited[s] = 0;
+    app.edited[s] = (uint8_t)(folded && style < ARR_USER_PATTERNS);   /* saved again, its mutes moved out */
     app.edit_pend &= (uint8_t)~(1u << s);
 }
 /* a user pattern holding nothing: never saved, or saved without notes (loaded into scratch to look) */
@@ -266,6 +296,7 @@ static void song_load(void)
         }
     for (int s = 0; s < ARR_NSECT; s++)
         slot_load(s, sg->style[s]);
+    mutes_apply();
     app.song_on = sg->bars > 0;
     arr_song(app.song_on ? sg : 0, sg->loop);
     app.song_edit = 0;
@@ -1135,10 +1166,13 @@ static void song_job_run(void)
     char t[12];
     ui.job = 0;
     if (ui.job_sel == 0) {
-        uint16_t st[ARR_NSECT];
+        uint16_t st[ARR_NSECT], sty = g->sty;
+        uint8_t mute = g->mute;
         memcpy(st, g->style, sizeof st);
         song_default(g, proj.song);
-        memcpy(g->style, st, sizeof st);
+        memcpy(g->style, st, sizeof st);       /* its patterns, style and mutes kept */
+        g->sty = sty;
+        g->mute = mute;
         app.cbeat = 0;
         song_edited();
         say("CLEARED", "the song");
@@ -1216,6 +1250,17 @@ static void trk_set(uint8_t *v, int to, int lo, int hi)
     edited(eslot());
 }
 #define MUTE_BURST_MS 150u                       /* detents closer than this: one turn */
+/* a track muted / unmuted: the song's (every section), live; not an edit of the pattern (a style's section stays
+ * the style's) */
+static void mute_toggle(int trk)
+{
+    csong()->mute ^= (uint8_t)(1u << (trk & 7));
+    mutes_apply();
+    app.songs_dirty = 1;
+    app.chg++;
+    app.gen++;
+    ui.act_t = plat_ms();
+}
 static void edit_knob(int k, int32_t e)
 {
     int s = eslot(), d = e > 0 ? 1 : -1;
@@ -1228,7 +1273,7 @@ static void edit_knob(int k, int32_t e)
         {                                        /* a turn, either way: muted / plays; once a burst */
             uint32_t now = plat_ms();
             if (now - ui.mute_t >= MUTE_BURST_MS)
-                trk_set(&t->mute, !t->mute, 0, 1);
+                mute_toggle(proj.trk);
             ui.mute_t = now;
         }
         break;

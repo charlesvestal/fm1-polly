@@ -33,7 +33,10 @@ typedef struct {
     uint8_t program;                     /* GM 0..127 (drum tracks: 0) */
     uint8_t chan;                        /* MIDI channel 0..15 (drums: 9) */
     xtrack_t x;                          /* type, limits, high key */
-    uint8_t vol, pan, rev, cho, mute;
+    uint8_t vol, pan, rev, cho;
+    uint8_t mute;                        /* muted in this pattern: the engine honours it, but mutes are the song's now
+                                          * (song_t.mute, arr_track_mute); the app moves a pattern's into its song when
+                                          * it loads it (patterns saved before) */
     uint8_t bright, reso;                /* CC 74 (brightness: the filter's cutoff), CC 71 (resonance), each stored XOR
                                           * 64: 0 is the neutral 64 (patterns saved before them hold 0) */
     uint8_t rsv;
@@ -58,6 +61,12 @@ typedef struct {
     uint8_t loop;                        /* goes round at its end (the app passes it to arr_song) */
     uint8_t sect[ARR_SONGBARS];          /* SEC_SAME .. SEC_END per bar (SEC_FILL is not stored) */
     chord_t chord[ARR_SONGBARS * 4];     /* a chord per beat; type CH_NTYPES = no change */
+    uint16_t sty;                        /* the song's style: its Intro's pattern number (ARR_FACTORY0 + 6 s, ARR_BANK0 +
+                                          * 6 b), what the Style knob shows and sets; its sections that play a style
+                                          * play this one's (the app's rule; a section on a user pattern keeps it) */
+    uint8_t mute;                        /* the tracks muted, bit t track t, in every section (not in the patterns): the
+                                          * app gives them to the engine (arr_track_mute) */
+    uint8_t rsv;
 } song_t;
 
 typedef struct {
@@ -170,6 +179,7 @@ void arr_set_key(int key);
  * than 3 pitch classes, or no type fits): the chord stays as it was. The app calls arr_keys_held(0, 0) when
  * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
+/* a track muted (live, in every slot, until unmuted; the app keeps them per song): its notes end at once */
 void arr_track_mute(int trk, int on);
 /* ---- loop recording, into the playing pattern (its slot's copy here: arr_pattern_copy reads it back).
  * arr_key: a key played (vel 0 or on 0: released), from the main loop. It sounds at once on the selected track's

@@ -91,6 +91,7 @@ static struct {
     uint8_t save_err;                                /* the last save failed at change count err_chg: */
     uint32_t err_chg;                                /* autosave waits for another change */
     int8_t slot_buf[ARR_NSECT];                      /* the qbuf each slot plays (a bank style's section), -1 none */
+    uint8_t mute_sent;                               /* the mutes the engine has (arr_track_mute), bit t track t */
 } app;
 
 /* the input's and the screen's state */
@@ -123,6 +124,8 @@ static struct {
 } ui;
 
 static void song_head(const char *what);
+/* track t muted: the song's mute (every section; ui.c gives it to the engine) */
+static int trk_muted(int t) { return songs.song[proj.song].mute >> (t & 7) & 1u; }
 
 /* anything not saved: the project, or a user pattern recorded into */
 static int unsaved(void)
@@ -380,7 +383,7 @@ static void draw_song(void)
     h = hash(h, bar << 8 | beat | (uint32_t)(uint8_t)pl.tmpl << 16 | pl.tbar << 24);
     h = hash(h, has_next ? arr_chord_pack(nc) : 0xFFFFFFu);
     for (i = 0; i < ARR_TRACKS; i++)
-        h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)app.trk[slot][i].mute << 12);
+        h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)trk_muted((int)i) << 12);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -450,7 +453,7 @@ static void draw_song(void)
     }
     for (i = 0; i < ARR_TRACKS; i++) {   /* the eight tracks: lit as they play, with their sounds */
         int32_t x = 6 + (int32_t)(i / 4u) * 116, y = 96 + (int32_t)(i % 4u) * 12;
-        int on = (int)(lit >> i & 1u), sel = i == proj.trk, mute = app.trk[slot][i].mute;
+        int on = (int)(lit >> i & 1u), sel = i == proj.trk, mute = trk_muted((int)i);
         uint16_t fg = on ? K_BG : sel ? K_ACCENT : mute ? K_LINE : K_TEXT;
         const char *name = trk_sound(&app.trk[slot][i]);
         if (on)
@@ -598,7 +601,7 @@ static void draw_pattern(void)
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *tr = &view.trk[i];
         int32_t y = 22 + i * 15, b;
-        int sel = i == proj.trk, mute = app.trk[s][i].mute;
+        int sel = i == proj.trk, mute = trk_muted(i);
         uint32_t n, e = (uint32_t)tr->first + tr->count, lo = 127, hi = 0;
         cv_text(4, y - 2, &FONT_XS, TRACK_NAME[i], sel ? K_ACCENT : mute ? K_LINE : K_DIM);
         cv_round(X0, y, W, 13, 3, sel ? (arr_recording ? RGB(246, 214, 204) : K_TEAL_T) : K_PANEL);
@@ -729,7 +732,7 @@ static void draw_mixer(void)
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *t = &app.trk[s][i];
         h = hash(h, t->vol | (uint32_t)t->pan << 8 | (uint32_t)t->rev << 16 | (uint32_t)t->cho << 24);
-        h = hash(h, t->mute);
+        h = hash(h, (uint32_t)trk_muted(i));
     }
     if (h == ui.sig[1])
         return;
@@ -738,7 +741,7 @@ static void draw_mixer(void)
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *t = &app.trk[s][i];
         int32_t x = 4 + i * 29, w = 27, sel = i == proj.trk, vh = 76 * t->vol / 127;
-        uint16_t c = t->mute ? K_LINE : i < 3 ? K_ACCENT : K_TEAL;
+        uint16_t c = trk_muted(i) ? K_LINE : i < 3 ? K_ACCENT : K_TEAL;
         cv_round(x, 0, w, 144, 5, sel ? K_TEAL_T : K_PANEL);
         text_c(x + w / 2, 0, &FONT_XS, TRACK_NAME[i], sel ? K_TEXT : K_DIM);
         cv_round(x + 8, 20, 11, 78, 4, K_BG);   /* volume */
@@ -762,7 +765,7 @@ static void draw_tone(void)
     int s = pslot(), i;
     uint32_t h = hash(2166136261u, 0x70000u | (uint32_t)s | (uint32_t)proj.trk << 4);
     for (i = 0; i < ARR_TRACKS; i++)
-        h = hash(h, app.trk[s][i].bright | (uint32_t)app.trk[s][i].reso << 8 | (uint32_t)app.trk[s][i].mute << 16);
+        h = hash(h, app.trk[s][i].bright | (uint32_t)app.trk[s][i].reso << 8 | (uint32_t)trk_muted(i) << 16);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -777,9 +780,9 @@ static void draw_tone(void)
         cv_round(x + 5, 20, 7, 78, 3, K_BG);    /* brightness */
         cv_round(x + 15, 20, 7, 78, 3, K_BG);   /* resonance */
         if (bh > 0)
-            cv_round(x + 5, 20 + 78 - bh - 1, 7, bh, 3, t->mute ? K_LINE : K_TEAL);
+            cv_round(x + 5, 20 + 78 - bh - 1, 7, bh, 3, trk_muted(i) ? K_LINE : K_TEAL);
         if (rh > 0)
-            cv_round(x + 15, 20 + 78 - rh - 1, 7, rh, 3, t->mute ? K_LINE : K_AMBER);
+            cv_round(x + 15, 20 + 78 - rh - 1, 7, rh, 3, trk_muted(i) ? K_LINE : K_AMBER);
         cv_rect(x + 3, 20 + 78 - 39, w - 6, 1, K_DIM); /* 64: neutral */
         itoa_u((uint32_t)b, cat_s(v, "B"));
         text_c(x + w / 2, 104, &FONT_XS, v, b == 64 ? K_DIM : K_TEXT);
@@ -1237,7 +1240,7 @@ static void edit_knobs(knob_t *k)
     switch (ui.page) {
     case P_PATTERN:
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
-        kv(&k[3], "Mute", t->mute ? "on" : "off", t->mute, 0);
+        kv(&k[3], "Mute", trk_muted(proj.trk) ? "on" : "off", trk_muted(proj.trk), 0);
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);

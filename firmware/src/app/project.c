@@ -2,6 +2,8 @@
 /* Polly's project: one flash object (OBJ_PROJ): the keys' octave, the track, tempo, key and grid, and the
  * MIDI-in channels' program, volume, pan, reverb and chorus. Patterns and songs have their own objects.
  * Part of the unity build, after app.h. */
+#include <stddef.h>
+
 project_t proj;
 
 void project_defaults(void)
@@ -151,6 +153,7 @@ void song_default(song_t *g, int n)
     (void)n;
     memset(g, 0, sizeof *g);
     g->loop = 1;
+    g->sty = ARR_FACTORY0;
     for (int i = 0; i < ARR_NSECT; i++)
         g->style[i] = (uint16_t)(ARR_FACTORY0 + i);
     for (int i = 0; i < ARR_SONGBARS * 4; i++) {
@@ -175,6 +178,26 @@ int song_style_valid(int st)
            (st >= ARR_BANK0 && st < ARR_PATTERNS);
 }
 
+/* the style (its Intro's pattern number) pattern number st is a section of; -1: a user pattern, or none */
+int song_style_base(int st)
+{
+    if (st >= ARR_FACTORY0 && st < ARR_FACTORY0 + ARR_NSECT * arr_styles())
+        return st - (st - ARR_FACTORY0) % ARR_NSECT;
+    if (st >= ARR_BANK0 && st < ARR_PATTERNS)
+        return st - (st - ARR_BANK0) % ARR_NSECT;
+    return -1;
+}
+/* the song's style from the sections playing one: Main A's, else the first's; none: as it was (all six on user
+ * patterns keep the style they had, for the sections put back to it) */
+void song_style_derive(song_t *g)
+{
+    int b = song_style_base(g->style[SEC_A - 1]);
+    for (int k = 0; k < ARR_NSECT && b < 0; k++)
+        b = song_style_base(g->style[k]);
+    if (b >= 0)
+        g->sty = (uint16_t)b;
+}
+
 /* songs of format 3 (pattern numbers as bytes, 24 user patterns, the factory styles from 24): to format 4, in
  * place (the songs move up, the last first). User patterns 16..23 are gone (their flash is the QY bank's now):
  * their sections play the first factory style */
@@ -196,6 +219,25 @@ static void songs_from3(songs_t *s)
                                                                          : ARR_FACTORY0 + (h[k] - 24));
         g->bars = h[ARR_NSECT];
         g->loop = h[ARR_NSECT + 1];
+        g->sty = ARR_FACTORY0;                   /* (over song i + 1's old bytes, moved already) */
+        g->mute = g->rsv = 0;
+        song_style_derive(g);
+    }
+    s->format = SONGS_FORMAT;
+}
+/* songs of format 4 (no style, no mutes: each song 4 bytes shorter) to format 5, in place (the last first) */
+#define SONG4_BYTES ((int)offsetof(song_t, sty))
+_Static_assert(SONG4_BYTES == ARR_NSECT * 2 + 2 + ARR_SONGBARS + ARR_SONGBARS * 4 * (int)sizeof(chord_t),
+               "format 4's song is format 5's up to its style");
+static void songs_from4(songs_t *s)
+{
+    uint8_t *b = (uint8_t *)s;
+    for (int i = ARR_SONGS - 1; i >= 0; i--) {
+        song_t *g = &s->song[i];
+        memmove(g, b + 8 + i * SONG4_BYTES, (size_t)SONG4_BYTES);
+        g->sty = ARR_FACTORY0;
+        g->mute = g->rsv = 0;
+        song_style_derive(g);
     }
     s->format = SONGS_FORMAT;
 }
@@ -205,6 +247,8 @@ int project_songs_load(songs_t *s)
     int n = plat_store_load(OBJ_SONGS, s, sizeof *s);
     if (n == 8 + ARR_SONGS * SONG3_BYTES && s->magic == SONGS_MAGIC && s->format == 3u)
         songs_from3(s);
+    else if (n == 8 + ARR_SONGS * SONG4_BYTES && s->magic == SONGS_MAGIC && s->format == 4u)
+        songs_from4(s);
     else if (n != (int)sizeof *s)
         n = -1;
     if (n >= 8 && s->magic == SONGS_MAGIC && s->format == SONGS_FORMAT) {
@@ -216,6 +260,9 @@ int project_songs_load(songs_t *s)
             for (int k = 0; k < ARR_NSECT; k++)      /* a pattern this firmware lacks: the first factory style's */
                 if (!song_style_valid(g->style[k]))
                     g->style[k] = (uint16_t)(ARR_FACTORY0 + k);
+            if (song_style_base(g->sty) != g->sty)   /* a style this firmware lacks: from the sections, else the first */
+                g->sty = ARR_FACTORY0;
+            song_style_derive(g);
             for (int k = 0; k < ARR_SONGBARS; k++)
                 if (g->sect[k] > SEC_END)            /* (SEC_FILL is a command, not a mark) */
                     g->sect[k] = SEC_SAME;

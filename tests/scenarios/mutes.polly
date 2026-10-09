@@ -1,0 +1,107 @@
+# POLLY, mutes: a mute is the song's, per track, in every section; never an edit of the pattern (a style's
+# section stays the style's: no user pattern taken). Saved with the song, per song. A pattern saved with its
+# own mute (before mutes were the song's) gives it to the song when loaded. Songs of format 4 load (no mutes,
+# the style from their sections).
+wait 300
+expect song1_style1 33
+expect dirty 0
+tap SEQ
+expect page 1
+spin K4 1
+wait 100
+expect trk5_mute 1
+expect song1_mute 16
+expect ptrk5_mute 0
+expect song1_style1 33
+expect msg_is_NEW 0
+shot muted.png
+# muted in every section: the Intro, then Main A, then Main B
+tap HOME
+hitreset
+tap PLAY
+wait 4100
+expect sect 2
+press SEL
+tapkey b2
+release SEL
+wait 4100
+expect sect 3
+expect track_hits5 0
+expect track_hits4 >0
+tap PLAY
+wait 200
+# unmuted: it plays again
+tap SEQ
+spin K4 -1
+wait 200
+expect trk5_mute 0
+expect song1_mute 0
+hitreset
+tap PLAY
+wait 4100
+tap PLAY
+expect track_hits5 >0
+expect song1_style1 33
+expect song1_style2 34
+# saved with the song, across a reboot; song 2's own
+spin K4 1
+wait 200
+tap SAVE
+wait 50
+expect dirty 0
+reboot
+wait 300
+expect song1_mute 16
+expect trk5_mute 1
+hitreset
+tap PLAY
+wait 4100
+tap PLAY
+expect track_hits5 0
+press SEL
+turn PRESET 1
+release SEL
+wait 100
+expect song 2
+expect song2_mute 0
+expect trk5_mute 0
+hitreset
+tap PLAY
+wait 4100
+tap PLAY
+expect track_hits5 >0
+# a pattern holding its own mute (an older save): the song's now, out of the pattern; saved so
+poke_muted_pattern
+reboot
+wait 300
+expect song 1
+expect song1_style1 0
+expect song1_mute 16
+expect trk5_mute 1
+expect ptrk5_mute 0
+expect dirty 1
+tap SAVE
+wait 50
+expect dirty 0
+reboot
+wait 300
+expect song1_mute 16
+expect ptrk5_mute 0
+tap SEQ
+spin K4 -1
+wait 100
+expect song1_mute 0
+expect trk5_mute 0
+# songs of format 4: loaded, no mutes, the style from the sections (Main A on P01: the others' Funk)
+poke_songs4
+reboot
+wait 300
+expect song1_bars 3
+expect song2_bars 5
+expect song4_chord255 716
+expect song1_style1 0
+expect song1_style0 44
+expect song1_sty 44
+expect song2_sty 32
+expect song1_mute 0
+expect song2_mute 0

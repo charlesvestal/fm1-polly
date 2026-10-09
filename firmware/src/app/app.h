@@ -13,7 +13,8 @@
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
 #define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 4u                  /* 4: 16-bit pattern numbers (3, bytes: migrated at load) */
+#define SONGS_FORMAT 5u                  /* 5: each song's style and mutes (4: without; 3: byte pattern numbers;
+                                          * both migrated at load) */
 
 typedef struct {
     uint32_t magic, format;
@@ -48,6 +49,8 @@ int project_songs_save(const songs_t *s);
 void pattern_empty(pattern_t *p);
 void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */
 int song_style_valid(int st);                          /* a pattern number a song may hold */
+int song_style_base(int st);                           /* the style pattern st is a section of: its Intro's number; -1 */
+void song_style_derive(song_t *g);                     /* g->sty from its sections (Main A's first), else kept */
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
 void app_bank_changed(void);           /* the QY70 style bank was written: mounted again, the song reloaded */

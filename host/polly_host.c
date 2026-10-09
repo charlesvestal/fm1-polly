@@ -478,9 +478,11 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "trk", 3) && strstr(what, "_program")) {   /* trkN_program: the playing slot's track N */
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].program + 1;
-    } else if (!strncmp(what, "trk", 3) && strstr(what, "_mute")) {
+    } else if (!strncmp(what, "trk", 3) && strstr(what, "_mute"))   /* trkN_mute: track N muted (the song's) */
+        got = trk_muted(atoi(what + 3) - 1);
+    else if (!strncmp(what, "ptrk", 4) && strstr(what, "_mute")) {   /* ptrkN_mute: the playing slot's pattern's own */
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
-        got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].mute;
+        got = dbg_pat.trk[(atoi(what + 4) - 1) & 7].mute;
     } else if (!strncmp(what, "trk", 3) && strstr(what, "_bright")) {   /* trkN_bright / _reso: CC 74 / 71 */
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = arr_bright(&dbg_pat.trk[(atoi(what + 3) - 1) & 7]);
@@ -503,6 +505,11 @@ static int expect(const char *what, const char *val)
         got = songs.song[proj.song].sect[atoi(what + 9) & 63];
     else if (!strcmp(what, "song_bars"))
         got = songs.song[proj.song].bars;
+    else if (!strncmp(what, "song", 4) && strstr(what, "_mute") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].mute;     /* songN_mute: its muted tracks, bit t track t + 1 */
+    else if (!strncmp(what, "song", 4) && strstr(what, "_sty") && !strstr(what, "_style") && what[4] >= '1' &&
+             what[4] <= '4')
+        got = songs.song[what[4] - '1'].sty;      /* songN_sty: its style, the Intro's pattern number (32: Pop) */
     else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) % ARR_NSECT];   /* songN_styleI (I: the slot) */
     else if (!strncmp(what, "song", 4) && strstr(what, "_sect") && what[4] >= '1' && what[4] <= '4')
@@ -809,6 +816,37 @@ int main(int argc, char **argv)
             }
             old[8 + 1 * SONG3_BYTES + 2] = 24 + 6 * 2 + 2;       /* song 2's Main B: factory style 3's (Rock B) */
             plat_store_save(OBJ_SONGS, old, sizeof old);
+        } else if (!strcmp(cmd, "poke_songs4")) {     /* host-only: songs of format 4 (no style, no mutes): song 1 on
+                                                       * P01 for Main A, the Funk style's other sections (style 2) */
+            static uint8_t old[8 + ARR_SONGS * SONG4_BYTES];
+            uint32_t m = SONGS_MAGIC, f = 4;
+            songs_defaults(&dbg_songs);
+            for (int k = 0; k < ARR_NSECT; k++)
+                dbg_songs.song[0].style[k] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * 2 + k);
+            dbg_songs.song[0].style[SEC_A - 1] = 0;
+            dbg_songs.song[0].bars = 3;
+            dbg_songs.song[1].bars = 5;
+            dbg_songs.song[3].chord[255].root = 7;
+            dbg_songs.song[3].chord[255].type = CH_MIN;
+            memcpy(old, &m, 4);
+            memcpy(old + 4, &f, 4);
+            for (int n = 0; n < ARR_SONGS; n++)
+                memcpy(old + 8 + n * SONG4_BYTES, &dbg_songs.song[n], SONG4_BYTES);
+            plat_store_save(OBJ_SONGS, old, sizeof old);
+        } else if (!strcmp(cmd, "poke_muted_pattern")) {   /* host-only: P01 saved with C1 muted (patterns held their
+                                                             * mutes before they were the song's), song 1's Main A */
+            pattern_empty(&dbg_pat);
+            dbg_pat.nev = 1;
+            dbg_pat.trk[4].first = 0;
+            dbg_pat.trk[4].count = 1;
+            dbg_pat.ev[0].len = ARR_PPQ;
+            dbg_pat.ev[0].note = 60;
+            dbg_pat.ev[0].vel = 100;
+            dbg_pat.trk[4].mute = 1;
+            project_pattern_save(0, &dbg_pat);
+            songs_defaults(&dbg_songs);
+            dbg_songs.song[0].style[SEC_A - 1] = 0;
+            project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_bad_pattern")) {   /* host-only debug: an invalid nev, straight into storage */
             pattern_empty(&dbg_pat);
             dbg_pat.nev = ARR_NEV + 1;
