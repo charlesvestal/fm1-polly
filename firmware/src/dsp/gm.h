@@ -34,3 +34,6 @@ void gm_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);   /* the audio I
 extern volatile uint8_t gm_voices;         /* voices sounding */
 extern volatile uint8_t gm_program[GM_NCH];/* each channel's program, as the MIDI set it */
 extern volatile float gm_level;            /* the output's peak, 0..1, decaying */
+#ifdef GM_HOST
+void gm_ref_engine(int on);                /* host tests: render as the unmodified engine (0 dB, no output stage) */
+#endif

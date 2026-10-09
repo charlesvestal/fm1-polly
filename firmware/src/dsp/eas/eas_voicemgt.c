@@ -3014,6 +3014,9 @@ match_success:
  * longest room rings ~3 s, the chorus's delay ~0.1 s */
 #define REVERB_TAIL_BLOCKS 520
 #define CHORUS_TAIL_BLOCKS 18
+/* Polly: the reverb's return fades to 0 over its tail's last FX_FADE_BLOCKS (186 ms): the reverb's fixed-point
+ * feedback settles on a DC offset (to -55 dB), which stopping it would drop to 0 at once, a click */
+#define FX_FADE_BLOCKS 32
 void ReverbClear(EAS_VOID_PTR pInstData);
 void ChorusClear(EAS_VOID_PTR pInstData);
 /* Polly: a send's 32-bit sum to the effect's 16-bit input, clamped (not static: the host tests call it) */
@@ -3209,6 +3212,10 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
     if (reverbProcess && pVoiceMgr->reverbModule.effectData != NULL) {
         VMSendClamp(pVoiceMgr->reverbSendSum, pVoiceMgr->reverbSendBuffer);
         pVoiceMgr->reverbModule.effect->pfProcess(pVoiceMgr->reverbModule.effectData, pVoiceMgr->reverbSendBuffer, pVoiceMgr->reverbSendBuffer, numSamples);
+        if (pVoiceMgr->reverbTail < FX_FADE_BLOCKS) {     /* Polly: the tail's end, faded */
+            for (EAS_INT i = 0; i < BUFFER_SIZE_IN_MONO_SAMPLES * NUM_OUTPUT_CHANNELS; i++)
+                pVoiceMgr->reverbSendBuffer[i] = (EAS_PCM)(pVoiceMgr->reverbSendBuffer[i] * pVoiceMgr->reverbTail / FX_FADE_BLOCKS);
+        }
         for (EAS_INT i = 0; i < BUFFER_SIZE_IN_MONO_SAMPLES * NUM_OUTPUT_CHANNELS; i++) {
             pMixBuffer[i] = pMixBuffer[i] + pVoiceMgr->reverbSendBuffer[i];
         }

@@ -592,7 +592,9 @@ int main(int argc, char **argv)
         return 1;
     }
     arr_init();
+    gm_ref_engine(1);                            /* the engine alone: the output stage is gm_test's */
     h = ref_render();
+    gm_ref_engine(0);
     if (argc > 1 && !strcmp(argv[1], "print")) {
         printf("ref hash 0x%08x\n", h);
         return 0;
