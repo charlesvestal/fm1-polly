@@ -3,12 +3,30 @@
 Polly is a pocket arranger inspired by the Yamaha QY70: a style plays, a chord progression steers it.
 Its sounds are [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox)'s 200 KB General MIDI set; MIDI in
 plays it as a GM module too. The platform is [Felucca](https://github.com/hugelton/Felucca)'s. Private for now.
-Try it in the browser at <https://charles.pizza/fm1-polly/>.
+Try it in the browser at <https://charles.pizza/qy/> (an internal test build, unlisted). The full manual:
+[MANUAL.md](MANUAL.md).
 
-## Playing it
+## Quick start
 
-Boot, turn KNOB 1 to pick a style, hold SEL and press a white key for a progression, press PLAY. Hold SEL
-and press a black key for the next section; tap SEL and the keys play chords.
+1. Switch on: the Song page. Turn **KNOB 1** to pick a style (the header shows it).
+2. Press **PLAY**. The Intro plays, then Main A, over C major 7 until you give it a chord.
+3. Tap **SEL**: CHORD lights, and the keys enter chords. Hold three or more keys: the band follows, and
+   keeps the chord after you let go. Tap SEL again and the keys play the selected track (ALGORITHM).
+4. Hold **SEL** and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill, 5 Ending, from the next bar.
+   The Ending plays out and stops.
+5. Hold **SEL** and press a white key: one of 16 chord progressions plays at once, looping, until you
+   play a chord. Holding SEL shows both lists on the screen.
+6. Turn **SELECT** for the tempo (40 to 240).
+7. Press **SAVE**. It's lit while something isn't saved; Polly also saves by itself after a few seconds
+   at rest, stopped.
+
+**Your QY70 styles.** Polly can play the QY70's 128 preset styles, built from your own QY70 main ROM
+(MAME's `qy70main.bin`); nothing of Yamaha's is in Polly. In the browser: press **Load QY70 ROM** on the
+emulator's page (the ROM stays in your browser). On the FM-1, over USB:
+`python3 tools/qy70_install.py qy70main.bin` (needs `pip3 install mido python-rtmidi`; about 30 s). They
+then follow Polly's 16 styles on the Style knob, marked "QY".
+
+## The controls
 
 | Control | |
 |---|---|
@@ -36,7 +54,7 @@ its clock can drive the arranger (Setup).
 ./build.sh                                  # build/polly.fwsc (identity FM-1_300)
 sh tests/run_tests.sh                       # host tests, the app in the simulator, the web build
 python3 tools/fm1_install.py build/polly.fwsc --yes
-web/emu/publish.sh                          # the emulator at charles.pizza/fm1-polly
+web/emu/publish.sh                          # the emulator at charles.pizza/qy/ ([QY70_ROM=...] only for its checks)
 ```
 
 Factory styles are text files in `styles/` (the format: `styles/README.md`), compiled by

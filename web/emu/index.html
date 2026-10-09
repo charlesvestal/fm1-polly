@@ -54,7 +54,11 @@ a { color: var(--accent); }
 .help { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; margin: 1.6rem 0 0; }
 .help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
 .help p, .help ul { margin: 0; color: var(--muted); max-width: 60ch; }
-.help ul { padding-left: 1.1rem; }
+.help ul, .help ol { padding-left: 1.1rem; }
+.help ol.steps { margin: .3rem 0 .6rem; color: var(--muted); max-width: 70ch; }
+.help ol.steps li { margin: 0 0 .25rem; }
+.knobs p + p, .knobs ol + p { margin-top: .5rem; }
+.knobs h2:not(:first-child) { margin-top: 1rem; }
 .help .knobs { grid-column: 1 / -1; }
 .knobs .pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .8rem 2rem; margin-top: .4rem; }
 .knobs h3 { font: 600 1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; color: var(--ink); }
@@ -115,11 +119,25 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 
 <section class="help">
   <div class="knobs">
-    <h2>How it plays</h2>
-    <p>Polly plays styles: a pattern for each section (Intro, Main A and B, Fills, Ending) on eight tracks, following the chord
-      you play. Turn <b>KNOB 1</b> on the Song page to pick a style, press <b>PLAY</b>, then tap <b>SEL</b> (CHORD) and play chords on the keys; hold <b>SEL</b> to see the section and template shortcuts. The screen shows the page you are on; the four knobs under it
-      act on what the page shows. MIDI in (USB) plays all 16 channels. With QY70 styles loaded above, Setup (<b>GLO</b>) shows
-      how many there are.</p>
+    <h2>Quick start</h2>
+    <p>Polly plays styles: a band of eight tracks with an Intro, Main A and B, two Fills and an Ending, following the chords
+      you give it. Press <b>Switch on</b> above, then:</p>
+    <ol class="steps">
+      <li>Turn <b>KNOB 1</b> on the Song page to pick a style (the screen's header shows it).</li>
+      <li>Press <b>PLAY</b>: the Intro, then Main A.</li>
+      <li>Tap <b>SEL</b>: CHORD lights, and the keys enter chords. Hold three or more keys and the band follows; it keeps the
+        chord after you let go. Tap <b>SEL</b> again and the keys play the selected track (<b>ALGORITHM</b>).</li>
+      <li>Hold <b>SEL</b> (<kbd>Shift</kbd>-click it here) and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill,
+        5 Ending, from the next bar.</li>
+      <li>Hold <b>SEL</b> and press a white key: one of 16 chord progressions plays at once, looping. Holding SEL shows both
+        lists on the screen.</li>
+      <li>Turn <b>SELECT</b> for the tempo.</li>
+      <li>Press <b>SAVE</b>: it's lit while something isn't saved. Polly also saves by itself after a few seconds at rest.</li>
+    </ol>
+    <p><b>Your QY70 styles:</b> press <b>Load QY70 ROM</b> above and pick your QY70's main ROM. It stays in your browser; its
+      128 preset styles then follow Polly's own 16 on the Style knob, marked "QY", and Setup (<b>GLO</b>) shows how many
+      there are. On an FM-1 running Polly, <kbd>python3 tools/qy70_install.py qy70main.bin</kbd> puts them on the device.</p>
+    <p>MIDI in (USB) plays all 16 channels, as a General MIDI sound module.</p>
     <h2>The controls, as the firmware lists them</h2>
 <!--CONTROLS-->
   </div>

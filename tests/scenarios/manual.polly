@@ -1,0 +1,150 @@
+# POLLY, manual: the screenshots for MANUAL.md (copied by hand into docs/img/manual/, recompressed).
+# A first session: the Song page, SEL's shortcuts, a progression, CHORD, recording a part, the sound pages, the jobs,
+# a song written from a template (Chords, Arrange, the song's patterns), Setup and Panel, saving.
+wait 500
+expect page 0
+shot song.png
+# ---- SEL held: the shortcuts
+press SEL
+wait 500
+expect sel_shown 1
+shot sel_held.png
+# a progression (white key 1: Pop), then PLAY: the Intro, then Main A
+key w0 down
+key w0 up
+release SEL
+expect template 0
+tap PLAY
+wait 4800
+expect sect 2
+shot playing.png
+# ---- CHORD: hold A C E G (Am7)
+tap SEL
+expect chord_mode 1
+key 4 down
+key 7 down
+key 11 down
+key 14 down
+wait 100
+expect chord_root 9
+shot chord_mode.png
+key 4 up
+key 7 up
+key 11 up
+key 14 up
+tap SEL
+expect chord_mode 0
+# ---- record a part into Main A (C1, the piano): a user pattern of its own
+tap SEQ
+wait 1400
+shot pattern.png
+tap REC
+wait 50
+expect msg2_is_into_new_P01 1
+shot record_msg.png
+tapkey 7
+wait 200
+tapkey 11
+wait 200
+tapkey 14
+wait 450
+tapkey 19
+wait 450
+tapkey 14
+wait 200
+tapkey 11
+wait 1400
+shot recording.png
+tap REC
+wait 1400
+# ---- the next section: SEL + black key 3 (Main B), from the next bar
+tap HOME
+press SEL
+tapkey b2
+release SEL
+wait 300
+wait 2500
+tap PLAY
+wait 1400
+# ---- the pattern's setup, the sound pages
+tap SEQ
+tap SEQ
+wait 50
+shot pattern_setup.png
+tap EDIT
+wait 50
+shot track.png
+tap EDIT
+wait 50
+shot track_keys.png
+tap FX
+wait 50
+shot mixer.png
+tap FX
+wait 50
+shot mixer_tone.png
+tap FX
+wait 50
+shot master_fx.png
+# ---- the pattern's jobs: SAVE held
+tap SEQ
+press SAVE
+wait 800
+release SAVE
+wait 50
+shot pattern_jobs.png
+tap SAVE
+wait 1400
+# ---- templates: browse, copy one into the song (Pop, twice: 8 bars)
+tap ARP
+wait 50
+shot templates.png
+tap ARP
+spin K2 1
+wait 50
+shot copy_template.png
+tap SEL
+wait 50
+expect song_bars 8
+wait 1400
+# ---- the song: chords, sections, its patterns
+tap LFO
+wait 50
+shot chords.png
+tap ENV
+spin K1 1
+turn PRESET 1
+spin K1 2
+turn PRESET 4
+spin K1 3
+turn PRESET 3
+spin K1 6
+spin K3 -1
+wait 1400
+shot arrange.png
+tap ENV
+wait 50
+shot song_patterns.png
+tap ENV
+wait 50
+shot song_patterns2.png
+press SAVE
+wait 800
+release SAVE
+wait 50
+shot song_jobs.png
+tap SAVE
+wait 1400
+# ---- Setup, Panel
+tap GLO
+wait 50
+shot setup.png
+tap GLO
+wait 50
+# ---- saving: SAVE lit, then saved
+tap HOME
+wait 50
+expect dirty 1
+tap SAVE
+wait 50
+expect dirty 0
