@@ -6,21 +6,21 @@ wait 300
 tap LFO
 tap SEL
 expect chord_mode 1
-key 2 down
+key 4 down
 wait 20
-key 6 down
+key 7 down
 wait 20
-key 9 down
+key 11 down
 wait 20
-key 12 down
+key 14 down
 wait 50
-expect song_chord0 706
+expect song_chord0 918
 expect song_chord4 26
 expect cbeat 0
-key 2 up
-key 6 up
-key 9 up
-key 12 up
+key 4 up
+key 7 up
+key 11 up
+key 14 up
 wait 30
 expect cbeat 4
 expect song_chord4 26
@@ -47,22 +47,22 @@ wait 50
 expect recording 0
 expect rec_chords 1
 expect chord_mode 1
-# G B D then F, held, around beat 3: G7 on that beat, nothing after it
+# A C E then G, held, around beat 3: Am7 on that beat, nothing after it
 wait 600
-key 2 down
-key 6 down
-key 9 down
+key 4 down
+key 7 down
+key 11 down
 wait 30
-key 12 down
+key 14 down
 wait 30
 expect cbeat 2
-expect cur_chord 706
+expect cur_chord 918
 expect song_chord3 26
 shot rec_grow.png
-key 2 up
-key 6 up
-key 9 up
-key 12 up
+key 4 up
+key 7 up
+key 11 up
+key 14 up
 wait 30
 # leaving the page: chord recording off, CHORD as it was
 tap HOME
@@ -81,7 +81,7 @@ key 9 down
 key 12 down
 key 16 down
 wait 30
-expect song_chord0 706
+expect song_chord0 918
 key 9 up
 key 12 up
 key 16 up

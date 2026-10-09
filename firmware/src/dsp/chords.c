@@ -107,6 +107,9 @@ int chord_recognize(const uint8_t *notes, int n, chord_t *out)
                 else
                     continue;
                 score -= pass ? 500 : 0;             /* root position wins over reading a slash bass */
+                if (!pass && r == low_pc)
+                    score += 100;                    /* of the same tier, the lowest note as the root: A C E G
+                                                      * is Am7, C E G A is C6 (as arrangers read them) */
                 if (score > best) {
                     best = score;
                     br = r;

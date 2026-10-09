@@ -89,6 +89,20 @@ int main(void)
                 CHECK(ok, "type %s root %d inversion %d -> %d %d", chord_type_name(t), r, inv, c.root, c.type);
             }
         }
+    /* tone sets two types share: the lowest note held is the root (as arrangers read them) */
+    {
+        static const struct { uint8_t n[4]; int root, type; const char *name; } L[] = {
+            {{57, 60, 64, 67}, 9, CH_MIN7, "A C E G: Am7"},   {{60, 64, 67, 69}, 0, CH_6, "C E G A: C6"},
+            {{52, 55, 59, 62}, 4, CH_MIN7, "E G B D: Em7"},   {{55, 59, 62, 65}, 7, CH_7, "G B D F: G7"},
+            {{60, 64, 67, 71}, 0, CH_MAJ7, "C E G B: CM7"},   {{53, 57, 60, 64}, 5, CH_MAJ7, "F A C E: FM7"},
+            {{50, 53, 57, 60}, 2, CH_MIN7, "D F A C: Dm7"},   {{59, 62, 65, 69}, 11, CH_MIN7_B5, "B D F A: Bm7b5"},
+        };
+        for (unsigned i = 0; i < sizeof L / sizeof L[0]; i++) {
+            chord_t c;
+            CHECK(chord_recognize(L[i].n, 4, &c) && c.root == L[i].root && c.type == L[i].type && c.bass == CH_NOBASS,
+                  "%s: got %d %s bass %d", L[i].name, c.root, chord_type_name(c.type), c.bass);
+        }
+    }
     /* a slash bass: a note held below the chord, not one of its tones */
     {
         uint8_t n[4] = {40, 59, 62, 66};   /* E2, then B3 D4 F#4: Bm/E */
