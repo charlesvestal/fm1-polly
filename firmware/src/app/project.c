@@ -17,6 +17,8 @@ void project_defaults(void)
     proj.rev_type = 2;                               /* hall */
     proj.rev_level = 90;
     proj.cho_level = 80;
+    proj.clock = 1;
+    proj.mout = 1;
     for (c = 0; c < GM_NCH; c++) {
         proj.volume[c] = 100;
         proj.pan[c] = 64;
@@ -31,7 +33,8 @@ static int project_valid(void)
     if (proj.magic != PROJ_MAGIC || proj.format != PROJ_FORMAT || proj.ch > 15u || proj.oct < -3 || proj.oct > 3 ||
         proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS ||
         proj.trk >= ARR_TRACKS || proj.tempo < 40u || proj.tempo > 240u || proj.key > 11u || proj.quant >= ARR_NQ ||
-        proj.rev_type > 4u || proj.rev_level > 127u || proj.cho_type > 3u || proj.cho_level > 127u)
+        proj.rev_type > 4u || proj.rev_level > 127u || proj.cho_type > 3u || proj.cho_level > 127u ||
+        proj.clock > 1u || proj.mout > 1u)
         return 0;
     for (c = 0; c < GM_NCH; c++)
         if (proj.program[c] > 127u || proj.volume[c] > 127u || proj.pan[c] > 127u || proj.reverb[c] > 127u ||
@@ -138,21 +141,46 @@ int project_pattern_save(int i, const pattern_t *p)
     return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
 }
 
+/* an empty song: no bars yet, every beat "no change", looping, playing user patterns 4n..4n+3 */
+void song_default(song_t *g, int n)
+{
+    memset(g, 0, sizeof *g);
+    g->loop = 1;
+    for (int i = 0; i < ARR_NSECT; i++)
+        g->style[i] = (uint8_t)(n * ARR_NSECT + i);
+    for (int i = 0; i < ARR_SONGBARS * 4; i++) {
+        g->chord[i].type = CH_NTYPES;
+        g->chord[i].bass = CH_NOBASS;
+    }
+}
 static void songs_defaults(songs_t *s)
 {
     memset(s, 0, sizeof *s);
     s->magic = SONGS_MAGIC;
     s->format = SONGS_FORMAT;
     for (int n = 0; n < ARR_SONGS; n++)              /* song n: user patterns 4n..4n+3, none shared */
-        for (int i = 0; i < ARR_NSECT; i++)
-            s->song[n].style[i] = (uint8_t)(n * ARR_NSECT + i);
+        song_default(&s->song[n], n);
 }
 
 int project_songs_load(songs_t *s)
 {
     int n = plat_store_load(OBJ_SONGS, s, sizeof *s);
-    if (n >= 8 && s->magic == SONGS_MAGIC && s->format == SONGS_FORMAT)
+    if (n >= 8 && s->magic == SONGS_MAGIC && s->format == SONGS_FORMAT) {
+        for (int i = 0; i < ARR_SONGS; i++) {        /* every value that indexes something kept in range */
+            song_t *g = &s->song[i];
+            if (g->bars > ARR_SONGBARS)
+                g->bars = ARR_SONGBARS;
+            g->loop = g->loop != 0;
+            for (int k = 0; k < ARR_SONGBARS; k++)
+                if (g->sect[k] > SEC_END)
+                    g->sect[k] = SEC_SAME;
+            for (int k = 0; k < ARR_SONGBARS * 4; k++)
+                if (g->chord[k].type > CH_NTYPES || g->chord[k].root > 11u ||
+                    (g->chord[k].bass > 11u && g->chord[k].bass != CH_NOBASS))
+                    g->chord[k].type = CH_NTYPES;
+        }
         return 0;
+    }
     songs_defaults(s);
     return -1;
 }

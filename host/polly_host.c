@@ -438,17 +438,35 @@ static int expect(const char *what, const char *val)
     } else if (!strncmp(what, "slot", 4) && strstr(what, "_bars")) {
         arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
         got = dbg_pat.bars;
-    } else if (!strcmp(what, "job"))              /* the jobs open */
+    } else if (!strncmp(what, "song_chord", 10)) {   /* song_chordN: the selected song's beat N, root*100 + type */
+        const chord_t *c = &songs.song[proj.song].chord[atoi(what + 10) & 255];
+        got = c->root * 100 + c->type;
+    } else if (!strcmp(what, "cur_chord")) {      /* the chord at the Chords cursor */
+        const chord_t *c = &songs.song[proj.song].chord[app.cbeat];
+        got = c->root * 100 + c->type;
+    } else if (!strncmp(what, "song_sect", 9))    /* song_sectN: bar N's section mark */
+        got = songs.song[proj.song].sect[atoi(what + 9) & 63];
+    else if (!strcmp(what, "song_bars"))
+        got = songs.song[proj.song].bars;
+    else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].bars;     /* songN_bars (1..4), as in RAM */
+    else if (!strcmp(what, "cbeat"))              /* the Chords / Arrange cursor, a beat 0.. */
+        got = app.cbeat;
+    else if (!strcmp(what, "clock"))
+        got = proj.clock;
+    else if (!strcmp(what, "key"))
+        got = proj.key;
+    else if (!strcmp(what, "job"))              /* the jobs open */
         got = ui.job;
     else if (!strcmp(what, "rev_type"))
-        got = proj.rev_type; else if (!strcmp(what, "song0_bars")) {      /* song 0's length in bars */
+        got = proj.rev_type;
+    else if (!strcmp(what, "song0_bars")) {       /* song 0's length in bars, as saved */
         project_songs_load(&dbg_songs);
         got = dbg_songs.song[0].bars;
     } else if (!strcmp(what, "song0_chord0")) {    /* song 0, bar 0 beat 0's chord: root*100 + type */
         project_songs_load(&dbg_songs);
         got = dbg_songs.song[0].chord[0].root * 100 + dbg_songs.song[0].chord[0].type;
-    }
-    else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
+    } else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);
         printf("%s peak %.1f dBFS (%s %s)\n", bad ? "FAIL" : "  ok", db, what + 8, val);

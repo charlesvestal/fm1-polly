@@ -88,11 +88,11 @@ expect page 1
 tap FX
 expect page 5
 tap ARP
-expect page 9
-tap GLO
-expect page 11
+expect page 10
 tap GLO
 expect page 12
+tap GLO
+expect page 13
 tap HOME
 expect page 0
 # SAVE held on the Song page: the song's jobs (later), not the pattern's

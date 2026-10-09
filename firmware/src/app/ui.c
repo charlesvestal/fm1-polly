@@ -146,7 +146,27 @@ static void song_load(void)
     for (int s = 0; s < ARR_NSECT; s++)
         slot_load(s, sg->style[s]);
     app.song_on = sg->bars > 0;
-    arr_song(app.song_on ? sg : 0, 1);
+    arr_song(app.song_on ? sg : 0, sg->loop);
+    app.song_edit = 0;
+}
+/* the song edited (chords, sections, length): to the arranger at most every EDIT_MS (arr_song copies it; set
+ * again while it plays it keeps its place); an edit makes it the song playing (templates off) */
+static void song_edited(void)
+{
+    if (!app.song_edit)
+        app.song_edit_t = plat_ms();
+    app.song_edit = 1;
+    app.songs_dirty = 1;
+    app.chg++;
+    app.gen++;
+    ui.act_t = plat_ms();
+}
+static void song_flush(void)
+{
+    const song_t *sg = &songs.song[proj.song];
+    app.song_edit = 0;
+    app.song_on = sg->bars > 0;
+    arr_song(app.song_on ? sg : 0, sg->loop);
 }
 /* the takes: when each slot was last recorded into (or erased), so a save knows the newest */
 static void watch_takes(void)
@@ -171,6 +191,8 @@ static int save_all(void)
     uint32_t done = 0;
     int rc = 0;
     edits_flush();
+    if (app.song_edit)
+        song_flush();
     watch_takes();
     if (app.dirty) {
         if (project_save() == 0)
@@ -239,7 +261,9 @@ void app_start(void)
     arr_set_tempo(proj.tempo);
     arr_set_key(proj.key);
     arr_set_quant(proj.quant);
-    arr_midi_out_on(1);                          /* the tracks out on their channels */
+    arr_midi_out_on(proj.mout);                  /* the tracks out on their channels */
+    app.cstep = 2;                               /* the Chords cursor: a bar a step */
+    app.reps = 1;
     fx_apply();
     song_load();
     arr_record(proj.trk, 0);                     /* the keys play the selected track */
@@ -280,6 +304,11 @@ static void set_track(int t)
     mark_dirty();
 }
 
+static void chord_played(const uint8_t *n, int c);
+static void rec_chords(int on);
+static void song_job_run(void);
+static void template_copy(void);
+static void song_knob(int k, int32_t e);
 /* the keys held in CHORD mode, to the chord recogniser (every change) */
 static void chord_keys(void)
 {
@@ -288,7 +317,8 @@ static void chord_keys(void)
     for (int i = 0; i < NKEYS; i++)
         if (ui.kmode[i] == KM_CHORD)
             n[c++] = ui.knote[i];
-    arr_keys_held(n, c);
+    if (arr_keys_held(n, c) && ui.page == P_CHORDS)
+        chord_played(n, c);
 }
 static void set_chord_mode(int on)
 {
@@ -347,7 +377,7 @@ static void key_up(int k)
 /* the page buttons: a button holds up to three pages, pressed again: the next */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 2},
-    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 1}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
+    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 2}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_button(int b)
 {
@@ -356,6 +386,7 @@ static int page_button(int b)
             int f = PAGE_BTN[i].first, n = PAGE_BTN[i].n;
             ui.page = (uint8_t)(ui.page >= f && ui.page < f + n ? f + (ui.page - f + 1) % n : f);
             ui.touched = -1;
+            ui.rec_chords = 0;                   /* chord recording is the Chords page's */
             return 1;
         }
     return 0;
@@ -444,8 +475,16 @@ static void button_down(int b)
         return;
     }
     switch (b) {
-    case B_PLAY: arr_play(!arr_playing); break;
+    case B_PLAY:
+        if (ui.page == P_TEMPLATES && !arr_playing)   /* audition the template under the cursor */
+            pick_template(app.tmpl < 0 ? 0 : app.tmpl);
+        arr_play(!arr_playing);
+        break;
     case B_REC:
+        if (ui.page == P_CHORDS) {               /* the Chords page: chords played go into the song */
+            rec_chords(!ui.rec_chords);
+            break;
+        }
     {
         int on = !arr_recording;                 /* the state asked for (the engine's follows a block later) */
         arr_record(proj.trk, on);
@@ -459,8 +498,12 @@ static void button_up(int b)                     /* a tap: released before it wa
 {
     switch (b) {
     case B_SEL:
-        if (ui.job)
+        if (ui.job == 2)
+            song_job_run();
+        else if (ui.job)
             job_run();
+        else if (ui.page == P_TCOPY)
+            template_copy();
         else
             set_chord_mode(!ui.chord);
         break;
@@ -501,8 +544,13 @@ static void holds(void)
         ui.btn_used |= 1u << B_SAVE;
         if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
             jobs_open();                         /* the pattern's jobs */
-        else
-            say("SONG JOBS", "coming");
+        else if (ui.page == P_CHORDS || ui.page == P_ARRANGE || ui.page == P_ARRANGE2) {
+            ui.job = 2;                          /* the song's */
+            ui.job_sel = 0;
+            ui.job_to = (uint8_t)((proj.song + 1u) % ARR_SONGS);
+            ui.touched = -1;
+        } else
+            say("JOBS", "on the Pattern or Chords page");
     }
     if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] > HOLD_MS)
         ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
@@ -528,8 +576,239 @@ static void song_change(int s)
     say(t, app.song_on ? 0 : "empty");
 }
 
-/* the four knobs on the page shown */
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+/* ------------------------------------------------------ the song's pages --- */
+/* the chord in effect at beat k: the last one written at or before it; C before any */
+static chord_t chord_at(const song_t *g, int k)
+{
+    chord_t c = {0, CH_MAJ, CH_NOBASS};
+    for (; k >= 0; k--)
+        if (g->chord[k].type < CH_NTYPES)
+            return g->chord[k];
+    return c;
+}
+/* a chord into the song at beat k (type CH_NTYPES: "no change"); the song grows to hold it */
+static void chord_write(int k, chord_t c)
+{
+    song_t *g = csong();
+    if (k < 0 || k >= ARR_SONGBARS * 4)
+        return;
+    g->chord[k] = c;
+    if (c.type < CH_NTYPES && g->bars < k / 4 + 1)
+        g->bars = (uint8_t)(k / 4 + 1);
+    song_edited();
+}
+static const uint8_t STEP_BEATS[3] = {1, 2, 4};
+static void cursor_move(int d)
+{
+    app.cbeat = (uint8_t)clampi(app.cbeat + d * STEP_BEATS[app.cstep % 3u], 0, ARR_SONGBARS * 4 - 1);
+    if (ui.page == P_ARRANGE || ui.page == P_ARRANGE2)
+        app.cbeat = (uint8_t)(app.cbeat & ~3u);
+}
+/* REC on the Chords page: chords played while playing are written on the beat. An empty song gets 8 bars,
+ * looping, so there is a song to write into (it starts at the next bar line) */
+static void rec_chords(int on)
+{
+    song_t *g = csong();
+    if (on && !g->bars) {
+        g->bars = 8;
+        g->loop = 1;
+        song_edited();
+        song_flush();
+    }
+    ui.rec_chords = (uint8_t)on;
+    if (on && !ui.chord)
+        set_chord_mode(1);                       /* the keys enter chords */
+    say(on ? "RECORD" : "RECORD OFF", on ? "chords" : 0);
+}
+/* a chord played (CHORD on) on the Chords page: recording while playing, on the nearest beat of the song (a
+ * chord played up to an eighth early lands on the beat it anticipates); else at the cursor, which moves on */
+static void chord_played(const uint8_t *n, int c)
+{
+    chord_t ch;
+    if (!chord_recognize(n, c, &ch))
+        return;
+    if (ui.rec_chords && arr_playing && app.song_on) {
+        const song_t *g = csong();
+        uint32_t bar, bt, beats = app.hdr[eslot()].beats ? app.hdr[eslot()].beats : 4;
+        int b;
+        do {
+            bar = arr_song_bar;
+            bt = arr_beat_tick;
+        } while (bar != arr_song_bar);
+        b = (int)((bt + ARR_PPQ / 2) / ARR_PPQ);
+        if ((uint32_t)b >= beats) {              /* the next bar's downbeat */
+            b = 0;
+            bar = g->bars ? (bar + 1u) % g->bars : 0;
+        }
+        if (b < 4)
+            chord_write((int)bar * 4 + b, ch);
+        app.cbeat = (uint8_t)(bar * 4u + (uint32_t)(b < 4 ? b : 3));
+        return;
+    }
+    chord_write(app.cbeat, ch);
+    cursor_move(1);
+}
+/* a slot's pattern changed to user pattern `to` (the Arrange page's, the Pattern page's PRESETS); its
+ * changes saved first (stopped), or refused while playing (a save pauses the audio) */
+static void slot_style(int s, int to)
+{
+    int st = songs.song[proj.song].style[s];
+    char t[8];
+    if (to == st)
+        return;
+    if (slot_unsaved(s)) {
+        if (arr_playing) {
+            say("UNSAVED", "SAVE FIRST");
+            return;
+        }
+        if (save_all() != 0) {
+            say("NOT SAVED", "PATTERN KEPT");
+            return;
+        }
+    }
+    songs.song[proj.song].style[s] = (uint8_t)to;
+    app.songs_dirty = 1;
+    app.chg++;
+    slot_load(s, to);
+    pat_name(to, t);
+    say(SECT_NAME[s + 1], t);
+}
+static void song_page_knob(int k, int32_t e)
+{
+    song_t *g = csong();
+    int d = e > 0 ? 1 : -1;
+    switch (ui.page) {
+    case P_CHORDS: {
+        chord_t c = g->chord[app.cbeat];
+        int set = c.type < CH_NTYPES;
+        if (k == 3) {
+            app.cstep = (uint8_t)clampi(app.cstep + d, 0, 2);
+            break;
+        }
+        if (!set)                                /* a new chord starts as the one in effect */
+            c = chord_at(g, app.cbeat);
+        if (k == 0)
+            c.root = (uint8_t)(((c.root + accel(EN_K1, e)) % 12 + 12) % 12);
+        else if (k == 1) {                       /* below major: "no change" */
+            int t = (set ? c.type : -1) + accel(EN_K2, e);
+            if (t < 0) {
+                c.type = CH_NTYPES;
+                chord_write(app.cbeat, c);
+                break;
+            }
+            c.type = (uint8_t)clampi(t, 0, CH_NONE);
+        } else {
+            int bs = (c.bass == CH_NOBASS ? -1 : c.bass) + d;
+            c.bass = bs < 0 ? CH_NOBASS : (uint8_t)clampi(bs, 0, 11);
+        }
+        chord_write(app.cbeat, c);
+        break;
+    }
+    case P_ARRANGE:
+        if (k == 0) {
+            int b = app.cbeat / 4;
+            g->sect[b] = (uint8_t)clampi(g->sect[b] + accel(EN_K1, e), SEC_SAME, SEC_END);
+            if (g->bars < b + 1)
+                g->bars = (uint8_t)(b + 1);
+        } else if (k == 1)
+            g->bars = (uint8_t)clampi(g->bars + accel(EN_K2, e), 0, ARR_SONGBARS);
+        else if (k == 2)
+            g->loop = (uint8_t)(d > 0);
+        else
+            break;
+        song_edited();
+        break;
+    case P_ARRANGE2: {
+        int st = g->style[k];
+        slot_style(k, st >= ARR_USER_PATTERNS ? 0 : clampi(st + d, 0, ARR_USER_PATTERNS - 1));
+        break;
+    }
+    case P_TEMPLATES: case P_TCOPY:
+        if (k == 0) {
+            int t = clampi((app.tmpl < 0 ? 0 : app.tmpl) + accel(EN_K1, e), 0, NTEMPLATES - 1);
+            if (arr_playing && ui.page == P_TEMPLATES)
+                pick_template(t);                /* playing: heard at once */
+            else
+                app.tmpl = (int8_t)t;
+        } else if (k == 1 && ui.page == P_TEMPLATES)
+            song_knob(0, e);                     /* the key */
+        else if (k == 1)
+            app.reps = (uint8_t)clampi((app.reps ? app.reps : 1) + accel(EN_K2, e), 1, 8);
+        else if (k == 2) {
+            app.cbeat = (uint8_t)(clampi(app.cbeat / 4 + accel(EN_K3, e), 0, ARR_SONGBARS - 1) * 4);
+        }
+        break;
+    case P_SETUP:
+        if (k == 0)
+            proj.clock = (uint8_t)(d > 0);
+        else if (k == 1) {
+            proj.mout = (uint8_t)(d > 0);
+            arr_midi_out_on(proj.mout);
+        } else if (k == 2) {
+            int key = clampi(key_signed() + accel(EN_K3, e), -6, 5);
+            proj.key = (uint8_t)((key + 12) % 12);
+            arr_set_key(proj.key);
+        } else
+            proj.leds = (uint8_t)clampi(proj.leds + d, 0, 2);
+        mark_dirty();
+        break;
+    default: break;
+    }
+}
+/* the template under the cursor into the song from the cursor's bar: its chord a bar (the key's
+ * transposition in: songs are at real pitch), the other beats "no change", so many times */
+static void template_copy(void)
+{
+    int cur = app.tmpl < 0 ? 0 : app.tmpl, bar = app.cbeat / 4, reps = app.reps ? app.reps : 1, n = 0;
+    const template_t *m = &TEMPLATES[cur];
+    song_t *g = csong();
+    char t[24];
+    for (int r = 0; r < reps; r++)
+        for (int i = 0; i < m->nbars; i++, n++) {
+            int b = bar + n;
+            chord_t c = m->bars[i];
+            if (b >= ARR_SONGBARS)
+                break;
+            c.root = (uint8_t)((c.root + proj.key) % 12u);
+            g->chord[b * 4] = c;
+            for (int k = 1; k < 4; k++)
+                g->chord[b * 4 + k].type = CH_NTYPES;
+            if (g->bars < b + 1)
+                g->bars = (uint8_t)(b + 1);
+        }
+    song_edited();
+    itoa_u((uint32_t)bar + 1u, cat_s(cat_s(t, m->name), " > bar "));
+    say("COPIED", t);
+}
+/* the song's jobs (SAVE held on Chords / Arrange): clear it (its patterns kept), or copy it to another */
+static void song_job_run(void)
+{
+    song_t *g = csong();
+    char t[12];
+    ui.job = 0;
+    if (ui.job_sel == 0) {
+        uint8_t st[ARR_NSECT];
+        memcpy(st, g->style, sizeof st);
+        song_default(g, proj.song);
+        memcpy(g->style, st, sizeof st);
+        app.cbeat = 0;
+        song_edited();
+        say("CLEARED", "the song");
+    } else {
+        int to = ui.job_to % ARR_SONGS;
+        if (to == proj.song)
+            return;
+        songs.song[to] = *g;
+        app.songs_dirty = 1;
+        app.chg++;
+        itoa_u((uint32_t)to + 1u, cat_s(t, "TO SONG "));
+        say("COPIED", t);
+    }
+}
+
+/* the four knobs on the page shown */
 static void song_knob(int k, int32_t e)
 {
     switch (k) {
@@ -641,11 +920,12 @@ static void edit_knob(int k, int32_t e)
 }
 static void knob(int k, int32_t e)
 {
-    if (ui.job) {                                /* the jobs: KNOB 1 the job, KNOB 2 the copy's pattern */
+    if (ui.job) {                                /* the jobs: KNOB 1 the job, KNOB 2 the copy's pattern / song */
+        int n = ui.job == 2 ? ARR_SONGS : ARR_USER_PATTERNS;
         if (k == 0)
-            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, 2);
+            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, ui.job == 2 ? 1 : 2);
         else if (k == 1)
-            ui.job_to = (uint8_t)((ui.job_to + (e > 0 ? 1 : ARR_USER_PATTERNS - 1)) % ARR_USER_PATTERNS);
+            ui.job_to = (uint8_t)((ui.job_to + (e > 0 ? 1 : n - 1)) % n);
         touch(k);
         return;
     }
@@ -653,6 +933,8 @@ static void knob(int k, int32_t e)
         song_knob(k, e);
     else if (ui.page <= P_MASTER)
         edit_knob(k, e);
+    else if (ui.page != P_PANEL)
+        song_page_knob(k, e);
     else
         return;
     touch(k);
@@ -661,27 +943,8 @@ static void knob(int k, int32_t e)
  * when its changes are saved (a save would pause the audio) */
 static void pattern_pick(int32_t e)
 {
-    int s = eslot(), st = songs.song[proj.song].style[s], to;
-    char t[8];
-    to = st >= ARR_USER_PATTERNS ? 0 : clampi(st + (e > 0 ? 1 : -1), 0, ARR_USER_PATTERNS - 1);
-    if (to == st)
-        return;
-    if (slot_unsaved(s)) {
-        if (arr_playing) {
-            say("UNSAVED", "SAVE FIRST");
-            return;
-        }
-        if (save_all() != 0) {
-            say("NOT SAVED", "PATTERN KEPT");
-            return;
-        }
-    }
-    songs.song[proj.song].style[s] = (uint8_t)to;
-    app.songs_dirty = 1;
-    app.chg++;
-    slot_load(s, to);
-    pat_name(to, t);
-    say(SECT_NAME[s + 1], t);
+    int s = eslot(), st = songs.song[proj.song].style[s];
+    slot_style(s, st >= ARR_USER_PATTERNS ? 0 : clampi(st + (e > 0 ? 1 : -1), 0, ARR_USER_PATTERNS - 1));
 }
 static void presets(int32_t e)
 {
@@ -698,6 +961,13 @@ static void presets(int32_t e)
             song_change(s);
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
         pattern_pick(e);
+    else if (ui.page == P_CHORDS || ui.page == P_ARRANGE || ui.page == P_ARRANGE2 || ui.page == P_TCOPY) {
+        if (ui.page == P_CHORDS)
+            cursor_move(e > 0 ? 1 : -1);
+        else
+            app.cbeat = (uint8_t)(clampi(app.cbeat / 4 + (e > 0 ? 1 : -1), 0, ARR_SONGBARS - 1) * 4);
+    } else if (ui.page == P_TEMPLATES)
+        song_page_knob(0, e);
     else if (ui.page == P_TRACK) {               /* a family of eight, as the GM module */
         arr_trk_t *t = &app.trk[eslot()][proj.trk];
         if ((t->chan & 15u) != 9u) {
@@ -712,6 +982,8 @@ static void midi_in(void)
     uint32_t pkt;
     while (plat_midi_in(&pkt)) {
         uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu, t = st & 0xF0u;
+        if (st >= 0xF8u && !proj.clock)
+            continue;                            /* internal clock: the clock in ignored */
         if (st == 0xF8u)
             arr_clock(ARR_CLK_TICK);
         else if (st == 0xFAu)
@@ -791,7 +1063,7 @@ static void input(void)
 static void leds(void)
 {
     uint32_t b = 0, k = 0, i;
-    int rec = arr_recording;
+    int rec = arr_recording || ui.rec_chords;
     if (arr_playing)
         b |= 1u << B_PLAY;
     if (rec)
@@ -847,6 +1119,8 @@ void ui_frame(void)
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
     if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
         edits_flush();
+    if (app.song_edit && plat_ms() - app.song_edit_t >= EDIT_MS)
+        song_flush();
     /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the
      * voices ended (a save pauses the audio) */
     if (!app.song_pend || ui.stopped <= 1u)

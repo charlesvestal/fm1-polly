@@ -45,8 +45,9 @@ typedef struct {
 
 typedef struct {
     uint8_t style[ARR_NSECT];            /* the pattern for Main A, Main B, Fill, Ending: 0..15 user, 16.. factory */
-    uint8_t bars;                        /* the song's length, 1..64 */
-    uint8_t rsv[3];
+    uint8_t bars;                        /* the song's length, 1..64 (0: no song yet) */
+    uint8_t loop;                        /* goes round at its end (the app passes it to arr_song) */
+    uint8_t rsv[2];
     uint8_t sect[ARR_SONGBARS];          /* SEC_* per bar */
     chord_t chord[ARR_SONGBARS * 4];     /* a chord per beat; type CH_NTYPES = no change */
 } song_t;

@@ -1,0 +1,131 @@
+# POLLY, compose: a song written on the device. Chords by knobs (Am7 on bar 1, G on bar 2), bar 2 Main B, saved,
+# rebooted, played. Then a template auditioned and copied into the song, chords entered from the keys (step and
+# recorded while playing), the song's jobs, the Setup page.
+wait 300
+tap LFO
+expect page 7
+spin K1 9
+spin K2 18
+wait 100
+expect song_chord0 918
+expect song_bars 1
+turn PRESET 1
+expect cbeat 4
+spin K1 -2
+spin K2 -18
+wait 100
+expect song_chord4 700
+expect song_bars 2
+shot chords.png
+tap ENV
+expect page 8
+spin K1 2
+wait 100
+expect song_sect1 2
+shot arrange.png
+tap ENV
+expect page 9
+shot patterns.png
+tap SAVE
+wait 50
+expect dirty 0
+# only what changed: the songs object
+expect store_writes 1
+reboot
+wait 300
+tap PLAY
+wait 500
+expect chord_root 9
+expect chord_type 18
+expect sect 1
+wait 2000
+expect chord_root 7
+expect chord_type 0
+expect sect 2
+tap PLAY
+wait 100
+# Templates: PRESETS picks, PLAY auditions
+tap ARP
+expect page 10
+turn PRESET 1
+tap PLAY
+wait 300
+expect playing 1
+expect template 1
+shot templates.png
+tap PLAY
+wait 100
+# its second page: copied into the song from bar 3, SEL
+tap ARP
+expect page 11
+spin K3 2
+tap SEL
+wait 100
+expect song_chord8 916
+expect song_chord12 500
+expect song_bars 6
+shot tcopy.png
+# the Chords page, CHORD on: a chord played is written at the cursor (bar 3), the cursor moves on a bar
+tap LFO
+expect cbeat 8
+tap SEL
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect song_chord8 0
+expect cbeat 12
+# REC while playing: D F A played just before beat 3 of bar 1 lands on it
+tap SEL
+tap PLAY
+tap REC
+wait 900
+key 9 down
+key 12 down
+key 16 down
+wait 60
+key 9 up
+key 12 up
+key 16 up
+expect cbeat 2
+expect cur_chord 216
+shot rec_chords.png
+tap REC
+tap PLAY
+wait 100
+# the song's jobs (SAVE held on the Chords page): copy to song 2, then clear this one
+press SAVE
+wait 800
+release SAVE
+expect job 2
+spin K1 1
+wait 100
+shot song_jobs.png
+tap SEL
+expect song2_bars 6
+press SAVE
+wait 800
+release SAVE
+tap SEL
+wait 100
+expect song_bars 0
+# Setup: the clock internal (MIDI clock in ignored), the key -3
+tap GLO
+expect page 12
+spin K1 -1
+spin K3 -3
+expect clock 0
+expect key 9
+wait 50
+shot setup.png
+midi FA 00 00
+clock 50
+expect playing 0
+tap GLO
+expect page 13
+shot panel.png
+tap HOME

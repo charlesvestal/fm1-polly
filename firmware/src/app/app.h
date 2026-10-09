@@ -11,9 +11,9 @@
 #define GM_VERSION "DEV"
 #endif
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
-#define PROJ_FORMAT 3u
+#define PROJ_FORMAT 4u
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 1u
+#define SONGS_FORMAT 2u
 
 typedef struct {
     uint32_t magic, format;
@@ -29,7 +29,9 @@ typedef struct {
     uint8_t quant;                        /* the recording grid, ARR_Q_* */
     uint8_t rev_type, rev_level;          /* the master reverb: 0 off, 1..4 (large hall, hall, chamber, room); 0..127 */
     uint8_t cho_type, cho_level;          /* the master chorus: preset 0..3; 0..127 (0 off) */
-    uint8_t rsv[6];
+    uint8_t clock;                        /* 0 internal (MIDI clock in ignored), 1 MIDI (followed when it comes) */
+    uint8_t mout;                         /* MIDI out: the tracks on their channels, the clock */
+    uint8_t rsv[4];
 } project_t;
 
 extern project_t proj;
@@ -43,7 +45,8 @@ int project_pattern_load(int i, pattern_t *p);         /* user pattern i, 0 = lo
 int project_pattern_save(int i, const pattern_t *p);
 int project_songs_load(songs_t *s);
 int project_songs_save(const songs_t *s);
-void pattern_empty(pattern_t *p);                      /* 2 bars of 4, 8 tracks, the default sounds and types */
+void pattern_empty(pattern_t *p);
+void song_default(song_t *g, int n);                   /* song n, empty */                      /* 2 bars of 4, 8 tracks, the default sounds and types */
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
 void ui_init(void);
