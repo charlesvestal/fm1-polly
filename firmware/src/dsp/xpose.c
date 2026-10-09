@@ -72,3 +72,30 @@ int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c)
     s->fresh = 0;
     return out;
 }
+
+/* the source pitch classes in the order a key is matched against their images: R 3 5 7, 9 11 13, chromatic */
+static const uint8_t INV_ORDER[12] = {0, 4, 7, 11, 2, 5, 9, 1, 3, 6, 8, 10};
+
+int xpose_inverse(const xtrack_t *t, int note, chord_t c)
+{
+    int n = note - c.root;                        /* Parallel's inverse, and the fallback */
+    if (t->type == XT_BYPASS)
+        return note;
+    if (c.type != CH_NONE && t->type != XT_PARALLEL) {
+        int shift = c.root;
+        if ((t->type == XT_CHORD1 || t->type == XT_BASS) && t->hikey < XT_NOKEY && c.root > t->hikey)
+            shift -= 12;
+        for (int i = 0; i < 12; i++) {
+            int rel = INV_ORDER[i], d = SRC_DEG[rel], img = shift + chord_degrees(c.type)[d] + rel - SRC_SEMI[d];
+            if ((note - img) % 12 == 0) {         /* chord1(n) == note: n's octave base + img */
+                n = note - img + rel;
+                break;
+            }
+        }
+    }
+    while (n < 0)
+        n += 12;
+    while (n > 127)
+        n -= 12;
+    return n;
+}

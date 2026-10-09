@@ -1245,6 +1245,205 @@ static void test_switch_chord_ends(void)      /* a chord change on a section's b
     CHECK(offs_match(stub_log, stub_n), "offs match");
 }
 
+/* ---- loop recording */
+static pattern_t R;                           /* a slot read back */
+static int ons_in(int st, int note, float from, float to)
+{
+    int n = 0;
+    for (int i = 0; i < stub_n; i++)
+        if (stub_log[i].st == st && stub_log[i].d1 == note && is_on(&stub_log[i]) &&
+            (float)stub_log[i].frame >= from && (float)stub_log[i].frame < to)
+            n++;
+    return n;
+}
+static void key_at(float tick, int note, int on)   /* the key at the first block from this tick */
+{
+    run_to((uint32_t)(tick * FPT));
+    arr_key(note, on, on ? 90 : 0);
+}
+
+static void test_inverse(void)                /* the transposer's inverse, over Am7 */
+{
+    xtrack_t c1 = {XT_CHORD1, 0, 127, XT_NOKEY}, by = {XT_BYPASS, 0, 127, XT_NOKEY}, pa = {XT_PARALLEL, 0, 127, XT_NOKEY};
+    xstate_t xs;
+    chord_t am7 = ch(9, CH_MIN7);
+    static const int keys[] = {69, 60, 64, 67, 72, 62, 66};
+    CHECK(xpose_inverse(&c1, 69, am7) == 60, "A4 over Am7, Chord 1 -> C4 (%d)", xpose_inverse(&c1, 69, am7));
+    CHECK(xpose_inverse(&c1, 60, am7) == 52, "C4 (the 3rd) -> E3 (%d)", xpose_inverse(&c1, 60, am7));
+    CHECK(xpose_inverse(&c1, 64, am7) == 55, "E4 (the 5th) -> G3 (%d)", xpose_inverse(&c1, 64, am7));
+    CHECK(xpose_inverse(&c1, 67, am7) == 59, "G4 (the 7th) -> B3 (%d)", xpose_inverse(&c1, 67, am7));
+    for (unsigned i = 0; i < sizeof keys / sizeof keys[0]; i++) {
+        xpose_reset(&xs);
+        int n = xpose_inverse(&c1, keys[i], am7);
+        CHECK(xpose(&c1, &xs, n, am7) == keys[i], "Chord 1 maps the inverse of %d back to it", keys[i]);
+    }
+    CHECK(xpose_inverse(&c1, 73, am7) == 64, "C#5, outside every image: note - root (%d)", xpose_inverse(&c1, 73, am7));
+    CHECK(xpose_inverse(&by, 38, am7) == 38, "Bypass: as played");
+    CHECK(xpose_inverse(&pa, 69, am7) == 60, "Parallel: note - root");
+    CHECK(xpose_inverse(&c1, 69, ch(0, CH_MAJ7)) == 69, "over C M7: as played");
+}
+
+static void test_record(void)
+{
+    int i;
+    uint16_t d0;
+    reset();
+    pattern_one();                            /* tracks 0 and 4; track 5 (Chord 1, channel 4) empty */
+    arr_load_pattern(0, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(9, CH_MIN7));
+    arr_record(5, 1);
+    arr_play(1);
+    d0 = arr_pattern_copy(0, &R);
+    key_at(25.f, 69, 1);                      /* A4 at tick 25 -> 24 */
+    key_at(36.f, 69, 0);                      /* released at 36: 12 ticks */
+    key_at(47.f, 72, 1);                      /* C5 at 47 -> 48 (ahead of the key) */
+    key_at(49.f, 72, 0);                      /* 1 tick: one quantum */
+    run_to((uint32_t)(60 * FPT));
+    CHECK(arr_pattern_copy(0, &R) == d0 + 2, "dirty counted twice");
+    CHECK(R.trk[5].count == 2 && R.nev == 7, "two notes in track 5 (%d, nev %d)", R.trk[5].count, R.nev);
+    i = R.trk[5].first;
+    CHECK(R.ev[i].tick == 24 && R.ev[i].len == 12 && R.ev[i].note == 60 && R.ev[i].vel == 90,
+          "A4 stored as C4 at 24, 12 ticks (%d %d %d)", R.ev[i].tick, R.ev[i].len, R.ev[i].note);
+    CHECK(R.ev[i + 1].tick == 48 && R.ev[i + 1].len == 6 && R.ev[i + 1].note == 64,
+          "C5 stored as E4 at 48, 6 ticks (%d %d %d)", R.ev[i + 1].tick, R.ev[i + 1].len, R.ev[i + 1].note);
+    CHECK(ons_in(0x93, 69, 0.f, 96 * FPT) == 1 && ons_in(0x93, 72, 0.f, 96 * FPT) == 1,
+          "the first pass: the keys only (%d %d)", ons_in(0x93, 69, 0.f, 96 * FPT), ons_in(0x93, 72, 0.f, 96 * FPT));
+    i = find(stub_log, stub_n, 0, 0x93, 72);
+    CHECK(i >= 0 && stub_log[i].frame < 48 * FPT, "the key sounds at once, not at the grid");
+    /* a note held over the loop's end: to the pattern's end */
+    key_at(89.f, 76, 1);                      /* E5 at 89 -> 90 */
+    key_at(96.f + 10.f, 76, 0);
+    run_to((uint32_t)(96 * FPT + 20 * FPT));
+    arr_pattern_copy(0, &R);
+    i = R.trk[5].first + 2;
+    CHECK(R.trk[5].count == 3 && R.ev[i].tick == 90 && R.ev[i].len == 6 && R.ev[i].note == 67,
+          "E5 held over the wrap: G4 at 90, 6 ticks (%d: %d %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].len, R.ev[i].note);
+    /* the next pass plays them, as A4 and C5 over Am7 */
+    run_to((uint32_t)(2 * 96 * FPT + 512));
+    i = find(stub_log, stub_n, 0, 0x93, 69);
+    i = find(stub_log, stub_n, i + 1, 0x93, 69);
+    CHECK(near(stub_log, i, (96 + 24) * FPT), "C4 plays as A4 on the next pass (%u)", i >= 0 ? stub_log[i].frame : 0);
+    i = find(stub_log, stub_n, 0, 0x93, 72);
+    i = find(stub_log, stub_n, i + 1, 0x93, 72);
+    CHECK(near(stub_log, i, (96 + 48) * FPT), "E4 plays as C5 at 48 (%u)", i >= 0 ? stub_log[i].frame : 0);
+    i = find(stub_log, stub_n, 0, 0x93, 76);
+    i = find(stub_log, stub_n, i + 1, 0x93, 76);
+    CHECK(near(stub_log, i, (96 + 90) * FPT), "G4 plays as E5 at 90 (%u)", i >= 0 ? stub_log[i].frame : 0);
+    CHECK(ons_in(0x93, 76, 96 * FPT, (96 + 89) * FPT) == 0, "nothing of E5 early in the second pass");
+    /* overdub, third pass: a fourth note joins */
+    key_at(2 * 96.f + 12.f, 74, 1);           /* D5 -> the 11th of Am7: F4 */
+    key_at(2 * 96.f + 18.f, 74, 0);
+    run_to((uint32_t)(4 * 96 * FPT + 512));
+    arr_pattern_copy(0, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 4 && R.ev[i].tick == 12 && R.ev[i].note == 65 && R.ev[i + 1].tick == 24,
+          "overdub: D5 as F4 at 12, before the rest (%d: %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].note);
+    CHECK(ons_in(0x93, 74, (3 * 96) * FPT, (4 * 96) * FPT) == 1 && ons_in(0x93, 69, (3 * 96) * FPT, (4 * 96) * FPT) == 1,
+          "the fourth pass plays the old and the new");
+    CHECK(R.trk[0].count == 2 && R.trk[4].count == 3 && R.ev[R.trk[4].first].note == 60, "the other tracks intact");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+static void test_record_bypass_erase(void)    /* into a track before others: they move up; erase */
+{
+    int i;
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(9, CH_MIN7));
+    arr_record(0, 1);
+    arr_set_quant(ARR_Q_8);
+    arr_play(1);
+    key_at(29.f, 38, 1);                      /* 29 -> 24 on the 1/8 grid */
+    key_at(31.f, 38, 0);                      /* 2 ticks: 12 */
+    key_at(53.f, 36, 1);                      /* 53 -> 48: the kick already there, replaced */
+    key_at(54.f, 36, 0);
+    run_to((uint32_t)(60 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[0].count == 3 && R.nev == 6, "a snare in track 0, the kick replaced (%d, %d)", R.trk[0].count, R.nev);
+    i = R.trk[0].first;
+    CHECK(R.ev[i + 1].tick == 24 && R.ev[i + 1].note == 38 && R.ev[i + 1].len == 12, "Bypass: as played, at 24 (%d %d %d)",
+          R.ev[i + 1].tick, R.ev[i + 1].note, R.ev[i + 1].len);
+    CHECK(R.trk[4].first == 3 && R.ev[3].note == 60 && R.ev[5].note == 67, "track 4 moved up one");
+    run_to((uint32_t)(96 * FPT + 60 * FPT));
+    CHECK(near(stub_log, find(stub_log, stub_n, find(stub_log, stub_n, 0, 0x99, 38) + 1, 0x99, 38), (96 + 24) * FPT),
+          "the snare on the next pass");
+    i = find(stub_log, stub_n, 0, 0x92, 76);
+    i = find(stub_log, stub_n, i + 1, 0x92, 76);
+    CHECK(near(stub_log, i, (96 + 48) * FPT), "track 4 plays on (%u)", i >= 0 ? stub_log[i].frame : 0);
+    arr_erase_track(0);
+    run_to((uint32_t)(2 * 96 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[0].count == 0 && R.nev == 3 && R.trk[4].first == 0 && R.ev[0].note == 60 && R.ev[2].note == 67,
+          "erased: track 4 alone (%d %d %d)", R.trk[0].count, R.nev, R.trk[4].first);
+    CHECK(ons_in(0x99, 36, 2 * 96 * FPT, 3 * 96 * FPT) == 0 && ons_in(0x92, 69, 2 * 96 * FPT, 3 * 96 * FPT) == 1,
+          "the next pass: no drums, track 4 on");
+    run_to((uint32_t)(3 * 96 * FPT));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+static void test_record_early(void)           /* a short note played just before its grid line */
+{
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(9, CH_MIN7));
+    arr_record(5, 1);
+    arr_play(1);
+    key_at(46.6f, 67, 1);                     /* G4 -> 48, released before tick 48 plays */
+    run_blocks(1);
+    arr_key(67, 0, 0);
+    key_at(93.6f, 64, 1);                     /* E4 just before the loop's end: its tick 0 */
+    run_blocks(1);
+    arr_key(64, 0, 0);
+    run_to((uint32_t)(96 * FPT + 512));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].count == 2 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first + 1].tick == 48,
+          "stored at 0 and 48 (%d)", R.trk[5].count);
+    CHECK(ons_in(0x93, 67, 0.f, 96 * FPT) == 1, "G4 sounds once in the pass it was played (%d)", ons_in(0x93, 67, 0.f, 96 * FPT));
+    CHECK(ons_in(0x93, 64, 0.f, (96 + 12) * FPT) == 1, "E4 not again on the downbeat after it (%d)", ons_in(0x93, 64, 0.f, (96 + 12) * FPT));
+    run_to((uint32_t)(2 * 96 * FPT + 512));
+    CHECK(ons_in(0x93, 67, 96 * FPT, 2 * 96 * FPT) == 1 && ons_in(0x93, 64, 1.f, 2 * 96 * FPT + 512) == 2,
+          "both play from the next pass");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+static void test_record_full(void)
+{
+    reset();
+    pat_new();
+    for (int i = 0; i < ARR_NEV - 1; i++)
+        add(1, i * 96 / ARR_NEV, 1, 40);
+    arr_load_pattern(0, &P);
+    arr_track_mute(1, 1);
+    arr_record(5, 1);
+    arr_set_quant(ARR_Q_OFF);
+    arr_play(1);
+    key_at(10.f, 60, 1);
+    key_at(12.f, 60, 0);
+    key_at(20.f, 62, 1);
+    key_at(22.f, 62, 0);
+    run_to((uint32_t)(30 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.nev == ARR_NEV && R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 10 && R.ev[R.trk[5].first].len == 2,
+          "the first fits, quantise off: at 10, 2 ticks (%d %d)", R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
+    CHECK(arr_full == 1, "the second is dropped: full");
+    arr_erase_track(5);
+    run_blocks(1);
+    CHECK(arr_full == 0, "an erase makes room");
+    arr_play(0);
+    run_blocks(1);
+}
+
 int main(void)
 {
     test_timing();
@@ -1279,6 +1478,11 @@ int main(void)
     test_song_while_playing();
     test_template_beats();
     test_switch_chord_ends();
+    test_inverse();
+    test_record();
+    test_record_bypass_erase();
+    test_record_early();
+    test_record_full();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

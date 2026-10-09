@@ -27,7 +27,8 @@ volatile uint32_t arr_track_hit[ARR_TRACKS];
 volatile uint32_t arr_ticks;
 
 /* ------------------------------------------------------------ commands --- */
-enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_SONG, C_TEMPLATE, C_KEY, C_LIVE };
+enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_SONG, C_TEMPLATE, C_KEY, C_LIVE,
+       C_REC, C_NOTE, C_QUANT, C_ERASE };
 #define QN 64u
 static uint32_t q[QN], qb[QN];
 static volatile uint32_t q_w, q_r;
@@ -92,6 +93,34 @@ int arr_keys_held(const uint8_t *notes, int n)    /* in the caller's thread: cho
         return 0;
     post(C_LIVE, arr_chord_pack(c), 0);
     return 1;
+}
+void arr_record(int trk, int on) { post(C_REC, (uint32_t)(trk >= 0 && trk < ARR_TRACKS ? trk : 0), on != 0); }
+void arr_key(int note, int on, int vel)
+{
+    post(C_NOTE, (uint32_t)(note & 0x7F) | (uint32_t)(on ? vel & 0x7F : 0) << 8, 0);
+}
+void arr_set_quant(int q) { post(C_QUANT, (uint32_t)(q >= 0 && q < ARR_NQ ? q : ARR_Q_16), 0); }
+void arr_erase_track(int trk)
+{
+    if (trk >= 0 && trk < ARR_TRACKS)
+        post(C_ERASE, (uint32_t)trk, 0);
+}
+volatile uint8_t arr_full;
+volatile uint16_t arr_dirty[ARR_NSECT];
+/* the render writes a slot's pattern only between blocks and counts arr_dirty up after: a copy with the same
+ * count before and after was not written meanwhile (the render interrupts this loop, never the other way) */
+uint16_t arr_pattern_copy(int slot, pattern_t *out)
+{
+    uint16_t d;
+    if (slot < 0 || slot >= ARR_NSECT)
+        return 0;
+    do {
+        d = arr_dirty[slot];
+        BARRIER();
+        memcpy(out, &pat[slot], sizeof *out);
+        BARRIER();
+    } while (d != arr_dirty[slot]);
+    return d;
 }
 void arr_load_pattern(int slot, const pattern_t *p)
 {
@@ -351,9 +380,206 @@ static void sync(void)                             /* the playing slot reloaded:
         setup();
 }
 
+/* ------------------------------------------------------------ recording --- */
+/* A key held while recording is an entry here: its start (quantised, as a pattern tick and as a render tick,
+ * arr_ticks counting: the tick at pos is number arr_ticks until it plays), its note over C M7. Released (or
+ * the loop wrapped under it), it waits until its start has been played, then goes into the pattern behind the
+ * track's next event, so it plays from the next pass on. */
+static const uint8_t QUANT_TICKS[ARR_NQ] = {12, 8, 6, 4, 3, 1};
+enum { R_FREE, R_HELD, R_DONE };
+typedef struct {
+    uint8_t state, key, note, vel, trk, slot;
+    uint16_t qpos, len;                            /* its start in the pattern; its length (R_DONE) */
+    uint32_t qabs;                                 /* its start in render ticks */
+} rec_t;
+#define REC_N 8
+static rec_t rec[REC_N];
+#define LIVE_N 16                                  /* keys sounding (arr_key), each with its channel */
+static uint8_t live_key[LIVE_N], live_chan[LIVE_N];
+static int n_live;
+static uint8_t rec_on, rec_trk, quant = ARR_Q_16;
+
+/* the key's time: the tick nearest the block's start (the tick before pos when it is nearer than pos), as a
+ * render tick; *kpos its place in the pattern */
+static uint32_t key_tick(uint32_t *kpos)
+{
+    uint32_t plen = pat_len(&pat[cur]), r = 0;
+    if (!first_tick && !arr_ext && !start_wait && ftt > 0 && (uint32_t)ftt > fpt / 2)
+        r = 1;
+    *kpos = (pos + plen - r) % plen;
+    return arr_ticks - r;
+}
+static void ev_insert(int s, int trk, uint32_t tick, uint32_t len, int note, int vel)
+{
+    pattern_t *p = &pat[s];
+    arr_trk_t *t = &p->trk[trk];
+    uint32_t ins = t->count ? t->first : p->nev, e = t->count ? ev_end(t) : p->nev;
+    if (e > p->nev)
+        return;                                    /* not as stored (project.c checks): left alone */
+    for (; ins < e && p->ev[ins].tick <= tick; ins++)
+        if (p->ev[ins].tick == tick && p->ev[ins].note == note) {   /* the same again: replaced */
+            p->ev[ins].len = (uint16_t)len;
+            p->ev[ins].vel = (uint8_t)vel;
+            return;
+        }
+    if (p->nev >= ARR_NEV) {
+        arr_full = 1;
+        return;
+    }
+    for (uint32_t i = p->nev; i > ins; i--)       /* the ones after it up one (no memmove in the firmware's libc) */
+        p->ev[i] = p->ev[i - 1];
+    p->ev[ins].tick = (uint16_t)tick;
+    p->ev[ins].len = (uint16_t)len;
+    p->ev[ins].note = (uint8_t)note;
+    p->ev[ins].vel = (uint8_t)vel;
+    p->nev++;
+    for (int u = 0; u < ARR_TRACKS; u++)           /* the tracks after it move up one */
+        if (u != trk && p->trk[u].first >= ins) {
+            p->trk[u].first++;
+            if (s == cur)
+                tk[u].nx++;
+        }
+    if (!t->count) {
+        t->first = (uint16_t)ins;
+        if (s == cur)
+            tk[trk].nx = (uint16_t)ins;
+    }
+    t->count++;
+    if (s == cur && tick < pos)                    /* played this pass already: from the next */
+        tk[trk].nx++;
+}
+static void rec_write(const rec_t *r)
+{
+    const pattern_t *p = &pat[r->slot];
+    uint32_t plen = pat_len(p), len = r->len, q = QUANT_TICKS[quant];
+    if (busy[r->slot] || r->qpos >= plen || r->trk >= ARR_TRACKS)
+        return;
+    if (len < q)
+        len = q;
+    if (len > plen - r->qpos)                      /* to the pattern's end at most */
+        len = plen - r->qpos;
+    ev_insert(r->slot, r->trk, r->qpos, len, r->note, r->vel);
+    BARRIER();
+    arr_dirty[r->slot]++;
+}
+static void rec_release(rec_t *r, uint32_t end)
+{
+    uint32_t len = end > r->qabs ? end - r->qabs : 0;
+    r->len = (uint16_t)(len > 0xFFFFu ? 0xFFFFu : len);
+    r->state = R_DONE;
+}
+/* the entries due: released ones whose start has played, and held ones whose pass has ended (their length to
+ * the pattern's end). all: every one now, held ones ending here (a stop, a section change: the pass is over) */
+static void rec_flush(int all)
+{
+    for (int i = 0; i < REC_N; i++) {
+        rec_t *r = &rec[i];
+        if (r->state == R_FREE)
+            continue;
+        if (r->state == R_HELD) {
+            uint32_t pass_end = r->qabs - r->qpos + pat_len(&pat[r->slot]);
+            if (all)
+                rec_release(r, arr_ticks);
+            else if (arr_ticks >= pass_end)
+                rec_release(r, pass_end);
+            else
+                continue;
+        }
+        if (all || r->qabs < arr_ticks) {
+            rec_write(r);
+            r->state = R_FREE;
+        }
+    }
+}
+static void rec_press(int key, int vel)
+{
+    const pattern_t *p = &pat[cur];
+    uint32_t kpos, kabs, plen = pat_len(p), q = QUANT_TICKS[quant], m;
+    rec_t *r = 0;
+    for (int i = 0; i < REC_N && !r; i++)
+        if (rec[i].state == R_FREE)
+            r = &rec[i];
+    if (!r || busy[cur])
+        return;                                    /* more than REC_N held: this one only sounds */
+    kabs = key_tick(&kpos);
+    m = kpos % q;
+    if (2 * m >= q) {                              /* to the nearest grid line */
+        kpos += q - m;
+        kabs += q - m;
+    } else {
+        kpos -= m;
+        kabs -= m;
+    }
+    if (kpos >= plen)                              /* just before the loop's start: its tick 0 */
+        kpos -= plen;
+    r->key = (uint8_t)key;
+    r->vel = (uint8_t)vel;
+    r->trk = rec_trk;
+    r->slot = cur;
+    r->note = (uint8_t)xpose_inverse(&p->trk[rec_trk].x, key, chord);
+    r->qpos = (uint16_t)kpos;
+    r->qabs = kabs;
+    r->len = 0;
+    r->state = R_HELD;
+}
+static void key_event(int key, int vel)            /* arr_key, in the render: sound it, record it */
+{
+    uint32_t chan = pat[cur].trk[rec_trk].chan & 15u, kpos;
+    int i;
+    for (i = 0; i < n_live && live_key[i] != key; i++)
+        ;
+    if (i < n_live) {                              /* released, or struck again: its note-off first */
+        gm_midi_now(0x80u | live_chan[i], (uint32_t)key, 0, 0);
+        n_live--;
+        live_key[i] = live_key[n_live];
+        live_chan[i] = live_chan[n_live];
+    }
+    for (i = 0; i < REC_N; i++)
+        if (rec[i].state == R_HELD && rec[i].key == key)
+            rec_release(&rec[i], key_tick(&kpos));
+    rec_flush(0);
+    if (!vel)
+        return;
+    if (n_live < LIVE_N) {
+        live_key[n_live] = (uint8_t)key;
+        live_chan[n_live++] = (uint8_t)chan;
+        synth_on(chan, (uint32_t)key, (uint32_t)vel);
+    }
+    if (rec_on && arr_playing)
+        rec_press(key, vel);
+}
+static void erase_track(int trk)                   /* the playing pattern's track */
+{
+    pattern_t *p = &pat[cur];
+    arr_trk_t *t = &p->trk[trk];
+    uint32_t a = t->first, n = t->count;
+    if (busy[cur])
+        return;
+    for (int i = 0; i < REC_N; i++)                /* its notes being recorded go too */
+        if (rec[i].trk == trk)
+            rec[i].state = R_FREE;
+    if (n && a + n <= p->nev) {
+        for (uint32_t i = a; i + n < p->nev; i++)
+            p->ev[i] = p->ev[i + n];
+        p->nev = (uint16_t)(p->nev - n);
+        for (int u = 0; u < ARR_TRACKS; u++)
+            if (u != trk && p->trk[u].first >= a + n)
+                p->trk[u].first = (uint16_t)(p->trk[u].first - n);
+            else if (u != trk && p->trk[u].first > a)    /* an empty track's place inside it */
+                p->trk[u].first = (uint16_t)a;
+    }
+    t->count = 0;
+    t->first = (uint16_t)(a <= p->nev ? a : p->nev);
+    seek();
+    arr_full = 0;
+    BARRIER();
+    arr_dirty[cur]++;
+}
+
 /* ------------------------------------------------------------ the clock --- */
 static void transport_start(void)
 {
+    rec_flush(1);
     uint8_t s = arr_next_sect;                     /* the section queued; a song's first; else the Main */
     if (s < SEC_A || s > SEC_END) {                /* playing (after a fill or an ending: Main A) */
         s = cur == SEC_B - 1 ? SEC_B : SEC_A;
@@ -386,6 +612,7 @@ static void transport_start(void)
 }
 static void transport_stop(void)
 {
+    rec_flush(1);                                  /* the notes being recorded end here */
     arr_playing = 0;
     start_wait = 0;
     ext_pend = 0;                                  /* no tick after a stop */
@@ -407,6 +634,7 @@ static int follows_chord(uint8_t type) { return type == XT_CHORD1 || type == XT_
  * Chord 1 / 2 or Bass track end at the next chord change (with more than RESTRIKE_MIN left), not clash */
 static void switch_to(uint8_t sec)
 {
+    rec_flush(1);                                  /* recording: the pass ends here */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -532,6 +760,7 @@ static void tick(int play)
         pos = 0;
         seek();
     }
+    rec_flush(0);                                  /* recorded notes whose start has played */
 }
 
 /* a new chord: re-voice the Chord 1 / 2 and Bass notes with time left (restrike); the rest end as they were */
@@ -677,6 +906,20 @@ static void drain(void)
             tmpl = -1;
             chord_change(arr_chord_unpack(a), 1);
             break;
+        case C_REC:
+            rec_trk = (uint8_t)a;
+            if (rec_on && !b) {                    /* off: the keys held end their notes now */
+                uint32_t kpos;
+                for (int i = 0; i < REC_N; i++)
+                    if (rec[i].state == R_HELD)
+                        rec_release(&rec[i], key_tick(&kpos));
+                rec_flush(!arr_playing);
+            }
+            rec_on = (uint8_t)b;
+            break;
+        case C_NOTE: key_event((int)(a & 0x7Fu), (int)(a >> 8 & 0x7Fu)); break;
+        case C_QUANT: quant = (uint8_t)a; break;
+        case C_ERASE: erase_track((int)a); break;
         default: break;
         }
     }
@@ -776,6 +1019,13 @@ void arr_init(void)                                /* at boot, before the render
     song_on = song_loop = song_restart = 0;
     song_len = 1;
     memset(keys_prev, 0, sizeof keys_prev);
+    memset(rec, 0, sizeof rec);
+    n_live = 0;
+    rec_on = rec_trk = 0;
+    quant = ARR_Q_16;
+    arr_full = 0;
+    for (int i = 0; i < ARR_NSECT; i++)
+        arr_dirty[i] = 0;
     sbar = 0;
     arr_song_bar = 0;
     tmpl = -1;

@@ -104,6 +104,27 @@ void arr_set_key(int key);
  * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
 void arr_track_mute(int trk, int on);
+/* ---- loop recording, into the playing pattern (its slot's copy here: arr_pattern_copy reads it back).
+ * arr_key: a key played (vel 0 or on 0: released), from the main loop. It sounds at once on the selected track's
+ * channel (the app sends it nowhere else); with recording on and playing, it is also written into that track:
+ * its start the nearest tick to the key's block, quantised to the nearest grid line (a key just before the
+ * loop's start lands on tick 0), its length to the release (at least one quantum), stored over C M7 by the
+ * inverse of the track's type over the chord now (xpose_inverse). A note still held when the loop wraps ends
+ * at the pattern's end (the key still sounds). A note is written into the pattern only once its start has
+ * been played in the pass it was recorded in, so it sounds from the next pass (the key alone this pass);
+ * overdubs add to what is there (the same note on the same tick: replaced). Pattern full (ARR_NEV): the note
+ * is dropped and arr_full set, until an erase. Stopping, a section change or recording off end the notes
+ * held. */
+enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 12 8 6 4 3 1 ticks */
+void arr_record(int trk, int on);                /* the selected track (also arr_key's sound), recording on */
+void arr_key(int note, int on, int vel);
+void arr_set_quant(int q);                       /* ARR_Q_*, ARR_Q_16 at init */
+void arr_erase_track(int trk);                   /* the playing pattern's track: its notes removed */
+/* a slot's pattern as it is now, recordings included (main loop); returns its arr_dirty count, which counts
+ * up at every recorded note and erase (save it when it moved) */
+uint16_t arr_pattern_copy(int slot, pattern_t *out);
+extern volatile uint8_t arr_full;
+extern volatile uint16_t arr_dirty[ARR_NSECT];
 void arr_midi_out_on(int on);
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
 void arr_clock(int msg);

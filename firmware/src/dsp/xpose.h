@@ -23,3 +23,9 @@ void xpose_reset(xstate_t *s);
 void xpose_chord_changed(xstate_t *s);
 /* the note to play for pattern note `note` (0..127) over chord c; -1: none */
 int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c);
+/* the inverse, for recording: the pattern note (over C M7) that track type t maps to `note` (a key played)
+ * over chord c. Bypass: the key as played; Parallel (and any type over "---"): note - root; Chord 1 / 2 and
+ * Bass: the source pitch class whose Chord 1 image has the key's pitch class (chord tones first, then
+ * tensions, then chromatic notes), in the octave Chord 1 maps back to the key exactly (high key included);
+ * a key outside every image (a chromatic passing note): note - root. Kept in 0..127 by octaves. */
+int xpose_inverse(const xtrack_t *t, int note, chord_t c);
