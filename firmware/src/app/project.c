@@ -76,6 +76,7 @@ void pattern_empty(pattern_t *p)
     memset(p, 0, sizeof *p);
     p->bars = 2;
     p->beats = 4;
+    p->format = ARR_PAT_FORMAT;
     for (i = 0; i < ARR_TRACKS; i++) {
         arr_trk_t *t = &p->trk[i];
         t->x.lo = 0;
@@ -106,11 +107,13 @@ void pattern_empty(pattern_t *p)
     p->trk[6].program = 48;
 }
 
-/* every field that indexes or sizes something is in range, so ev[] is never read out of bounds */
+/* its format (480 ticks a beat: older ones are not loaded), and every field that indexes or sizes something in
+ * range, so ev[] is never read out of bounds */
 static int pattern_valid(const pattern_t *p)
 {
     int t;
-    if (p->bars < 1u || p->bars > ARR_MAXBARS || p->beats < 2u || p->beats > 7u || p->nev > ARR_NEV)
+    if (p->format != ARR_PAT_FORMAT || p->bars < 1u || p->bars > ARR_MAXBARS || p->beats < 2u || p->beats > 7u ||
+        p->nev > ARR_NEV)
         return 0;
     for (t = 0; t < ARR_TRACKS; t++) {
         const arr_trk_t *k = &p->trk[t];

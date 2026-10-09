@@ -11,11 +11,14 @@
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define ARR_HELD 8                                 /* notes held a track */
-#define RESTRIKE_MIN 12                            /* at a chord change, notes with more ticks left restrike */
+#define RESTRIKE_MIN (ARR_PPQ / 2)                 /* at a chord change, notes with more ticks left (an eighth) restrike */
 #define EXT_TIMEOUT 26460u                         /* frames without a clock in (0.6 s): back to our own */
-#define FRAMES_PER_TICK_1BPM 110250u               /* 44100 * 60 / 24 */
+#define FPT_Q16_1BPM 361267200u                    /* Q16 output frames a tick at 1 BPM: 44100 * 60 / 480 * 65536 */
 #define MAX_ONS 48                                 /* note-ons a block, at most: the interrupt's work bounded */
-#define MAX_CATCHUP 4                              /* bunched clocks in played a block; the rest only move on */
+#define MAX_CATCHUP 4                              /* bunched clocks in: the first 4 clocks' ticks sound, the rest only move on */
+#define EXT_LAG (3u * ARR_CLOCK_TICKS)             /* clock in: ticks owed beyond which they play at once */
+#define EXT_PEND_MAX (2u * ARR_PPQ)                /* clock in: ticks owed, at most (two beats) */
+#define FAR 0x40000000u                            /* render ticks: "not soon" (comparisons are wrap-safe) */
 #define START_WAIT 8                               /* blocks a start may wait for its sounds to go out */
 #define OUT_RESERVE 8u                             /* MIDI out slots kept free beyond the note-offs owed */
 
@@ -136,6 +139,7 @@ void arr_load_pattern(int slot, const pattern_t *p)
     busy[slot] = 1;
     BARRIER();
     memcpy(&pat[slot], p, sizeof *p);
+    pat[slot].format = ARR_PAT_FORMAT;
     gen[slot]++;
     ident[slot]++;                                 /* notes being recorded into the one before: dropped */
     arr_full = 0;
@@ -154,6 +158,7 @@ int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect)
         return 0;
     }
     memcpy(&pat[slot], p, sizeof *p);
+    pat[slot].format = ARR_PAT_FORMAT;
     gen[slot]++;
     arr_full = 0;
     BARRIER();
@@ -171,7 +176,7 @@ typedef struct {
     uint8_t mo;                                    /* its note-on went to MIDI out: its note-off goes there too */
     uint8_t fixed;                                 /* from the section before: 1 kept as is, 2 (it was on a
                                                     * Chord 1 / 2 or Bass track) ended at a chord change */
-    uint16_t left;                                 /* ticks to its end */
+    uint32_t end;                                  /* the render tick (arr_ticks) it ends at */
 } held_t;
 typedef struct {
     xstate_t xs;
@@ -182,6 +187,11 @@ typedef struct {
 static track_t tk[ARR_TRACKS];
 static uint8_t cur;                                /* the slot playing */
 static uint32_t pos;                               /* ticks into the pattern */
+/* the work a tick: most of 480 a beat have nothing due, and only move the place on */
+static uint32_t next_end;                          /* the earliest note end (render ticks): never later than it */
+static uint32_t next_ev;                           /* the earliest next event of the tracks (pattern ticks) */
+static uint8_t wake;                               /* the tracks' places moved: look at the events at the next tick */
+static uint8_t clk_div;                            /* clock out: ticks since the last F8, 0..ARR_CLOCK_TICKS - 1 */
 static chord_t chord;
 static uint8_t mout;                               /* MIDI out on */
 static uint8_t clk_out;                            /* we send the clock: since our own start with MIDI out on */
@@ -208,10 +218,15 @@ static uint8_t key;                                /* the templates' key, semito
 static uint32_t beat_now, bar_beat0, t_origin;     /* beats since the start: now, at the bar's downbeat, and
                                                     * where the template's first bar fell */
 
-/* our clock: Q16 output frames to the next tick, and a tick's length */
+/* our clock: Q16 output frames to the next tick, and a tick's length (ours; pace: the one in use, ours or
+ * the clock in's) */
 static int32_t ftt;
-static uint32_t fpt;
-static uint32_t ext_pend, ext_age;
+static uint32_t fpt, pace;
+/* clock in: ticks the clocks allow and not played yet; frames since a clock; clocks this block; the frames
+ * between the last two blocks with clocks (since_ok: a clock came before, so ext_since measures something);
+ * the clock's rate, Q16 frames a tick (0: not measured yet) */
+static uint32_t ext_pend, ext_age, ext_since, ext_clocks, ext_fpt;
+static uint8_t since_ok;
 
 static uint32_t pat_len(const pattern_t *p) { return (uint32_t)(p->bars ? p->bars : 1) * (p->beats ? p->beats : 4) * ARR_PPQ; }
 static uint32_t bar_len(const pattern_t *p) { return (uint32_t)(p->beats ? p->beats : 4) * ARR_PPQ; }
@@ -312,7 +327,9 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
     h->chan = (uint8_t)chan;
     h->mo = 0;
     h->fixed = 0;
-    h->left = (uint16_t)(len ? len : 1);
+    h->end = arr_ticks + (uint32_t)(len ? len : 1);
+    if ((int32_t)(h->end - next_end) < 0)
+        next_end = h->end;
     synth_on((uint32_t)chan, (uint32_t)out, h->vel);
     on_out(h);
     arr_track_hit[ti] = arr_ticks;
@@ -398,6 +415,7 @@ static void seek(void)                             /* each track's next event, f
             n++;
         tk[i].nx = (uint16_t)n;
     }
+    wake = 1;
 }
 static void sync(void)                             /* the playing slot reloaded: its places, its sounds */
 {
@@ -419,7 +437,7 @@ static void sync(void)                             /* the playing slot reloaded:
  * arr_ticks counting: the tick at pos is number arr_ticks until it plays), its note over C M7. Released (or
  * the loop wrapped under it), it waits until its start has been played, then goes into the pattern behind the
  * track's next event, so it plays from the next pass on. */
-static const uint8_t QUANT_TICKS[ARR_NQ] = {12, 8, 6, 4, 3, 1};
+static const uint16_t QUANT_TICKS[ARR_NQ] = {ARR_PPQ / 2, ARR_PPQ / 3, ARR_PPQ / 4, ARR_PPQ / 6, ARR_PPQ / 8, 1};
 enum { R_FREE, R_HELD, R_DONE };
 typedef struct {
     uint8_t state, key, note, vel, trk, slot;
@@ -443,7 +461,7 @@ static uint32_t tick_now(void) { return in_tick ? arr_ticks - 1 : arr_ticks; }
 static uint32_t key_tick(uint32_t *kpos, int no_back)
 {
     uint32_t plen = pat_len(&pat[cur]), r = 0;
-    if (!first_tick && !arr_ext && !start_wait && ftt > 0 && (uint32_t)ftt > fpt / 2 && !(no_back && pos == 0))
+    if (!first_tick && !start_wait && ftt > 0 && (uint32_t)ftt > pace / 2 && !(no_back && pos == 0))
         r = 1;
     *kpos = (pos + plen - r) % plen;
     return arr_ticks - r;
@@ -486,6 +504,8 @@ static void ev_insert(int s, int trk, uint32_t tick, uint32_t len, int note, int
     t->count++;
     if (s == cur && tick < pos)                    /* played this pass already: from the next */
         tk[trk].nx++;
+    if (s == cur)
+        wake = 1;
 }
 static void rec_write(const rec_t *r)
 {
@@ -692,6 +712,7 @@ static void transport_start(void)
     pos = 0;
     ftt = 0;                                       /* tick 0 at once */
     ext_pend = 0;
+    clk_div = 0;                                   /* tick 0's F8 */
     for (int t = 0; t < ARR_TRACKS; t++) {
         track_off(&tk[t]);
         xpose_reset(&tk[t].xs);
@@ -812,50 +833,81 @@ static void beat_chord(int play)
         chord_change(tmpl_chord(), play);
 }
 
-/* one tick; play 0: the position moves on and notes end, nothing new starts (clocks in too bunched) */
+/* the notes whose end is due (the tick arr_ticks), and the next end */
+static void ends_due(void)
+{
+    uint32_t m = arr_ticks + FAR;
+    for (int t = 0; t < ARR_TRACKS; t++)
+        for (int i = tk[t].nh - 1; i >= 0; i--) {
+            uint32_t e = tk[t].h[i].end;
+            if ((int32_t)(e - arr_ticks) <= 0)
+                note_end(&tk[t], i);
+            else if ((int32_t)(e - m) < 0)
+                m = e;
+        }
+    next_end = m;
+}
+/* the events on the tick pos (the ones before it, passed over: a place moved on by a reload), and the
+ * earliest event after it */
+static void events(int play)
+{
+    const pattern_t *p = &pat[cur];
+    uint32_t nx = 0xFFFFFFFFu;
+    wake = 0;
+    if (busy[cur]) {                               /* being loaded: none now, look again at the next tick */
+        wake = 1;
+        return;
+    }
+    for (int t = 0; t < ARR_TRACKS; t++) {
+        const arr_trk_t *tr = &p->trk[t];
+        uint32_t e = ev_end(tr), n = tk[t].nx;
+        int audible = play && !tk[t].mute && !tr->mute;
+        for (; n < e && p->ev[n].tick <= pos; n++) {
+            const arr_ev_t *ev = &p->ev[n];
+            int out;
+            if (ev->tick != pos || !audible)
+                continue;
+            out = xpose(&tr->x, &tk[t].xs, ev->note, chord);
+            if (out >= 0)
+                note_start(t, ev->note, out, ev->vel, tr->chan & 15, ev->len);
+        }
+        tk[t].nx = (uint16_t)n;
+        if (n < e && p->ev[n].tick < nx)
+            nx = p->ev[n].tick;
+    }
+    next_ev = nx;
+}
+/* one tick; play 0: the position moves on and notes end, nothing new starts (clocks in too bunched). Most
+ * ticks have nothing due: no note ends (next_end), no event (next_ev), no beat line, no F8 out */
 static void tick(int play)
 {
     const pattern_t *p = &pat[cur];
-    uint32_t len, bar;
+    uint32_t bar;
     arr_ticks++;
     in_tick = 1;
-    if (clk_out && !arr_ext)
+    if (clk_out && !arr_ext && clk_div == 0)
         out_rt(0xF8u);                             /* clock out first, 24 a quarter: a lost F8 is never made up */
-    for (int t = 0; t < ARR_TRACKS; t++)           /* notes ending first */
-        for (int i = tk[t].nh - 1; i >= 0; i--)
-            if (--tk[t].h[i].left == 0)
-                note_end(&tk[t], i);
-    if (pos % ARR_PPQ == 0 && !first_tick)
-        beat_now++;
-    if (pos % bar_len(p) == 0 && !bar_line()) {    /* sections change on the bar; an end stops here */
-        in_tick = 0;
-        return;
-    }
-    first_tick = 0;
-    p = &pat[cur];
-    if (pos % ARR_PPQ == 0)                        /* the beat's chord before its notes */
-        beat_chord(play);
-    if (!busy[cur])
-        for (int t = 0; t < ARR_TRACKS; t++) {
-            const arr_trk_t *tr = &p->trk[t];
-            uint32_t e = ev_end(tr), n = tk[t].nx;
-            int audible = play && !tk[t].mute && !tr->mute;
-            for (; n < e && p->ev[n].tick <= pos; n++) {
-                const arr_ev_t *ev = &p->ev[n];
-                int out;
-                if (ev->tick != pos || !audible)
-                    continue;
-                out = xpose(&tr->x, &tk[t].xs, ev->note, chord);
-                if (out >= 0)
-                    note_start(t, ev->note, out, ev->vel, tr->chan & 15, ev->len);
-            }
-            tk[t].nx = (uint16_t)n;
+    if (++clk_div >= ARR_CLOCK_TICKS)
+        clk_div = 0;
+    if ((int32_t)(next_end - arr_ticks) <= 0)      /* notes ending first */
+        ends_due();
+    if (pos % ARR_PPQ == 0) {                      /* a beat line (first_tick: pos 0) */
+        if (!first_tick)
+            beat_now++;
+        if (pos % bar_len(p) == 0 && !bar_line()) {    /* sections change on the bar; an end stops here */
+            in_tick = 0;
+            return;
         }
-    len = pat_len(p);
+        first_tick = 0;
+        p = &pat[cur];
+        beat_chord(play);                          /* the beat's chord before its notes */
+    }
+    if (wake || pos >= next_ev)
+        events(play);
     bar = bar_len(p);
     arr_bar = (uint16_t)(pos / bar);
     arr_beat_tick = (uint16_t)(pos % bar);        /* ticks into the bar */
-    if (++pos >= len) {
+    if (++pos >= pat_len(p)) {
         pos = 0;
         seek();
     }
@@ -876,14 +928,14 @@ static void chord_change(chord_t c, int restrike)
         const xtrack_t *x = &p->trk[t].x;
         xpose_chord_changed(&k->xs);
         for (int i = k->nh - 1; i >= 0; i--)       /* the section before's chord notes: they end */
-            if (k->h[i].fixed == 2 && k->h[i].left > RESTRIKE_MIN)
+            if (k->h[i].fixed == 2 && (int32_t)(k->h[i].end - arr_ticks) > RESTRIKE_MIN)
                 note_end(k, i);
         if (!restrike || busy[cur] || !(x->type == XT_CHORD1 || x->type == XT_CHORD2 || x->type == XT_BASS))
             continue;
         for (int i = k->nh - 1; i >= 0; i--) {
             held_t *h = &k->h[i];
             int out;
-            if (h->left <= RESTRIKE_MIN || h->fixed)
+            if ((int32_t)(h->end - arr_ticks) <= RESTRIKE_MIN || h->fixed)
                 continue;
             out = xpose(x, &k->xs, h->in, c);
             if (out == h->out)
@@ -909,8 +961,9 @@ static void clock_in(int msg)
         arr_ext = 1;
         clk_out = 0;                               /* following a clock: ours is not sent */
         ext_age = 0;
-        if (arr_playing && ext_pend < 2u * ARR_PPQ)
-            ext_pend++;
+        ext_clocks++;
+        if (arr_playing && ext_pend < EXT_PEND_MAX)
+            ext_pend += ARR_CLOCK_TICKS;
     } else if (msg == ARR_CLK_START) {
         clk_out = 0;
         transport_start();
@@ -945,8 +998,8 @@ static void drain(void)
             } else if (arr_playing)
                 stop_ours();
             break;
-        case C_TEMPO:                              /* Q16 frames a tick, exact: 110250 / bpm */
-            fpt = (FRAMES_PER_TICK_1BPM / a) << 16 | ((FRAMES_PER_TICK_1BPM % a) << 16) / a;
+        case C_TEMPO:                              /* Q16 frames a tick: 5512.5 / bpm (to 1/65536 frame) */
+            fpt = FPT_Q16_1BPM / a;
             break;
         case C_CHORD: chord_change(arr_chord_unpack(a), 1); break;
         case C_SECTION:
@@ -967,6 +1020,7 @@ static void drain(void)
                 out_pend = arr_playing;
                 if (arr_playing && !arr_ext) {     /* playing on our clock: start the far side now */
                     clk_out = 1;
+                    clk_div = 0;                   /* its first F8 at our next tick */
                     out_rt(0xFAu);
                 }
             } else if (!a && mout) {
@@ -1055,17 +1109,50 @@ void arr_block(uint32_t frames)
         out_pend = mout && arr_playing;
     }
     if (arr_ext) {
-        int n = 0;
-        while (ext_pend && arr_playing) {          /* the clocks that came in since the last block */
-            ext_pend--;
-            tick(n++ < MAX_CATCHUP);
+        if (ext_clocks) {                          /* clocks came: their rate, from the frames since the last */
+            if (since_ok && ext_since <= EXT_TIMEOUT) {
+                uint32_t f = (ext_since << 16) / ext_clocks / ARR_CLOCK_TICKS;
+                ext_fpt = ext_fpt ? (3u * ext_fpt + f) / 4u : f;
+            }
+            since_ok = 1;
+            ext_since = 0;
+            ext_clocks = 0;
         }
-        ext_pend = 0;
+        if (ext_pend > EXT_LAG) {                  /* far behind (clocks bunched): to a clock's ticks at once */
+            int n = 0;
+            at = 0;
+            while (ext_pend > ARR_CLOCK_TICKS && arr_playing) {
+                ext_pend--;
+                tick(n++ < MAX_CATCHUP * ARR_CLOCK_TICKS);
+            }
+            ftt = 0;
+        }
+        pace = ext_fpt ? ext_fpt : fpt;            /* a clock's ticks in a clock's time; more owed: faster */
+        if (ext_pend > ARR_CLOCK_TICKS)
+            pace = pace / ext_pend * ARR_CLOCK_TICKS;
+        while (ftt < end && ext_pend && arr_playing) {
+            int32_t f = ftt < 0 ? 0 : ftt;
+            at = (uint32_t)(f + (1 << 16)) >> 17;
+            if (at >= frames / 2)
+                at = frames / 2 - 1;
+            ext_pend--;
+            tick(1);
+            ftt += (int32_t)pace;
+        }
+        if (ftt < end)                             /* the ticks allowed all played: the next when a clock */
+            ftt = end;                             /* comes, at that block's start */
+        at = 0;
+        ftt -= end;
         sounds_out();
+        ext_since += frames;
         ext_age += frames;
         if (ext_age > EXT_TIMEOUT) {               /* the clock is gone: ours again, a tick from now; */
             arr_ext = 0;                           /* no clock out until our own next start */
             ftt = (int32_t)fpt;
+            pace = fpt;
+            ext_fpt = 0;
+            since_ok = 0;
+            ext_pend = 0;
         }
         return;
     }
@@ -1080,6 +1167,7 @@ void arr_block(uint32_t frames)
         start_wait = 0;
         out_rt(0xFAu);
     }
+    pace = fpt;
     while (ftt < end && arr_playing) {             /* the ticks due within this block, each note-on on its */
         int32_t f = ftt < 0 ? 0 : ftt;             /* sample: output frames / 2, rounded (EAS's 22.05 kHz) */
         at = (uint32_t)(f + (1 << 16)) >> 17;
@@ -1101,6 +1189,7 @@ void arr_init(void)                                /* at boot, before the render
         memset(&pat[i], 0, sizeof pat[i]);
         pat[i].bars = 1;
         pat[i].beats = 4;
+        pat[i].format = ARR_PAT_FORMAT;
         busy[i] = 0;
         gen[i] = seen[i] = 0;
         ident[i] = 0;
@@ -1123,8 +1212,13 @@ void arr_init(void)                                /* at boot, before the render
     ftt = 0;
     at = 0;
     n_late = 0;
-    fpt = (FRAMES_PER_TICK_1BPM / 120u) << 16 | ((FRAMES_PER_TICK_1BPM % 120u) << 16) / 120u;
-    ext_pend = ext_age = 0;
+    fpt = pace = FPT_Q16_1BPM / 120u;
+    ext_pend = ext_age = ext_since = ext_clocks = ext_fpt = 0;
+    since_ok = 0;
+    next_end = FAR;
+    next_ev = 0;
+    wake = 1;
+    clk_div = 0;
     arr_playing = 0;
     arr_ext = 0;
     arr_sect = SEC_A;
@@ -1174,6 +1268,7 @@ int arr_factory_pattern(int n, pattern_t *p)
         return -1;
     f = &STY_PAT[n];
     memset(p, 0, sizeof *p);
+    p->format = ARR_PAT_FORMAT;
     for (i = 0; i < 8 && STY_NAME[n / 4][i]; i++)
         p->name[i] = STY_NAME[n / 4][i];
     p->bars = f->bars;
@@ -1197,10 +1292,10 @@ int arr_factory_pattern(int n, pattern_t *p)
         k->count = s->count;
         for (i = 0; i < s->count && p->nev < ARR_NEV; i++, e++) {
             arr_ev_t *v = &p->ev[p->nev++];
-            v->tick = (uint16_t)(STY_EV[e] & 0x7FFu);
-            v->len = (uint16_t)(STY_EV[e] >> 11 & 0x7FFu);
-            v->note = (uint8_t)(STY_EV[e] >> 22 & 0x7Fu);
-            v->vel = STY_VEL[e];
+            v->tick = (uint16_t)(STY_EV[e] & 0x7FFFu);
+            v->note = (uint8_t)(STY_EV[e] >> 15 & 0x7Fu);
+            v->len = (uint16_t)sty_len(STY_EV[e] >> 22 | (uint32_t)(STY_VEL[e] >> 7) << 10);
+            v->vel = (uint8_t)(STY_VEL[e] & 0x7Fu);
         }
         k->count = (uint16_t)(p->nev - k->first);
     }

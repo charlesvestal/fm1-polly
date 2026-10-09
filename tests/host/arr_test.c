@@ -16,7 +16,11 @@ static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
 #define ON_TOL 2
 #define TOL 256
-#define FPT 918.75f                           /* frames a tick at 120 BPM: 44100 * 60 / (120 * 24) */
+/* the test patterns are written in units of a 24th of a beat (U ticks: add() scales them), so FPT is a unit's
+ * frames; a tick is FPT / U */
+#define U (ARR_PPQ / 24)
+#define FPT 918.75f                           /* frames a unit at 120 BPM: 44100 * 60 / (120 * 24) */
+#define TPF ((float)U / FPT)                  /* ticks a frame at 120 BPM */
 
 /* the app's MIDI out, recorded, through a ring like usb.c's: ring_cap slots, ring_drain sent a block; a
  * message that finds it full is dropped (and counted) */
@@ -61,11 +65,11 @@ static void pat_new(void)
         t->rev = 40;
     }
 }
-/* events in track order, each track's sorted by tick */
+/* events in track order, each track's sorted by tick; tick and len in units (U ticks) */
 static void add(int trk, int tick, int len, int note)
 {
     arr_trk_t *t = &P.trk[trk];
-    arr_ev_t e = {(uint16_t)tick, (uint16_t)len, (uint8_t)note, 100};
+    arr_ev_t e = {(uint16_t)(tick * U), (uint16_t)(len * U), (uint8_t)note, 100};
     if (!t->count)
         t->first = P.nev;
     t->count++;
@@ -339,6 +343,64 @@ static void test_clock_in(void)
     CHECK(arr_ext == 0, "no clock for 0.6 s: our own again");
 }
 
+/* MIDI clock in at 120 BPM (an F8 every 918.75 frames, each taken at the block it falls in): a note every 4
+ * ticks, so 5 a clock. They are spread between the clocks at the clock's rate (about 184 frames apart, not 5 at
+ * once on each clock), and none plays before the clock that allows it (tick 20 k needs clock k + 1) */
+static void test_clock_smooth(void)
+{
+    static uint32_t arrive[200];
+    int k = 0, n = 0, bunched = 0, early = 0, wide = 0;
+    float next = 0.f, sum = 0.f, lo = 1e9f, hi = 0.f;
+    uint32_t prev = 0;
+    reset();
+    pat_new();
+    for (int t = 0; t < 96; t++)
+        for (int j = 0; j < 5; j++) {
+            add(0, t, 1, 36 + j);
+            P.ev[P.nev - 1].tick = (uint16_t)(t * U + 4 * j);   /* ticks 0, 4, 8, ...: 2 ticks long */
+            P.ev[P.nev - 1].len = 2;
+        }
+    arr_load_pattern(0, &P);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    while (k < 200) {
+        if ((float)stub_frame >= next) {
+            arrive[k++] = stub_frame;
+            arr_clock(ARR_CLK_TICK);
+            next += 918.75f;
+        }
+        run_blocks(1);
+    }
+    for (int i = 0; i < stub_n; i++) {
+        uint32_t f = stub_log[i].frame;
+        if (stub_log[i].st != 0x99 || !is_on(&stub_log[i]))
+            continue;
+        if (f < arrive[n * 4 / ARR_CLOCK_TICKS])
+            early++;                          /* before the clock that allows its tick */
+        if (n > 0 && f == prev)
+            bunched++;
+        if (n >= 40 && n < 900) {             /* past the first two clocks' measuring */
+            float d = (float)(f - prev);
+            sum += d;
+            lo = d < lo ? d : lo;
+            hi = d > hi ? d : hi;
+            wide += d < 100.f || d > 320.f;
+        }
+        prev = f;
+        n++;
+    }
+    printf("  clock in at 120 BPM: %d notes, %.1f frames apart on average (918.75 / 5 = 183.75), %.0f..%.0f\n", n,
+           sum / 860.f, lo, hi);
+    CHECK(n >= 900, "the notes played (%d)", n);
+    CHECK(early == 0, "none before its clock (%d)", early);
+    CHECK(bunched == 0, "none on the same frame as the one before (%d)", bunched);
+    CHECK(sum / 860.f > 180.f && sum / 860.f < 188.f && wide == 0, "spread evenly: %.1f frames apart, %d far off",
+          sum / 860.f, wide);
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
 static int count_ons(const stub_msg_t *log, int from, int to)
 {
     int n = 0;
@@ -481,7 +543,8 @@ static void test_bounds(void)                 /* the work a block is bounded */
     arr_play(0);
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "capped: offs match");
-    /* 20 clocks in one block: the position moves 20, 4 of them play */
+    /* 20 clocks in one block: the position moves on by them (20 ticks each) at once, the first 4 clocks' notes
+     * and the last clock's (paced) play */
     reset();
     pattern_dense();
     arr_load_pattern(0, &P);
@@ -494,8 +557,10 @@ static void test_bounds(void)                 /* the work a block is bounded */
     for (int k = 0; k < 20; k++)
         arr_clock(ARR_CLK_TICK);
     run_blocks(1);
-    CHECK(arr_ticks - t0 == 20 && arr_beat_tick == 20, "20 ticks on (%u, at %u)", arr_ticks - t0, arr_beat_tick);
-    CHECK(count_ons(stub_log, n0, stub_n) <= 4, "at most 4 played, got %d", count_ons(stub_log, n0, stub_n));
+    CHECK(arr_ticks == 21u * ARR_CLOCK_TICKS && arr_beat_tick == 21u * ARR_CLOCK_TICKS - 1u, "21 clocks' ticks played (%u, at %u)",
+          arr_ticks, arr_beat_tick);
+    CHECK(count_ons(stub_log, n0, stub_n) <= 5, "at most 5 played, got %d", count_ons(stub_log, n0, stub_n));
+    (void)t0;
     arr_clock(ARR_CLK_TICK);
     run_blocks(1);
     CHECK(find(stub_log, stub_n, n0, 0x92, 60) >= 0, "playing on");
@@ -761,9 +826,9 @@ static void load_slot(int slot, int bars, int beats)
     P.bars = (uint8_t)bars;
     P.beats = (uint8_t)beats;
     P.trk[3].x.type = XT_PARALLEL;
-    for (int t = 0; t < bars * beats * ARR_PPQ; t += ARR_PPQ)
+    for (int t = 0; t < bars * beats * 24; t += 24)
         add(0, t, 6, SLOT_NOTE[slot]);
-    for (int t = 0; t < bars * beats * ARR_PPQ; t += ARR_PPQ)
+    for (int t = 0; t < bars * beats * 24; t += 24)
         add(3, t, 6, 48);
     arr_load_pattern(slot, &P);
 }
@@ -1327,11 +1392,19 @@ static int ons_in(int st, int note, float from, float to)
             n++;
     return n;
 }
-static void key_at(float tick, int note, int on)   /* the key at the first block from this tick */
+static void key_at(float tick, int note, int on)   /* the key at the first block from this tick (units) */
 {
     run_to((uint32_t)(tick * FPT));
     arr_key(note, on, on ? 90 : 0);
 }
+/* the tick (from the start, at 120 BPM) nearest the block a key_at(units) lands on */
+static int key_tick_at(float units)
+{
+    uint32_t f = ((uint32_t)(units * FPT) + 255u) / 256u * 256u;
+    return (int)((float)f * TPF + 0.5f);
+}
+static int within(int got, int want, int tol) { return got >= want - tol && got <= want + tol; }
+#define KEY_TOL 4                                 /* a key's time: its block's start, to the nearest tick (+- 3) */
 
 static void test_inverse(void)                /* the transposer's inverse, over Am7 */
 {
@@ -1374,10 +1447,10 @@ static void test_record(void)
     CHECK(arr_pattern_copy(0, &R) == d0 + 2, "dirty counted twice");
     CHECK(R.trk[5].count == 2 && R.nev == 7, "two notes in track 5 (%d, nev %d)", R.trk[5].count, R.nev);
     i = R.trk[5].first;
-    CHECK(R.ev[i].tick == 24 && R.ev[i].len == 12 && R.ev[i].note == 60 && R.ev[i].vel == 90,
-          "A4 stored as C4 at 24, 12 ticks (%d %d %d)", R.ev[i].tick, R.ev[i].len, R.ev[i].note);
-    CHECK(R.ev[i + 1].tick == 48 && R.ev[i + 1].len == 6 && R.ev[i + 1].note == 64,
-          "C5 stored as E4 at 48, 6 ticks (%d %d %d)", R.ev[i + 1].tick, R.ev[i + 1].len, R.ev[i + 1].note);
+    CHECK(R.ev[i].tick == 24 * U && within(R.ev[i].len, 12 * U, KEY_TOL) && R.ev[i].note == 60 && R.ev[i].vel == 90,
+          "A4 stored as C4 at 24, 12 units (%d %d %d)", R.ev[i].tick, R.ev[i].len, R.ev[i].note);
+    CHECK(R.ev[i + 1].tick == 48 * U && R.ev[i + 1].len == 6 * U && R.ev[i + 1].note == 64,
+          "C5 stored as E4 at 48, 6 units: a quantum (%d %d %d)", R.ev[i + 1].tick, R.ev[i + 1].len, R.ev[i + 1].note);
     CHECK(ons_in(0x93, 69, 0.f, 96 * FPT) == 1 && ons_in(0x93, 72, 0.f, 96 * FPT) == 1,
           "the first pass: the keys only (%d %d)", ons_in(0x93, 69, 0.f, 96 * FPT), ons_in(0x93, 72, 0.f, 96 * FPT));
     i = find(stub_log, stub_n, 0, 0x93, 72);
@@ -1388,7 +1461,7 @@ static void test_record(void)
     run_to((uint32_t)(96 * FPT + 20 * FPT));
     arr_pattern_copy(0, &R);
     i = R.trk[5].first + 2;
-    CHECK(R.trk[5].count == 3 && R.ev[i].tick == 90 && R.ev[i].len == 6 && R.ev[i].note == 67,
+    CHECK(R.trk[5].count == 3 && R.ev[i].tick == 90 * U && R.ev[i].len == 6 * U && R.ev[i].note == 67,
           "E5 held over the wrap: G4 at 90, 6 ticks (%d: %d %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].len, R.ev[i].note);
     /* the next pass plays them, as A4 and C5 over Am7 */
     run_to((uint32_t)(2 * 96 * FPT + 512));
@@ -1408,7 +1481,7 @@ static void test_record(void)
     run_to((uint32_t)(4 * 96 * FPT + 512));
     arr_pattern_copy(0, &R);
     i = R.trk[5].first;
-    CHECK(R.trk[5].count == 4 && R.ev[i].tick == 12 && R.ev[i].note == 65 && R.ev[i + 1].tick == 24,
+    CHECK(R.trk[5].count == 4 && R.ev[i].tick == 12 * U && R.ev[i].note == 65 && R.ev[i + 1].tick == 24 * U,
           "overdub: D5 as F4 at 12, before the rest (%d: %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].note);
     CHECK(ons_in(0x93, 74, (3 * 96) * FPT, (4 * 96) * FPT) == 1 && ons_in(0x93, 69, (3 * 96) * FPT, (4 * 96) * FPT) == 1,
           "the fourth pass plays the old and the new");
@@ -1437,7 +1510,7 @@ static void test_record_bypass_erase(void)    /* into a track before others: the
     arr_pattern_copy(0, &R);
     CHECK(R.trk[0].count == 3 && R.nev == 6, "a snare in track 0, the kick replaced (%d, %d)", R.trk[0].count, R.nev);
     i = R.trk[0].first;
-    CHECK(R.ev[i + 1].tick == 24 && R.ev[i + 1].note == 38 && R.ev[i + 1].len == 12, "Bypass: as played, at 24 (%d %d %d)",
+    CHECK(R.ev[i + 1].tick == 24 * U && R.ev[i + 1].note == 38 && R.ev[i + 1].len == 12 * U, "Bypass: as played, at 24 (%d %d %d)",
           R.ev[i + 1].tick, R.ev[i + 1].note, R.ev[i + 1].len);
     CHECK(R.trk[4].first == 3 && R.ev[3].note == 60 && R.ev[5].note == 67, "track 4 moved up one");
     run_to((uint32_t)(96 * FPT + 60 * FPT));
@@ -1476,7 +1549,7 @@ static void test_record_early(void)           /* a short note played just before
     arr_key(64, 0, 0);
     run_to((uint32_t)(96 * FPT + 512));
     arr_pattern_copy(0, &R);
-    CHECK(R.trk[5].count == 2 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first + 1].tick == 48,
+    CHECK(R.trk[5].count == 2 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first + 1].tick == 48 * U,
           "stored at 0 and 48 (%d)", R.trk[5].count);
     CHECK(ons_in(0x93, 67, 0.f, 96 * FPT) == 1, "G4 sounds once in the pass it was played (%d)", ons_in(0x93, 67, 0.f, 96 * FPT));
     CHECK(ons_in(0x93, 64, 0.f, (96 + 12) * FPT) == 1, "E4 not again on the downbeat after it (%d)", ons_in(0x93, 64, 0.f, (96 + 12) * FPT));
@@ -1505,8 +1578,10 @@ static void test_record_full(void)
     key_at(22.f, 62, 0);
     run_to((uint32_t)(30 * FPT));
     arr_pattern_copy(0, &R);
-    CHECK(R.nev == ARR_NEV && R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 10 && R.ev[R.trk[5].first].len == 2,
-          "the first fits, quantise off: at 10, 2 ticks (%d %d)", R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
+    CHECK(R.nev == ARR_NEV && R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == key_tick_at(10.f) &&
+              R.ev[R.trk[5].first].len == key_tick_at(12.f) - key_tick_at(10.f),
+          "the first fits, quantise off: at its tick %d, %d ticks (%d %d)", key_tick_at(10.f),
+          key_tick_at(12.f) - key_tick_at(10.f), R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
     CHECK(arr_full == 1, "the second is dropped: full");
     arr_erase_track(5);
     run_blocks(1);
@@ -1558,25 +1633,33 @@ static void test_record_triplets(void)
     run_to((uint32_t)(40 * FPT));
     arr_pattern_copy(0, &R);
     i = R.trk[5].first;
-    CHECK(R.trk[5].count == 2 && R.ev[i].tick == 16 && R.ev[i].len == 8 && R.ev[i + 1].tick == 20 && R.ev[i + 1].len == 10,
+    CHECK(R.trk[5].count == 2 && R.ev[i].tick == 16 * U && R.ev[i].len == 8 * U && R.ev[i + 1].tick == 20 * U &&
+              within(R.ev[i + 1].len, 10 * U, KEY_TOL),
           "1/8T at 16 (8 ticks), 1/16T at 20 (10): %d %d, %d %d", R.ev[i].tick, R.ev[i].len, R.ev[i + 1].tick, R.ev[i + 1].len);
     arr_play(0);
     run_blocks(1);
 }
 
-static void test_record_off_grid_start(void)  /* grid off: a key at the loop's start is tick 0 */
+/* grid off: a key at the loop's start is tick 0. At 120 BPM a pass is 88200 frames; the fourth pass starts 32
+ * frames after a block start (352768 = 1378 x 256), so a key there finds the pass before's last tick played
+ * and tick 0 next, but nearer the last (a tick is 45.9 frames) */
+static void test_record_off_grid_start(void)
 {
+    const uint32_t blk = 1378u * 256u, pass = 4u * 96u * U;
     rec_start(5);
     arr_set_quant(ARR_Q_OFF);
-    key_at(95.01f, 69, 1);                    /* the block after tick 95, nearer it than tick 96 (= 0) */
-    key_at(101.f, 69, 0);
-    run_to((uint32_t)(150 * FPT));
+    run_to(blk);
+    arr_key(69, 1, 90);
+    run_to(blk + 4096u);
+    arr_key(69, 0, 0);
+    run_to(blk + 30000u);
     arr_pattern_copy(0, &R);
-    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first].len == 5,
-          "stored at 0, 5 ticks (%d: %d %d)", R.trk[5].count, R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
-    CHECK(ons_in(0x93, 69, 0.f, 150 * FPT) == 1, "the key only, this pass");
-    run_to((uint32_t)(192 * FPT + 512));
-    CHECK(ons_in(0x93, 69, 190 * FPT, 193 * FPT) == 1, "on the next pass's downbeat");
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 0 &&
+              R.ev[R.trk[5].first].len == (int)((float)(blk + 4096u) * TPF + 0.5f) - (int)pass,
+          "stored at 0, to its release (%d: %d %d)", R.trk[5].count, R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
+    CHECK(ons_in(0x93, 69, 0.f, blk + 30000.f) == 1, "the key only, this pass");
+    run_to(441000u + 512u);
+    CHECK(ons_in(0x93, 69, 441000.f - 4, 441000.f + 4) == 1, "on the next pass's downbeat");
     arr_play(0);
     run_blocks(1);
 }
@@ -1595,7 +1678,7 @@ static void test_record_busy(void)            /* a note due, and an erase, while
     arr_test_busy(0, 0);
     run_blocks(1);
     arr_pattern_copy(0, &R);
-    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 24 && R.ev[R.trk[5].first].note == 60,
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 24 * U && R.ev[R.trk[5].first].note == 60,
           "the note, kept, written after (%d)", R.trk[5].count);
     CHECK(R.trk[0].count == 0, "the erase, after");
     arr_play(0);
@@ -1636,7 +1719,7 @@ static void test_store(void)                  /* copy, edit, store: refused when
     key_at(60.f, 72, 0);
     run_to((uint32_t)(70 * FPT));
     arr_pattern_copy(0, &R);
-    CHECK(R.trk[5].vol == 50 && R.trk[5].count == 2 && R.ev[R.trk[5].first + 1].tick == 48,
+    CHECK(R.trk[5].vol == 50 && R.trk[5].count == 2 && R.ev[R.trk[5].first + 1].tick == 48 * U,
           "the edit, and the note held over the store, kept (%d %d)", R.trk[5].vol, R.trk[5].count);
     arr_play(0);
     run_blocks(1);
@@ -1663,7 +1746,7 @@ static void test_record_section(void)         /* a section change ends recording
     key_at(130.f, 72, 0);
     run_to((uint32_t)(140 * FPT));
     arr_pattern_copy(0, &R);
-    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 48 && R.ev[R.trk[5].first].len == 48,
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 48 * U && R.ev[R.trk[5].first].len == 48 * U,
           "the held note ends at the switch: 48 ticks (%d)", R.ev[R.trk[5].first].len);
     arr_pattern_copy(1, &R);
     CHECK(R.trk[5].count == 0, "nothing into Main B");
@@ -1709,6 +1792,7 @@ int main(void)
     test_mute();
     test_midi_out();
     test_clock_in();
+    test_clock_smooth();
     test_stop_same_block();
     test_out_ring();
     test_reload();

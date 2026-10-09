@@ -9,7 +9,8 @@
 /* stored as raw bytes, native (little-endian) order, no packing pragma: every member is naturally
  * aligned by the rsv fields placed by hand, so the layout is stable without padding surprises. */
 #define ARR_TRACKS 8
-#define ARR_PPQ 24
+#define ARR_PPQ 480                      /* ticks a quarter note: the QY70's resolution */
+#define ARR_CLOCK_TICKS (ARR_PPQ / 24)   /* ticks a MIDI clock (F8, 24 a quarter): 20 */
 #define ARR_MAXBARS 8
 #define ARR_NEV 600                      /* notes per pattern */
 #define ARR_USER_PATTERNS 16
@@ -19,8 +20,8 @@
 enum { SEC_SAME, SEC_A, SEC_B, SEC_FILL, SEC_END };
 
 typedef struct {
-    uint16_t tick;                       /* from the pattern's start, ARR_PPQ a beat */
-    uint16_t len;                        /* ticks */
+    uint16_t tick;                       /* from the pattern's start, ARR_PPQ a beat (8 bars of 7: 26880 at most) */
+    uint16_t len;                        /* ticks, 1 .. the pattern's length */
     uint8_t note, vel;
 } arr_ev_t;
 
@@ -39,9 +40,10 @@ typedef struct {
     uint8_t rsv[2];
     arr_trk_t trk[ARR_TRACKS];
     uint16_t nev;
-    uint16_t rsv2;
+    uint16_t format;                     /* ARR_PAT_FORMAT: set by the engine (arr_load_pattern / arr_store_pattern) */
     arr_ev_t ev[ARR_NEV];
 } pattern_t;
+#define ARR_PAT_FORMAT 2u                /* 2: 480 ticks a beat (stored patterns of another format are not loaded) */
 
 typedef struct {
     uint8_t style[ARR_NSECT];            /* the pattern for Main A, Main B, Fill, Ending: 0..15 user, 16.. factory */
@@ -80,8 +82,15 @@ _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
  * its note-ons with their sample in it (gm_midi_now's at), so they start on their exact sample (+-1 at
  * 22.05 kHz). Note-offs go to the block start nearest their time (+-2.9 ms: lengths right on average, a
  * note-off never before its note-on). The rest takes effect at the start of the block the tick falls in:
- * programs and controllers, MIDI out (up to 5.8 ms late: the USB ring is sent from the main loop anyway),
- * and everything when following a MIDI clock in. */
+ * programs and controllers, MIDI out (up to 5.8 ms late: the USB ring is sent from the main loop anyway).
+ * 480 ticks a beat (up to ~11 in a block at 240 BPM): a tick with nothing due (no event, note end, beat or
+ * clock) only moves the place on.
+ *
+ * MIDI clock: out, an F8 every ARR_CLOCK_TICKS (20) ticks. In, each F8 allows 20 more ticks, played at the
+ * rate the clocks come at (the frames between them, smoothed), so the ticks between two clocks are spread
+ * evenly, never 20 at once; a little behind (more than a clock's ticks owed), faster; far behind (clocks
+ * bunched), at once (only the first 4 clocks' worth sounding); never ahead of the clocks: tick 20 k is not
+ * played before clock k + 1. */
 void arr_init(void);
 void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */
@@ -133,7 +142,7 @@ void arr_track_mute(int trk, int on);
  * sound with the selected track's sounds (sent to the synth, and MIDI out, at arr_record and when the track
  * or pattern changed), and go to MIDI out on its channel when MIDI out is on (as the pattern's notes: a
  * note-on only with room for its note-off). */
-enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 12 8 6 4 3 1 ticks */
+enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 240 160 120 80 60 1 ticks */
 void arr_record(int trk, int on);                /* the selected track (also arr_key's sound), recording on */
 void arr_key(int note, int on, int vel);
 void arr_set_quant(int q);                       /* ARR_Q_*, ARR_Q_16 at init */

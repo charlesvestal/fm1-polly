@@ -14,8 +14,8 @@ import os
 import re
 import struct
 import sys
+from fractions import Fraction
 
-PPQ = 24
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -28,6 +28,7 @@ def arr_define(name):
     return int(m.group(1))
 
 
+PPQ = arr_define("ARR_PPQ")     # ticks a beat (480)
 NEV = arr_define("ARR_NEV")     # notes a pattern
 MAXBARS = 8
 NTRK = 8
@@ -36,7 +37,10 @@ SECTIONS = ["main a", "main b", "fill", "ending"]
 TRACKS = ["d1", "d2", "pc", "ba", "c1", "c2", "c3", "c4"]
 TYPES = ["bypass", "parallel", "chord1", "chord2", "bass"]
 NOKEY = 12
-EV_BYTES = 5                    # a uint32 (tick, len, note) + a uint8 velocity
+EV_BYTES = 5                    # a uint32 (tick, note, length code) + a uint8 (velocity, length code's top bit)
+LEN_EXACT = 1020                # lengths 1..1020 exact; longer ones in steps of LEN_STEP (exact for multiples of it)
+LEN_STEP = 20
+LEN_MAX = LEN_EXACT + (2047 - (LEN_EXACT - 1)) * LEN_STEP     # 21580 ticks (45 beats)
 TRK_BYTES = 14                  # sty_trk_t
 PAT_BYTES = 4 + NTRK * TRK_BYTES
 
@@ -53,7 +57,7 @@ DRUMS = {
     "mcuica": 78, "ocuica": 79, "mtri": 80, "otri": 81, "shaker": 82,
 }
 DRUM_NAME = {v: k for k, v in DRUMS.items()}
-LEN_WORD = {"w": 96, "h": 48, "q": 24, "e": 12, "s": 6, "t": 3}
+LEN_WORD = {"w": 4 * PPQ, "h": 2 * PPQ, "q": PPQ, "e": PPQ // 2, "s": PPQ // 4, "t": PPQ // 8}
 GRID_VEL = {"g": 40, "x": 90, "X": 118}
 # the Groove MIDI Dataset's Roland TD-11 notes to General MIDI (the dataset's own mapping, simplified)
 TD11 = {22: 42, 26: 46, 40: 38, 58: 43, 59: 51, 55: 49, 57: 49, 52: 49, 50: 50, 48: 48, 45: 45, 47: 45,
@@ -185,10 +189,10 @@ def vlq(d, p):
 
 
 def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale, remap):
-    """a drum loop from a MIDI file: `bars` bars from bar `start` (0-based), at 24 PPQ. shift: ticks of the
-    file (at its own resolution) to move every hit by; "auto": the median distance from the beat of the
-    window's hits near a beat (within a 32nd), so a drummer playing behind or ahead of the click sits on the
-    band's grid (straight or swung alike)"""
+    """a drum loop from a MIDI file: `bars` bars from bar `start` (0-based), at PPQ ticks a beat, each hit on
+    the nearest multiple of `quant` ticks (1: as played). shift: ticks of the file (at its own resolution) to
+    move every hit by; "auto": the median distance from the beat of the window's hits near a beat (within a
+    32nd), so a drummer playing behind or ahead of the click sits on the band's grid (straight or swung alike)"""
     div, notes = read_midi(path)
     n = bars * beats * PPQ
     off = start * beats * div
@@ -205,14 +209,33 @@ def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale
         if only and g not in only or g in skip:
             continue
         g = remap.get(g, g)
-        tk = round((t + sh) * PPQ / div / quant) * quant
-        if -2 <= tk < 0:
+        tk = round(Fraction((t + sh) * PPQ, div * quant)) * quant
+        if -EARLY <= tk < 0:
             tk = 0                       # a downbeat played early
-        if not 0 <= tk < n - 2:          # the next window's downbeat played early: not ours
+        if not 0 <= tk < n - EARLY:      # the next window's downbeat played early: not ours
             continue
         v = max(1, min(127, round(vel * velpct * scale.get(g, 100) / 10000)))
         got[(tk, g)] = max(got.get((tk, g), 0), v)
-    return [(tk, 6, g, v) for (tk, g), v in sorted(got.items())]
+    return [(tk, PPQ // 4, g, v) for (tk, g), v in sorted(got.items())]
+
+
+EARLY = PPQ // 12                # a hit this early (two 288ths of a beat) still counts as on the downbeat
+QUANT_DEFAULT = PPQ // 24       # the drums' grid by default: 24 a beat (straight and triplet 16ths, swing)
+
+
+def drum_quant(s):
+    """quant=: ticks (1..PPQ), a length name (s: sixteenths, e: eighths), or off (1 tick: the drummer's own
+    timing); default QUANT_DEFAULT"""
+    if s is None:
+        return QUANT_DEFAULT
+    if s.lower() == "off":
+        return 1
+    if re.fullmatch(r"\d+", s):
+        return int_in(s, 1, PPQ, "quant")
+    q = length(s)
+    if not 1 <= q <= PPQ:
+        raise StyErr("quant %s outside 1..%d ticks" % (s, PPQ))
+    return q
 
 
 def grid(path, bars=None):
@@ -328,7 +351,7 @@ def parse(path, text=None):
                 at = int_in(opt.get("at", "1"), 1, MAXBARS, "at") - 1
                 names = lambda s: {note_num(x) for x in s.split(",")} if s else set()
                 ev = midi_drums(os.path.join(base, src), pat["beats"], nb, int(opt.get("start", "0")),
-                                int_in(opt.get("quant", "1"), 1, 24, "quant"), int(opt.get("vel", "100")),
+                                drum_quant(opt.get("quant")), int(opt.get("vel", "100")),
                                 names(opt.get("only")), names(opt.get("skip")), opt.get("shift", "auto"),
                                 {note_num(a): int(b) for a, b in (x.split(":") for x in opt["scale"].split(","))}
                                 if opt.get("scale") else {},
@@ -422,6 +445,9 @@ def check(style):
                     errs.append("%s:%d: %s: tick %d past the pattern's end" % (f, at, TRACKS[t], tk))
                 if not 1 <= ln <= n:
                     errs.append("%s:%d: %s: length %d outside 1..%d" % (f, at, TRACKS[t], ln, n))
+                elif len_of(len_code(ln)) != ln:
+                    print("make_styles: %s:%d: %s: length %d kept as %d in the tables" % (
+                        f, at, TRACKS[t], ln, len_of(len_code(ln))), file=sys.stderr)
                 if not 1 <= vel <= 127:
                     errs.append("%s:%d: %s: velocity %d outside 1..127" % (f, at, TRACKS[t], vel))
     return errs
@@ -455,8 +481,21 @@ def dump(style):
 
 
 # ----------------------------------------------------------------------- C ---
+def len_code(ln):
+    """a length's 11-bit code: 1..1020 exact (0..1019); longer, the nearest multiple of LEN_STEP (to LEN_MAX)"""
+    if ln <= LEN_EXACT:
+        return ln - 1
+    return LEN_EXACT - 1 + min(2047 - (LEN_EXACT - 1), max(1, (ln - LEN_EXACT + LEN_STEP // 2) // LEN_STEP))
+
+
+def len_of(c):
+    """the length a code stands for (arr.c's sty_len)"""
+    return c + 1 if c < LEN_EXACT else LEN_EXACT + (c - (LEN_EXACT - 1)) * LEN_STEP
+
+
 def tables(styles):
-    """(pattern rows, events, velocities): the data styles.h holds"""
+    """(pattern rows, events, velocities): the data styles.h holds. An event: tick (15 bits) | note << 15 |
+    the length code's low 10 bits << 22 (STY_EV); its velocity | the code's 11th bit << 7 (STY_VEL)"""
     pats, ev, vel = [], [], []
     for s in styles:
         for p in s["pats"]:
@@ -467,8 +506,9 @@ def tables(styles):
                 trks.append((h["program"], h["chan"], h["type"], h["lo"], h["hi"], h["hikey"], h["vol"], h["pan"],
                              h["rev"], h["cho"], h["mute"], len(p["ev"][t])))
                 for tk, ln, note, v, _ in p["ev"][t]:
-                    ev.append(tk | ln << 11 | note << 22)
-                    vel.append(v)
+                    c = len_code(ln)
+                    ev.append(tk | note << 15 | (c & 0x3FF) << 22)
+                    vel.append(v | (c >> 10) << 7)
             pats.append((p["bars"], p["beats"], first, trks))
     return pats, ev, vel
 
@@ -489,7 +529,11 @@ def emit(styles, files):
          "/* The drum performances in these tables are from the Groove MIDI Dataset (c) Google LLC, CC BY 4.0,",
          " * changed (excerpted, quantised); the rest is Polly's, GPL-3.0-only. See LICENSING.md, styles/README.md. */",
          "/* Included once, by arr.c. Style s's patterns are pattern numbers ARR_FACTORY0 + 4s + section (Main A,",
-         " * Main B, Fill, Ending). An event: tick | len << 11 | note << 22 (STY_EV), its velocity in STY_VEL. */",
+         " * Main B, Fill, Ending). An event (%d ticks a beat): tick | note << 15 | the length code's low 10 bits"
+         " << 22" % PPQ,
+         " * (STY_EV); its velocity | the code's 11th bit << 7 (STY_VEL). The code: lengths 1..%d exact (code"
+         " %d..%d)," % (LEN_EXACT, 0, LEN_EXACT - 1),
+         " * longer ones in steps of %d ticks (sty_len). */" % LEN_STEP,
          "#pragma once", "#include <stdint.h>", "",
          "typedef struct {",
          "    uint8_t program, chan, type, lo, hi, hikey, vol, pan, rev, cho, mute, rsv;",
@@ -499,7 +543,9 @@ def emit(styles, files):
          "    uint8_t bars, beats;",
          "    uint16_t first;                      /* its first event in STY_EV */",
          "    sty_trk_t trk[8];",
-         "} sty_pat_t;", "",
+         "} sty_pat_t;",
+         "static inline uint32_t sty_len(uint32_t c) { return c < %du ? c + 1u : %du + (c - %du) * %du; }"
+         % (LEN_EXACT, LEN_EXACT, LEN_EXACT - 1, LEN_STEP), "",
          "#define STY_COUNT %d" % len(styles),
          "#define STY_NEV %d" % len(ev), ""]
     o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join(c_str(s["name"]) for s in styles))

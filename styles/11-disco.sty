@@ -26,18 +26,18 @@ grid 1.2 h snare 66|66
 grid 1.2 h clap  55|55
 track ba
 # octaves in eighths
-1.1.0  C2 10 108/86 x8 12
-2.1.0  C2 10 108/86 x6 12
-2.4.0  G1 10 100
-2.4.12 G2 10 88
+1.1.0  C2 200 108/86 x8 240
+2.1.0  C2 200 108/86 x6 240
+2.4.0  G1 200 100
+2.4.240 G2 200 88
 track c1
 # sixteenths on the 3rd, 5th and root, accents on the offbeats
-grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg|g.xg.gXg.gxg.gXg len=3
+grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg|g.xg.gXg.gxg.gXg len=60
 track c4
-grid 1.1 e E4+G4+B4 .x.x.x.x|.x.x.x.x len=5
+grid 1.1 e E4+G4+B4 .x.x.x.x|.x.x.x.x len=100
 track c3
-1.1.0  G3+C4+E4 94 42
-2.1.0  G3+C4+E4 94 38
+1.1.0  G3+C4+E4 1880 42
+2.1.0  G3+C4+E4 1880 38
 
 [main b]
 bars 2
@@ -45,32 +45,32 @@ beats 4
 track d1
 drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=13 bars=2 scale=kick:110,chh:80,ohh:80
 track d2
-1.1.0 crash 24 84
+1.1.0 crash 480 84
 grid 1.2 h snare 66|66
 grid 1.2 h clap  55|55
 track ba
-1.1.0  C2 10 108/86 x7 12
-1.4.12 C3 5 86
-1.4.18 C3 5 80
-2.1.0  C2 10 108/86 x6 12
-2.4.0  G1 10 100
-2.4.12 G2 5 88
-2.4.18 B2 5 84
+1.1.0  C2 200 108/86 x7 240
+1.4.240 C3 100 86
+1.4.360 C3 100 80
+2.1.0  C2 200 108/86 x6 240
+2.4.0  G1 200 100
+2.4.240 G2 100 88
+2.4.360 B2 100 84
 track c1
-grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg|g.xg.gXg.gxg.gXg len=3
+grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg|g.xg.gXg.gxg.gXg len=60
 track c2
 # strings: two stabs, then the chord held across the next bar
-1.1.12 E5+G5+C6 5 96
-1.2.12 E5+G5+C6 5 90
-1.3.0  E5+G5+C6 48 84
-2.1.12 E5+G5+C6 5 96
-2.2.12 E5+G5+C6 5 90
-2.3.0  G5+C6+E6 48 88
+1.1.240 E5+G5+C6 100 96
+1.2.240 E5+G5+C6 100 90
+1.3.0  E5+G5+C6 960 84
+2.1.240 E5+G5+C6 100 96
+2.2.240 E5+G5+C6 100 90
+2.3.0  G5+C6+E6 960 88
 track c4
-grid 1.1 e E4+G4+B4 .x.x.x.x|.x.x.x.x len=5
+grid 1.1 e E4+G4+B4 .x.x.x.x|.x.x.x.x len=100
 track c3
-1.1.0  G3+C4+E4 94 60
-2.1.0  G3+C4+E4 94 56
+1.1.0  G3+C4+E4 1880 60
+2.1.0  G3+C4+E4 1880 56
 
 [fill]
 bars 1
@@ -78,44 +78,44 @@ beats 4
 track d1
 drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=8 bars=1 scale=kick:110,chh:80
 track d2
-1.2.0 snare 6 80
+1.2.0 snare 120 80
 grid 1.4 s snare 5678
 track ba
-1.1.0  C2 10 108/86 x4 12
-1.3.0  C2 6 96
-1.3.6  E2 6 90
-1.3.12 G2 6 94
-1.3.18 C3 6 96
-1.4.0  G2 6 92
-1.4.6  E2 6 90
-1.4.12 G2 6 94
-1.4.18 B2 6 98
+1.1.0  C2 200 108/86 x4 240
+1.3.0  C2 120 96
+1.3.120  E2 120 90
+1.3.240 G2 120 94
+1.3.360 C3 120 96
+1.4.0  G2 120 92
+1.4.120  E2 120 90
+1.4.240 G2 120 94
+1.4.360 B2 120 98
 track c2
-1.4.0  E5+G5+C6 5 90
-1.4.12 E5+G5+C6 10 100
+1.4.0  E5+G5+C6 100 90
+1.4.240 E5+G5+C6 200 100
 track c3
-1.1.0  G3+C4+E4 94 46
+1.1.0  G3+C4+E4 1880 46
 
 [ending]
 bars 2
 beats 4
 track d1
 drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=3 bars=1 scale=kick:110,chh:80
-2.1.0 kick 24 100
-2.1.0 crash 96 90
+2.1.0 kick 480 100
+2.1.0 crash 1920 90
 track d2
 grid 1.2 h snare 66
-2.1.0 snare 12 90
+2.1.0 snare 240 90
 track ba
-1.1.0  C2 10 108/86 x6 12
-1.4.0  G1 10 100
-1.4.12 G2 10 92
-2.1.0  C2 60 110
+1.1.0  C2 200 108/86 x6 240
+1.4.0  G1 200 100
+1.4.240 G2 200 92
+2.1.0  C2 1200 110
 track c1
-grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg len=3
-2.1.0  E4+G4+C5 24 90
+grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg len=60
+2.1.0  E4+G4+C5 480 90
 track c2
-2.1.0  E5+G5+C6 72 86
+2.1.0  E5+G5+C6 1440 86
 track c3
-1.1.0  G3+C4+E4 94 42
-2.1.0  G3+C4+E4 72 54
+1.1.0  G3+C4+E4 1880 42
+2.1.0  G3+C4+E4 1440 54

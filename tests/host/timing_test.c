@@ -9,7 +9,8 @@
  *   steal:     a note-on stealing a voice started in the same block starts on its own sample; one stealing
  *              a sounding voice at the next block's start
  *   live:      the arranger's held note-offs go before the live notes of a block (the real gm_render)
- *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2)
+ *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2), also off the old
+ *              24-a-beat grid (480 ticks a beat)
  *   sends:     loud notes with full reverb / chorus sends sum past 16 bits; the effects get them clamped
  *              (VMSendClamp), not wrapped round (which burst into noise)
  *   tails:     after the last note the reverb rings out (no drop to silence, falling gradually), and a note
@@ -100,12 +101,14 @@ static uint32_t ref_render(void)
     return h;
 }
 
-/* a dense pattern: 3 drum tracks on 16ths, 5 chord tracks on 8ths */
+/* a dense pattern: 3 drum tracks on 16ths, 5 chord tracks on 8ths. Ticks and lengths here in units of a 24th of
+ * a beat (U ticks) */
+#define U (ARR_PPQ / 24)
 static pattern_t P;
 static void add(int trk, int tick, int len, int note, int vel)
 {
     arr_trk_t *t = &P.trk[trk];
-    arr_ev_t e = {(uint16_t)tick, (uint16_t)len, (uint8_t)note, (uint8_t)vel};
+    arr_ev_t e = {(uint16_t)(tick * U), (uint16_t)(len * U), (uint8_t)note, (uint8_t)vel};
     if (!t->count)
         t->first = P.nev;
     t->count++;
@@ -398,7 +401,7 @@ static void test_live_after_held_off(void)
 static void test_arranger(void)
 {
     static const int bpm[] = {97, 120, 133};
-    static const int hits[] = {0, 25, 49, 74};
+    static const int hits[] = {0, 25 * U + 7, 49 * U + 7, 74 * U + 7};   /* ticks: off the old 24-a-beat grid */
     for (int b = 0; b < 3; b++) {
         float fpt = 110250.f / (float)bpm[b];
         int found = 0, bad = 0, worst = 0, run = 1000;
@@ -407,8 +410,10 @@ static void test_arranger(void)
         P.beats = 4;
         for (int i = 0; i < ARR_TRACKS; i++)
             trk_init(i, i < 3 ? 9 : i - 2, 0, i < 3 ? XT_BYPASS : XT_CHORD1, 0, 0);
-        for (int i = 0; i < 4; i++)
-            add(0, hits[i], 1, 42, 127);
+        for (int i = 0; i < 4; i++) {
+            add(0, 0, 1, 42, 127);
+            P.ev[P.nev - 1].tick = (uint16_t)hits[i];
+        }
         quiet();
         arr_init();
         arr_load_pattern(0, &P);
@@ -420,7 +425,7 @@ static void test_arranger(void)
         for (uint32_t i = 0; i < trace_n; i++) {   /* onsets: sound after 64 frames of silence */
             if (trace[i] && run >= 64) {
                 int n = found % 4, bar = found / 4;
-                float want = (float)(hits[n] + 96 * bar) * fpt, d = (float)i - want;
+                float want = (float)(hits[n] + 96 * U * bar) * fpt / (float)U, d = (float)i - want;
                 int ad = (int)(d < 0 ? -d - 0.5f : d + 0.5f);
                 if (ad > worst)
                     worst = ad;

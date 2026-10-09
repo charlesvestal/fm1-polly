@@ -34,7 +34,7 @@ track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=G vol=104 rev=12   # befo
 bars 2                     # 1..8
 beats 4                    # 2..7 (default 4)
 track ba vol=110           # in a section: this section's changes; and the track the notes below go to
-1.1.0  C2 16 106           # bar.beat.tick note length velocity
+1.1.0  C2 320 106          # bar.beat.tick note length velocity
 ```
 
 **Tracks:** `d1 d2 pc ba c1 c2 c3 c4` (the QY70's names; or `1`..`8`). A track not mentioned keeps the
@@ -52,24 +52,26 @@ them the same `vol pan rev cho`, and balance them with velocities. Fields (all o
 | `vol`, `pan`, `rev`, `cho` | the mixer, 0..127 (pan 64 centre) |
 | `mute` | 0 or 1 |
 
-**Positions:** `bar.beat.tick`, bar and beat from 1, tick 0..23 (24 a beat); `2.3` is `2.3.0`.
+**Positions:** `bar.beat.tick`, bar and beat from 1, tick 0..479 (480 a beat, the QY70's resolution); `2.3`
+is `2.3.0`.
 
 **Notes:** `C4` is 60 (`C#4`, `Eb3`), or a number; several at once with `+`: `E4+G4+C5`. Drums by GM
 name: `kick kick2 rim snare clap esnare chh phh ohh crash crash2 ride ride2 bell splash china tamb cowbell
 ftom ftom2 ltom lmtom hmtom htom shaker cabasa maracas claves hbongo lbongo hconga lconga ...` (the full list
 is `DRUMS` in `tools/make_styles.py`).
 
-**Lengths:** ticks (`6`), or `w h q e s t` (whole, half, quarter, eighth, sixteenth, 32nd), a count before
-(`3e` = 36), a dot after (`q.` = 36).
+**Lengths:** ticks (`120`), or `w h q e s t` (whole, half, quarter, eighth, sixteenth, 32nd: 1920 960 480 240
+120 60), a count before (`3e` = 720), a dot after (`q.` = 720). In the firmware's tables a length up to 1020
+ticks is kept exactly, a longer one to the nearest 20 ticks (`--check` says when one is rounded).
 
 **Repeats:** `POS NOTES LEN VEL xN STEP` plays the line N times, STEP apart; velocities `a/b/...` cycle:
-`1.1.0 E4+G4+C5 10 90/62 x8 12` is eight eighths, accented on the beat.
+`1.1.0 E4+G4+C5 200 90/62 x8 240` is eight eighths, accented on the beat.
 
 **Grids:** `grid POS STEP NOTES STEPS [len=L]`, one character a step from POS: `.` or `-` rest, `g` ghost
 (40), `x` (90), `X` accent (118), `1`..`9` (14 each); `|` is ignored (bar lines). Each note lasts STEP, or L:
 
 ```
-grid 1.1 s E4+B4 X.gx..x.g.xg..xg|x.gx..x.g.Xg.gx. len=3     # a clavinet in sixteenths
+grid 1.1 s E4+B4 X.gx..x.g.xg..xg|x.gx..x.g.Xg.gx. len=60    # a clavinet in sixteenths
 grid 1.1 e tamb  ggXgggXg|ggXgggXX
 ```
 
@@ -77,7 +79,9 @@ grid 1.1 e tamb  ggXgggXg|ggXgggXX
 [only=..] [skip=..] [shift=..] [map=..]` takes N bars (default: the section's) starting at the file's bar B (from 0)
 into the track from the section's bar A (default 1). Every note-on of the file counts (the Groove MIDI
 Dataset's Roland TD-11 notes are mapped to GM: hi-hat edges, rims, the second ride, ...); times go to the
-nearest of 24 ticks a beat (`quant=6`: the nearest sixteenth). `shift` (default `auto`): the median
+nearest multiple of `quant` ticks: by default 20 (24 a beat: straight and triplet sixteenths, the swing kept,
+as every factory style's drums), `quant=s` (or `120`) the nearest sixteenth, `quant=off` the drummer's own
+timing to the tick (480 a beat). `shift` (default `auto`): the median
 distance from the beat of the hits near a beat (within a 32nd) is removed, so a drummer playing just behind
 the click sits on the band's grid while keeping the feel (straight or swung); or a number of the file's own
 ticks. `vel=P`
@@ -117,7 +121,7 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 | 6 | Swing | 124 | GMD drummer 10, jazz swing 124: A bars 10-11 on the closed hi-hat (`map=ohh:chh`), B 14-15 on the ride, fill 12, ending 10 + hits | walking bass, piano Charleston in 3-5-7 voicings, soft drawbar organ | ride, walk with triplet pickups, busier piano, a vibraphone line, organ up | a walk up and two kicks | the 3-5-7 chord held over the root |
 | 7 | Shuffle | 112 | GMD drummer 8, rock shuffle 112: A bars 5-6 (hi-hat), B 9-10 (ride) + a crash, fill 16, ending 20 + hits | boogie bass (1-3-5-6-b7-6-5-3, each on the beat and the swung and), the guitar's 5-6 shuffle, soft organ | the ride, piano triplets on top, organ up | the bass up in triplets | up the boogie, the stop, the root |
 | 8 | Reggae | 78 | GMD drummer 1, reggae 78 (kick and cross-stick on 2 and 4: a one drop felt in double time): A bars 6-7, B 9-10, fill 13, ending 17 + a hit | the skank on every offbeat (muted guitar), an organ doubling it, the bass leaving the one open | the organ bubble in sixteenths, a melodica line, a busier bass, strings up | the bass climbs | the chord on the one |
-| 9 | Hip hop | 90 | GMD drummer 8, hip hop 90: A bars 2-3 without the open hats (`skip=ohh`), B 10-11 with them, fill 15 (the drummer stops after beat 2: a break), ending 14 + a hit | synth bass on the kick, Rhodes 3-5-7 chords laid back two ticks, a soft pad | the open hats, a vibraphone loop, pad up | the break | one hit |
+| 9 | Hip hop | 90 | GMD drummer 8, hip hop 90: A bars 2-3 without the open hats (`skip=ohh`), B 10-11 with them, fill 15 (the drummer stops after beat 2: a break), ending 14 + a hit | synth bass on the kick, Rhodes 3-5-7 chords laid back a 48th, a soft pad | the open hats, a vibraphone loop, pad up | the break | one hit |
 | 10 | House | 122 | by hand: four on the floor, clap on 2 and 4, open hat on the offbeats; B adds sixteenth hats, a shaker and a crash | the bass on the offbeats, organ stabs, a soft pad | piano stabs 3-3-2 (3-5-7-9, short), the bass jumping octaves, pad up | a snare build into 32nds | the chord on the one |
 | 11 | Disco | 120 | GMD drummer 1, disco 120: A bars 2-3, B 14-15 (open hats on the offbeats) + a crash, fill 9 (toms), ending 4 + hits; a snare and clap on 2 and 4 added by hand (the drummer plays none) | octave bass in eighths, muted guitar sixteenths, Rhodes offbeat stabs, soft strings | string stabs and a held string line, the bass with sixteenth pickups | the bass runs the chord in sixteenths, string hits | the chord on the one |
 | 12 | Country | 114 | GMD drummer 1, country 114 (a train beat: sixteenths on the snare, accents on the ands): A bars 2-3, B 6-7 + tambourine and a crash, fill 12, ending 4 + hits | boom-chick: bass root on 1, fifth on 3, steel-string strums rolled on 2 and 4, a walk up 5-6-7 | a fiddle line (the GM set has no pedal steel), honky-tonk piano eighths | the bass walks up the chord | the 5-6-7 tag into the root, a rolled chord held |
@@ -130,7 +134,7 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 
 **12/8 and 3/4.** Patterns can be 2 to 7 beats a bar, so the Waltz is plain 3/4 (`beats 3`; a song's bar
 and the Waltz template's bar are three beats while it plays). There is no compound meter: a 12/8 (or 6/8)
-style is written as 4/4 with each beat split in three triplet eighths, at ticks 0, 8 and 16 (`grid 1.1 8
+style is written as 4/4 with each beat split in three triplet eighths, at ticks 0, 160 and 320 (`grid 1.1 160
 ...` steps a triplet eighth), and its tempo counts the dotted quarters. The Gospel style does this; the chord
 track and sections then stay on the dotted-quarter beat, as they would in 12/8.
 
@@ -158,7 +162,7 @@ the Gospel template; the Waltz three times over the Waltz template), each pass M
 ## The drums: the Groove MIDI Dataset
 
 **Decision:** the Main and Fill drums come from Google Magenta's Groove MIDI Dataset (real drummers, played
-to a click on an electronic kit), quantised to Polly's 24 PPQ with the drummer's timing and dynamics kept;
+to a click on an electronic kit), quantised to 24 a beat (20 of Polly's 480 ticks) with the drummer's timing and dynamics kept;
 the endings' last hits and the extra percussion are written by hand. The licence was checked at its source
 on 2026-10-09: the dataset page (<https://magenta.tensorflow.org/datasets/groove>) says *"The dataset is
 made available by Google LLC under a Creative Commons Attribution 4.0 International (CC BY 4.0) License."*,
@@ -168,6 +172,6 @@ styles use are kept, under `drums/` (renamed: `drummerN-sessionM-` + the dataset
 
 **Credit:** drum performances from the Groove MIDI Dataset by Jon Gillick, Adam Roberts, Jesse Engel, Douglas
 Eck and David Bamman (Google Magenta), © Google LLC, CC BY 4.0, <https://magenta.tensorflow.org/datasets/groove>.
-Changes: excerpts of a few bars, the kit's notes mapped to General MIDI, timing moved to 24 ticks a beat
+Changes: excerpts of a few bars, the kit's notes mapped to General MIDI, timing moved to 24 steps a beat
 and onto the click by the median offset, velocities scaled per instrument. Paper: Gillick, Roberts, Engel,
 Eck, Bamman, "Learning to Groove with Inverse Sequence Transformations", ICML 2019.

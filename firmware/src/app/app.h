@@ -11,9 +11,9 @@
 #define GM_VERSION "DEV"
 #endif
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
-#define PROJ_FORMAT 4u
+#define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 2u
+#define SONGS_FORMAT 3u
 
 typedef struct {
     uint32_t magic, format;

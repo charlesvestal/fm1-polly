@@ -33,11 +33,11 @@ bad() {
     fi
 }
 bad velocity '1.1.0 C2 6 200' '11: velocity 200 outside 1..127'
-bad length '1.1.0 C2 200 90' '11: ba: length 200 outside 1..96'
+bad length '1.1.0 C2 2000 90' '11: ba: length 2000 outside 1..1920'
 bad note '1.1.0 130 6 90' '11: ba: note 130 outside 0..127'
 bad grid 'grid 1.1 s C2+ x.x.' "11: not a note: "
 bad gridshort 'grid 1.1 s' "11: grid POS STEP NOTES STEPS [len=L]"
-bad gridnolen 'grid 1.1 s C2 x.x.x.x.x.x.x.x.x' "11: ba: tick 96 past the pattern's end"
+bad gridnolen 'grid 1.1 s C2 x.x.x.x.x.x.x.x.x' "11: ba: tick 1920 past the pattern's end"
 bad position '1.5.0 C2 6 90' '11: position 1.5.0 outside 1 bars of 4 beats'
 bad drumsfile 'drums from=nothing.mid' "11: $D/nothing.mid: No such file or directory"
 bad field 'track c1 tempo=3' '11: unknown track field tempo'

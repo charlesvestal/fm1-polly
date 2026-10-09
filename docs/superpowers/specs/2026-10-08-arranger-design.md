@@ -56,8 +56,10 @@ screen (positions, current chord, what each track is playing).
 
 ### Timing
 
-24 PPQ internally (the MIDI clock's resolution): recorded notes are quantised to the 1/16 grid by default
-(1/8T, 1/16T, 1/32 or off as a setting), so 24 PPQ loses nothing in v1. The engine ticks at the clock's
+480 PPQ internally (the QY70's resolution, so its styles and a drummer's feel keep their timing; was 24, the MIDI
+clock's, until 2026-10-09): recorded notes are quantised to the 1/16 grid by default (1/8T, 1/16T, 1/32 or off
+as a setting: off keeps the tick). MIDI clock in and out: 20 ticks a clock, the ticks between two clocks in
+spread at the clock's measured rate. The engine ticks at the clock's
 rate inside the render: the render is split at tick boundaries, as Eno's is (`en_render`), so timing is
 sample-accurate rather than block-quantised.
 
