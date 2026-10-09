@@ -21,7 +21,7 @@
  *   reboot                       re-run boot from the simulated flash (persistence test)
  *   clock N [MS]                 N MIDI clocks in (F8), MS apart (default 21: 119 bpm)
  *   flash_fail 0|1               every flash save fails (1) or works (0)
- *   hitreset                     restart the tracks' note-on counts (expect track_hitsN)
+ *   hitreset                     restart the tracks' note-on counts (expect track_hitsN) and notes_out
  */
 #define GM_HOST 1
 #include <stdio.h>
@@ -377,6 +377,8 @@ static int expect(const char *what, const char *val)
     int got;
     if (!strcmp(what, "voices"))                  /* the synth's voices sounding */
         got = gm_voices;
+    else if (!strcmp(what, "notes_out"))          /* note-ons out (MIDI out on: every note played) since hitreset */
+        got = (int)note_on_count;
     else if (!strcmp(what, "level"))              /* the output's peak, percent */
         got = (int)(gm_level * 100.0f);
     else if (!strcmp(what, "ch"))

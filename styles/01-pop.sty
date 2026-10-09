@@ -1,0 +1,161 @@
+# Pop: a straight-eighths pop band at ~105. Drums from the Groove MIDI Dataset (drummer 3, a rock groove at
+# 105, CC BY 4.0: styles/README.md), the rest written for Polly over C M7.
+# Main A: kick-locked bass, a 3-3-2 piano, soft strings. Main B: the drummer on the ride, an eighth-note
+# bass with passing notes, eighth piano, a clean guitar arpeggio, tambourine, the strings up.
+style Pop
+tempo 105
+
+track d1 type=bypass chan=10 vol=104 rev=30
+track d2 type=bypass chan=10 vol=104 rev=30   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=104 rev=30
+track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=104 rev=12
+track c1 type=chord1 program=0 chan=3 lo=G3 hi=G5 hikey=E vol=86 pan=52 rev=45
+track c2 type=chord1 program=27 chan=4 lo=E3 hi=E6 hikey=E vol=70 pan=86 rev=50 cho=40
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=66 pan=64 rev=70 cho=20
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer3-session1-1_rock_105_beat_4-4.mid start=3 bars=2 scale=kick:140,snare:110,chh:80,ohh:80,phh:80
+track ba
+# locked to the kick (1, the a of 1, the and of 3, the and of 4); bar 2 climbs 3-5-6-5 back to the root
+1.1.0  C2 16 106
+1.1.18 C2 5 68
+1.3.12 C2 10 96
+1.4.12 G1 10 90
+2.1.0  C2 16 106
+2.1.18 C2 5 68
+2.3.0  E2 10 84
+2.3.12 G2 10 94
+2.4.0  A2 10 82
+2.4.12 G2 10 90
+track c1
+# piano, 3-3-2 across the bar (the dotted-quarter push); a lighter echo on the and of 4 in bar 2
+1.1.0  E4+G4+C5 32 84
+1.2.12 E4+G4+C5 32 74
+1.4.0  E4+G4+C5 20 78
+2.1.0  E4+G4+C5 32 84
+2.2.12 E4+G4+C5 32 74
+2.4.0  E4+G4+C5 10 76
+2.4.12 D4+G4+C5 10 64
+track c3
+1.1.0  G3+C4+E4 94 60
+2.1.0  G3+C4+E4 94 56
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer3-session1-1_rock_105_beat_4-4.mid start=21 bars=2 scale=kick:140,snare:110,chh:80,ohh:80,phh:80
+track d2
+1.1.0 crash 24 100
+grid 1.1 e tamb 33533353|33533355
+track ba
+# eighths on the root, a fifth and a 3-5-6 walk
+1.1.0  C2 10 108
+1.1.12 C2 10 76
+1.2.0  C2 10 90
+1.2.12 C2 10 76
+1.3.0  G1 10 96
+1.3.12 G1 10 76
+1.4.0  E2 10 88
+1.4.12 D2 10 82
+2.1.0  C2 10 108
+2.1.12 C2 10 76
+2.2.0  C3 10 92
+2.2.12 C2 10 76
+2.3.0  E2 10 92
+2.3.12 E2 10 76
+2.4.0  G2 10 92
+2.4.12 A2 10 84
+track c1
+# eighths, accent on the beat, a lift to the 9th at the end of bar 2
+1.1.0  E4+G4+C5 10 90/62 x8 12
+2.1.0  E4+G4+C5 10 90/62 x6 12
+2.4.0  D4+G4+C5 10 84
+2.4.12 D4+G4+D5 10 70
+track c2
+# clean guitar, a sixteenth-note arpeggio a beat, rising and turning
+1.1.0  C4 6 86
+1.1.6  G4 6 60
+1.1.12 C5 6 72
+1.1.18 E5 6 60
+1.2.0  D5 6 78
+1.2.6  C5 6 58
+1.2.12 G4 6 70
+1.2.18 E4 6 58
+1.3.0  C4 6 84
+1.3.6  G4 6 60
+1.3.12 C5 6 72
+1.3.18 E5 6 60
+1.4.0  G5 12 80
+1.4.12 E5 12 66
+2.1.0  C4 6 86
+2.1.6  G4 6 60
+2.1.12 C5 6 72
+2.1.18 E5 6 60
+2.2.0  D5 6 78
+2.2.6  C5 6 58
+2.2.12 G4 6 70
+2.2.18 E4 6 58
+2.3.0  G4 6 84
+2.3.6  C5 6 62
+2.3.12 E5 6 74
+2.3.18 G5 6 62
+2.4.0  E5 12 76
+2.4.12 D5 12 64
+track c3
+1.1.0  G3+C4+E4 94 76
+2.1.0  G3+C4+E4 94 72
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer3-session1-1_rock_105_beat_4-4.mid start=16 bars=1 scale=kick:140,snare:110,chh:80,ohh:80,phh:80
+track ba
+# root, then up the chord into the toms
+1.1.0  C2 16 106
+1.1.18 C2 5 70
+1.2.12 C2 10 86
+1.3.0  E2 10 92
+1.3.12 G2 10 94
+1.4.0  A2 10 96
+1.4.12 C3 10 100
+track c1
+1.1.0  E4+G4+C5 32 86
+1.2.12 E4+G4+C5 20 78
+track c3
+1.1.0  G3+C4+E4 60 62
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer3-session1-1_rock_105_beat_4-4.mid start=12 bars=1 scale=kick:140,snare:110,chh:80,ohh:80,phh:80
+2.1.0 kick 24 118
+2.1.0 crash 96 122
+2.1.0 snare 24 100
+track d2
+2.1.0 crash2 96 104
+track ba
+1.1.0  C2 16 106
+1.1.18 C2 5 68
+1.3.12 C2 10 96
+1.4.0  E2 10 88
+1.4.12 G2 10 94
+2.1.0  C2 72 110
+track c1
+1.1.0  E4+G4+C5 32 84
+1.2.12 E4+G4+C5 32 74
+1.4.0  E4+G4+C5 20 78
+2.1.0  C4+E4+G4+C5 84 92
+track c2
+2.1.0  C4 84 80
+2.1.2  G4 82 72
+2.1.4  C5 80 70
+2.1.6  E5 78 74
+track c3
+1.1.0  G3+C4+E4 94 64
+2.1.0  G3+C4+E4 84 72

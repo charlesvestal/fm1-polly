@@ -7,6 +7,7 @@
 #include "arr.h"
 #include "gm.h"
 #include "templates.h"
+#include "styles.h"
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define ARR_HELD 8                                 /* notes held a track */
@@ -1156,4 +1157,52 @@ void arr_init(void)                                /* at boot, before the render
     fill_from = SEC_A;
     sec_bars = 0;
     beat_now = bar_beat0 = t_origin = 0;
+}
+
+/* ------------------------------------------------------------ factory styles --- */
+int arr_styles(void) { return STY_COUNT; }
+const char *arr_style_name(int s) { return s >= 0 && s < STY_COUNT ? STY_NAME[s] : ""; }
+int arr_style_tempo(int s) { return s >= 0 && s < STY_COUNT ? STY_TEMPO[s] : 120; }
+
+int arr_factory_pattern(int n, pattern_t *p)
+{
+    const sty_pat_t *f;
+    uint32_t e;
+    int t, i;
+    n -= ARR_FACTORY0;
+    if (n < 0 || n >= STY_COUNT * 4)
+        return -1;
+    f = &STY_PAT[n];
+    memset(p, 0, sizeof *p);
+    for (i = 0; i < 8 && STY_NAME[n / 4][i]; i++)
+        p->name[i] = STY_NAME[n / 4][i];
+    p->bars = f->bars;
+    p->beats = f->beats;
+    e = f->first;
+    for (t = 0; t < ARR_TRACKS; t++) {
+        const sty_trk_t *s = &f->trk[t];
+        arr_trk_t *k = &p->trk[t];
+        k->program = s->program;
+        k->chan = s->chan;
+        k->x.type = s->type;
+        k->x.lo = s->lo;
+        k->x.hi = s->hi;
+        k->x.hikey = s->hikey;
+        k->vol = s->vol;
+        k->pan = s->pan;
+        k->rev = s->rev;
+        k->cho = s->cho;
+        k->mute = s->mute;
+        k->first = p->nev;
+        k->count = s->count;
+        for (i = 0; i < s->count && p->nev < ARR_NEV; i++, e++) {
+            arr_ev_t *v = &p->ev[p->nev++];
+            v->tick = (uint16_t)(STY_EV[e] & 0x7FFu);
+            v->len = (uint16_t)(STY_EV[e] >> 11 & 0x7FFu);
+            v->note = (uint8_t)(STY_EV[e] >> 22 & 0x7Fu);
+            v->vel = STY_VEL[e];
+        }
+        k->count = (uint16_t)(p->nev - k->first);
+    }
+    return 0;
 }

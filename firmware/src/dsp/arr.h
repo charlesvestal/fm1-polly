@@ -57,6 +57,16 @@ typedef struct {
     song_t song[ARR_SONGS];
 } songs_t;
 
+/* ---- the factory styles (the .sty files in styles/, compiled by tools/make_styles.py into styles.h; const in flash). A song's
+ * pattern numbers 16.. are theirs: style s (0..arr_styles()-1), section k (0 Main A, 1 Main B, 2 Fill, 3 Ending)
+ * is pattern ARR_FACTORY0 + 4 s + k. */
+#define ARR_FACTORY0 ARR_USER_PATTERNS
+int arr_styles(void);                            /* how many */
+const char *arr_style_name(int s);               /* "Pop"; "" for none */
+int arr_style_tempo(int s);                      /* its tempo, as written */
+/* factory pattern n (ARR_FACTORY0..) expanded into *p (the app then loads it into a slot); -1 for none */
+int arr_factory_pattern(int n, pattern_t *p);
+
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
 _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
 

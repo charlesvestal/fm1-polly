@@ -1,0 +1,62 @@
+# POLLY, factory: a song picks factory style 1 (Pop) by name on the Arrange patterns page, one knob a
+# section (P01..P16, then the styles); it plays over the Pop template: Main A, Main B, the fill, the ending.
+wait 300
+tap ENV
+tap ENV
+expect page 9
+spin K1 16
+spin K2 15
+spin K3 14
+spin K4 13
+wait 50
+expect song1_style0 16
+expect song1_style1 17
+expect song1_style2 18
+expect song1_style3 19
+expect slot0_nev >20
+shot patterns.png
+# past the last style: it stays on the last
+spin K1 40
+expect song1_style0 20
+spin K1 -1
+expect song1_style0 16
+# Pop's tempo, the Pop template, PLAY: 4 bars of Main A
+spin SELECT -15
+expect tempo 105
+press SEL
+key w0 down
+key w0 up
+release SEL
+hitreset
+wav pop.wav
+peakreset
+tap PLAY
+wait 9140
+expect notes_out >20
+expect track_hits1 >20
+expect track_hits4 >6
+expect track_hits5 >6
+expect track_hits7 >2
+expect peak_db_max -0.1
+expect peak_db_min -24
+# Main B for 4 bars, the fill, Main A, the ending
+press SEL
+tapkey b1
+release SEL
+wait 9140
+expect sect 2
+press SEL
+tapkey b2
+release SEL
+wait 2300
+expect sect 3
+wait 2300
+expect sect 1
+press SEL
+tapkey b3
+release SEL
+wait 7000
+expect playing 0
+wavstop
+tap HOME
+shot song.png

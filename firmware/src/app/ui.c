@@ -126,11 +126,12 @@ static void edits_flush(void)
     }
 }
 
-/* slot s (Main A, Main B, Fill, Ending) gets pattern `style`: a user pattern (0..15), or (factory styles: a
- * later task) an empty one */
+/* slot s (Main A, Main B, Fill, Ending) gets pattern `style`: a user pattern (0..15), a factory style's
+ * (ARR_FACTORY0..: copied out of flash), or an empty one when it has none */
 static void slot_load(int s, int style)
 {
-    if (style >= ARR_USER_PATTERNS || project_pattern_load(style, &scratch) != 0)
+    if (style >= ARR_USER_PATTERNS ? arr_factory_pattern(style, &scratch) != 0
+                                   : project_pattern_load(style, &scratch) != 0)
         pattern_empty(&scratch);
     arr_load_pattern(s, &scratch);
     slot_cache(s, &scratch);
@@ -713,12 +714,21 @@ static void chord_played(const uint8_t *n, int c)
     ui.centry_step = 1;
     chord_write(app.cbeat, ch);
 }
-/* a slot's pattern changed to user pattern `to` (the Arrange page's, the Pattern page's PRESETS); its
- * changes saved first (stopped), or refused while playing (a save pauses the audio) */
+/* the pattern d steps on from st for slot s: the user patterns P01..P16, then the factory styles by name,
+ * each its pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
+static int style_step(int s, int st, int d)
+{
+    int i = st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT;
+    i = clampi(i + d, 0, ARR_USER_PATTERNS + arr_styles() - 1);
+    return i < ARR_USER_PATTERNS ? i : ARR_FACTORY0 + (i - ARR_USER_PATTERNS) * ARR_NSECT + s;
+}
+/* a slot's pattern changed to pattern `to` (a user pattern or a factory style's; the Arrange page's, the
+ * Pattern page's PRESETS); its changes saved first (stopped), or refused while playing (a save pauses the
+ * audio) */
 static void slot_style(int s, int to)
 {
     int st = songs.song[proj.song].style[s];
-    char t[8];
+    char t[16];
     if (to == st)
         return;
     if (slot_unsaved(s)) {
@@ -735,7 +745,7 @@ static void slot_style(int s, int to)
     app.songs_dirty = 1;
     app.chg++;
     slot_load(s, to);
-    pat_name(to, t);
+    style_name(to, t);
     say(SECT_NAME[s + 1], t);
 }
 static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
@@ -791,8 +801,7 @@ static void song_page_knob(int k, int32_t e)
         song_edited();
         break;
     case P_ARRANGE2: {
-        int st = g->style[k];
-        slot_style(k, st >= ARR_USER_PATTERNS ? 0 : clampi(st + accel(EN_K1 + k, e), 0, ARR_USER_PATTERNS - 1));
+        slot_style(k, style_step(k, g->style[k], accel(EN_K1 + k, e)));
         break;
     }
     case P_TEMPLATES: case P_TCOPY:
@@ -1065,8 +1074,8 @@ static void knob(int k, int32_t e)
  * when its changes are saved (a save would pause the audio) */
 static void pattern_pick(int32_t e)
 {
-    int s = eslot(), st = songs.song[proj.song].style[s];
-    slot_style(s, st >= ARR_USER_PATTERNS ? 0 : clampi(st + (e > 0 ? 1 : -1), 0, ARR_USER_PATTERNS - 1));
+    int s = eslot();
+    slot_style(s, style_step(s, songs.song[proj.song].style[s], e > 0 ? 1 : -1));
 }
 static void presets(int32_t e)
 {

@@ -1,0 +1,545 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""Polly's factory styles: .sty text files (styles/README.md) compiled into firmware/src/dsp/styles.h.
+
+    python3 tools/make_styles.py styles/*.sty > firmware/src/dsp/styles.h
+    python3 tools/make_styles.py --check styles/*.sty        # "2 styles, 8 patterns ok", or the errors
+    python3 tools/make_styles.py --dump styles/01-pop.sty    # the style back as text (drums expanded)
+    python3 tools/make_styles.py --roundtrip styles/*.sty    # dump -> parse -> the same tables
+    python3 tools/make_styles.py --grid FILE.mid [BARS]      # a MIDI file's drums as a 16th grid (choosing loops)
+    python3 tools/make_styles.py --sizes styles/*.sty        # flash bytes per style
+
+Python 3 standard library only."""
+import os
+import re
+import struct
+import sys
+
+PPQ = 24
+NEV = 600                       # ARR_NEV (arr.h)
+MAXBARS = 8
+NTRK = 8
+FACTORY0 = 16                   # ARR_USER_PATTERNS: factory pattern numbers start here
+SECTIONS = ["main a", "main b", "fill", "ending"]
+TRACKS = ["d1", "d2", "pc", "ba", "c1", "c2", "c3", "c4"]
+TYPES = ["bypass", "parallel", "chord1", "chord2", "bass"]
+NOKEY = 12
+EV_BYTES = 5                    # a uint32 (tick, len, note) + a uint8 velocity
+TRK_BYTES = 14                  # sty_trk_t
+PAT_BYTES = 4 + NTRK * TRK_BYTES
+
+NOTE_PC = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
+PC_NAME = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
+# GM percussion (key map, channel 10), short names
+DRUMS = {
+    "kick2": 35, "kick": 36, "rim": 37, "snare": 38, "clap": 39, "esnare": 40, "ftom2": 41, "chh": 42,
+    "ftom": 43, "phh": 44, "ltom": 45, "ohh": 46, "lmtom": 47, "hmtom": 48, "crash": 49, "htom": 50,
+    "ride": 51, "china": 52, "bell": 53, "tamb": 54, "splash": 55, "cowbell": 56, "crash2": 57,
+    "vibraslap": 58, "ride2": 59, "hbongo": 60, "lbongo": 61, "mhconga": 62, "hconga": 63, "lconga": 64,
+    "htimbale": 65, "ltimbale": 66, "hagogo": 67, "lagogo": 68, "cabasa": 69, "maracas": 70,
+    "swhistle": 71, "lwhistle": 72, "sguiro": 73, "lguiro": 74, "claves": 75, "hblock": 76, "lblock": 77,
+    "mcuica": 78, "ocuica": 79, "mtri": 80, "otri": 81, "shaker": 82,
+}
+DRUM_NAME = {v: k for k, v in DRUMS.items()}
+LEN_WORD = {"w": 96, "h": 48, "q": 24, "e": 12, "s": 6, "t": 3}
+GRID_VEL = {"g": 40, "x": 90, "X": 118}
+# the Groove MIDI Dataset's Roland TD-11 notes to General MIDI (the dataset's own mapping, simplified)
+TD11 = {22: 42, 26: 46, 40: 38, 58: 43, 59: 51, 55: 49, 57: 49, 52: 49, 50: 50, 48: 48, 45: 45, 47: 45,
+        43: 43, 37: 37, 38: 38, 36: 36, 42: 42, 44: 44, 46: 46, 49: 49, 51: 51, 53: 53}
+
+
+class StyErr(Exception):
+    pass
+
+
+def default_track(i):
+    """pattern_empty (project.c): the QY70's default tracks"""
+    t = dict(program=0, chan=9, type=0, lo=0, hi=127, hikey=NOKEY, vol=100, pan=64, rev=40, cho=0, mute=0)
+    if i == 3:
+        t.update(program=33, chan=1, type=4, lo=28, hi=55, hikey=7)
+    elif i >= 4:
+        t.update(chan=i - 2, type=2, lo=48, hi=84)
+        if i == 6:
+            t.update(type=3, program=48)
+    return t
+
+
+# ------------------------------------------------------------------ values ---
+def note_num(s, drums=False):
+    """C4 = 60; Eb3, F#2; a number; a GM drum name"""
+    s0 = s
+    if s.lower() in DRUMS:
+        return DRUMS[s.lower()]
+    if re.fullmatch(r"\d+", s):
+        return int(s)
+    m = re.fullmatch(r"([A-Ga-g])([#b]?)(-?\d)", s)
+    if not m:
+        raise StyErr("not a note: " + s0)
+    n = NOTE_PC[m.group(1).lower()] + {"#": 1, "b": -1, "": 0}[m.group(2)]
+    return n + 12 * (int(m.group(3)) + 1)
+
+
+def note_name(n, drums):
+    if drums and n in DRUM_NAME:
+        return DRUM_NAME[n]
+    return PC_NAME[n % 12] + str(n // 12 - 1)
+
+
+def length(s):
+    if re.fullmatch(r"\d+", s):
+        return int(s)
+    m = re.fullmatch(r"(\d*)([whqest])(\.?)", s)
+    if not m:
+        raise StyErr("not a length: " + s)
+    v = LEN_WORD[m.group(2)] * (int(m.group(1)) if m.group(1) else 1)
+    return v * 3 // 2 if m.group(3) else v
+
+
+def pitch_class(s):
+    if s.lower() == "off":
+        return NOKEY
+    m = re.fullmatch(r"([A-Ga-g])([#b]?)", s)
+    if not m:
+        raise StyErr("not a pitch class: " + s)
+    return (NOTE_PC[m.group(1).lower()] + {"#": 1, "b": -1, "": 0}[m.group(2)]) % 12
+
+
+def int_in(s, lo, hi, what):
+    try:
+        v = int(s)
+    except ValueError:
+        raise StyErr("%s: not a number: %s" % (what, s))
+    if not lo <= v <= hi:
+        raise StyErr("%s %d outside %d..%d" % (what, v, lo, hi))
+    return v
+
+
+# -------------------------------------------------------------------- MIDI ---
+def read_midi(path):
+    """(division, [(abs_tick, channel, note, velocity)] note-ons)"""
+    with open(path, "rb") as f:
+        d = f.read()
+    if d[:4] != b"MThd":
+        raise StyErr(path + ": not a MIDI file")
+    hlen, = struct.unpack(">I", d[4:8])
+    _, ntrk, div = struct.unpack(">HHH", d[8:14])
+    if div & 0x8000:
+        raise StyErr(path + ": SMPTE time not supported")
+    pos, notes = 8 + hlen, []
+    for _ in range(ntrk):
+        if d[pos:pos + 4] != b"MTrk":
+            break
+        tlen, = struct.unpack(">I", d[pos + 4:pos + 8])
+        p, end, t, run = pos + 8, pos + 8 + tlen, 0, 0
+        while p < end:
+            v = 0
+            while True:
+                b = d[p]
+                p += 1
+                v = v << 7 | (b & 0x7F)
+                if not b & 0x80:
+                    break
+            t += v
+            st = d[p]
+            if st & 0x80:
+                p += 1
+            else:
+                st = run
+            if st == 0xFF:
+                ln, p = vlq(d, p + 1)
+                p += ln
+            elif st in (0xF0, 0xF7):
+                ln, p = vlq(d, p)
+                p += ln
+            else:
+                run = st
+                n = 1 if st & 0xF0 in (0xC0, 0xD0) else 2
+                a = d[p:p + n]
+                p += n
+                if st & 0xF0 == 0x90 and a[1] > 0:
+                    notes.append((t, st & 15, a[0], a[1]))
+        pos = end
+    return div, notes
+
+
+def vlq(d, p):
+    v = 0
+    while True:
+        b = d[p]
+        p += 1
+        v = v << 7 | (b & 0x7F)
+        if not b & 0x80:
+            return v, p
+
+
+def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale):
+    """a drum loop from a MIDI file: `bars` bars from bar `start` (0-based), at 24 PPQ. shift: ticks of the
+    file (at its own resolution) to move every hit by; "auto": the median distance of the window's hits from
+    their nearest 16th, so a drummer playing behind or ahead of the click sits on the band's grid"""
+    div, notes = read_midi(path)
+    n = bars * beats * PPQ
+    off = start * beats * div
+    win = [(t - off, TD11.get(note, note), vel) for t, ch, note, vel in notes
+           if -div // 8 <= t - off < bars * beats * div]
+    if shift == "auto":
+        q = div // 4
+        d = sorted((t + q // 2) % q - q // 2 for t, g, v in win)
+        sh = -d[len(d) // 2] if d else 0
+    else:
+        sh = int(shift)
+    got = {}
+    for t, g, vel in win:
+        if only and g not in only or g in skip:
+            continue
+        tk = round((t + sh) * PPQ / div / quant) * quant
+        if -2 <= tk < 0:
+            tk = 0                       # a downbeat played early
+        if not 0 <= tk < n - 2:          # the next window's downbeat played early: not ours
+            continue
+        v = max(1, min(127, round(vel * velpct * scale.get(g, 100) / 10000)))
+        got[(tk, g)] = max(got.get((tk, g), 0), v)
+    return [(tk, 6, g, v) for (tk, g), v in sorted(got.items())]
+
+
+def grid(path, bars=None):
+    div, notes = read_midi(path)
+    end = max(t for t, *_ in notes) if notes else 0
+    nb = int(end * PPQ / div) // (4 * PPQ) + 1
+    if bars:
+        nb = min(nb, bars)
+    rows = {}
+    for t, ch, note, vel in notes:
+        g = TD11.get(note, note)
+        tk = round(t * 4 / div)          # 16ths
+        if tk < nb * 16:
+            r = rows.setdefault(g, [" "] * (nb * 16))
+            c = "g" if vel < 50 else "x" if vel < 100 else "X"
+            r[tk] = c if r[tk] == " " or c > r[tk] else r[tk]
+    print("%s (%d PPQ, %d bars)" % (path, div, nb))
+    for g in sorted(rows):
+        s = "".join(rows[g])
+        print("%-7s|%s|" % (DRUM_NAME.get(g, str(g)), "|".join(s[i:i + 16].replace(" ", ".") for i in range(0, len(s), 16))))
+
+
+# ------------------------------------------------------------------- parse ---
+def parse(path, text=None):
+    """a style: {name, tempo, pats: [ {bars, beats, trk: [hdr dict], ev: [[(tick, len, note, vel)] per track]} x4 ]}"""
+    if text is None:
+        with open(path) as f:
+            text = f.read()
+    base = os.path.dirname(path)
+    style = {"name": None, "tempo": 0, "pats": [None] * 4, "file": path}
+    hdr = [default_track(i) for i in range(NTRK)]    # the style's tracks, before any section
+    pat = None
+    trk = None
+    for ln, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        try:
+            w = line.split()
+            k = w[0].lower()
+            if line.startswith("["):
+                m = re.fullmatch(r"\[\s*([a-z ]+?)\s*\]", line.lower())
+                if not m or m.group(1) not in SECTIONS:
+                    raise StyErr("unknown section " + line)
+                si = SECTIONS.index(m.group(1))
+                if style["pats"][si]:
+                    raise StyErr("section twice: " + line)
+                pat = {"bars": 0, "beats": 4, "trk": [dict(h) for h in hdr], "ev": [[] for _ in range(NTRK)]}
+                style["pats"][si] = pat
+                trk = None
+            elif k == "style":
+                style["name"] = line.split(None, 1)[1].strip()
+                if len(style["name"].encode()) > 8:
+                    raise StyErr("style name longer than 8: " + style["name"])
+            elif k == "tempo":
+                style["tempo"] = int_in(w[1], 40, 240, "tempo")
+            elif k == "bars" and pat:
+                pat["bars"] = int_in(w[1], 1, MAXBARS, "bars")
+            elif k == "beats" and pat:
+                pat["beats"] = int_in(w[1], 2, 7, "beats")
+            elif k == "track":
+                name = w[1].lower()
+                if name in TRACKS:
+                    trk = TRACKS.index(name)
+                elif re.fullmatch(r"[1-8]", name):
+                    trk = int(name) - 1
+                else:
+                    raise StyErr("no track " + w[1] + " (d1 d2 pc ba c1 c2 c3 c4)")
+                h = (pat["trk"] if pat else hdr)[trk]
+                for kv in w[2:]:
+                    if "=" not in kv:
+                        raise StyErr("expected key=value: " + kv)
+                    a, v = kv.split("=", 1)
+                    a = a.lower()
+                    if a == "type":
+                        if v.lower() not in TYPES:
+                            raise StyErr("type: one of " + " ".join(TYPES))
+                        h["type"] = TYPES.index(v.lower())
+                    elif a == "program":
+                        h["program"] = int_in(v, 0, 127, "program")
+                    elif a == "chan":
+                        h["chan"] = int_in(v, 1, 16, "chan") - 1
+                    elif a in ("lo", "hi"):
+                        h[a] = note_num(v)
+                        if not 0 <= h[a] <= 127:
+                            raise StyErr(a + " outside 0..127")
+                    elif a == "hikey":
+                        h["hikey"] = pitch_class(v)
+                    elif a in ("vol", "pan", "rev", "cho"):
+                        h[a] = int_in(v, 0, 127, a)
+                    elif a == "mute":
+                        h["mute"] = int_in(v, 0, 1, a)
+                    else:
+                        raise StyErr("unknown track field " + a)
+            elif pat is None:
+                raise StyErr("notes before a section: " + line)
+            elif trk is None:
+                raise StyErr("notes before a track line")
+            elif not pat["bars"]:
+                raise StyErr("notes before the section's bars")
+            elif k == "drums":
+                opt = dict(kv.split("=", 1) for kv in w[1:])
+                src = opt.get("from")
+                if not src:
+                    raise StyErr("drums: from=FILE.mid")
+                for name in opt:
+                    if name not in ("from", "bars", "start", "quant", "vel", "only", "skip", "at", "shift", "scale"):
+                        raise StyErr("drums: unknown option " + name)
+                nb = int_in(opt.get("bars", str(pat["bars"])), 1, MAXBARS, "bars")
+                at = int_in(opt.get("at", "1"), 1, MAXBARS, "at") - 1
+                names = lambda s: {note_num(x) for x in s.split(",")} if s else set()
+                ev = midi_drums(os.path.join(base, src), pat["beats"], nb, int(opt.get("start", "0")),
+                                int_in(opt.get("quant", "1"), 1, 24, "quant"), int(opt.get("vel", "100")),
+                                names(opt.get("only")), names(opt.get("skip")), opt.get("shift", "auto"),
+                                {note_num(a): int(b) for a, b in (x.split(":") for x in opt["scale"].split(","))}
+                                if opt.get("scale") else {})
+                o = at * pat["beats"] * PPQ
+                pat["ev"][trk] += [(t + o, l, n, v) for t, l, n, v in ev]
+            elif k == "grid":
+                # grid POS STEP NOTES CHARS [len=L]: a step sequence, one character a step
+                ln = None
+                if w[-1].startswith("len="):
+                    ln = length(w[-1][4:])
+                    w = w[:-1]
+                if len(w) < 5:
+                    raise StyErr("grid POS STEP NOTES STEPS [len=L]")
+                t0 = position(w[1], pat)
+                step = length(w[2])
+                notes = [note_num(x) for x in w[3].split("+")]
+                n = 0
+                for c in "".join(w[4:]):
+                    if c == "|":
+                        continue
+                    if c in GRID_VEL or c.isdigit() and c != "0":
+                        v = GRID_VEL[c] if c in GRID_VEL else int(c) * 14
+                        for note in notes:
+                            pat["ev"][trk].append((t0 + n * step, ln or step, note, v))
+                    elif c not in ".-":
+                        raise StyErr("grid step: . - g x X 1..9, not " + c)
+                    n += 1
+            else:
+                # POS NOTES LEN VEL [xN STEP]
+                if len(w) not in (4, 6):
+                    raise StyErr("expected POS NOTES LEN VEL [xN STEP]: " + line)
+                t0 = position(w[0], pat)
+                notes = [note_num(x) for x in w[1].split("+")]
+                ln = length(w[2])
+                vels = [int_in(x, 1, 127, "velocity") for x in w[3].split("/")]
+                reps, step = 1, 0
+                if len(w) == 6:
+                    if not re.fullmatch(r"x\d+", w[4]):
+                        raise StyErr("repeat: xN STEP")
+                    reps, step = int(w[4][1:]), length(w[5])
+                for r in range(reps):
+                    for n in notes:
+                        pat["ev"][trk].append((t0 + r * step, ln, n, vels[r % len(vels)]))
+        except StyErr as e:
+            raise StyErr("%s:%d: %s" % (path, ln, e))
+        except (IndexError, ValueError) as e:
+            raise StyErr("%s:%d: cannot read %r (%s)" % (path, ln, raw.strip(), e))
+    if not style["name"]:
+        raise StyErr(path + ": no style NAME line")
+    for i, p in enumerate(style["pats"]):
+        if not p:
+            raise StyErr("%s: no [%s] section" % (path, SECTIONS[i]))
+        if not p["bars"]:
+            raise StyErr("%s: [%s] has no bars" % (path, SECTIONS[i]))
+        for t in range(NTRK):           # sorted by tick, then note; the same note on the same tick once
+            seen = {}
+            for e in p["ev"][t]:
+                seen[(e[0], e[2])] = e
+            p["ev"][t] = sorted(seen.values(), key=lambda e: (e[0], e[2]))
+    return style
+
+
+def position(s, pat):
+    """bar.beat[.tick], 1-based bar and beat"""
+    m = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", s)
+    if not m:
+        raise StyErr("not a position (bar.beat.tick): " + s)
+    bar, beat, tick = int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)
+    if not 1 <= bar <= pat["bars"] or not 1 <= beat <= pat["beats"] or tick >= PPQ:
+        raise StyErr("position %s outside %d bars of %d beats" % (s, pat["bars"], pat["beats"]))
+    return ((bar - 1) * pat["beats"] + beat - 1) * PPQ + tick
+
+
+def check(style):
+    errs = []
+    for i, p in enumerate(style["pats"]):
+        n = p["bars"] * p["beats"] * PPQ
+        tot = sum(len(e) for e in p["ev"])
+        where = "%s [%s]" % (style["file"], SECTIONS[i])
+        if tot > NEV:
+            errs.append("%s: %d notes, more than %d" % (where, tot, NEV))
+        for t in range(NTRK):
+            for tk, ln, note, vel in p["ev"][t]:
+                if not 0 <= note <= 127:
+                    errs.append("%s %s: note %d outside 0..127" % (where, TRACKS[t], note))
+                if not 0 <= tk < n:
+                    errs.append("%s %s: tick %d past the pattern's end" % (where, TRACKS[t], tk))
+                if not 1 <= ln <= n:
+                    errs.append("%s %s: length %d" % (where, TRACKS[t], ln))
+                if not 1 <= vel <= 127:
+                    errs.append("%s %s: velocity %d" % (where, TRACKS[t], vel))
+    return errs
+
+
+# -------------------------------------------------------------------- dump ---
+def fmt_pos(t, p):
+    beat, tick = divmod(t, PPQ)
+    bar, beat = divmod(beat, p["beats"])
+    return "%d.%d.%d" % (bar + 1, beat + 1, tick)
+
+
+def fmt_track(i, h):
+    return "track %s type=%s program=%d chan=%d lo=%d hi=%d hikey=%s vol=%d pan=%d rev=%d cho=%d mute=%d" % (
+        TRACKS[i], TYPES[h["type"]], h["program"], h["chan"] + 1, h["lo"], h["hi"],
+        "off" if h["hikey"] >= NOKEY else PC_NAME[h["hikey"]], h["vol"], h["pan"], h["rev"], h["cho"], h["mute"])
+
+
+def dump(style):
+    out = ["# dumped by tools/make_styles.py from " + os.path.basename(style["file"]), "style " + style["name"]]
+    if style["tempo"]:
+        out.append("tempo %d" % style["tempo"])
+    for i, p in enumerate(style["pats"]):
+        out += ["", "[%s]" % SECTIONS[i], "bars %d" % p["bars"], "beats %d" % p["beats"]]
+        for t in range(NTRK):
+            out.append(fmt_track(t, p["trk"][t]))
+            drums = p["trk"][t]["type"] == 0 and p["trk"][t]["chan"] == 9
+            for tk, ln, note, vel in p["ev"][t]:
+                out.append("%s %s %d %d" % (fmt_pos(tk, p), note_name(note, drums), ln, vel))
+    return "\n".join(out) + "\n"
+
+
+# ----------------------------------------------------------------------- C ---
+def tables(styles):
+    """(pattern rows, events, velocities): the data styles.h holds"""
+    pats, ev, vel = [], [], []
+    for s in styles:
+        for p in s["pats"]:
+            first = len(ev)
+            trks = []
+            for t in range(NTRK):
+                h = p["trk"][t]
+                trks.append((h["program"], h["chan"], h["type"], h["lo"], h["hi"], h["hikey"], h["vol"], h["pan"],
+                             h["rev"], h["cho"], h["mute"], len(p["ev"][t])))
+                for tk, ln, note, v in p["ev"][t]:
+                    ev.append(tk | ln << 11 | note << 22)
+                    vel.append(v)
+            pats.append((p["bars"], p["beats"], first, trks))
+    return pats, ev, vel
+
+
+def emit(styles, files):
+    pats, ev, vel = tables(styles)
+    o = ["/* SPDX-License-Identifier: GPL-3.0-only */",
+         "/* Polly's factory styles, generated by tools/make_styles.py from %s: do not edit. */"
+         % " ".join(os.path.basename(f) for f in files),
+         "/* Included once, by arr.c. Style s's patterns are pattern numbers ARR_FACTORY0 + 4s + section (Main A,",
+         " * Main B, Fill, Ending). An event: tick | len << 11 | note << 22 (STY_EV), its velocity in STY_VEL. */",
+         "#pragma once", "#include <stdint.h>", "",
+         "typedef struct {",
+         "    uint8_t program, chan, type, lo, hi, hikey, vol, pan, rev, cho, mute, rsv;",
+         "    uint16_t count;                      /* its events, after the previous track's */",
+         "} sty_trk_t;",
+         "typedef struct {",
+         "    uint8_t bars, beats;",
+         "    uint16_t first;                      /* its first event in STY_EV */",
+         "    sty_trk_t trk[8];",
+         "} sty_pat_t;", "",
+         "#define STY_COUNT %d" % len(styles),
+         "#define STY_NEV %d" % len(ev), ""]
+    o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join('"%s"' % s["name"] for s in styles))
+    o.append("static const uint8_t STY_TEMPO[STY_COUNT] = {%s};" % ", ".join(str(s["tempo"] or 120) for s in styles))
+    o.append("static const sty_pat_t STY_PAT[STY_COUNT * 4] = {")
+    for i, (bars, beats, first, trks) in enumerate(pats):
+        o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, styles[i // 4]["name"], SECTIONS[i % 4]))
+        for t in trks:
+            o.append("        {%s, 0, %d}," % (", ".join(str(x) for x in t[:11]), t[11]))
+        o.append("    }},")
+    o.append("};")
+    o.append("static const uint32_t STY_EV[STY_NEV] = {")
+    for i in range(0, len(ev), 8):
+        o.append("    " + ", ".join("0x%08Xu" % x for x in ev[i:i + 8]) + ",")
+    o.append("};")
+    o.append("static const uint8_t STY_VEL[STY_NEV] = {")
+    for i in range(0, len(vel), 24):
+        o.append("    " + ", ".join(str(x) for x in vel[i:i + 24]) + ",")
+    o.append("};")
+    return "\n".join(o) + "\n"
+
+
+def sizes(style):
+    n = sum(len(e) for p in style["pats"] for e in p["ev"])
+    return n, n * EV_BYTES + 4 * PAT_BYTES + 9 + 1
+
+
+def main(argv):
+    mode = "emit"
+    if argv and argv[0] in ("--check", "--dump", "--roundtrip", "--grid", "--sizes"):
+        mode, argv = argv[0][2:], argv[1:]
+    if mode == "grid":
+        grid(argv[0], int(argv[1]) if len(argv) > 1 else None)
+        return 0
+    if not argv:
+        print(__doc__, file=sys.stderr)
+        return 2
+    try:
+        styles = [parse(f) for f in argv]
+    except (StyErr, OSError) as e:
+        print("make_styles: %s" % e, file=sys.stderr)
+        return 1
+    errs = [e for s in styles for e in check(s)]
+    if errs:
+        for e in errs:
+            print("make_styles: " + e, file=sys.stderr)
+        return 1
+    if mode == "check":
+        print("%d styles, %d patterns ok" % (len(styles), 4 * len(styles)))
+    elif mode == "dump":
+        for s in styles:
+            sys.stdout.write(dump(s))
+    elif mode == "roundtrip":
+        for s in styles:
+            again = parse(s["file"] + " (dumped)", dump(s))
+            if tables([again]) != tables([s]) or again["name"] != s["name"] or again["tempo"] != s["tempo"]:
+                print("make_styles: %s: dump -> parse differs" % s["file"], file=sys.stderr)
+                return 1
+        print("%d styles round trip ok" % len(styles))
+    elif mode == "sizes":
+        tot = 0
+        for s in styles:
+            n, b = sizes(s)
+            tot += b
+            print("%-8s %4d events  %5d bytes  (%s)" % (s["name"], n, b, " ".join(
+                "%s %d" % (SECTIONS[i], sum(len(e) for e in p["ev"])) for i, p in enumerate(s["pats"]))))
+        print("total %d bytes for %d styles; 16 at this average: %d bytes" % (tot, len(styles), tot * 16 // len(styles)))
+    else:
+        sys.stdout.write(emit(styles, argv))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

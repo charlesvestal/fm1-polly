@@ -441,17 +441,29 @@ static void view_refresh(int s)
     vw.gen = app.gen;
     vw.ok = 1;
 }
-/* "P05 VERSE", the pattern's number and name */
-static void pat_title(int s, char *t)
+/* a song's pattern number by name: "P05" (a user pattern), "Pop A", "Pop B", "Pop Fill", "Pop End" (a factory
+ * style's; up to 13 characters) */
+static void style_name(int st, char *t)
 {
-    int st = songs.song[proj.song].style[s], i;
+    static const char *const SEC_SHORT[ARR_NSECT] = {" A", " B", " Fill", " End"};
     char *e = t;
     if (st < ARR_USER_PATTERNS) {
         *e++ = 'P';
         *e++ = (char)('0' + (st + 1) / 10);
         *e++ = (char)('0' + (st + 1) % 10);
+        *e = 0;
     } else
-        e = cat_s(e, "Style");
+        cat_s(cat_s(t, arr_style_name((st - ARR_FACTORY0) / ARR_NSECT)), SEC_SHORT[(st - ARR_FACTORY0) % ARR_NSECT]);
+}
+/* "P05 VERSE", the pattern's number and name; a factory style's: "Pop A" */
+static void pat_title(int s, char *t)
+{
+    int st = songs.song[proj.song].style[s], i;
+    char *e = t;
+    style_name(st, t);
+    if (st >= ARR_USER_PATTERNS)
+        return;
+    e += 3;
     *e++ = ' ';
     for (i = 0; i < 8 && app.hdr[s].name[i]; i++)
         *e++ = app.hdr[s].name[i];
@@ -850,18 +862,6 @@ static void draw_arrange(void)
     }
     cv_blit(0, MAIN_Y);
 }
-/* "P05 VERSE" for a style number */
-static void style_name(int st, char *t)
-{
-    char *e = t;
-    if (st < ARR_USER_PATTERNS) {
-        *e++ = 'P';
-        *e++ = (char)('0' + (st + 1) / 10);
-        *e++ = (char)('0' + (st + 1) % 10);
-        *e = 0;
-    } else
-        cat_s(t, "Style");
-}
 static void draw_arrange2(void)
 {
     const song_t *g = csong();
@@ -1147,8 +1147,10 @@ static void song_page_knobs(knob_t *k)
     case P_ARRANGE2:
         for (int i = 0; i < ARR_NSECT; i++) {
             static const char *const N[ARR_NSECT] = {"Main A", "Main B", "Fill", "Ending"};
-            style_name(g->style[i], b);
-            kv(&k[i], N[i], b, g->style[i] < ARR_USER_PATTERNS ? g->style[i] : 0, ARR_USER_PATTERNS - 1);
+            int st = g->style[i];
+            style_name(st < ARR_USER_PATTERNS ? st : 0, b);   /* a factory style's knob: its name (the label is the section) */
+            kv(&k[i], N[i], st < ARR_USER_PATTERNS ? b : arr_style_name((st - ARR_FACTORY0) / ARR_NSECT), st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT,
+               ARR_USER_PATTERNS + arr_styles() - 1);
         }
         break;
     case P_TEMPLATES: case P_TCOPY: {
