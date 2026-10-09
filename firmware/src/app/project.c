@@ -14,6 +14,9 @@ void project_defaults(void)
     proj.trk = 4;                                    /* C1: a piano under the keys */
     proj.tempo = 120;
     proj.quant = ARR_Q_16;
+    proj.rev_type = 1;                               /* hall */
+    proj.rev_level = 90;
+    proj.cho_level = 80;
     for (c = 0; c < GM_NCH; c++) {
         proj.volume[c] = 100;
         proj.pan[c] = 64;
@@ -27,7 +30,8 @@ static int project_valid(void)
     int c;
     if (proj.magic != PROJ_MAGIC || proj.format != PROJ_FORMAT || proj.ch > 15u || proj.oct < -3 || proj.oct > 3 ||
         proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS ||
-        proj.trk >= ARR_TRACKS || proj.tempo < 40u || proj.tempo > 240u || proj.key > 11u || proj.quant >= ARR_NQ)
+        proj.trk >= ARR_TRACKS || proj.tempo < 40u || proj.tempo > 240u || proj.key > 11u || proj.quant >= ARR_NQ ||
+        proj.rev_type > 3u || proj.rev_level > 127u || proj.cho_type > 3u || proj.cho_level > 127u)
         return 0;
     for (c = 0; c < GM_NCH; c++)
         if (proj.program[c] > 127u || proj.volume[c] > 127u || proj.pan[c] > 127u || proj.reverb[c] > 127u ||

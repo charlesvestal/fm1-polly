@@ -65,12 +65,61 @@ static int key_note(int k)
 /* ------------------------------------------------- songs and patterns --- */
 static void slot_cache(int s, const pattern_t *p)
 {
+    for (int t = 0; t < ARR_TRACKS; t++)
+        app.trk[s][t] = p->trk[t];
+    memcpy(app.hdr[s].name, p->name, sizeof p->name);
+    app.hdr[s].bars = p->bars;
+    app.hdr[s].beats = p->beats;
+    app.gen++;
+}
+/* the slot whose pattern the pages show and edit: the section playing (recording goes there too) */
+static int eslot(void) { return (arr_sect - 1) & 3; }
+static int slot_unsaved(int s) { return arr_dirty[s] != app.saved[s] || app.edited[s] || (app.edit_pend >> s & 1u); }
+
+/* edits: into the app's copy at once (the screen), into the arranger at most every EDIT_MS (a store re-sends
+ * the pattern's sounds): copy the slot, put the app's settings in, store; refused when it was recorded into
+ * meanwhile: again */
+#define EDIT_MS 50u
+static void edited(int s)
+{
+    if (!app.edit_pend)
+        app.edit_t = plat_ms();
+    app.edit_pend |= (uint8_t)(1u << s);
+    app.take_t[s] = plat_ms();
+    app.chg++;
+    app.gen++;
+    ui.act_t = plat_ms();
+}
+static void edit_apply(int s, pattern_t *p)
+{
     for (int t = 0; t < ARR_TRACKS; t++) {
-        app.tprog[s][t] = p->trk[t].program;
-        app.tchan[s][t] = p->trk[t].chan;
-        app.tmute[s][t] = p->trk[t].mute;
+        uint16_t f = p->trk[t].first, c = p->trk[t].count;
+        p->trk[t] = app.trk[s][t];
+        p->trk[t].first = f;
+        p->trk[t].count = c;
+    }
+    memcpy(p->name, app.hdr[s].name, sizeof p->name);
+    p->bars = app.hdr[s].bars;
+    p->beats = app.hdr[s].beats;
+}
+static void edits_flush(void)
+{
+    for (int s = 0; s < ARR_NSECT; s++) {
+        if (!(app.edit_pend >> s & 1u))
+            continue;
+        for (int tries = 0; tries < 8; tries++) {
+            uint16_t d = arr_pattern_copy(s, &scratch);
+            edit_apply(s, &scratch);
+            if (arr_store_pattern(s, &scratch, d)) {
+                app.edit_pend &= (uint8_t)~(1u << s);
+                app.edited[s] = 1;
+                app.gen++;
+                break;
+            }
+        }
     }
 }
+
 /* slot s (Main A, Main B, Fill, Ending) gets pattern `style`: a user pattern (0..15), or (factory styles: a
  * later task) an empty one */
 static void slot_load(int s, int style)
@@ -80,6 +129,8 @@ static void slot_load(int s, int style)
     arr_load_pattern(s, &scratch);
     slot_cache(s, &scratch);
     app.saved[s] = arr_dirty[s];
+    app.edited[s] = 0;
+    app.edit_pend &= (uint8_t)~(1u << s);
 }
 /* the selected song: its four patterns into the slots, and its tracks when it has any (else free play: the
  * templates and the keys' chords) */
@@ -100,18 +151,20 @@ static void watch_takes(void)
             app.seen[s] = d;
             app.take_t[s] = plat_ms();
             app.chg++;
+            app.gen++;
         }
     }
 }
-/* what changed: the project, and each user pattern recorded into since it was loaded or saved. Slots sharing
- * a user pattern (a song may choose that) get the saved pattern too, by arr_store_pattern (refused while
- * they are recorded into: then they stay unsaved); when two of them were recorded into, the newest take is
- * kept and the screen says so. */
+/* what changed: the project, the songs, and each user pattern recorded into or edited since it was loaded or
+ * saved. Slots sharing a user pattern (a song may choose that) get the saved pattern too, by
+ * arr_store_pattern (refused while they are recorded into: then they stay unsaved); when two of them were
+ * changed, the newest change is kept and the screen says so. */
 static int save_all(void)
 {
     const song_t *sg = &songs.song[proj.song];
     uint32_t done = 0;
     int rc = 0;
+    edits_flush();
     watch_takes();
     if (app.dirty) {
         if (project_save() == 0)
@@ -119,33 +172,46 @@ static int save_all(void)
         else
             rc = -1;
     }
+    if (app.songs_dirty) {
+        if (project_songs_save(&songs) == 0)
+            app.songs_dirty = 0;
+        else
+            rc = -1;
+    }
     for (int s = 0; s < ARR_NSECT; s++) {
         int st = sg->style[s], k = s, lost = -1;
         uint16_t d;
-        if (st >= ARR_USER_PATTERNS || (done >> s & 1u) || arr_dirty[s] == app.saved[s])
+        if (st >= ARR_USER_PATTERNS || (done >> s & 1u) || !slot_unsaved(s))
             continue;
-        for (int j = 0; j < ARR_NSECT; j++)     /* the newest take of the slots sharing it */
+        for (int j = 0; j < ARR_NSECT; j++)     /* the newest change of the slots sharing it */
             if (sg->style[j] == st) {
                 done |= 1u << j;
-                if (j != k && arr_dirty[j] != app.saved[j] && (int32_t)(app.take_t[j] - app.take_t[k]) >= 0)
+                if (j != k && slot_unsaved(j) && (int32_t)(app.take_t[j] - app.take_t[k]) >= 0)
                     k = j;
             }
+        if (app.edit_pend >> k & 1u) {           /* its edits could not be stored yet: later */
+            rc = -1;
+            continue;
+        }
         d = arr_pattern_copy(k, &scratch);
         if (project_pattern_save(st, &scratch) != 0) {
             rc = -1;
             continue;
         }
         app.saved[k] = d;
+        app.edited[k] = 0;
         for (int j = 0; j < ARR_NSECT; j++) {
             uint16_t e;
             if (j == k || sg->style[j] != st)
                 continue;
             e = arr_dirty[j];
-            if (e != app.saved[j])
-                lost = j;                        /* its takes give way to the newest */
+            if (slot_unsaved(j))
+                lost = j;                        /* its changes give way to the newest */
             if (arr_store_pattern(j, &scratch, e)) {
                 slot_cache(j, &scratch);
                 app.saved[j] = e;
+                app.edited[j] = 0;
+                app.edit_pend &= (uint8_t)~(1u << j);
             }
         }
         if (lost >= 0) {
@@ -157,6 +223,8 @@ static int save_all(void)
     return rc;
 }
 
+static void fx_apply(void) { gm_fx(proj.rev_type, proj.rev_level, proj.cho_type, proj.cho_level); }
+
 void app_start(void)
 {
     memset(&app, 0, sizeof app);
@@ -166,6 +234,7 @@ void app_start(void)
     arr_set_key(proj.key);
     arr_set_quant(proj.quant);
     arr_midi_out_on(1);                          /* the tracks out on their channels */
+    fx_apply();
     song_load();
     arr_record(proj.trk, 0);                     /* the keys play the selected track */
 }
@@ -200,7 +269,7 @@ static void set_track(int t)
     arr_record(proj.trk, arr_recording);         /* recording goes on, into this track */
     {
         uint32_t s = (uint32_t)(arr_sect - 1) & 3u;
-        say(TRACK_NAME[proj.trk], app.tchan[s][proj.trk] == 9u ? "Drums" : GM_PROGRAM[app.tprog[s][proj.trk] & 127u]);
+        say(TRACK_NAME[proj.trk], trk_sound(&app.trk[s][proj.trk]));
     }
     mark_dirty();
 }
@@ -271,7 +340,7 @@ static void key_up(int k)
 
 /* the page buttons: a button holds up to three pages, pressed again: the next */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 1}, {B_FX, P_MIXER, 2},
+    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 2},
     {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 1}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_button(int b)
@@ -286,10 +355,76 @@ static int page_button(int b)
     return 0;
 }
 
+/* ------------------------------------------------------------- jobs --- */
+/* SAVE held: a job on the pattern playing (its slot) and the selected track; KNOB 1 picks, KNOB 2 the copy's
+ * destination, SEL does it, SAVE (or a page) cancels */
+static void jobs_open(void)
+{
+    int st = songs.song[proj.song].style[eslot()];
+    ui.job = 1;
+    ui.job_sel = 0;
+    ui.job_to = (uint8_t)((st < ARR_USER_PATTERNS ? st + 1 : 0) % ARR_USER_PATTERNS);
+    ui.touched = -1;
+}
+static void pat_name(int st, char *t)            /* "P05" */
+{
+    t[0] = 'P';
+    t[1] = (char)('0' + (st + 1) / 10);
+    t[2] = (char)('0' + (st + 1) % 10);
+    t[3] = 0;
+}
+static void job_run(void)
+{
+    int s = eslot(), st = songs.song[proj.song].style[s];
+    char t[8];
+    ui.job = 0;
+    edits_flush();
+    if (ui.job_sel == 0) {                       /* erase the selected track's notes */
+        arr_erase_track(proj.trk);
+        say("ERASED", TRACK_NAME[proj.trk]);
+    } else if (ui.job_sel == 2) {                /* clear the pattern: every note gone, its sounds kept */
+        for (int tries = 0; tries < 8; tries++) {
+            uint16_t d = arr_pattern_copy(s, &scratch);
+            scratch.nev = 0;
+            for (int k = 0; k < ARR_TRACKS; k++)
+                scratch.trk[k].first = scratch.trk[k].count = 0;
+            if (arr_store_pattern(s, &scratch, d)) {
+                edited(s);
+                app.edit_pend &= (uint8_t)~(1u << s);
+                app.edited[s] = 1;
+                say("CLEARED", SECT_NAME[s + 1]);
+                return;
+            }
+        }
+        say("NOT CLEARED", "RECORDING");
+    } else {                                     /* copy it (as it is now) into a user pattern */
+        int to = ui.job_to;
+        uint16_t d = arr_pattern_copy(s, &scratch);
+        pat_name(to, t);
+        if (project_pattern_save(to, &scratch) != 0) {
+            say("NOT COPIED", "FLASH ERROR");
+            return;
+        }
+        if (to == st) {                          /* into its own: saved */
+            app.saved[s] = d;
+            app.edited[s] = 0;
+        }
+        for (int j = 0; j < ARR_NSECT; j++)      /* the slots playing that pattern, unless changed */
+            if (j != s && songs.song[proj.song].style[j] == to && !slot_unsaved(j)) {
+                arr_load_pattern(j, &scratch);
+                slot_cache(j, &scratch);
+                app.saved[j] = arr_dirty[j];
+            }
+        say("COPIED TO", t);
+    }
+}
+
 static void button_down(int b)
 {
-    if (page_button(b))
+    if (page_button(b)) {
+        ui.job = 0;
         return;
+    }
     switch (b) {
     case B_PLAY: arr_play(!arr_playing); break;
     case B_REC:
@@ -305,8 +440,18 @@ static void button_down(int b)
 static void button_up(int b)                     /* a tap: released before it was used as a hold */
 {
     switch (b) {
-    case B_SEL: set_chord_mode(!ui.chord); break;
+    case B_SEL:
+        if (ui.job)
+            job_run();
+        else
+            set_chord_mode(!ui.chord);
+        break;
     case B_SAVE: {
+        if (ui.job) {
+            ui.job = 0;
+            say("JOB", "CANCELLED");
+            break;
+        }
         uint32_t m = ui.msg_until;
         int rc = save_all();
         if (rc != 0)
@@ -336,7 +481,7 @@ static void holds(void)
     uint32_t now = plat_ms();
     if ((ui.btn >> B_SAVE & 1u) && !(ui.btn_used >> B_SAVE & 1u) && now - ui.btn_t[B_SAVE] > HOLD_MS) {
         ui.btn_used |= 1u << B_SAVE;
-        say("JOBS", "coming");
+        jobs_open();
     }
     if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] > HOLD_MS)
         ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
@@ -347,9 +492,12 @@ static void holds(void)
 static void song_change(int s)
 {
     char t[12];
+    int rec = arr_recording;
     arr_record(proj.trk, 0);
     if (unsaved() && save_all() != 0) {
         say("NOT SAVED", "SONG KEPT");
+        if (rec)
+            arr_record(proj.trk, 1);             /* as it was */
         return;
     }
     proj.song = (uint8_t)s;
@@ -360,11 +508,9 @@ static void song_change(int s)
 }
 
 /* the four knobs on the page shown */
-static void knob(int k, int32_t e)
+static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
+static void song_knob(int k, int32_t e)
 {
-    if (ui.page != P_SONG)
-        return;
-    touch(k);
     switch (k) {
     case 0:
         proj.key = (uint8_t)((proj.key + (e > 0 ? 1 : 11)) % 12u);
@@ -391,6 +537,125 @@ static void knob(int k, int32_t e)
     default: break;
     }
 }
+/* an 8-bit setting of the selected track (of the pattern playing) moved, kept in lo..hi */
+static void trk_set(uint8_t *v, int to, int lo, int hi)
+{
+    to = clampi(to, lo, hi);
+    if (*v == (uint8_t)to)
+        return;
+    *v = (uint8_t)to;
+    edited(eslot());
+}
+static void edit_knob(int k, int32_t e)
+{
+    int s = eslot(), d = e > 0 ? 1 : -1;
+    arr_trk_t *t = &app.trk[s][proj.trk];
+    switch (ui.page) {
+    case P_PATTERN:
+        if (k == 0)
+            song_knob(2, e);                     /* the grid, as on the Song page */
+        else if (k == 3)
+            trk_set(&t->mute, e > 0, 0, 1);      /* clockwise: muted, back: playing */
+        break;
+    case P_PATSET:
+        if (k == 0 || k == 1) {
+            uint8_t *v = k == 0 ? &app.hdr[s].bars : &app.hdr[s].beats;
+            int to = clampi(*v + d, k == 0 ? 1 : 2, k == 0 ? ARR_MAXBARS : 7);
+            if (to != *v) {
+                *v = (uint8_t)to;
+                edited(s);
+            }
+        } else if (k == 2)
+            ui.name_cur = (uint8_t)clampi(ui.name_cur + d, 0, 7);
+        else {
+            char *c = &app.hdr[s].name[ui.name_cur];
+            int i = 0;
+            while (i < NNAME_CHARS && NAME_CHARS[i] != (*c ? *c : ' '))
+                i++;
+            i = ((i + accel(EN_K4, e)) % NNAME_CHARS + NNAME_CHARS) % NNAME_CHARS;
+            *c = NAME_CHARS[i];
+            edited(s);
+        }
+        break;
+    case P_TRACK:
+        if (k == 0) {
+            if ((t->chan & 15u) != 9u)
+                trk_set(&t->program, t->program + accel(EN_K1, e), 0, 127);
+        } else if (k == 1)
+            trk_set(&t->x.type, t->x.type + d, 0, NXT - 1);
+        else if (k == 2)
+            trk_set(&t->x.lo, t->x.lo + accel(EN_K3, e), 0, t->x.hi);
+        else
+            trk_set(&t->x.hi, t->x.hi + accel(EN_K4, e), t->x.lo, 127);
+        break;
+    case P_TRACK2:
+        if (k == 0)
+            trk_set(&t->x.hikey, t->x.hikey + d, 0, XT_NOKEY);
+        else if (k == 1)
+            trk_set(&t->chan, t->chan + d, 0, 15);
+        break;
+    case P_MIXER: {
+        uint8_t *v = k == 0 ? &t->vol : k == 1 ? &t->pan : k == 2 ? &t->rev : &t->cho;
+        trk_set(v, *v + accel(EN_K1 + k, e), 0, 127);
+        break;
+    }
+    case P_MASTER: {
+        uint8_t *v = k == 0 ? &proj.rev_type : k == 1 ? &proj.rev_level : k == 2 ? &proj.cho_type : &proj.cho_level;
+        int to = k == 1 || k == 3 ? clampi(*v + accel(EN_K1 + k, e), 0, 127) : clampi(*v + d, 0, 3);
+        if (to != *v) {
+            *v = (uint8_t)to;
+            fx_apply();
+            mark_dirty();
+        }
+        break;
+    }
+    default: break;
+    }
+}
+static void knob(int k, int32_t e)
+{
+    if (ui.job) {                                /* the jobs: KNOB 1 the job, KNOB 2 the copy's pattern */
+        if (k == 0)
+            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, 2);
+        else if (k == 1)
+            ui.job_to = (uint8_t)((ui.job_to + (e > 0 ? 1 : ARR_USER_PATTERNS - 1)) % ARR_USER_PATTERNS);
+        touch(k);
+        return;
+    }
+    if (ui.page == P_SONG)
+        song_knob(k, e);
+    else if (ui.page <= P_MASTER)
+        edit_knob(k, e);
+    else
+        return;
+    touch(k);
+}
+/* PRESETS on the Pattern pages: the pattern the section playing plays (the song's choice); while playing only
+ * when its changes are saved (a save would pause the audio) */
+static void pattern_pick(int32_t e)
+{
+    int s = eslot(), st = songs.song[proj.song].style[s], to;
+    char t[8];
+    to = st >= ARR_USER_PATTERNS ? 0 : clampi(st + (e > 0 ? 1 : -1), 0, ARR_USER_PATTERNS - 1);
+    if (to == st)
+        return;
+    if (slot_unsaved(s)) {
+        if (arr_playing) {
+            say("UNSAVED", "SAVE FIRST");
+            return;
+        }
+        if (save_all() != 0) {
+            say("NOT SAVED", "PATTERN KEPT");
+            return;
+        }
+    }
+    songs.song[proj.song].style[s] = (uint8_t)to;
+    app.songs_dirty = 1;
+    app.chg++;
+    slot_load(s, to);
+    pat_name(to, t);
+    say(SECT_NAME[s + 1], t);
+}
 static void presets(int32_t e)
 {
     if (ui.page == P_SONG) {
@@ -404,6 +669,14 @@ static void presets(int32_t e)
             say(t, s == proj.song ? "stays" : "at stop");
         } else
             song_change(s);
+    } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
+        pattern_pick(e);
+    else if (ui.page == P_TRACK) {               /* a family of eight, as the GM module */
+        arr_trk_t *t = &app.trk[eslot()][proj.trk];
+        if ((t->chan & 15u) != 9u) {
+            trk_set(&t->program, (t->program / 8 + (e > 0 ? 1 : -1)) * 8, 0, 127);
+            touch(0);
+        }
     }
 }
 
@@ -544,8 +817,12 @@ void ui_frame(void)
     input();
     watch_takes();
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
-    if (app.song_pend && ui.stopped > 1u) {      /* a song picked while playing: now (stopped for a frame, */
-        int s = app.song_pend - 1;               /* not a PLAY the engine has yet to see) */
+    if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
+        edits_flush();
+    /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the
+     * voices ended (a save pauses the audio) */
+    if (app.song_pend && ui.stopped > 1u && !gm_voices) {
+        int s = app.song_pend - 1;
         app.song_pend = 0;
         song_change(s);
     }

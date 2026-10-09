@@ -86,13 +86,13 @@ shot coming.png
 tap SEQ
 expect page 1
 tap FX
-expect page 4
+expect page 5
 tap ARP
-expect page 8
-tap GLO
-expect page 10
+expect page 9
 tap GLO
 expect page 11
+tap GLO
+expect page 12
 tap HOME
 expect page 0
 # a song picked while playing waits for the stop (a save would pause the audio)

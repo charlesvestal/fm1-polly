@@ -5,6 +5,8 @@
 #include "eas/eas.h"
 #include "eas/eas_data.h"
 #include "eas/eas_synth.h"
+#include "eas/eas_reverb.h"
+#include "eas/eas_chorus.h"
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define EAS_FRAMES BUFFER_SIZE_IN_MONO_SAMPLES        /* 128 at 22.05 kHz: half of the FM-1's 256 */
@@ -37,6 +39,25 @@ void gm_panic(void)
         gm_midi(0xB0u | ch, 123, 0);              /* all notes off */
         gm_midi(0xB0u | ch, 120, 0);              /* all sound off */
     }
+}
+
+/* the effects asked for, packed in one word (never torn), a count above them so a repeat is seen too */
+static volatile uint32_t fx_req, fx_done;
+void gm_fx(uint32_t rt, uint32_t rl, uint32_t ct, uint32_t cl)
+{
+    uint32_t seq = (fx_req >> 24) + 1u;
+    fx_req = (rt & 3u) | (rl & 127u) << 2 | (ct & 3u) << 9 | (cl & 127u) << 11 | seq << 24;
+}
+/* a preset sets the module's own wet and dry: the dry goes back to none (the voices mix it: the sends'
+ * build, _CC_REVERB / _CC_CHORUS), the level as asked */
+static void fx_set(uint32_t v)
+{
+    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_PRESET, (EAS_I32)(v & 3u));
+    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_DRY, 0);
+    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, (EAS_I32)((v >> 2 & 127u) * 258u));
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_PRESET, (EAS_I32)(v >> 9 & 3u));
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_DRY, 0);
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, (EAS_I32)((v >> 11 & 127u) * 258u));
 }
 
 static void synth_write(uint32_t m, uint32_t at)
@@ -89,6 +110,13 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         for (uint32_t i = 0; i < 2 * n; i++)
             out[i] = 0;
         return;
+    }
+    {
+        uint32_t f = fx_req;
+        if (f != fx_done) {
+            fx_done = f;
+            fx_set(f);
+        }
     }
     arr_late_offs();                              /* the arranger's held note-offs before the live notes */
     drain();

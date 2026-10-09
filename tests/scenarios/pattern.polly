@@ -1,0 +1,94 @@
+# POLLY, pattern: the Pattern, Track and Mixer pages. Two notes recorded into track 5 (C1), seen on the
+# Pattern page; its program and level changed; muted (silent), unmuted; the length and name; the jobs.
+wait 300
+tap SEQ
+expect page 1
+tap PLAY
+wait 300
+tap REC
+expect recording 1
+tapkey 7
+wait 400
+tapkey 11
+wait 1500
+tap REC
+expect recording 0
+expect slot0_nev 2
+wait 300
+shot pattern.png
+hitreset
+wait 4000
+expect track_hits5 2
+# the Track page: the program (KNOB 1), PRESETS a family of eight
+tap EDIT
+expect page 3
+spin K1 24
+wait 100
+expect trk5_program 25
+turn PRESET 1
+wait 100
+expect trk5_program 33
+shot track.png
+tap EDIT
+expect page 4
+shot track_keys.png
+# the Mixer: the track's volume; the master effects
+tap FX
+expect page 5
+spin K1 -20
+wait 100
+expect trk5_vol 80
+shot mixer.png
+tap FX
+expect page 6
+spin K1 1
+expect rev_type 2
+shot master.png
+# muted on the Pattern page (KNOB 4): silent over a pass; back on: it plays
+tap SEQ
+expect page 1
+spin K4 1
+wait 100
+expect trk5_mute 1
+hitreset
+wait 4000
+expect track_hits5 0
+shot muted.png
+spin K4 -1
+wait 100
+hitreset
+wait 4000
+expect track_hits5 2
+# the second page: one bar, a name
+tap SEQ
+expect page 2
+spin K1 -1
+spin K4 16
+spin K3 1
+spin K4 15
+wait 100
+expect slot0_bars 1
+shot patset.png
+# the jobs (SAVE held): copy into P02, then erase the track
+press SAVE
+wait 800
+release SAVE
+expect job 1
+spin K1 1
+shot jobs.png
+tap SEL
+wait 50
+expect job 0
+expect pat1_nev 2
+press SAVE
+wait 800
+release SAVE
+tap SEL
+wait 100
+expect slot0_nev 0
+tap PLAY
+wait 100
+tap SAVE
+wait 50
+expect dirty 0
+expect pat0_nev 0

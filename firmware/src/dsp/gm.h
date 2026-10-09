@@ -24,6 +24,9 @@ void gm_midi(uint32_t st, uint32_t d1, uint32_t d2);   /* a channel message (2 o
 #define GM_BLOCK 128                       /* samples an EAS block (22.05 kHz): 256 output frames */
 void gm_midi_now(uint32_t st, uint32_t d1, uint32_t d2, uint32_t at);
 void gm_panic(void);                       /* all notes off, all channels */
+/* the master effects the channels' sends (CC 91, CC 93) feed: reverb preset 0..3 (large hall, hall, chamber,
+ * room) and its level, chorus preset 0..3 and its level (0..127); taken at the next render */
+void gm_fx(uint32_t rev_type, uint32_t rev_level, uint32_t cho_type, uint32_t cho_level);
 void gm_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);   /* the audio ISR: n stereo frames */
 
 /* (UI) */

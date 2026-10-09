@@ -21,6 +21,7 @@
  *   reboot                       re-run boot from the simulated flash (persistence test)
  *   clock N [MS]                 N MIDI clocks in (F8), MS apart (default 21: 119 bpm)
  *   flash_fail 0|1               every flash save fails (1) or works (0)
+ *   hitreset                     restart the tracks' note-on counts (expect track_hitsN)
  */
 #define GM_HOST 1
 #include <stdio.h>
@@ -141,6 +142,8 @@ int plat_store_save(uint32_t obj, const void *src, uint32_t len)
     store_writes++;
     return 0;
 }
+
+static uint32_t trk_hits[8], trk_last[8];  /* note-ons seen per track since hitreset (arr_track_hit moving) */
 
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
@@ -325,6 +328,11 @@ static void run_ms(uint32_t ms)
                 }
             }
             audio_due_ms += 256.0 * 1000.0 / 44100.0;
+            for (k = 0; k < 8; k++)
+                if (arr_track_hit[k] != trk_last[k]) {
+                    trk_last[k] = arr_track_hit[k];
+                    trk_hits[k]++;
+                }
         }
         if (now_ms >= ui_due) {
             ui_due = now_ms + 16;
@@ -413,10 +421,27 @@ static int expect(const char *what, const char *val)
         arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
         got = dbg_pat.nev;
     }
-    else if (!strcmp(what, "pat0_nev")) {          /* user pattern 0's event count */
-        project_pattern_load(0, &dbg_pat);
+    else if (!strncmp(what, "pat", 3) && strstr(what, "_nev")) {   /* patN_nev: user pattern N's notes (0..15) */
+        project_pattern_load(atoi(what + 3), &dbg_pat);
         got = dbg_pat.nev;
-    } else if (!strcmp(what, "song0_bars")) {      /* song 0's length in bars */
+    } else if (!strncmp(what, "track_hits", 10))  /* track_hitsN (1..8): its note-ons since hitreset */
+        got = (int)trk_hits[(atoi(what + 10) - 1) & 7];
+    else if (!strncmp(what, "trk", 3) && strstr(what, "_program")) {   /* trkN_program: the playing slot's track N */
+        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].program + 1;
+    } else if (!strncmp(what, "trk", 3) && strstr(what, "_mute")) {
+        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].mute;
+    } else if (!strncmp(what, "trk", 3) && strstr(what, "_vol")) {
+        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].vol;
+    } else if (!strncmp(what, "slot", 4) && strstr(what, "_bars")) {
+        arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
+        got = dbg_pat.bars;
+    } else if (!strcmp(what, "job"))              /* the jobs open */
+        got = ui.job;
+    else if (!strcmp(what, "rev_type"))
+        got = proj.rev_type; else if (!strcmp(what, "song0_bars")) {      /* song 0's length in bars */
         project_songs_load(&dbg_songs);
         got = dbg_songs.song[0].bars;
     } else if (!strcmp(what, "song0_chord0")) {    /* song 0, bar 0 beat 0's chord: root*100 + type */
@@ -539,7 +564,9 @@ int main(int argc, char **argv)
                 min_q[mi_w++ % MQ] = 0x0Fu | 0xF8u << 8;
                 run_ms((uint32_t)gap);
             }
-        } else if (!strcmp(cmd, "flash_fail"))
+        } else if (!strcmp(cmd, "hitreset"))
+            memset(trk_hits, 0, sizeof trk_hits);
+        else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);
         else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays user pattern 1 as Main A and Main B */
             songs_defaults(&dbg_songs);

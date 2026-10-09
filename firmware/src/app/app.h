@@ -11,7 +11,7 @@
 #define GM_VERSION "DEV"
 #endif
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
-#define PROJ_FORMAT 2u
+#define PROJ_FORMAT 3u
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
 #define SONGS_FORMAT 1u
 
@@ -27,7 +27,9 @@ typedef struct {
     uint8_t tempo;                        /* 40..240 bpm */
     uint8_t key;                          /* the templates' key, 0..11 over C */
     uint8_t quant;                        /* the recording grid, ARR_Q_* */
-    uint8_t rsv[10];
+    uint8_t rev_type, rev_level;          /* the master reverb: preset 0..3 (large hall, hall, chamber, room), 0..127 */
+    uint8_t cho_type, cho_level;          /* the master chorus: preset 0..3, 0..127 */
+    uint8_t rsv[6];
 } project_t;
 
 extern project_t proj;
