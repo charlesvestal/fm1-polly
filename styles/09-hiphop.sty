@@ -1,0 +1,112 @@
+# Hip hop: a boom bap at ~90. Drums from the Groove MIDI Dataset (drummer 8, hip hop at 90, CC BY 4.0:
+# styles/README.md), its loose sixteenths kept; the rest written for Polly over C M7.
+# Main A: the kick and snare with closed hats only, a round synth bass following the kick, lazy Rhodes
+# chords pushed behind the beat, a soft pad.
+# Main B: the drummer's open hi-hats on the offbeats, a vibraphone loop, the pad up.
+# The fill drops out after beat 2 (a break); the ending lands one hit.
+style Hip hop
+tempo 90
+
+track d1 type=bypass chan=10 vol=124 rev=20
+track d2 type=bypass chan=10 vol=124 rev=20   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=124 rev=20
+track ba type=bass program=38 chan=2 lo=E1 hi=E3 hikey=F# vol=118 rev=6
+track c1 type=chord1 program=4 chan=3 lo=Bb3 hi=E5 hikey=F# vol=106 pan=46 rev=40 cho=30
+track c2 type=chord1 program=11 chan=4 lo=E4 hi=E6 hikey=F# vol=80 pan=82 rev=50
+track c3 type=chord2 program=89 chan=5 lo=F3 hi=C5 vol=54 pan=64 rev=60 cho=40
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer8-session1-3_hiphop_90_beat_4-4.mid start=1 bars=2 skip=ohh scale=kick:120,chh:80
+track ba
+# with the kick: the one, the a of 1, then the and of 4 into the next bar
+1.1.0  C2 16 112
+1.1.18 C2 14 92
+1.4.12 G1 10 90
+2.1.0  C2 16 112
+2.1.18 C2 14 92
+2.3.12 E2 10 80
+2.4.12 G2 10 92
+track c1
+# Rhodes, 3-5-7, laid back a little (two ticks late), the second one pushed
+1.1.2  E4+G4+B4 30 82
+1.2.20 E4+G4+B4 20 70
+1.4.14 E4+G4+B4 8 64
+2.1.2  E4+G4+B4 30 80
+2.2.20 E4+G4+B4 34 70
+track c3
+1.1.0  G3+C4+E4 94 42
+2.1.0  G3+C4+E4 94 38
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer8-session1-3_hiphop_90_beat_4-4.mid start=9 bars=2 scale=kick:120,chh:80,ohh:70
+track ba
+1.1.0  C2 16 112
+1.1.18 C2 14 92
+1.3.12 C2 6 76
+1.4.12 G1 10 90
+2.1.0  C2 16 112
+2.1.18 C2 14 92
+2.3.12 E2 10 82
+2.4.0  G2 10 88
+2.4.12 B2 10 90
+track c1
+1.1.2  E4+G4+B4 30 84
+1.2.20 E4+G4+B4 20 72
+1.4.14 E4+G4+B4 8 66
+2.1.2  E4+G4+B4 30 82
+2.2.20 E4+G4+B4 34 72
+track c2
+# vibes: a two-bar loop on the chord, the 9th and 6th only in passing
+1.1.0  G5 24 80
+1.2.0  E5 12 66
+1.2.12 G5 10 62
+1.3.0  B5 36 76
+1.4.12 A5 10 60
+2.1.0  G5 36 76
+2.2.12 E5 12 64
+2.3.0  D5 10 60
+2.3.12 E5 30 70
+track c3
+1.1.0  G3+C4+E4 94 60
+2.1.0  G3+C4+E4 94 56
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer8-session1-3_hiphop_90_beat_4-4.mid start=14 bars=1 scale=kick:120,chh:80,ohh:70
+track ba
+1.1.0  C2 16 112
+1.1.18 C2 14 92
+track c1
+1.1.2  E4+G4+B4 30 82
+1.4.12 E4+G4+B4 10 86
+track c3
+1.1.0  G3+C4+E4 44 48
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer8-session1-3_hiphop_90_beat_4-4.mid start=13 bars=1 skip=ohh scale=kick:120,chh:80
+2.1.0 kick 24 110
+2.1.0 snare 12 96
+2.1.0 crash 72 74
+track ba
+1.1.0  C2 16 112
+1.1.18 C2 14 92
+1.4.12 G1 10 90
+2.1.0  C2 60 112
+track c1
+1.1.2  E4+G4+B4 30 82
+1.2.20 E4+G4+B4 20 70
+2.1.2  E4+G4+B4 60 84
+track c3
+1.1.0  G3+C4+E4 94 42
+2.1.0  G3+C4+E4 60 50

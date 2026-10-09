@@ -1,0 +1,122 @@
+# Reggae: a one drop at ~78. Drums from the Groove MIDI Dataset (drummer 1, reggae at 78, CC BY 4.0:
+# styles/README.md): kick and cross-stick together on 2 and 4 of this bar, each half of it a one-drop bar
+# felt in double time; the rest written for Polly over C M7.
+# Main A: the guitar skank on every offbeat, an organ doubling it, a bass that leaves the one open and walks
+# 1-3-5, soft strings.
+# Main B: the organ bubble in sixteenths, the bass busier, a melodica line on top, the strings up.
+style Reggae
+tempo 78
+
+track d1 type=bypass chan=10 vol=108 rev=40
+track d2 type=bypass chan=10 vol=108 rev=40   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=108 rev=40
+track ba type=bass program=33 chan=2 lo=E1 hi=E3 hikey=F# vol=120 rev=10
+track c1 type=chord1 program=28 chan=3 lo=E4 hi=E5 hikey=F# vol=80 pan=36 rev=50
+track c2 type=chord1 program=17 chan=4 lo=E3 hi=G5 hikey=F# vol=62 pan=92 rev=40
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=52 pan=64 rev=70 cho=20
+track c4 type=chord1 program=22 chan=6 lo=G4 hi=G6 hikey=F# vol=66 pan=72 rev=60
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session1-184_reggae_78_beat_4-4.mid start=5 bars=2 scale=kick:150,rim:130,chh:90
+track ba
+# the one left open; root, 3rd and 5th, falling back to the root
+1.1.12 C2 18 108
+1.2.12 C2 10 86
+1.3.0  E2 10 92
+1.3.12 G2 20 98
+1.4.12 E2 10 84
+2.1.12 C2 18 108
+2.2.12 G1 10 86
+2.3.0  A1 10 90
+2.3.12 C2 20 98
+2.4.12 G1 10 84
+track c1
+# the skank: short chops on every offbeat
+grid 1.1 e E4+G4+C5 .x.x.x.x|.x.x.x.x len=4
+track c2
+grid 1.1 e G3+C4+E4 .3.3.3.3|.3.3.3.3 len=5
+track c3
+1.1.0  G3+C4+E4 94 44
+2.1.0  G3+C4+E4 94 40
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session1-184_reggae_78_beat_4-4.mid start=8 bars=2 scale=kick:150,rim:130,chh:90
+track ba
+1.1.12 C2 12 108
+1.2.0  C2 6 76
+1.2.6  E2 6 84
+1.2.12 G2 10 92
+1.3.0  E2 10 88
+1.3.12 C2 18 98
+1.4.12 G1 10 86
+2.1.12 C2 12 108
+2.2.0  C2 6 76
+2.2.6  E2 6 84
+2.2.12 G2 10 92
+2.3.0  A2 10 90
+2.3.12 G2 18 98
+2.4.12 E2 10 86
+track c1
+grid 1.1 e E4+G4+C5 .x.x.x.x|.x.x.x.X len=4
+track c2
+# the bubble: the organ on the e and the and of every beat, lower on the e
+grid 1.1 s G3+C4+E4 .3x..3x..3x..3x.|.3x..3x..3x..3x. len=4
+track c3
+1.1.0  G3+C4+E4 94 60
+2.1.0  G3+C4+E4 94 56
+track c4
+# melodica: 5th to 3rd, a turn through the 9th, back to the root
+1.1.0  G5 36 80
+1.2.12 E5 12 70
+1.3.0  G5 24 76
+1.4.0  E5 10 66
+1.4.12 D5 10 62
+2.1.0  C5 48 76
+2.3.0  E5 24 72
+2.4.0  G5 22 70
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer1-session1-184_reggae_78_beat_4-4.mid start=12 bars=1 scale=kick:150,rim:130,chh:90
+track ba
+1.1.12 C2 18 108
+1.2.12 C2 10 86
+1.3.0  E2 10 92
+1.3.12 G2 10 96
+1.4.0  A2 10 92
+1.4.12 G2 10 94
+track c1
+grid 1.1 e E4+G4+C5 .x.x.x.. len=4
+track c3
+1.1.0  G3+C4+E4 94 46
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session1-184_reggae_78_beat_4-4.mid start=16 bars=1 scale=kick:150,rim:130,chh:90
+2.1.0 kick 24 96
+2.1.0 crash 96 80
+track ba
+1.1.12 C2 18 108
+1.2.12 C2 10 86
+1.3.0  E2 10 92
+1.3.12 G2 20 98
+1.4.12 G1 10 90
+2.1.0  C2 72 106
+track c1
+grid 1.1 e E4+G4+C5 .x.x.x.x len=4
+2.1.0  E4+G4+C5 48 86
+track c2
+2.1.0  G3+C4+E4 60 70
+track c3
+1.1.0  G3+C4+E4 94 44
+2.1.0  G3+C4+E4 72 52

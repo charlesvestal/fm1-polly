@@ -114,10 +114,15 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 | 4 | Ballad | 72 | GMD drummer 7, rock 75: A bars 2-3 on the cross-stick (`map=snare:rim`), B 10-11 on the snare + a soft crash, fill 16, ending 8 + hits | piano arpeggios in eighths, fretless bass, soft strings | piano quarter-note chords, a high string line, strings up, the bass moving | the piano climbs the chord | a broken chord, then the whole chord held |
 | 5 | Bossa | 128 | by hand: the bossa clave on the cross-stick, kick 1 / 2& / 3 / 4&, hi-hat eighths; B on the ride + shaker | nylon guitar comping in 3rd-7th-9th voicings, bass root-fifth with pickups, soft strings | a flute line, the ride and shaker, the bass walking to the 3rd | toms down the kit | the chord on the one with a soft crash |
 | 6 | Swing | 124 | GMD drummer 10, jazz swing 124: A bars 10-11 on the closed hi-hat (`map=ohh:chh`), B 14-15 on the ride, fill 12, ending 10 + hits | walking bass, piano Charleston in 3-5-7 voicings, soft drawbar organ | ride, walk with triplet pickups, busier piano, a vibraphone line, organ up | a walk up and two kicks | the 3-5-7 chord held over the root |
+| 7 | Shuffle | 112 | GMD drummer 8, rock shuffle 112: A bars 5-6 (hi-hat), B 9-10 (ride) + a crash, fill 16, ending 20 + hits | boogie bass (1-3-5-6-b7-6-5-3, each on the beat and the swung and), the guitar's 5-6 shuffle, soft organ | the ride, piano triplets on top, organ up | the bass up in triplets | up the boogie, the stop, the root |
+| 8 | Reggae | 78 | GMD drummer 1, reggae 78 (kick and cross-stick on 2 and 4: a one drop felt in double time): A bars 6-7, B 9-10, fill 13, ending 17 + a hit | the skank on every offbeat (muted guitar), an organ doubling it, the bass leaving the one open | the organ bubble in sixteenths, a melodica line, a busier bass, strings up | the bass climbs | the chord on the one |
+| 9 | Hip hop | 90 | GMD drummer 8, hip hop 90: A bars 2-3 without the open hats (`skip=ohh`), B 10-11 with them, fill 15 (the drummer stops after beat 2: a break), ending 14 + a hit | synth bass on the kick, Rhodes 3-5-7 chords laid back two ticks, a soft pad | the open hats, a vibraphone loop, pad up | the break | one hit |
+| 10 | House | 122 | by hand: four on the floor, clap on 2 and 4, open hat on the offbeats; B adds sixteenth hats, a shaker and a crash | the bass on the offbeats, organ stabs, a soft pad | piano stabs 3-3-2 (3-5-7-9, short), the bass jumping octaves, pad up | a snare build into 32nds | the chord on the one |
 
 (The bar numbers above count from 1; `start=` counts from 0.)
 
-Bossa's drums are written by hand: the dataset's bossa takes (drummer 5, 127) are improvised around the
+House's drums are written by hand: the dataset is played on a kit, and house is programmed. Bossa's drums are
+written by hand: the dataset's bossa takes (drummer 5, 127) are improvised around the
 groove, the cross-stick sparse and the kick at ghost level, and a style needs the steady bossa clave.
 
 ## Checking and listening
@@ -129,9 +134,10 @@ groove, the cross-stick sparse and the kick at ghost level, and a style needs th
   and dominant, 9 and 11 over minor, 11 and b13 over m7(b5), ...: `allowed()`). A deliberate tension goes in
   its `ALLOW` list (style, track, interval, chord type).
 - `sh tools/render_styles.sh [NN ...]` renders `build/styles/NN.wav`: the style at its tempo over the Pop
-  template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz), each pass Main A,
-  Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit near -27 dBFS RMS at the
-  default master, the ballad a few dB under).
+  template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz; Reggae and House
+over Pop and Minor; Hip hop over Minor and Vamp), each pass Main A,
+  Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit between -25 and -29 dBFS RMS at
+  the default master, with no sample at the synth's limit).
 
 ## The drums: the Groove MIDI Dataset
 

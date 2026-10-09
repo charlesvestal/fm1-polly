@@ -1,0 +1,110 @@
+# House: four on the floor at ~122, written for Polly over C M7 (drums by hand: the Groove MIDI Dataset is
+# played on a kit; house is programmed).
+# Main A: kick on every beat, a clap on 2 and 4, the open hat on every offbeat, the bass on the offbeats,
+# organ stabs, a soft pad.
+# Main B: sixteenth hats and a shaker, a crash on its one, the piano stabs (the house piano's syncopated
+# chords), the bass jumping octaves, the pad up.
+style House
+tempo 122
+
+track d1 type=bypass chan=10 vol=110 rev=20
+track d2 type=bypass chan=10 vol=110 rev=20   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=110 rev=20
+track ba type=bass program=38 chan=2 lo=E1 hi=E3 hikey=F# vol=118 rev=6
+track c1 type=chord1 program=17 chan=3 lo=G3 hi=G5 hikey=F# vol=70 pan=40 rev=40
+track c2 type=chord1 program=1 chan=4 lo=G3 hi=C6 hikey=F# vol=80 pan=86 rev=40
+track c3 type=chord2 program=50 chan=5 lo=F3 hi=C5 vol=62 pan=64 rev=70 cho=40
+
+[main a]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 7676|7676
+grid 1.2 h clap 77|77
+grid 1.1 e ohh  .5.5.5.5|.5.5.5.5
+track ba
+# the offbeats, root, with the fifth to turn the bar
+grid 1.1 e C2 .7.7.7.6|.7.7.7.. len=9
+2.4.12 G1 9 92
+track c1
+# organ stabs on the and of 2 and the a of 3
+1.2.12 E4+G4+C5 6 92
+1.3.18 E4+G4+C5 6 84
+2.2.12 E4+G4+C5 6 92
+2.3.18 E4+G4+C5 6 84
+2.4.12 E4+G4+C5 6 76
+track c3
+1.1.0  G3+C4+E4 94 44
+2.1.0  G3+C4+E4 94 40
+
+[main b]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 6676|7676
+grid 1.2 h clap 77|77
+grid 1.1 e ohh  .5.5.5.5|.5.5.5.5
+grid 1.1 s chh  3.2.3.2.3.2.3.2.|3.2.3.2.3.2.3.2.
+track d2
+1.1.0 crash 48 50
+track pc
+grid 1.1 s shaker 2323232323232323|2323232323232324 len=6
+track ba
+# the offbeats jumping the octave
+1.1.12 C2 9 104
+1.2.12 C3 9 92
+1.3.12 C2 9 104
+1.4.12 C3 9 92
+2.1.12 C2 9 104
+2.2.12 C3 9 92
+2.3.12 E2 9 98
+2.4.12 G2 9 96
+track c1
+1.2.12 E4+G4+C5 6 86
+1.3.18 E4+G4+C5 6 78
+2.2.12 E4+G4+C5 6 86
+2.3.18 E4+G4+C5 6 78
+track c2
+# the piano stabs, 3-3-2 over each bar, voiced 3-5-7-9 (short, so the 9th never lingers)
+grid 1.1 s E4+G4+B4+D5 x..x..x...X..x..|x..x..x...X..x.x len=5
+track c3
+1.1.0  G3+C4+E4 94 64
+2.1.0  G3+C4+E4 94 60
+
+[fill]
+bars 1
+beats 4
+track d1
+grid 1.1 q kick 7676
+grid 1.2 h clap 77
+grid 1.1 e ohh  .5.5....
+grid 1.3 s snare 3456
+grid 1.4 t snare 56677899
+track ba
+grid 1.1 e C2 .7.7.... len=9
+1.3.0  C2 6 100 x8 6
+track c1
+1.2.12 E4+G4+C5 6 92
+1.4.12 E4+G4+C5 10 100
+track c3
+1.1.0  G3+C4+E4 94 50
+
+[ending]
+bars 2
+beats 4
+track d1
+grid 1.1 q kick 7676|8...
+grid 1.2 h clap 77|....
+grid 1.1 e ohh  .5.5.5.5|........
+2.1.0 crash 96 92
+track ba
+grid 1.1 e C2 .7.7.7.7 len=9
+2.1.0  C2 48 110
+track c1
+1.2.12 E4+G4+C5 6 92
+1.3.18 E4+G4+C5 6 84
+track c2
+2.1.0  E4+G4+B4 60 88
+track c3
+1.1.0  G3+C4+E4 94 44
+2.1.0  G3+C4+E4 72 54
