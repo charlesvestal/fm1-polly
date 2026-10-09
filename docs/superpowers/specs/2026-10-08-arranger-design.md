@@ -129,29 +129,31 @@ unspecified; this keeps pads following the changes).
 
 ## Controls
 
-Rule: a page button holds at most three pages (pressed again: the next); more than that gets its own
-button. Sections are played with **SEL held + a black key**, which leaves ENV, LFO, ARP and SEQ for pages.
+Rule: a page button holds at most three pages (pressed again: the next; the header's dots show which);
+more than that gets its own button. Sections are played with **SEL held + a black key**, which leaves ENV, LFO, ARP and SEQ for pages.
 
 | Control | Does |
 |---|---|
 | PLAY | start / stop (stops at the bar end when an Ending is queued) |
 | REC | record: into the selected track (Pattern pages: the pattern loops, overdubs); on the Song and Chords pages: the chords and sections played |
 | SEL tap | CHORD on / off: the keys enter chords (lit) or play the selected track |
+| SEL held | the shortcuts drawn on screen (after 0.4 s; the release is then no tap) |
 | SEL held + black key | the section, from the next bar ("NEXT" on screen): 1 Intro, 2 Main A, 3 Main B, 4 Fill (Fill AB from Main A, Fill BA from Main B), 5 Ending; 6-11 jump to song bar markers (later) |
 | SEL held + white key | the chord template 1-16 (a white key each), playing at once |
-| HOME | Song: the play screen |
+| SEL held + PRESETS | the song (while playing: loaded after the stop) |
+| HOME | Song: the play screen; the song and its style in the header; KNOB 1 style, 2 template, 3 key, 4 record grid |
 | SEQ | Pattern: the 8 tracks; again: the pattern's length, time, name |
-| EDIT | Track: the selected track's sound (GM program by family), its type and limits |
-| FX | Mixer: volume, pan, reverb, chorus per track; again: the master effects |
+| EDIT | Track: the selected track's sound (GM program by family), its type and limits; again: high key, channel |
+| FX | Mixer: volume, pan, reverb, chorus per track; again: tone (brightness, resonance); again: the master effects |
 | LFO | Chords: the song's chord track, step by step (a beat at a time) |
-| ENV | Arrange: the song's section track; again: its six patterns, three a page (Intro, Main A, Main B; Fill AB, Fill BA, Ending), KNOB 4 the whole style |
+| ENV | Arrange: the song's section track, length, loop, KNOB 4 the song; again: its six patterns, three a page (Intro, Main A, Main B; Fill AB, Fill BA, Ending), KNOB 4 the whole style |
 | ARP | Templates: the 16 progressions, browse and audition; again: copy one into the song |
 | GLO | Setup: tempo source, MIDI, key, lights; again: Panel (CPU, version) |
-| SAVE | saves; held: jobs (copy / clear a pattern, a track, a song) |
+| SAVE | saves (lit while something is unsaved); held: jobs (copy / clear a pattern, a track, a song) |
 | OCT- / OCT+ | the keys' octave; held + a key in step chord entry: slash bass |
 | SELECT | tempo |
 | ALGORITHM | the track (1..8) |
-| PRESETS | the pattern (Pattern pages), the song (Song, Arrange), the cursor (Chords), the template (Templates) |
+| PRESETS | the style (Song, Song patterns), the pattern (Pattern pages), the cursor (Chords, Arrange), the template (Templates), the program family (Track); with SEL held: the song |
 | KNOB 1-4 | the page's four values |
 | keys | play the selected track as played (you hear what you play; recording stores it over C M7 through the inverse transposer, as the QY does, so it follows later chords), or chords (CHORD on) |
 

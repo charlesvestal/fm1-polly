@@ -1,26 +1,34 @@
 # Polly for the M-VAVE FM-1
 
-Polly is becoming a pocket arranger inspired by the Yamaha QY70: a style plays, a chord progression
-steers it. Today it is still the GM sound module it started as, running
-[Sonivox EAS](https://github.com/EmbeddedSynth/sonivox)'s 200 KB General MIDI sound set; the arranger
-is in progress. The platform is [Felucca](https://github.com/hugelton/Felucca)'s. Private for now.
+Polly is a pocket arranger inspired by the Yamaha QY70: a style plays, a chord progression steers it.
+Its sounds are [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox)'s 200 KB General MIDI set; MIDI in
+plays it as a GM module too. The platform is [Felucca](https://github.com/hugelton/Felucca)'s. Private for now.
 Try it in the browser at <https://charles.pizza/fm1-polly/>.
 
-## Playing it (the GM module, today)
+## Playing it
+
+Boot, turn KNOB 1 to pick a style, hold SEL and press a white key for a progression, press PLAY. Hold SEL
+and press a black key for the next section; tap SEL and the keys play chords.
 
 | Control | |
 |---|---|
-| Keys | play the selected channel |
-| OCT− / OCT+ | the keys' octave |
-| PRESETS | the channel's program (SELECT: a family of eight at a time) |
-| ALGORITHM | the channel (1..16; 10 is the drums) |
-| KNOB 1–4 | the channel's volume, pan, reverb, chorus |
-| PLAY | a demo song (to hear it, and to load the synth) |
-| HOME | all notes off |
-| GLO | lights |
-| SAVE | saves (it also saves by itself, a few seconds after a change) |
+| PLAY / REC | start / stop; record into the selected track (on Chords: the chords played) |
+| SEL tap | CHORD on / off: the keys enter chords, or play the selected track |
+| SEL held | the shortcuts on screen: + black key 1-5 Intro, Main A, Main B, Fill, Ending (from the next bar); + white key 1-16 a progression (at once); + PRESETS the song |
+| HOME | Song: KNOB 1 style (PRESETS too), 2 template, 3 key, 4 record grid |
+| SEQ | Pattern (the 8 tracks, mute); again: its length, beats, name |
+| EDIT | Track: program, type, range; again: high key, channel |
+| FX | Mixer (volume, pan, sends); again: tone (bright, reso); again: Master FX |
+| LFO | Chords: the song's chords, beat by beat |
+| ENV | Arrange: sections, length, loop, KNOB 4 the song; again (twice): the song's six patterns, KNOB 4 the style |
+| ARP | Templates: browse, audition (PLAY); again: copy one into the song |
+| GLO | Setup: clock, MIDI out, key, lights, the QY70 bank; again: Panel (CPU, version) |
+| SAVE | saves (lit: something to save; it also saves by itself at rest); held: the jobs |
+| SELECT / ALGORITHM | tempo / the track |
+| OCT- / OCT+ | the keys' octave |
 
-MIDI in (USB, TRS) plays all 16 channels.
+A button with more pages shows which one in the header (dots). MIDI in (USB, TRS) plays all 16 channels;
+its clock can drive the arranger (Setup).
 
 ## Building
 
