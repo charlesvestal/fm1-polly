@@ -33,7 +33,7 @@ ERRORS = {1: "the image's size", 2: "the transfer (a read request unanswered)", 
           4: "a flash erase", 5: "a flash write", 6: "the image's CRC (a byte changed on the way)",
           7: "the read-back (the flash does not hold what was written)", 8: "mounting it"}
 POLLY = "FM-1_3"                  # Polly's package identity (firmware/src/main.c FELUCCA_ID)
-DELAY = {"start": 0.3, "poll": 1.0, "idle": 30.0, "reply": 0.0}
+DELAY = {"start": 0.0, "poll": 1.0, "idle": 30.0, "reply": 0.0}   # (the FM-1 asks for the directory at once)
 
 
 def request(n, crc):

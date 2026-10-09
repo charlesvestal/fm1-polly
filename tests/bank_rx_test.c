@@ -15,7 +15,8 @@
 static uint8_t nor[0x100000], before[0x100000];
 static uint8_t *img;
 static uint32_t img_n;
-static int fetch_left = -1, prog_fail = -1, flip_at = -1, done_code = -99, fails;
+static int fetch_left = -1, prog_fail = -1, flip_at = -1, done_code = -99, fails, prog_count;
+static uint32_t last_prog;
 static uint32_t fetches;
 
 int qb_flash_read(uint32_t off, void *dst, uint32_t n)
@@ -60,6 +61,8 @@ static int bk_prog(uint32_t off, const void *src, uint32_t n)
     }
     if (prog_fail == 0)
         return -9;
+    prog_count++;
+    last_prog = off;
     if (prog_fail > 0)
         prog_fail--;
     for (uint32_t i = 0; i < n; i++)
@@ -67,8 +70,10 @@ static int bk_prog(uint32_t off, const void *src, uint32_t n)
     return 0;
 }
 static int bk_read(uint32_t off, void *dst, uint32_t n) { return qb_flash_read(off, dst, n); }
+static int begins;
+static void bk_begin(void) { begins++; }
 static void bk_show(uint32_t pct) { (void)pct; }
-static void bk_done(int code) { done_code = code; }
+static void bk_done(int code, int begun) { done_code = code; (void)begun; }
 #include "../firmware/src/bank_rx.c"
 
 static int check(const char *what, int ok)
@@ -115,7 +120,7 @@ int main(int argc, char **argv)
         nor[a] = (uint8_t)(a * 7u + 3u);
     memcpy(before, nor, sizeof nor);
 
-    rc = bank_rx(img_n, crc_img());
+    rc = bank_rx(img_n, crc_img(), 0);
     n = qb_mount();
     check("written: 0, the host told", rc == 0 && done_code == 0);
     check("mounted", n > 0);
@@ -126,35 +131,63 @@ int main(int argc, char **argv)
     check("every bank sector's guard bytes 0xFF", guards_ff());
     printf("  %u requests to the host for %u bytes\n", fetches, img_n);
 
-    rc = bank_rx(img_n, crc_img());               /* again, over the bank */
+    rc = bank_rx(img_n, crc_img(), 0);               /* again, over the bank */
     check("written again over itself", rc == 0 && qb_mount() == n);
 
     fetch_left = 30;                              /* the cable cut after 30 pieces: no bank, not half a one */
-    rc = bank_rx(img_n, crc_img());
+    rc = bank_rx(img_n, crc_img(), 0);
     fetch_left = -1;
     check("cut midway: BK_E_FETCH, the host told", rc == BK_E_FETCH && done_code == BK_E_FETCH);
     check("... no bank mounted (QB_NONE)", qb_mount() == QB_NONE && qb_count() == 0);
     check("... the guard bytes still 0xFF", guards_ff());
-    rc = bank_rx(img_n, crc_img());
+    rc = bank_rx(img_n, crc_img(), 0);
     check("then written whole", rc == 0 && qb_mount() == n);
 
     flip_at = (int)img_n - 100;                   /* a byte changed in transit (the frame's checksum missed it) */
-    rc = bank_rx(img_n, crc_img());
+    rc = bank_rx(img_n, crc_img(), 0);
     flip_at = -1;
     check("a byte changed in transit: BK_E_CRC, no bank", rc == BK_E_CRC && qb_mount() == QB_NONE);
-    bank_rx(img_n, crc_img());
+    bank_rx(img_n, crc_img(), 0);
 
     img[40] ^= 1;                                 /* a damaged directory: refused before anything is erased */
-    rc = bank_rx(img_n, qb_crc32(0, img, img_n));
+    rc = bank_rx(img_n, qb_crc32(0, img, img_n), 0);
     img[40] ^= 1;
     check("a damaged directory: BK_E_DIR, the old bank kept", rc == BK_E_DIR && qb_mount() == n);
-    rc = bank_rx(img_n + 4, crc_img());
+    rc = bank_rx(img_n + 4, crc_img(), 0);
     check("the wrong length: refused, the old bank kept", rc == BK_E_DIR && qb_mount() == n);
-    rc = bank_rx(100, 0);
+    rc = bank_rx(100, 0, 0);
     check("too short: BK_E_SIZE", rc == BK_E_SIZE && qb_mount() == n);
+    {   /* a style entry pointing past the data (its directory's CRC made right): refused before anything is erased,
+         * and nothing stopped */
+        uint32_t nn = img[6] | img[7] << 8, dl = 32u + 24u * nn, c;
+        int b0 = begins, began = -1;
+        uint8_t save[4];
+        memcpy(save, img + 32 + 24 * (nn - 1) + 8, 4);
+        img[32 + 24 * (nn - 1) + 10] = 0x7F;      /* its offset: far past the data */
+        c = qb_crc32(0, img, dl);
+        memcpy(img + dl, &c, 4);
+        rc = bank_rx(img_n, qb_crc32(0, img, img_n), &began);
+        memcpy(img + 32 + 24 * (nn - 1) + 8, save, 4);
+        c = qb_crc32(0, img, dl);
+        memcpy(img + dl, &c, 4);
+        check("a style past the data: BK_E_DIR, the old bank kept", rc == BK_E_DIR && qb_mount() == n);
+        check("... and nothing stopped (no begin)", begins == b0 && began == 0);
+    }
 
+    {   /* the directory's first 256 bytes (its magic) written last: a cut before them leaves no bank */
+        static int total;
+        prog_count = 0;
+        bank_rx(img_n, crc_img(), 0);
+        total = prog_count;
+        check("the last program of a write: the directory's start", last_prog == QB_DIR);
+        prog_fail = total - 1;
+        rc = bank_rx(img_n, crc_img(), 0);
+        prog_fail = -1;
+        check("cut before the directory's first 256 bytes: no bank", rc == BK_E_PROG && qb_mount() == QB_NONE);
+        bank_rx(img_n, crc_img(), 0);
+    }
     prog_fail = 10;                               /* the flash fails */
-    rc = bank_rx(img_n, crc_img());
+    rc = bank_rx(img_n, crc_img(), 0);
     prog_fail = -1;
     check("a program fails: BK_E_PROG, no bank", rc == BK_E_PROG && qb_mount() == QB_NONE);
     check("nothing outside the bank's sectors touched, through all of it", outside_same());

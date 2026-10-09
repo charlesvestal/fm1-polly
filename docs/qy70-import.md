@@ -235,35 +235,40 @@ steps, measured but not built: bars repeating bars of the style's other phrases 
 most bars: 41,000 of 68,000 repeated notes become 68,000), a static Huffman code per field (about 15%), or
 decoding each phrase into RAM at a section change (then LZ / zlib apply).
 
-## Where a bank could live: the free flash (the survey before the bank; it now lives as above)
+## The flash map
 
-The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map (`firmware/src/storage.c`, `firmware/hal/fm1_flash.h`,
-`firmware/loader/ldr_core.c`, `firmware/src/ota.c`):
+The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map, with the bank (`firmware/src/storage.c`,
+`firmware/src/dsp/qybank.h`, `firmware/hal/fm1_flash.h`, `firmware/loader/ldr_core.c`, `firmware/src/ota.c`):
 
-| Range | Size | Holds | A bank there? |
-|---|---|---|---|
-| 0x00000-0x03FFF | 16 KB | SPL, isd_config (flash head) | no |
-| 0x04000-0x92FFF | 572 KB | the app (encrypted XIP). The update loader rewrites every sector of it to the package image (padded), so the unused tail (about 140 KB past a 430 KB app) is erased by each update | no |
-| 0x93000-0x96FFF | 16 KB | nothing | yes, with a firmware change: the app's flash driver writes only Felucca's store and the staging area (`FL_RANGE_OK`) |
-| 0x97000-0x98FFF | 8 KB | songs | no |
-| 0x99000-0xC8FFF | 192 KB | 24 user patterns, 2 sectors each | no (the largest lever: fewer or smaller user pattern slots) |
-| 0xC9000-0xDBFFF | 76 KB | nothing | yes, writable by the app today |
-| 0xDC000-0xDDFFF | 8 KB | panel calibration (2 copies) | no |
-| 0xDE000-0xDFFFF | 8 KB | nothing | yes, writable today |
-| 0xE0000-0xE4FFF | 20 KB | update loader staging, record at 0xE4F00; erased at boot when used | no |
-| 0xE5000-0xFBFFF | 92 KB | nothing | yes, with the `FL_RANGE_OK` change |
-| 0xFC000-0xFDFFF | 8 KB | the project (Felucca's globals area) | no |
-| 0xFE000-0xFFFFF | 8 KB | rest of Felucca's globals area; the last sector is past the image's declared flash size | no |
+| Range | Size | Holds |
+|---|---|---|
+| 0x00000-0x03FFF | 16 KB | SPL, isd_config (flash head) |
+| 0x04000-0x92FFF | 572 KB | the app (encrypted XIP). The update loader rewrites every sector of it to the package image (padded), so the unused tail is erased by each update |
+| 0x93000-0x96FFF | 16 KB | the QY70 bank's data (sectors 0-3) |
+| 0x97000-0x98FFF | 8 KB | songs |
+| 0x99000-0xB8FFF | 128 KB | 16 user patterns, 2 sectors each |
+| 0xB9000-0xDBFFF | 140 KB | the QY70 bank's data (sectors 4-38) |
+| 0xDC000-0xDDFFF | 8 KB | panel calibration (2 copies) |
+| 0xDE000 | 4 KB | the QY70 bank's directory |
+| 0xDF000 | 4 KB | the QY70 bank's data (sector 39) |
+| 0xE0000-0xE4FFF | 20 KB | update loader staging, record at 0xE4F00; erased at boot when used |
+| 0xE5000-0xFBFFF | 92 KB | the QY70 bank's data (sectors 40-62) |
+| 0xFC000-0xFDFFF | 8 KB | the project (Felucca's globals area) |
+| 0xFE000-0xFFFFF | 8 KB | rest of Felucca's globals area; the last sector is past the image's declared flash size |
 
-**Safe for a bank: 192 KB** (84 KB writable by the app as it is, 108 KB more once its flash driver may write
-0x93000-0x96FFF and 0xE5000-0xFBFFF). Everything from 0x93000 up is one plain (unencrypted) XIP window
-(`fl_plain_window_init`), so the player can read a bank in place, no `fl_read`. A firmware update writes only
+The app's flash driver may erase and write the store, the staging area and the bank's regions (`FL_RANGE_OK`,
+`FL_BANK_OK`), nothing else. The data from 0x93000 up could be read as a plain (unencrypted) XIP window
+(`fl_plain_window_init`), but Polly does not set it up: the bank is read through the flash driver (`st_read`,
+256-byte reads with interrupts off between them), a style's record into RAM when it is picked. A firmware update writes only
 the app area; but at the end of an update the loader erases every sector in 0x93000-0xFBFFF whose last 256 bytes
 hold a valid update record (bytes 6-7 "AT", CRC-16 at 0), so the bank writer keeps bytes 0xF00-0xF07 of each 4 KB
-sector at 0xFF (no phrase straddles them; about 1% padding), and no sector can look like a record to the loader
-or the SPL. Restoring M-VAVE's firmware wipes the bank (the user imports again).
+sector at 0xFF (the logical stream steps over them), and no sector can look like a record to the loader or the
+SPL. Restoring M-VAVE's firmware wipes the bank (the user imports again).
 
-**What fits in 192 KB** (`qy70_bank.py --sizes --budget 192`, smallest styles first): 83 of the 128 styles
+The survey that led here (before the bank): 192 KB was free with 24 user patterns; the format 2 bank needed
+364 KB for all 128 styles (440 KB with controllers), hence the range coder below and 16 user patterns.
+
+**What fitted in 192 KB** (the survey, with 24 user patterns; `qy70_bank.py --sizes --budget 192`, smallest styles first): 83 of the 128 styles
 (77 with bends and controllers); 42 in the 84 KB writable today. All 128 need about 364 KB (440 KB with
 controllers) in format 2. Measured routes past that: bars repeating bars of the style's other phrases (about
 -40 KB) and a static Huffman code per field (about -15%) would bring the notes to about 275 KB, still a stream

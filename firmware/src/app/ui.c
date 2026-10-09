@@ -189,12 +189,16 @@ static void slot_load(int s, int style)
     app.edited[s] = 0;
     app.edit_pend &= (uint8_t)~(1u << s);
 }
-/* the user pattern the copy-on-write takes: one no song plays, an empty one (never saved) first; -1 none */
-static int pattern_stored(int p)                 /* a user pattern has been saved */
+/* a user pattern holding nothing: never saved, or saved without notes (loaded into scratch to look) */
+static int pattern_blank(int p)
 {
     uint8_t h[8];
-    return plat_store_load((uint32_t)(OBJ_PAT0 + p), h, sizeof h) >= 0;
+    if (plat_store_load((uint32_t)(OBJ_PAT0 + p), h, sizeof h) < 0)
+        return 1;
+    return project_pattern_load(p, &scratch) == 0 && scratch.nev == 0;
 }
+/* the user pattern the copy-on-write takes: one no song plays and that holds nothing (a pattern with notes is
+ * never taken, played or not); -1 none */
 static int pattern_free(void)
 {
     uint32_t used = 0;
@@ -202,10 +206,9 @@ static int pattern_free(void)
         for (int k = 0; k < ARR_NSECT; k++)
             if (songs.song[n].style[k] < ARR_USER_PATTERNS)
                 used |= 1u << songs.song[n].style[k];
-    for (int pass = 0; pass < 2; pass++)
-        for (int p = 0; p < ARR_USER_PATTERNS; p++)
-            if (!(used >> p & 1u) && (pass || !pattern_stored(p)))
-                return p;
+    for (int p = 0; p < ARR_USER_PATTERNS; p++)
+        if (!(used >> p & 1u) && pattern_blank(p))
+            return p;
     return -1;
 }
 /* copy-on-write: before slot s's pattern is changed (recorded into, edited, erased, cleared), a slot playing a
@@ -864,6 +867,8 @@ static void slot_style(int s, int to)
     char t[24];
     if (to == st)
         return;
+    if (to >= ARR_BANK0 && bank_get((to - ARR_BANK0) / ARR_NSECT) < 0)
+        return;                                  /* missing or damaged (said): nothing changes */
     if (slot_unsaved(s)) {
         if (arr_playing) {
             say("UNSAVED", "SAVE FIRST");
@@ -927,6 +932,8 @@ static void style_turn(int d)
 static void style_all(int n)
 {
     int unsaved_any = 0;
+    if (style_bank(n) && bank_get(n - arr_styles()) < 0)
+        return;                                  /* a damaged QY70 style (said): nothing changes */
     for (int s = 0; s < ARR_NSECT; s++)          /* all six or none: a slot with changes first saved (stopped) */
         unsaved_any |= slot_unsaved(s);
     if (unsaved_any) {
@@ -1059,8 +1066,8 @@ static void template_copy(void)
     say("COPIED", t);
 }
 /* Copy song: the target plays the same styles' sections; each user pattern of the source is copied into a user
- * pattern of the target's own: the target's own one in that section when no other song plays it, else one no
- * song plays (empty first), else one only the target plays; -1: none left */
+ * pattern of the target's own: the target's own one in that section when no other song plays it, else a blank
+ * one no other song plays (pattern_blank: one with notes is never taken); -1: none left */
 static int copy_patterns_pick(int to, uint16_t *st)
 {
     const song_t *g = csong(), *d = &songs.song[to];
@@ -1076,10 +1083,9 @@ static int copy_patterns_pick(int to, uint16_t *st)
             continue;                            /* a style's section: the same */
         if (d->style[i] < ARR_USER_PATTERNS && !((other | taken) >> d->style[i] & 1u))
             pick = d->style[i];
-        for (int pass = 0; pass < 2 && pick < 0; pass++)
-            for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
-                if (!((other | taken) >> p & 1u) && (pass || !pattern_stored(p)))
-                    pick = p;
+        for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
+            if (!((other | taken) >> p & 1u) && pattern_blank(p))
+                pick = p;
         if (pick < 0)
             return -1;
         st[i] = (uint16_t)pick;

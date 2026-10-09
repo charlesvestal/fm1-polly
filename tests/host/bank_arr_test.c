@@ -27,7 +27,8 @@ void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2)
         out_log[out_n++] = m;
     }
 }
-uint32_t arr_midi_out_room(void) { return 1000; }
+static uint32_t room = 1000;                  /* MIDI out's free slots (0: full) */
+uint32_t arr_midi_out_room(void) { return room; }
 uint32_t arr_midi_out_link(void) { return 0; }
 static uint8_t flash[0x100000];
 int qb_flash_read(uint32_t off, void *dst, uint32_t n)
@@ -40,6 +41,7 @@ int qb_flash_read(uint32_t off, void *dst, uint32_t n)
 
 static void reset(void)
 {
+    room = 1000;
     arr_init();
     stub_n = 0;
     stub_frame = 0;
@@ -313,6 +315,63 @@ static void t_chord_hold(void)
         run_to(2 * BAR + BAR / 2);
         CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 9, "song: Main A plays the chord track (Am)");
     }
+    {   /* a chord the song changed during the Intro, none at Main A's first beat: the song's latest, not the held one */
+        static song_t g;
+        reset();
+        load_all(&A);
+        memset(&g, 0, sizeof g);
+        g.bars = 4;
+        g.loop = 1;
+        for (int i = 0; i < ARR_SONGBARS * 4; i++)
+            g.chord[i] = ch(0, CH_NTYPES);
+        g.chord[0] = ch(5, CH_MAJ);               /* F, bar 1 */
+        g.chord[5] = ch(7, CH_MAJ);               /* G, bar 2 beat 2 (held F) */
+        g.sect[0] = SEC_INTRO;
+        g.sect[2] = SEC_A;
+        arr_song(&g, 1);
+        arr_play(1);
+        run_to(BAR + BAR / 2);
+        CHECK(arr_chord_unpack(arr_chord_now).root == 5, "song: F held through the Intro");
+        run_to(2 * BAR + BAR / 4);
+        CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 7, "song: Main A on the G the song moved to "
+              "during the Intro (%d)", arr_chord_unpack(arr_chord_now).root);
+    }
+}
+
+/* MIDI out full at the stop: the resets owed are sent once it has room; a track muted mid-bend: reset at once */
+static void t_reset_owed(void)
+{
+    int o0, n0;
+    reset();
+    make_a();
+    load_all(&A);
+    arr_midi_out_on(1);
+    arr_section(SEC_A);
+    arr_play(1);
+    run_to(BEAT + BEAT / 2);                      /* the bass bent down (40) */
+    CHECK(last_val(0xE1, 0, ~0u, 1) == 40, "bent down");
+    room = 0;
+    o0 = out_n;
+    arr_play(0);
+    run_to(stub_frame + 2048);
+    CHECK(count(out_log, out_n, o0, 0, ~0u, 0xE1, 0) == 0, "MIDI out full: no reset sent yet");
+    room = 1000;
+    run_to(stub_frame + 1024);
+    CHECK(count(out_log, out_n, o0, 0, ~0u, 0xE1, 0) == 1 && count(out_log, out_n, o0, 0, ~0u, 0xB2, 11) == 1,
+          "with room: the bend and expression resets go out (%d)", count(out_log, out_n, o0, 0, ~0u, 0xE1, 0));
+    run_to(stub_frame + 2048);
+    CHECK(count(out_log, out_n, o0, 0, ~0u, 0xE1, 0) == 1, "... once");
+    /* mute */
+    reset();
+    load_all(&A);
+    arr_section(SEC_A);
+    arr_play(1);
+    run_to(BEAT + BEAT / 2);
+    n0 = stub_n;
+    arr_track_mute(3, 1);
+    run_to(stub_frame + 512);
+    CHECK(count(stub_log, stub_n, n0, 0, ~0u, 0xE1, 0) == 1 && last_val(0xE1, 0, ~0u, 1) == 64,
+          "the bass muted mid-bend: its channel's bend centred at once");
 }
 
 static void t_switch_while_playing(void)
@@ -415,6 +474,7 @@ int main(int argc, char **argv)
     t_repeat_and_controllers();
     t_section_change();
     t_chord_hold();
+    t_reset_owed();
     t_switch_while_playing();
     t_dense();
     if (argc > 1)

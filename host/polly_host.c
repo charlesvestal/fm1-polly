@@ -655,6 +655,21 @@ int main(int argc, char **argv)
                 memcpy(sim_flash + QB_DIR, img, QB_SECTOR);  /* the directory last */
             app_bank_changed();
             run_ms(1);
+        } else if (!strcmp(cmd, "bank_damage")) {  /* host-only: a byte of the bank's style N changed in the flash */
+            const uint8_t *e = sim_flash + QB_DIR + QB_DIR_HEAD + QB_DIR_ENTRY * (uint32_t)atoi(a);
+            uint32_t off = e[8] | e[9] << 8 | (uint32_t)e[10] << 16;
+            sim_flash[qb_phys(off + 30)] ^= 0x10;
+        } else if (!strcmp(cmd, "poke_full_patterns")) {   /* host-only: all 16 user patterns saved with a note, none
+                                                             * played by a song */
+            pattern_empty(&dbg_pat);
+            dbg_pat.nev = 1;
+            dbg_pat.trk[4].first = 0;
+            dbg_pat.trk[4].count = 1;
+            dbg_pat.ev[0].len = ARR_PPQ;
+            dbg_pat.ev[0].note = 60;
+            dbg_pat.ev[0].vel = 100;
+            for (int i = 0; i < ARR_USER_PATTERNS; i++)
+                project_pattern_save(i, &dbg_pat);
         } else if (!strcmp(cmd, "style")) {         /* style NAME: all six sections from it (style_all) */
             int qy = !strncmp(a, "qy:", 3), i, found = -1;
             char *nm = a + (qy ? 3 : 0);

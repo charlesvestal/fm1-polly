@@ -163,8 +163,9 @@ static uint32_t ota_service(void)
     return d;
 }
 
-/* one read request (3 tries x 5 s); data -> dst */
+/* one read request (3 tries x ota_try_ms, 5 s); data -> dst */
 static uint32_t ota_deadline;                    /* 0 = none; else ota_now_ms() limit of the session */
+static uint32_t ota_try_ms = 5000u;              /* a try's wait (Polly's bank request: shorter until it starts) */
 
 static int ota_read(uint32_t addr, uint8_t *dst, uint32_t len)
 {
@@ -180,7 +181,7 @@ static int ota_read(uint32_t addr, uint8_t *dst, uint32_t len)
     for (tries = 0; tries < 3u; tries++) {
         if (ota_send_msg(0x30, q, 8))
             return -1;
-        for (t = ota_now_ms(); ota_now_ms() - t < 5000u;) {
+        for (t = ota_now_ms(); ota_now_ms() - t < ota_try_ms;) {
             ota_idle();
             d = ota_take();
             if (!d)

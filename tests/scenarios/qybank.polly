@@ -26,6 +26,12 @@ expect slot1_bank 1
 expect slot1_nev >20
 expect tempo 105
 shot qy_patterns.png
+# a damaged style in the bank (Rock's record): picking it is refused, nothing changes
+bank_damage 2
+style qy:Rock
+expect msg_is_QY70 1
+expect song1_style1 513
+expect slot1_bank 1
 # PRESETS browses the styles: on to QY Funk, back to QY Pop
 turn PRESET 1
 wait 50

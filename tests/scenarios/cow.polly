@@ -49,3 +49,27 @@ expect song1_style1 0
 expect song1_style2 1
 expect slot1_nev 70
 expect song2_style1 33
+# every user pattern holds notes, none played by a song: a take into a style's section takes none of them
+# (NO FREE PATTERN: the take plays, unsaved), never one with notes
+poke_full_patterns
+tap HOME
+turn PRESET 1
+wait 100
+expect song 2
+expect song2_style1 33
+tap PLAY
+wait 2600
+press SEL
+tapkey b1
+release SEL
+wait 2000
+expect sect 2
+tap REC
+expect song2_style1 33
+tapkey 7
+wait 600
+tap REC
+tap PLAY
+wait 100
+expect pat2_nev 1
+expect pat15_nev 1

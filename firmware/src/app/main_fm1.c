@@ -339,14 +339,17 @@ static void fm1_main(void)
         }
         if (ota_service() == 15u && ota_dec[2] == BK_REQ && flash_ok) {   /* the QY70 bank from the host */
             uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);
-            arr_play(0);
-            fm1_delay_ms(20);                       /* the render takes the stop, then silence */
-            gm_panic();
-            ota_deadline = ota_now_ms() + 300000u;  /* 5 min at most (it takes some 30 s) */
-            bank_rx(len, crc);
+            int begun = 0;
+            ota_try_ms = 300u;                      /* its directory first, playing on: a host that does not */
+            ota_deadline = ota_now_ms() + 3000u;    /* answer costs a second, not 15 (bk_begin: then patient) */
+            bank_rx(len, crc, &begun);
+            ota_try_ms = 5000u;
             ota_deadline = 0;
-            app_bank_changed();
-            ui_init();
+            if (begun) {                            /* the flash was written: the bank again, the screen again */
+                app_bank_changed();
+                ui_init();
+            } else
+                ui_say("QY70 STYLES", "NOT WRITTEN");
         }
         if (usb.ota_req) {
             usb.ota_req = 0;

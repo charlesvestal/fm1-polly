@@ -121,8 +121,12 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
         if (nk > 128)
             return -2;
         keys[0] = (uint8_t)TREE(&r, QY_P_KEY0 + drum * 128, 7);
-        for (i = 1; i < nk; i++)
-            keys[i] = (uint8_t)(keys[i - 1] + uint_(&r, QY_P_KEYD + drum * QY_USZ) + 1u);
+        for (i = 1; i < nk; i++) {
+            uint32_t k = keys[i - 1] + uint_(&r, QY_P_KEYD + drum * QY_USZ) + 1u;
+            if (k > 127u)
+                return -9;                             /* a key past 127: damaged */
+            keys[i] = (uint8_t)k;
+        }
         kb = bitlen((uint32_t)(nk - 1));
         if (kb < 1)
             kb = 1;
@@ -164,7 +168,12 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
                     if (nn >= maxn)
                         return -4;
                     v = x->vel + 2 * dv;
-                    notes[nn].t = (uint16_t)(x->t - rb->start + start + dt);
+                    {
+                        int32_t tt = (int32_t)x->t - rb->start + start + dt;
+                        if (tt < start || tt >= start + blen)
+                            return -11;                /* outside its bar: damaged */
+                        notes[nn].t = (uint16_t)tt;
+                    }
                     notes[nn].gate = x->gate;
                     notes[nn].key = x->key;
                     notes[nn].vel = (uint8_t)(v < 1 ? 1 : v > 127 ? 127 : v);
@@ -173,17 +182,23 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
             }
             {
                 uint32_t nnew = uint_(&r, QY_P_NNEW + drum * 2 * QY_USZ + has * QY_USZ);
-                int gi = start / unit, t = 0, same = 0, gprev = -1, kprev = 0, sprev = 0;
+                uint32_t gi = (uint32_t)start / (uint32_t)unit;
+                int32_t t = 0;
+                int same = 0, gprev = -1, kprev = 0, sprev = 0;
                 for (uint32_t k = 0; k < nnew; k++) {
                     int s = 0, ki, vn, ph_, place, gu = 0;
                     if (k)
                         s = bit(&r, QY_P_SAME + drum * 2 + same);
                     same = s;
                     if (!s) {
-                        int st = (int)uint_(&r, QY_P_STEP + (drum * 4 + (sprev < 3 ? sprev : 3)) * QY_USZ);
-                        sprev = st;
+                        uint32_t st = uint_(&r, QY_P_STEP + (drum * 4 + (sprev < 3 ? sprev : 3)) * QY_USZ);
+                        sprev = st > 3u ? 3 : (int)st;
+                        if (st > 0xFFFFu || gi + st > 0xFFFFu)
+                            return -10;                /* the grid past any phrase: damaged */
                         gi += st;
-                        t = gi * unit + sint(&r, QY_P_RES + drum * QY_USZ);
+                        t = (int32_t)(gi * (uint32_t)unit) + sint(&r, QY_P_RES + drum * QY_USZ);
+                        if (t < start || t >= start + blen)
+                            return -11;
                     }
                     ki = TREE(&r, QY_P_KEY + (drum * 4 + (kprev < 3 ? kprev : 3)) * 128, kb);
                     kprev = ki;
@@ -199,7 +214,7 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
                         return -4;
                     notes[nn].t = (uint16_t)t;
                     notes[nn].gate = (uint16_t)(drum ? QY_DRUM_GATE : gu * QY_GATE_UNIT);
-                    notes[nn].key = ki < nk ? keys[ki] : 0;
+                    notes[nn].key = (uint8_t)(ki < nk ? keys[ki] & 127u : 0u);
                     notes[nn].vel = vdq(vn, vmin, vr);
                     nn++;
                 }
@@ -231,6 +246,8 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
                         dt = (int)uint_(&r, QY_P_CDT + kind * QY_USZ);
                     dtp = dt;
                     tp += dt;
+                    if (tp > 0xFFFF)
+                        return -12;
                     if (vp < 0)
                         v = TREE(&r, QY_P_CV0 + kind * 128, 7);
                     else {
@@ -238,6 +255,8 @@ int qy_decode_style(const uint8_t *stream, uint32_t len, const uint8_t *priors, 
                         dvs = dv < 0 ? 0 : dv == 0 ? 1 : 2;
                         v = vp + dv;
                     }
+                    if (v < 0 || v > 127)
+                        return -12;                    /* a value outside 0..127: damaged */
                     vp = v;
                     if (nc >= maxc)
                         return -8;

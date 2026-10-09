@@ -133,6 +133,7 @@ static void ota_commit(const uint8_t *parm)
     fm1_enter_update(parm);
 }
 
+#include "app/app.h"
 /* the QY70 style bank from the host (tools/qy70_install.py) */
 #include "bank_rx.c"
 static int bk_fetch(uint32_t addr, uint8_t *dst, uint32_t n) { return ota_read(addr, dst, n); }
@@ -168,17 +169,26 @@ static void bk_show(uint32_t pct)
     draw_text_box(0, 92, 240, &FONT_S, "QY70 STYLES", C_WHITE, 1);
     draw_text_box(0, 124, 240, &FONT_S, b, C_HI, 1);
 }
-static void bk_done(int code)                       /* the result, to the host and on the screen */
+static void bk_begin(void)                          /* a bank: playback stops, the transfer at its own pace */
+{
+    arr_play(0);
+    fm1_delay_ms(20);                               /* the render takes the stop, then silence */
+    gm_panic();
+    ota_try_ms = 5000u;
+    ota_deadline = ota_now_ms() + 300000u;          /* 5 min at most (it takes some 30 s) */
+}
+static void bk_done(int code, int begun)            /* the result, to the host (and the screen, once begun) */
 {
     uint8_t b[8];
     ota_read(code ? BK_FAIL_ADDR | (uint32_t)code : BK_OK_ADDR, b, 8);
+    if (!begun)
+        return;                                     /* refused at once: nothing stopped, nothing shown */
     lcd_fill(0, 0, 240, 240, C_BLACK);
     draw_text_box(0, 92, 240, &FONT_S, "QY70 STYLES", C_WHITE, 1);
     draw_text_box(0, 124, 240, &FONT_S, code ? "NOT WRITTEN" : "WRITTEN", C_HI, 1);
     fm1_delay_ms(1200);
 }
 
-#include "app/app.h"
 #include "app/panel.c"
 #include "app/plat_fm1.c"
 #include "app/project.c"

@@ -252,6 +252,7 @@ static uint8_t song_len;                           /* its bars, from the command
 static uint8_t sbar;                               /* the song's bar */
 static int8_t tmpl = -1;                           /* the template playing, -1 none */
 static uint8_t key;                                /* the templates' key, semitones over C */
+static uint8_t chord_owed;                         /* leaving a held Intro / Ending: the song's latest chord */
 static uint32_t beat_now, bar_beat0, t_origin;     /* beats since the start: now, at the bar's downbeat, and
                                                     * where the template's first bar fell */
 
@@ -384,50 +385,81 @@ static void all_off(void)
 static const uint8_t KIND_ST[QY_NKINDS] = {0xE0, 0xB0, 0xB0, 0xB0, 0xD0};
 static const uint8_t KIND_CC[QY_NKINDS] = {0, 1, 11, 10, 0};
 _Static_assert(QY_NKINDS == 5, "each controller kind its message (KIND_ST, KIND_CC)");
-static uint16_t ctl_dirty;                         /* channels a phrase's controllers moved */
-static void ctl_msg(uint32_t st, uint32_t d1, uint32_t d2)   /* to the synth, and MIDI out when it has room */
-{
-    gm_midi_now(st, d1, d2, at);
-    if (mout && out_room(1))
-        arr_midi_out(st, d1, d2);
-}
+/* channels a phrase's controllers moved: in the synth; out (MIDI out was on: sent or dropped, the far side's state
+ * unknown); and the MIDI-out resets still owed (a full ring: retried each block until sent, as the sounds) */
+static uint16_t ctl_dirty, ctl_out_dirty, ctl_out_pend;
 static void ctl_send(uint32_t chan, uint32_t kind, uint32_t v)
 {
-    uint32_t st = KIND_ST[kind] | chan;
+    uint32_t st = KIND_ST[kind] | chan, d1 = KIND_CC[kind], d2 = v;
     if (KIND_ST[kind] == 0xE0u)
-        ctl_msg(st, 0, v);                         /* a bend's top 7 bits: the MSB */
+        d1 = 0;                                    /* a bend's top 7 bits: the MSB */
     else if (KIND_ST[kind] == 0xD0u)
-        ctl_msg(st, v, 0);
-    else {
-        ctl_msg(st, KIND_CC[kind], v);
-        if (KIND_CC[kind] == 10)
+        d1 = v, d2 = 0;
+    gm_midi_now(st, d1, d2, at);
+    ctl_dirty |= (uint16_t)(1u << chan);
+    if (mout) {
+        if (out_room(1))
+            arr_midi_out(st, d1, d2);
+        ctl_out_dirty |= (uint16_t)(1u << chan);
+        if (st == (0xB0u | chan) && d1 == 10)
             out_sent[chan][2] = 0xFF;              /* the far side's pan: not the track's now */
     }
-    ctl_dirty |= (uint16_t)(1u << chan);
 }
-/* the channels the phrases moved, back: bend centred, modulation 0, expression full, pressure 0, sustain off,
- * pan the slot playing's (its first track on that channel; centre without one) */
-static void ctl_reset(void)
+/* a reset: bend centred, modulation 0, expression full, pressure 0, sustain off, pan the slot playing's (its first
+ * track on that channel; centre without one) */
+#define CTL_RESET_N 6
+static void ctl_reset_msg(uint32_t c, int i, uint32_t *st, uint32_t *d1, uint32_t *d2)
 {
-    for (uint32_t c = 0; c < 16 && ctl_dirty; c++) {
-        uint32_t pan = 64;
-        if (!(ctl_dirty >> c & 1u))
-            continue;
+    static const uint8_t ST[CTL_RESET_N] = {0xE0, 0xB0, 0xB0, 0xD0, 0xB0, 0xB0}, D1[CTL_RESET_N] = {0, 1, 11, 0, 64, 10},
+                         D2[CTL_RESET_N] = {64, 0, 127, 0, 0, 64};
+    *st = ST[i] | c;
+    *d1 = D1[i];
+    *d2 = D2[i];
+    if (D1[i] == 10 && ST[i] == 0xB0)
         for (int t = ARR_TRACKS - 1; t >= 0; t--)
             if ((pat[cur].trk[t].chan & 15u) == c)
-                pan = pat[cur].trk[t].pan & 127u;
-        ctl_msg(0xE0u | c, 0, 64);
-        ctl_msg(0xB0u | c, 1, 0);
-        ctl_msg(0xB0u | c, 11, 127);
-        ctl_msg(0xD0u | c, 0, 0);
-        ctl_msg(0xB0u | c, 64, 0);
-        ctl_msg(0xB0u | c, 10, pan);
-        if (mout)
-            out_sent[c][2] = 0xFF;                 /* the slot's sounds again (sounds_out) */
+                *d2 = pat[cur].trk[t].pan & 127u;
+}
+/* the MIDI-out resets owed, as the ring has room for a channel's whole reset (MIDI out off: none owed) */
+static void ctl_out_flush(void)
+{
+    if (!mout) {
+        ctl_out_pend = ctl_out_dirty = 0;
+        return;
+    }
+    for (uint32_t c = 0; c < 16 && ctl_out_pend; c++) {
+        uint32_t st, d1, d2;
+        if (!(ctl_out_pend >> c & 1u))
+            continue;
+        if (!out_room(CTL_RESET_N))
+            return;                                /* the rest at a later block */
+        for (int i = 0; i < CTL_RESET_N; i++) {
+            ctl_reset_msg(c, i, &st, &d1, &d2);
+            arr_midi_out(st, d1, d2);
+            if (d1 == 10 && (st & 0xF0u) == 0xB0u)
+                out_sent[c][2] = (uint8_t)d2;
+        }
+        ctl_out_pend &= (uint16_t)~(1u << c);
+    }
+}
+/* the channels in `mask` the phrases moved, back: the synth now, MIDI out now or in later blocks */
+static void ctl_reset_mask(uint32_t mask)
+{
+    for (uint32_t c = 0; c < 16; c++) {
+        uint32_t st, d1, d2;
+        if (!((mask & ctl_dirty) >> c & 1u))
+            continue;
+        for (int i = 0; i < CTL_RESET_N; i++) {
+            ctl_reset_msg(c, i, &st, &d1, &d2);
+            gm_midi_now(st, d1, d2, at);
+        }
         ctl_dirty &= (uint16_t)~(1u << c);
     }
-    out_pend |= mout && arr_playing;
+    ctl_out_pend |= (uint16_t)(ctl_out_dirty & mask);
+    ctl_out_dirty &= (uint16_t)~mask;
+    ctl_out_flush();
 }
+static void ctl_reset(void) { ctl_reset_mask(0xFFFFu); }
 
 /* the playing pattern's sounds: program, volume, pan, sends. To the synth whenever a pattern starts (setup);
  * to MIDI out after the block's notes, only what changed since it was last sent, the rest in later blocks
@@ -455,6 +487,7 @@ static void setup(void)
 static void sounds_out(void)
 {
     const pattern_t *p = &pat[cur];
+    ctl_out_flush();                               /* the controller resets owed, before the sounds */
     if (!out_pend || !mout || busy[cur])
         return;
     for (int i = 0; i < ARR_TRACKS; i++)
@@ -858,6 +891,7 @@ static void transport_start(void)
     fill_to = to;
     arr_next_sect = SEC_SAME;
     ended = 0;
+    chord_owed = 0;
     cur = (uint8_t)(s - 1);
     first_tick = 1;
     sec_bars = 0;
@@ -911,6 +945,8 @@ static void switch_to(uint8_t sec)
     ctl_reset();                                   /* the phrases' bends and swells end with their section */
     if (arr_sect == SEC_INTRO && sec != SEC_INTRO)
         t_origin = beat_now;                       /* a template's first bar: after the Intro */
+    if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && sec != arr_sect)
+        chord_owed = 1;                            /* the song's chords held meanwhile: its latest, at once */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -1006,7 +1042,11 @@ static void beat_chord(int play)
         return;                                    /* the Intro and the Ending: the chord of their first beat, held */
     if (song_on) {
         if (!song_restart && beat < 4 && sbar < ARR_SONGBARS) {
-            chord_t c = song.chord[sbar * 4u + beat];
+            int k = (int)(sbar * 4u + beat);
+            chord_t c = song.chord[k];
+            while (chord_owed && k > 0 && !(c.type < CH_NTYPES && c.root < 12))
+                c = song.chord[--k];               /* after a held section: the song's latest chord */
+            chord_owed = 0;
             if (c.type < CH_NTYPES && c.root < 12)
                 chord_change(c, play);
         }
@@ -1066,10 +1106,10 @@ static void bank_events(int play)
             int out, vel;
             if (e->t != pp || !audible)
                 continue;
-            out = xpose(&tr->x, &tk[t].xs, e->key, chord);
+            out = xpose(&tr->x, &tk[t].xs, e->key & 127, chord);
             vel = (int)((uint32_t)e->vel * S->trk[t].vscale >> 7);
             if (out >= 0)
-                note_start(t, e->key, out, vel < 1 ? 1 : vel > 127 ? 127 : vel, tr->chan & 15, e->gate);
+                note_start(t, e->key & 127, out, vel < 1 ? 1 : vel > 127 ? 127 : vel, tr->chan & 15, e->gate);
         }
         tk[t].nx = (uint16_t)n;
         tk[t].cx = (uint16_t)c;
@@ -1272,8 +1312,10 @@ static void drain(void)
         case C_MUTE:
             if (a < ARR_TRACKS) {
                 tk[a].mute = (uint8_t)b;
-                if (b)
+                if (b) {
                     track_off(&tk[a]);
+                    ctl_reset_mask(1u << (pat[cur].trk[a].chan & 15u));   /* muted mid-bend: not left bent */
+                }
             }
             break;
         case C_MOUT:
@@ -1367,6 +1409,7 @@ void arr_block(uint32_t frames)
     arr_template_now = tmpl;
     arr_song_wait = (uint8_t)(song_on && song_restart);
     sync();
+    ctl_out_flush();                               /* controller resets MIDI out still owes (playing or not) */
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
         out_link = arr_midi_out_link();
         memset(out_sent, 0xFF, sizeof out_sent);
@@ -1470,7 +1513,8 @@ void arr_init(void)                                /* at boot, before the render
         xpose_reset(&tk[t].xs);
         arr_track_hit[t] = 0;
     }
-    ctl_dirty = 0;
+    ctl_dirty = ctl_out_dirty = ctl_out_pend = 0;
+    chord_owed = 0;
     chord.root = 0;
     chord.type = CH_MAJ7;                          /* patterns are written over C M7: as written */
     chord.bass = CH_NOBASS;

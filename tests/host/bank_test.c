@@ -125,6 +125,36 @@ int main(int argc, char **argv)
         CHECK(n < 2 || qb_decode(1, &st) == 0, "... style 1 plays");
         CHECK(qb_decode(n, &st) == QB_E_INDEX, "no style past the last");
     }
+    {   /* damaged streams (the CRC bypassed: the decoder alone): never a key past 127, a note outside its phrase, a
+         * controller value past 127; a damage it cannot tell is still a well-formed style */
+        static qy_phrase_t ph[QB_MAXPH];
+        static qy_note_t nt[QB_MAXN];
+        static qy_ctl_t cl[QB_MAXC];
+        static qy_work_t w;
+        static uint8_t buf[QB_RECMAX];
+        uint32_t seed = 12345u, bad = 0, ok = 0;
+        for (int it = 0; it < 3000; it++) {
+            const uint8_t *e = img + QB_DIR_HEAD + QB_DIR_ENTRY * (uint32_t)(it % n);
+            uint32_t off = e[8] | e[9] << 8 | (uint32_t)e[10] << 16, hl = e[12] | e[13] << 8, sl = e[14] | e[15] << 8;
+            const uint8_t *h = img + QB_SECTOR + off;
+            int nph = h[15 + 7 * __builtin_popcount(h[14])];
+            memcpy(buf, h + hl, sl);
+            for (int f = 0; f < 1 + it % 3; f++) {
+                seed = seed * 1103515245u + 12345u;
+                buf[(seed >> 8) % sl] ^= (uint8_t)(1u << (seed >> 4 & 7u));
+            }
+            if (qy_decode_style(buf, sl, img + QB_SECTOR, nph, ph, nt, QB_MAXN, cl, QB_MAXC, &w))
+                continue;
+            ok++;
+            for (int k = 0; k < nph; k++)
+                for (int j = 0; j < ph[k].nnotes; j++)
+                    bad += nt[ph[k].note0 + j].key > 127 || nt[ph[k].note0 + j].t >= ph[k].length;
+            for (int k = 0; k < nph; k++)
+                for (int j = 0; j < ph[k].nctl; j++)
+                    bad += cl[ph[k].ctl0 + j].val > 127;
+        }
+        CHECK(!bad, "damaged streams: %u decoded anyway, %u events out of range", ok, bad);
+    }
     load();                                       /* a damaged directory: no bank */
     flash[QB_DIR + QB_DIR_HEAD + 30] ^= 1;
     CHECK(qb_mount() == QB_BAD && qb_count() == 0 && !*qb_name(0), "a damaged directory: QB_BAD, no styles");
