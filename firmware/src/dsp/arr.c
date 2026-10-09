@@ -16,7 +16,8 @@
 #define FPT_Q16_1BPM 361267200u                    /* Q16 output frames a tick at 1 BPM: 44100 * 60 / 480 * 65536 */
 #define MAX_ONS 48                                 /* note-ons a block, at most: the interrupt's work bounded */
 #define MAX_CATCHUP 4                              /* bunched clocks in: the first 4 clocks' ticks sound, the rest only move on */
-#define EXT_LAG (3u * ARR_CLOCK_TICKS)             /* clock in: ticks owed beyond which they play at once */
+#define EXT_LAG (6u * ARR_CLOCK_TICKS)             /* clock in: ticks owed beyond which they move on at once (a few
+                                                    * clocks bunched by USB are only played faster) */
 #define EXT_PEND_MAX (2u * ARR_PPQ)                /* clock in: ticks owed, at most (two beats) */
 #define FAR 0x40000000u                            /* render ticks: "not soon" (comparisons are wrap-safe) */
 #define START_WAIT 8                               /* blocks a start may wait for its sounds to go out */
@@ -48,10 +49,10 @@ static void post(uint32_t c, uint32_t a, uint32_t b)
     q_w = w + 1;
 }
 
-/* the four slots (Main A, Main B, Fill, Ending). The main loop copies a pattern in with its slot marked
- * busy, then counts the slot's generation up before it releases it; the render, which interrupts the main
- * loop and never the other way round, leaves a busy slot alone and, seeing a new generation, finds its
- * tracks' places in it before it plays anything (sync). */
+/* the six slots (Intro, Main A, Main B, Fill AB, Fill BA, Ending: a section's is sec - 1). The main loop
+ * copies a pattern in with its slot marked busy, then counts the slot's generation up before it releases it;
+ * the render, which interrupts the main loop and never the other way round, leaves a busy slot alone and,
+ * seeing a new generation, finds its tracks' places in it before it plays anything (sync). */
 static pattern_t pat[ARR_NSECT];
 static volatile uint8_t busy[ARR_NSECT], gen[ARR_NSECT];
 static volatile uint8_t ident[ARR_NSECT];         /* counts loads of another pattern (not stores of an edit) */
@@ -166,6 +167,13 @@ int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect)
     return 1;
 }
 #ifdef ARR_TEST
+static uint32_t tick_calls;
+uint32_t arr_test_tick_calls(void) { return tick_calls; }
+#define TICK_CALLED() tick_calls++
+#else
+#define TICK_CALLED() ((void)0)
+#endif
+#ifdef ARR_TEST
 void arr_test_busy(int slot, int on) { busy[slot] = (uint8_t)(on != 0); }   /* a load caught midway */
 void arr_test_song_busy(int on) { song_busy = (uint8_t)(on != 0); }           /* a song copy caught midway */
 #endif
@@ -176,6 +184,7 @@ typedef struct {
     uint8_t mo;                                    /* its note-on went to MIDI out: its note-off goes there too */
     uint8_t fixed;                                 /* from the section before: 1 kept as is, 2 (it was on a
                                                     * Chord 1 / 2 or Bass track) ended at a chord change */
+    uint8_t blk;                                   /* the block its note-on went in (blk_count, low byte) */
     uint32_t end;                                  /* the render tick (arr_ticks) it ends at */
 } held_t;
 typedef struct {
@@ -200,6 +209,7 @@ static uint8_t out_sent[16][5];                    /* each channel's sounds as l
 static uint8_t out_pend;                           /* the playing pattern's sounds still to send out */
 static uint32_t out_link;                          /* the connection they were sent on */
 static int ons_left;                               /* note-ons this block may still start */
+static uint8_t blk_count;                          /* counts the blocks (a note struck in this one: held_t blk) */
 static uint32_t at;                                /* the tick playing: its sample within the EAS block (gm_midi_now) */
 #define LATE_OFFS 64                               /* note-offs held for the next block's start, at most */
 static uint16_t late_off[LATE_OFFS];               /* chan << 8 | note */
@@ -209,6 +219,7 @@ static uint8_t start_wait;                         /* a start waiting for its so
 /* sections, songs, templates */
 static uint8_t first_tick;                         /* the first tick since a start: no bar or beat behind it */
 static uint8_t fill_to = SEC_B;                    /* the Main the fill playing goes to after its bar */
+static uint8_t ended;                              /* stopped by an Ending or a song's end (Continue: a new start) */
 static uint16_t sec_bars;                          /* bars played of the section playing */
 static uint8_t song_on, song_loop, song_restart;   /* restart: set while playing, from bar 1 at the next bar line */
 static uint8_t song_len;                           /* its bars, from the command: kept outside the copy */
@@ -269,11 +280,12 @@ static void on_out(held_t *h)
     }
 }
 /* the synth takes a note-off at a block's start: one due in a block's second half goes at the next one's, so
- * a release is +-2.9 ms from its time and a note's length right on average. A note-on of the same note before
- * then sends it first (never after the note-on: it would end the new note). */
-static void synth_off(uint32_t chan, uint32_t note)
+ * a release is +-2.9 ms from its time and a note's length right on average; so does one of a note struck in
+ * this block (fresh: a note of a few ticks, its note-on later in the block than the block's start). A note-on
+ * of the same note before then sends it first (never after the note-on: it would end the new note). */
+static void synth_off(uint32_t chan, uint32_t note, int fresh)
 {
-    if (at >= GM_BLOCK / 2 && n_late < LATE_OFFS)
+    if ((fresh || at >= GM_BLOCK / 2) && n_late < LATE_OFFS)
         late_off[n_late++] = (uint16_t)(chan << 8 | note);
     else
         gm_midi_now(0x80u | chan, note, 0, 0);
@@ -297,7 +309,7 @@ static void synth_on(uint32_t chan, uint32_t note, uint32_t vel)
 static void note_end(track_t *t, int i)            /* the note-off goes to the note it struck */
 {
     held_t *h = &t->h[i];
-    synth_off(h->chan, h->out);
+    synth_off(h->chan, h->out, h->blk == blk_count);
     off_out(h);
     held_remove(t, i);
 }
@@ -327,6 +339,7 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
     h->chan = (uint8_t)chan;
     h->mo = 0;
     h->fixed = 0;
+    h->blk = blk_count;
     h->end = arr_ticks + (uint32_t)(len ? len : 1);
     if ((int32_t)(h->end - next_end) < 0)
         next_end = h->end;
@@ -523,7 +536,8 @@ static void rec_write(const rec_t *r)
 }
 static void rec_release(rec_t *r, uint32_t end)
 {
-    uint32_t len = end > r->qabs ? end - r->qabs : 0;
+    uint32_t len = (int32_t)(end - r->qabs) > 0 ? end - r->qabs : 0;   /* (render ticks wrap: compared as
+                                                                         * differences) */
     r->len = (uint16_t)(len > 0xFFFFu ? 0xFFFFu : len);
     r->state = R_DONE;
 }
@@ -546,12 +560,12 @@ static void rec_flush(int all)
             uint32_t pass_end = r->qabs - r->qpos + pat_len(&pat[r->slot]);
             if (all)
                 rec_release(r, tick_now());
-            else if (arr_ticks >= pass_end)
+            else if ((int32_t)(arr_ticks - pass_end) >= 0)
                 rec_release(r, pass_end);
             else
                 continue;
         }
-        if (all || r->qabs < arr_ticks) {
+        if (all || (int32_t)(r->qabs - arr_ticks) < 0) {
             rec_write(r);
             r->state = R_FREE;
         }
@@ -732,10 +746,11 @@ static void transport_start(void)
         s = SEC_INTRO;
     if (s)
         s = resolve(s, &to);
-    if (!is_sect(s))                               /* none, no fill, no Ending */
-        s = cur == SEC_B - 1 ? SEC_B : SEC_A;
+    if (!is_sect(s))                               /* none, no fill, no Ending: as it was (a fill: its Main) */
+        s = is_fill(cur + 1u) ? fill_to : cur == SEC_B - 1 ? SEC_B : SEC_A;
     fill_to = to;
     arr_next_sect = SEC_SAME;
+    ended = 0;
     cur = (uint8_t)(s - 1);
     first_tick = 1;
     sec_bars = 0;
@@ -762,6 +777,7 @@ static void transport_stop(void)
 {
     rec_flush(1);                                  /* the notes being recorded end here */
     arr_playing = 0;
+    ended = 0;
     start_wait = 0;
     ext_pend = 0;                                  /* no tick after a stop */
     all_off();
@@ -817,6 +833,7 @@ static int bar_line(void)
         if (sbar >= song_len) {
             if (!song_loop) {
                 stop_ours();
+                ended = 1;
                 return 0;
             }
             sbar = 0;
@@ -827,6 +844,8 @@ static int bar_line(void)
     }
     if (next == SEC_END && arr_sect == SEC_END)
         next = SEC_SAME;                           /* the ending again: it plays out and stops */
+    if (next == SEC_FILL && (arr_sect == SEC_INTRO || arr_sect == SEC_END))
+        next = SEC_SAME;                           /* a Fill in the Intro or the Ending: they play out */
     if (next == SEC_SAME && mark != arr_sect)
         next = mark;
     if (next == SEC_SAME && !first_tick) {
@@ -836,6 +855,7 @@ static int bar_line(void)
             next = SEC_A;                          /* the intro played once */
         else if (arr_sect == SEC_END && pos == 0) {    /* the ending played once */
             stop_ours();
+            ended = 1;
             return 0;
         }
     }
@@ -845,6 +865,7 @@ static int bar_line(void)
         next = resolve(next, &to);
         if (next == SEC_STOP) {                    /* an Ending without notes: the end is here */
             stop_ours();
+            ended = 1;
             return 0;
         }
         if (next && (next != arr_sect || (pos != 0 && next == asked))) {   /* (a fallback to the section
@@ -924,12 +945,35 @@ static void events(int play)
     }
     next_ev = nx;
 }
+/* k ticks with nothing played (clocks in bunched far behind), none of them a beat line (the place stops at the
+ * next one at most): the notes that end in them end, the events in them are passed over (wake), the F8 count
+ * and the place move on */
+static void skip(uint32_t k)
+{
+    const pattern_t *p = &pat[cur];
+    uint32_t bar = bar_len(p), last;
+    arr_ticks += k;
+    clk_div = (uint8_t)((clk_div + k) % ARR_CLOCK_TICKS);
+    if ((int32_t)(next_end - arr_ticks) <= 0)
+        ends_due();
+    pos += k;
+    last = pos - 1u;
+    arr_bar = (uint16_t)(last / bar);
+    arr_beat_tick = (uint16_t)(last % bar);
+    if (pos >= pat_len(p)) {
+        pos = 0;
+        seek();
+    }
+    wake = 1;
+    rec_flush(0);
+}
 /* one tick; play 0: the position moves on and notes end, nothing new starts (clocks in too bunched). Most
  * ticks have nothing due: no note ends (next_end), no event (next_ev), no beat line, no F8 out */
 static void tick(int play)
 {
     const pattern_t *p = &pat[cur];
     uint32_t bar;
+    TICK_CALLED();
     arr_ticks++;
     in_tick = 1;
     if (clk_out && !arr_ext && clk_div == 0)
@@ -992,9 +1036,10 @@ static void chord_change(chord_t c, int restrike)
                 continue;
             }
             ons_left--;
-            synth_off(h->chan, h->out);
+            synth_off(h->chan, h->out, h->blk == blk_count);
             off_out(h);
             h->out = (uint8_t)out;
+            h->blk = blk_count;
             synth_on(h->chan, h->out, h->vel);
             on_out(h);
         }
@@ -1017,7 +1062,9 @@ static void clock_in(int msg)
         arr_ext = 1;
         ext_age = 0;
     } else if (msg == ARR_CLK_CONTINUE) {
-        if (!arr_playing) {
+        if (!arr_playing && ended)                 /* after an Ending (or a song's end): from the start */
+            transport_start();
+        else if (!arr_playing) {
             seek();
             setup();
         }
@@ -1049,8 +1096,9 @@ static void drain(void)
             fpt = FPT_Q16_1BPM / a;
             break;
         case C_CHORD: chord_change(arr_chord_unpack(a), 1); break;
-        case C_SECTION:
-            if (a >= SEC_INTRO && a <= SEC_FILL)
+        case C_SECTION:                            /* (a Fill in the Intro or the Ending: ignored) */
+            if (a >= SEC_INTRO && a <= SEC_FILL &&
+                !(a == SEC_FILL && arr_playing && (arr_sect == SEC_INTRO || arr_sect == SEC_END)))
                 arr_next_sect = (uint8_t)a;
             break;
         case C_MUTE:
@@ -1139,6 +1187,7 @@ void arr_block(uint32_t frames)
 {
     const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
+    blk_count++;
     arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
     if (stage_ready && !song_busy) {               /* a song set: in, whole */
         memcpy(&song, &stage, sizeof song);
@@ -1165,10 +1214,17 @@ void arr_block(uint32_t frames)
             ext_since = 0;
             ext_clocks = 0;
         }
-        if (ext_pend > EXT_LAG) {                  /* far behind (clocks bunched): to a clock's ticks at once */
-            int n = 0;
-            at = 0;
+        if (ext_pend > EXT_LAG) {                  /* far behind (clocks bunched): to a clock's ticks at once: */
+            uint32_t n = 0;                        /* the first 4 clocks' ticks play, then the place jumps from */
+            at = 0;                                /* beat line to beat line (each a silent tick: its chord set) */
             while (ext_pend > ARR_CLOCK_TICKS && arr_playing) {
+                uint32_t k = ext_pend - ARR_CLOCK_TICKS, room = ARR_PPQ - pos % ARR_PPQ;
+                if (n >= MAX_CATCHUP * ARR_CLOCK_TICKS && pos % ARR_PPQ && !first_tick) {
+                    k = k < room ? k : room;
+                    skip(k);
+                    ext_pend -= k;
+                    continue;
+                }
                 ext_pend--;
                 tick(n++ < MAX_CATCHUP * ARR_CLOCK_TICKS);
             }

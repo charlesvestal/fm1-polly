@@ -16,8 +16,9 @@
 #define K_TEAL RGB(38, 166, 154)
 #define K_TEAL_T RGB(196, 230, 222)
 #define K_AMBER RGB(226, 166, 60)
-#define K_OCHRE RGB(196, 128, 44)                    /* Fill BA: the fills' family, darker */
+#define K_OLIVE RGB(112, 148, 64)                    /* Fill BA (Fill AB: amber) */
 #define K_PLUM RGB(150, 112, 170)                    /* the Intro */
+#define K_SLATE RGB(84, 118, 168)                    /* the Ending */
 
 enum { P_SONG, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_MASTER, P_CHORDS, P_ARRANGE, P_ARRANGE2,
        P_ARRANGE3, P_TEMPLATES, P_TCOPY, P_SETUP, P_PANEL, NPAGES };
@@ -40,7 +41,7 @@ static const char *const JOB_NAME[3] = {"Erase track", "Copy pattern", "Clear pa
 static const char *const SONG_JOB_NAME[2] = {"Clear song", "Copy song"};
 static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
 static const char *const LIGHTS_NAME[3] = {"off", "on", "notes"};
-static const char SECT_LETTER[SEC_FILL + 1] = {'-', 'I', 'A', 'B', 'F', 'f', 'E', 'F'};
+static const char *const SECT_LETTER[SEC_FILL + 1] = {"-", "I", "A", "B", "AB", "BA", "E", "F"};   /* the Arrange grid */
 static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 #define NNAME_CHARS ((int)sizeof NAME_CHARS - 1)
 enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
@@ -83,6 +84,7 @@ static struct {
     uint32_t act_t;
     char msg[2][24];
     uint32_t msg_until;
+    uint8_t msg_first;                               /* the message says the section PLAY starts with */
     int8_t touched;
     uint32_t touch_until;
     uint32_t frame;
@@ -180,7 +182,7 @@ static int upper_only(const char *s)
 static uint16_t sect_colour(int s)
 {
     return s == SEC_INTRO ? K_PLUM : s == SEC_A ? K_TEAL : s == SEC_B ? K_ACCENT : s == SEC_FILL_AB || s == SEC_FILL ? K_AMBER
-         : s == SEC_FILL_BA ? K_OCHRE : K_DIM;
+         : s == SEC_FILL_BA ? K_OLIVE : s == SEC_END ? K_SLATE : K_DIM;
 }
 /* the slot of the section playing (the one the pattern pages show and edit) */
 static int sect_slot(int sect) { return sect >= SEC_INTRO && sect <= SEC_END ? sect - 1 : SEC_A - 1; }
@@ -862,10 +864,8 @@ static void draw_arrange(void)
         if (cur)
             cv_round(x - 1, y - 1, 27, 15, 4, K_TEXT);
         cv_round(x, y, 25, 13, 3, in ? sect_colour(se) : K_PANEL);
-        if (mark) {
-            char c[2] = {SECT_LETTER[g->sect[b]], 0};
-            text_c(x + 12, y - 2, &FONT_XS, c, in ? K_BG : K_DIM);
-        }
+        if (mark)
+            text_c(x + 12, y - 2, &FONT_XS, SECT_LETTER[g->sect[b]], in ? K_BG : K_DIM);
         if (b == pbar)
             cv_round(x + 19, y + 4, 4, 4, 2, K_BG);
     }
@@ -893,7 +893,7 @@ static void draw_arrange2(void)
         char *e, k[2] = {(char)('1' + i - first), 0};
         if (on)
             cv_round(4, y, 232, 20, 5, K_PANEL);
-        pill(8, y, 76, SECT_NAME[i + 1], on ? sect_colour((int)i + 1) : K_LINE, K_BG);
+        pill(8, y, 76, SECT_NAME[i + 1], sect_colour((int)i + 1), K_BG);
         style_name(g->style[i], t);
         e = t;
         while (*e)
@@ -904,7 +904,7 @@ static void draw_arrange2(void)
                 *e++ = app.hdr[i].name[n];
             *e = 0;
         }
-        text_fit(92, y + 1, &FONT_S, t, 122, on ? K_TEXT : K_DIM);
+        text_fit(92, y + (on ? 0 : 1), on ? &FONT_B : &FONT_S, t, 122, K_TEXT);   /* the knobs' three: bold */
         if (on)
             cv_text(222, y + 3, &FONT_XS, k, K_DIM);
     }

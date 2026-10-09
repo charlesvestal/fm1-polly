@@ -23,6 +23,7 @@ static void say(const char *a, const char *b)
         ui.msg[1][i] = b[i];
     ui.msg[1][i] = 0;
     ui.msg_until = plat_ms() + 1300u;
+    ui.msg_first = 0;
 }
 void ui_say(const char *a, const char *b) { say(a, b); }
 
@@ -354,10 +355,15 @@ static void sel_key(int k)
         pick_template(w);
     else if (b >= 0 && b < 5) {
         int sec = SEL_SECT[b];
+        if (sec == SEC_FILL && arr_playing && (arr_sect == SEC_INTRO || arr_sect == SEC_END)) {
+            say("NO FILL", arr_sect == SEC_INTRO ? "in the Intro" : "in the Ending");   /* (the engine's rule) */
+            return;
+        }
         arr_section(sec);
         if (sec == SEC_FILL && arr_playing)      /* the Fill it will be, by the Main playing */
             sec = arr_sect == SEC_B || arr_sect == SEC_FILL_BA ? SEC_FILL_BA : SEC_FILL_AB;
         say(arr_playing ? "NEXT" : "FIRST", SECT_NAME[sec]);
+        ui.msg_first = !arr_playing;             /* "FIRST ..." goes when PLAY starts it */
     } else
         say("MARKERS", "later");
 }
@@ -503,6 +509,9 @@ static void button_down(int b)
             pick_template(app.tmpl < 0 ? 0 : app.tmpl);
         else if (ui.page == P_CHORDS || arrange_page(ui.page))
             song_back();
+        if (ui.msg_first)                        /* the section asked for first: now playing */
+            ui.msg_until = plat_ms();
+        ui.msg_first = 0;
         arr_play(!arr_playing);
         break;
     case B_REC:
@@ -762,6 +771,19 @@ static void slot_style(int s, int to)
  * patterns (its defaults, 6n..6n+5); as slot_style, each saved first or refused while playing */
 static void style_all(int n)
 {
+    int unsaved_any = 0;
+    for (int s = 0; s < ARR_NSECT; s++)          /* all six or none: a slot with changes first saved (stopped) */
+        unsaved_any |= slot_unsaved(s);
+    if (unsaved_any) {
+        if (arr_playing) {
+            say("UNSAVED", "SAVE FIRST");
+            return;
+        }
+        if (save_all() != 0) {
+            say("NOT SAVED", "STYLE KEPT");
+            return;
+        }
+    }
     for (int s = 0; s < ARR_NSECT; s++)
         slot_style(s, n < 0 ? proj.song * ARR_NSECT + s : ARR_FACTORY0 + n * ARR_NSECT + s);
     if (n >= 0)
@@ -884,8 +906,8 @@ static void template_copy(void)
     itoa_u((uint32_t)bar + 1u, cat_s(cat_s(t, m->name), " > bar "));
     say("COPIED", t);
 }
-/* Copy song: four user patterns for the target, all different and none the source's: its own where they
- * qualify, else its default (4n..), else one no song plays, else one the source does not; -1: none left */
+/* Copy song: six user patterns for the target, all different and none the source's: its own where they
+ * qualify, else its default (6n..), else one no song plays, else one the source does not; -1: none left */
 static int copy_patterns_pick(int to, uint8_t *st)
 {
     const song_t *g = csong(), *d = &songs.song[to];

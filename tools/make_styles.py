@@ -457,6 +457,9 @@ def check(style):
                     errs.append("%s:%d: %s: tick %d past the pattern's end" % (f, at, TRACKS[t], tk))
                 if not 1 <= ln <= n:
                     errs.append("%s:%d: %s: length %d outside 1..%d" % (f, at, TRACKS[t], ln, n))
+                elif ln > LEN_MAX:
+                    errs.append("%s:%d: %s: length %d longer than the tables hold (%d ticks)" % (
+                        f, at, TRACKS[t], ln, LEN_MAX))
                 elif len_of(len_code(ln)) != ln:
                     print("make_styles: %s:%d: %s: length %d kept as %d in the tables" % (
                         f, at, TRACKS[t], ln, len_of(len_code(ln))), file=sys.stderr)
@@ -501,7 +504,9 @@ def len_code(ln):
     """a length's 11-bit code: 1..1020 exact (0..1019); longer, the nearest multiple of LEN_STEP (to LEN_MAX)"""
     if ln <= LEN_EXACT:
         return ln - 1
-    return LEN_EXACT - 1 + min(2047 - (LEN_EXACT - 1), max(1, (ln - LEN_EXACT + LEN_STEP // 2) // LEN_STEP))
+    if ln > LEN_MAX:                    # check() refuses these
+        raise StyErr("length %d longer than the tables hold (%d ticks)" % (ln, LEN_MAX))
+    return LEN_EXACT - 1 + max(1, (ln - LEN_EXACT + LEN_STEP // 2) // LEN_STEP)
 
 
 def len_of(c):

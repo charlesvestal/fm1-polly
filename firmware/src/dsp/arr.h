@@ -92,8 +92,9 @@ _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
  * MIDI clock: out, an F8 every ARR_CLOCK_TICKS (20) ticks. In, each F8 allows 20 more ticks, played at the
  * rate the clocks come at (the frames between them, smoothed), so the ticks between two clocks are spread
  * evenly, never 20 at once; a little behind (more than a clock's ticks owed), faster; far behind (clocks
- * bunched), at once (only the first 4 clocks' worth sounding); never ahead of the clocks: tick 20 k is not
- * played before clock k + 1. */
+ * bunched: more than 6 clocks' ticks owed), at once: the first 4 clocks' worth played, then the place jumps
+ * from beat line to beat line (the notes due to end in the jump end, the beat's chord is set, nothing is
+ * restruck); never ahead of the clocks: tick 20 k is not played before clock k + 1. */
 void arr_init(void);
 void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */
@@ -102,13 +103,15 @@ void arr_set_chord(chord_t c);                   /* the chord now (live, or the 
 void arr_load_pattern(int slot, const pattern_t *p);
 /* SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
  * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
- * is Fill BA from Main B, else Fill AB (from Main A, the Intro, ...); a fill during a fill adds a bar. An ending
- * plays its pattern once, then stops (Ending again during it: it still stops). A section whose pattern has no
+ * is Fill BA from Main B, else Fill AB (from Main A); a fill during a fill adds a bar; SEC_FILL during the Intro
+ * or the Ending is ignored (they play out). An ending plays its pattern once, then stops (Ending again during
+ * it: it still stops). A section whose pattern has no
  * notes falls back: no Fill BA, Fill AB (still back to Main A), and the other way round; neither: no fill (the
  * section plays on); no Intro: Main A; no Ending: the stop at that bar line. Notes sounding over a section
  * change keep their voicing to their end, not re-voiced by the new pattern's track types. PLAY starts with the
  * section queued; else a song's mark on its bar 1; else the Intro when it has notes (not when recording: the
- * pattern being recorded into plays); else Main A or B as it was (after anything else: Main A). */
+ * pattern being recorded into plays); else as it was: Main A or B, a fill's Main (Fill AB: B, Fill BA: A),
+ * else Main A. */
 void arr_section(int sec);
 /* a song (copied; 0: none, back to free play): its section track switches sections at its bars, its chord
  * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last). A section mark
@@ -168,6 +171,8 @@ int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect);
 extern volatile uint8_t arr_full, arr_recording;  /* recording: on, until arr_record(.., 0) or a section change */
 extern volatile uint16_t arr_dirty[ARR_NSECT];
 void arr_midi_out_on(int on);
+/* MIDI clock in: F8, FA (a start, as PLAY), FB (on from where it stopped; after an Ending or a song's end
+ * stopped it: a start, as PLAY), FC */
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
 void arr_clock(int msg);
 /* called by gm_render before each EAS block of `frames` output frames (the render's thread): the commands

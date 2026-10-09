@@ -11,3 +11,9 @@ expect song0_chord0 918
 poke_bad_pattern
 reboot
 expect pat1_nev 0
+# pattern numbers past the factory styles (a firmware with fewer): the song's own user pattern for that section
+poke_bad_style
+reboot
+expect song1_style1 1
+expect song2_style3 9
+expect song2_style2 119

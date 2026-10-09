@@ -395,6 +395,10 @@ static int expect(const char *what, const char *val)
         got = arr_sect;
     else if (!strcmp(what, "next_sect"))          /* the section waiting for the bar, 0 none (7: Fill, AB or BA) */
         got = arr_next_sect;
+    else if (!strncmp(what, "msg_is_", 7))        /* msg_is_WORD: the message showing starts with WORD (1 / 0) */
+        got = plat_ms() < ui.msg_until && !strncmp(ui.msg[0], what + 7, strlen(what + 7));
+    else if (!strcmp(what, "msg"))                /* a message showing */
+        got = plat_ms() < ui.msg_until;
     else if (!strcmp(what, "black_lit")) {        /* the black keys lit, bit i = black key i (b0..b10) */
         got = 0;
         for (int i = 0; i < 11; i++)
@@ -656,6 +660,12 @@ int main(int argc, char **argv)
             dbg_songs.song[0].chord[0].root = 9;      /* A */
             dbg_songs.song[0].chord[0].type = CH_MIN7;
             dbg_songs.song[0].chord[0].bass = CH_NOBASS;
+            project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_bad_style")) {   /* host-only: songs with pattern numbers past the styles */
+            songs_defaults(&dbg_songs);
+            dbg_songs.song[0].style[SEC_A - 1] = (uint8_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles());
+            dbg_songs.song[1].style[SEC_FILL_AB - 1] = 250;
+            dbg_songs.song[1].style[SEC_B - 1] = (uint8_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles() - 1);   /* the last: kept */
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_bad_pattern")) {   /* host-only debug: an invalid nev, straight into storage */
             pattern_empty(&dbg_pat);

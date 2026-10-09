@@ -87,6 +87,31 @@ s120=$(awk '$1 % 120' "$D/q quant=s.txt" | wc -l)
 n=$(wc -l < "$D/q.txt")
 [ "$n" -gt 20 ] && [ "$def20" -eq 0 ] && [ "$off20" -gt 0 ] && [ "$s120" -eq 0 ] && echo "  ok drums quant" || \
     { echo "FAIL drums quant: $n hits, $def20 off the 20 grid by default, $off20 with quant=off, $s120 off the 16ths with quant=s"; FAIL=1; }
+# lengths in the tables: up to 1020 exact, longer to 20 ticks (said), past 21580 refused; the firmware's decoder
+# (sty_len in the generated styles.h) gives back what --dump shows
+f="$D/01-len.sty"
+printf 'style L\n[main a]\nbars 8\nbeats 7\ntrack c1\n1.1.0 C4 1020 90\n1.2.0 D4 1033 90\n1.3.0 E4 1880 90\n1.4.0 G4 21580 90\n' > "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1)
+[ "$out" = "make_styles: $f:7: c1: length 1033 kept as 1040 in the tables
+1 styles, 6 patterns ok" ] && echo "  ok lengths" || { echo "FAIL lengths: $out"; FAIL=1; }
+python3 tools/make_styles.py "$f" > "$D/len_styles.h" 2>/dev/null
+cat > "$D/len.c" <<'C'
+#include <stdio.h>
+#include "len_styles.h"
+int main(void)
+{
+    for (int i = 0; i < STY_NEV; i++)
+        printf("%u ", sty_len(STY_EV[i] >> 22 | (uint32_t)(STY_VEL[i] >> 7) << 10));
+    printf("\n");
+    return 0;
+}
+C
+cc -w -o "$D/len" "$D/len.c" && got=$("$D/len")
+[ "$got" = "1020 1040 1880 21580 " ] && echo "  ok length decoder" || { echo "FAIL length decoder: $got"; FAIL=1; }
+printf '1.5.0 A4 21581 90\n' >> "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1 | grep -v "kept as")
+[ "$out" = "make_styles: $f:10: c1: length 21581 longer than the tables hold (21580 ticks)" ] && echo "  ok length too long" || \
+    { echo "FAIL length too long: $out"; FAIL=1; }
 # style numbers: a gap, a twice, no number
 cp "$D/01-velocity.sty" "$D/03-x.sty"
 out=$(python3 tools/make_styles.py --check "$D/01-bars.sty" "$D/03-x.sty" 2>&1)
