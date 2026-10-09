@@ -1,0 +1,104 @@
+# POLLY, qybank: a QY70-format style bank (the synthetic one: Polly's own styles coded as a bank, and Dense; no
+# Yamaha data) written into the flash. Setup shows it; the Style knob goes on past the 16 factory styles into
+# the bank's ("QY style"); a bank style plays over a template with its bends and swells, its Intro over a held
+# chord; PRESETS on the Song patterns pages browses styles; a take turns the section into a user pattern; Dense
+# plays more notes than a pattern holds.
+wait 300
+expect bank_count 0
+expect bank_status 0
+tap GLO
+shot setup_nobank.png
+bank build/host/synth.qyi
+expect bank_count 17
+tap GLO
+tap GLO
+shot setup_bank.png
+# the Style knob: Pop (factory 1) + 16 = the bank's first, "QY Pop"
+tap ENV
+tap ENV
+expect page 9
+spin K4 16
+wait 50
+expect song1_style0 512
+expect song1_style1 513
+expect song1_style5 517
+expect slot1_bank 1
+expect slot1_nev >20
+expect tempo 105
+shot qy_patterns.png
+# PRESETS browses the styles: on to QY Funk, back to QY Pop
+turn PRESET 1
+wait 50
+expect song1_style1 519
+expect tempo 100
+turn PRESET -1
+wait 50
+expect song1_style1 513
+# played over the Pop template: the Intro (held chord), Main A with Main A's controllers, a fill, the ending
+press SEL
+key w0 down
+key w0 up
+release SEL
+wait 10
+hitreset
+wav qypop.wav
+peakreset
+tap PLAY
+wait 2000
+expect sect 1
+expect chord_root 0
+wait 2600
+expect sect 2
+expect notes_out >20
+expect track_hits1 >10
+expect track_hits4 >2
+press SEL
+tapkey b3
+release SEL
+wait 4600
+# Fill AB, then Main B
+expect sect 3
+press SEL
+tapkey b4
+release SEL
+wait 7000
+expect playing 0
+expect peak_db_max -0.1
+expect peak_db_min -30
+wavstop
+# a take into Main A: it becomes user pattern P01, its notes kept (up to 600)
+tap HOME
+tap PLAY
+wait 2600
+press SEL
+tapkey b1
+release SEL
+wait 2000
+expect sect 2
+tap REC
+expect slot1_bank 0
+expect song1_style1 0
+tapkey 7
+wait 600
+tap REC
+tap PLAY
+wait 100
+expect slot1_nev >20
+expect song1_style0 512
+# Dense (the bank's 17th): Main A 8 bars of 1-bar phrases, 704 notes, played whole
+tap ENV
+tap ENV
+tap ENV
+spin K4 1
+spin K4 32
+wait 50
+expect song1_style0 608
+expect slot1_nev 600
+hitreset
+press SEL
+tapkey b1
+release SEL
+tap PLAY
+wait 16100
+tap PLAY
+expect notes_out >700

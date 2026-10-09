@@ -48,6 +48,9 @@ enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
 
 static songs_t songs EN_POOL;                        /* the four songs (the selected one plays) */
 static pattern_t scratch EN_POOL;                    /* a pattern being loaded, saved or edited */
+/* the QY70 bank's styles decoded (qybank.h): the one the song plays, and one more, so another can be decoded while
+ * the first still plays (a slot is re-pointed only once its new style is whole) */
+static qb_style_t qbuf[2] EN_POOL;
 
 /* the app's state that outlives the screen (ui_init runs again after an update session) */
 static struct {
@@ -75,6 +78,7 @@ static struct {
     uint32_t chg;                                    /* counts changes (the project's, the takes) */
     uint8_t save_err;                                /* the last save failed at change count err_chg: */
     uint32_t err_chg;                                /* autosave waits for another change */
+    int8_t slot_buf[ARR_NSECT];                      /* the qbuf each slot plays (a bank style's section), -1 none */
 } app;
 
 /* the input's and the screen's state */
@@ -452,35 +456,43 @@ static void view_refresh(int s)
     vw.gen = app.gen;
     vw.ok = 1;
 }
-/* ---- the styles, in the order the knobs step through them: the factory styles (pattern numbers ARR_FACTORY0..)
- * by name. A style index i (0..styles_n()-1) and a section k make pattern number style_number(i, k) */
-static int styles_n(void) { return arr_styles(); }
+/* ---- the styles, in the order the knobs step through them: the factory styles (pattern numbers ARR_FACTORY0..),
+ * then the QY70 bank's (ARR_BANK0..; bring your own ROM: none until it is installed), by name. A style index i
+ * (0..styles_n()-1) and a section k make pattern number style_number(i, k) */
+static int styles_n(void) { return arr_styles() + qb_count(); }
+static int style_bank(int i) { return i >= arr_styles(); }   /* a QY70 bank style */
 static int style_index(int st)                       /* the style a pattern number is a section of, -1 none */
 {
     if (st >= ARR_FACTORY0 && st < ARR_FACTORY0 + ARR_NSECT * arr_styles())
         return (st - ARR_FACTORY0) / ARR_NSECT;
+    if (st >= ARR_BANK0 && st < ARR_BANK0 + ARR_NSECT * qb_count())
+        return arr_styles() + (st - ARR_BANK0) / ARR_NSECT;
     return -1;
 }
-static int style_number(int i, int k) { return ARR_FACTORY0 + ARR_NSECT * i + k; }
-static const char *style_label(int i) { return arr_style_name(i); }
-static int style_tempo(int i) { return arr_style_tempo(i); }
+static int style_number(int i, int k)
+{
+    return i < arr_styles() ? ARR_FACTORY0 + ARR_NSECT * i + k : ARR_BANK0 + ARR_NSECT * (i - arr_styles()) + k;
+}
+static const char *style_label(int i) { return style_bank(i) ? qb_name(i - arr_styles()) : arr_style_name(i); }
+static int style_tempo(int i) { return style_bank(i) ? qb_tempo(i - arr_styles()) : arr_style_tempo(i); }
 
 /* a song's pattern number by name: "P05" (a user pattern), "Pop Intro", "Pop A", "Pop B", "Pop Fill AB", "Pop
- * Fill BA", "Pop End" (a style's; up to 20 characters) */
+ * Fill BA", "Pop End" (a style's), "QY Bossa A" (a QY70 bank style's; "QY -" with no bank); up to 20 characters */
 static void style_name(int st, char *t)
 {
     static const char *const SEC_SHORT[ARR_NSECT] = {" Intro", " A", " B", " Fill AB", " Fill BA", " End"};
     char *e = t;
     int i = style_index(st);
+    *t = 0;
     if (st >= 0 && st < ARR_USER_PATTERNS) {
         *e++ = 'P';
         *e++ = (char)('0' + (st + 1) / 10);
         *e++ = (char)('0' + (st + 1) % 10);
         *e = 0;
     } else if (i >= 0)
-        cat_s(cat_s(t, style_label(i)), SEC_SHORT[(st - ARR_FACTORY0) % ARR_NSECT]);
+        cat_s(cat_s(style_bank(i) ? cat_s(t, "QY ") : t, style_label(i)), SEC_SHORT[(st - (style_bank(i) ? ARR_BANK0 : ARR_FACTORY0)) % ARR_NSECT]);
     else
-        cat_s(t, "-");
+        cat_s(t, st >= ARR_BANK0 ? "QY -" : "-");
 }
 /* "P05 VERSE", the pattern's number and name; a factory style's: "Pop A" */
 static void pat_title(int s, char *t)
@@ -984,9 +996,17 @@ static void draw_tcopy(void)
 }
 static void setup_row(int32_t y, const char *name, const char *val)
 {
-    cv_round(8, y, 224, 28, 6, K_PANEL);
-    cv_text(18, y + 5, &FONT_S, name, K_DIM);
-    cv_text(222 - text_w(&FONT_B, val), y + 5, &FONT_B, val, K_TEXT);
+    cv_round(8, y, 224, 26, 6, K_PANEL);
+    cv_text(18, y + 4, &FONT_S, name, K_DIM);
+    cv_text(222 - text_w(&FONT_B, val), y + 4, &FONT_B, val, K_TEXT);
+}
+static void bank_text(char *t)                       /* the QY70 bank: "128 styles", "none", "damaged", "old format" */
+{
+    int n = qb_status();
+    if (n > 0)
+        cat_s(itoa_u((uint32_t)n, t), n == 1 ? " style" : " styles");
+    else
+        cat_s(t, n == QB_NONE ? "none" : n == QB_OLD ? "old format" : "damaged");
 }
 static int key_signed(void) { return proj.key > 5u ? (int)proj.key - 12 : (int)proj.key; }
 static char *key_num(char *t)                    /* "-3", "0", "+5" */
@@ -1009,17 +1029,19 @@ static void key_text(char *t)                    /* "-3 (A)" */
 static void draw_setup(void)
 {
     uint32_t h = hash(2166136261u, 8192u + proj.clock + ((uint32_t)proj.mout << 2) + ((uint32_t)proj.key << 4) +
-                                       ((uint32_t)proj.leds << 8));
+                                       ((uint32_t)proj.leds << 8) + ((uint32_t)(qb_status() + 8) << 12));
     char t[16];
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
     setup_row(2, "Clock", proj.clock ? "MIDI in" : "internal");
-    setup_row(38, "MIDI out", proj.mout ? "on" : "off");
+    setup_row(30, "MIDI out", proj.mout ? "on" : "off");
     key_text(t);
-    setup_row(74, "Key (templates)", t);
-    setup_row(110, "Lights", LIGHTS_NAME[proj.leds % 3u]);
+    setup_row(58, "Key (templates)", t);
+    setup_row(86, "Lights", LIGHTS_NAME[proj.leds % 3u]);
+    bank_text(t);
+    setup_row(114, "QY70 styles", t);
     cv_blit(0, MAIN_Y);
 }
 static void draw_panel(void)
@@ -1189,9 +1211,11 @@ static void song_page_knobs(knob_t *k)
             kv(&k[i], N[first + i], si < 0 ? b : style_label(si), si < 0 ? st : ARR_USER_PATTERNS + si,
                ARR_USER_PATTERNS + styles_n() - 1);
         }
-        /* the style: all six from one style (Main A's), or "user" (Main A plays a user pattern) */
+        /* the style: all six from one style (Main A's; a QY70 bank style's label says so), or "user" (Main A plays a
+         * user pattern) */
         if (style_index(a) >= 0)
-            kv(&k[3], "Style", style_label(style_index(a)), style_index(a) + 1, styles_n());
+            kv(&k[3], style_bank(style_index(a)) ? "QY style" : "Style", style_label(style_index(a)), style_index(a) + 1,
+               styles_n());
         else
             kv(&k[3], "Style", "user", 0, styles_n());
         break;

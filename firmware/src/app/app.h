@@ -50,6 +50,7 @@ void song_default(song_t *g, int n);                   /* song n, empty: no bars
 int song_style_valid(int st);                          /* a pattern number a song may hold */
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
+void app_bank_changed(void);           /* the QY70 style bank was written: mounted again, the song reloaded */
 void ui_init(void);
 void ui_frame(void);
 void ui_input_only(void);

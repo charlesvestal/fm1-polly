@@ -22,6 +22,8 @@
  *   clock N [MS]                 N MIDI clocks in (F8), MS apart (default 21: 119 bpm)
  *   flash_fail 0|1               every flash save fails (1) or works (0)
  *   hitreset                     restart the tracks' note-on counts (expect track_hitsN) and notes_out
+ *   bank FILE                    a QY70 style bank image (tools/qy70_codec.py --image) written into the flash, as
+ *                                tools/qy70_install.py writes it on the device; mounted, the song reloaded
  */
 #define GM_HOST 1
 #include <stdio.h>
@@ -442,6 +444,12 @@ static int expect(const char *what, const char *val)
         got = arr_ext;
     else if (!strcmp(what, "song"))               /* the selected song, 1..4 */
         got = proj.song + 1;
+    else if (!strcmp(what, "bank_count"))         /* the QY70 bank's styles */
+        got = qb_count();
+    else if (!strcmp(what, "bank_status"))        /* qb_status(): styles, 0 none, -1 damaged, -2 old */
+        got = qb_status();
+    else if (!strncmp(what, "slot", 4) && strstr(what, "_bank"))    /* slotN_bank: 1 plays a QY70 style's section */
+        got = app.slot_buf[atoi(what + 4) % ARR_NSECT] >= 0;
     else if (!strncmp(what, "slot", 4) && strstr(what, "_nev")) {   /* slotN_nev: the arranger's slot N's notes (0 Intro, 1 Main A, ..) */
         arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         got = dbg_pat.nev;
@@ -618,6 +626,27 @@ int main(int argc, char **argv)
                 min_q[mi_w++ % MQ] = 0x0Fu | 0xF8u << 8;
                 run_ms((uint32_t)gap);
             }
+        } else if (!strcmp(cmd, "bank")) {          /* bank FILE: an image into the bank's flash, as the device writes it */
+            static uint8_t img[0x50000];
+            FILE *bf = fopen(a, "rb");
+            long n;
+            uint8_t z[1];
+            if (!bf) {
+                printf("line %d: no bank image %s\n", lineno, a);
+                return 2;
+            }
+            n = (long)fread(img, 1, sizeof img, bf);
+            fclose(bf);
+            qb_flash_read(0, z, 0);                       /* (the flash erased first) */
+            memset(sim_flash + QB_DIR, 0xFF, QB_SECTOR);
+            for (uint32_t i = 0; i < QB_NSECT; i++)
+                memset(sim_flash + qb_sector(i), 0xFF, QB_SECTOR);
+            for (long i = QB_SECTOR; i < n; i++)
+                sim_flash[qb_phys((uint32_t)(i - QB_SECTOR))] = img[i];
+            if (n >= (long)QB_SECTOR)
+                memcpy(sim_flash + QB_DIR, img, QB_SECTOR);  /* the directory last */
+            app_bank_changed();
+            run_ms(1);
         } else if (!strcmp(cmd, "hitreset"))
             memset(trk_hits, 0, sizeof trk_hits);
         else if (!strcmp(cmd, "flash_fail"))

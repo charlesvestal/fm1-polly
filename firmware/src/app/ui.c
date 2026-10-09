@@ -131,14 +131,59 @@ static void edits_flush(void)
     }
 }
 
+/* QY70 bank style b decoded in a qbuf: the one holding it, else the one no slot plays (decoded now: some ms, the
+ * render plays on meanwhile); -1: no bank, a damaged record (said), or no buffer free (a song plays one bank style:
+ * never) */
+static int bank_get(int b)
+{
+    int i, free_ = -1, rc;
+    for (i = 0; i < 2; i++)
+        if (qbuf[i].index == b && b >= 0)
+            return i;
+    for (i = 1; i >= 0; i--) {
+        int used = 0;
+        for (int s = 0; s < ARR_NSECT; s++)
+            used |= app.slot_buf[s] == i;
+        if (!used)
+            free_ = i;
+    }
+    if (b < 0 || b >= qb_count()) {
+        say("QY70 STYLE", qb_count() ? "not in the bank" : "no bank installed");
+        return -1;
+    }
+    if (free_ < 0)
+        return -1;
+    qbuf[free_].index = -1;
+    if ((rc = qb_decode(b, &qbuf[free_])) != 0) {
+        say("QY70 STYLE", rc == QB_E_CRC || rc == QB_E_READ ? "DAMAGED" : "NOT READ");
+        qbuf[free_].index = -1;
+        return -1;
+    }
+    return free_;
+}
 /* slot s (Intro, Main A, Main B, Fill AB, Fill BA, Ending) gets pattern `style`: a user pattern, a factory style's
- * (ARR_FACTORY0..: copied out of flash), or an empty one when it has none */
+ * (ARR_FACTORY0..: copied out of flash), a QY70 bank style's section (played from its decoded phrases), or an empty
+ * one when it has none */
 static void slot_load(int s, int style)
 {
-    if (style < ARR_USER_PATTERNS ? project_pattern_load(style, &scratch) != 0
-                                  : arr_factory_pattern(style, &scratch) != 0)
+    if (style >= ARR_BANK0) {
+        int b = (style - ARR_BANK0) / ARR_NSECT, k = (style - ARR_BANK0) % ARR_NSECT, i = bank_get(b);
+        if (i >= 0) {
+            arr_bank_pattern(&qbuf[i], k, &scratch);
+            arr_load_bank(s, &qbuf[i], k, &scratch);
+            app.slot_buf[s] = (int8_t)i;
+            slot_cache(s, &scratch);
+            app.saved[s] = arr_dirty[s];
+            app.edited[s] = 0;
+            app.edit_pend &= (uint8_t)~(1u << s);
+            return;
+        }
+        pattern_empty(&scratch);
+    } else if (style < ARR_USER_PATTERNS ? project_pattern_load(style, &scratch) != 0
+                                         : arr_factory_pattern(style, &scratch) != 0)
         pattern_empty(&scratch);
     arr_load_pattern(s, &scratch);
+    app.slot_buf[s] = -1;
     slot_cache(s, &scratch);
     app.saved[s] = arr_dirty[s];
     app.edited[s] = 0;
@@ -172,6 +217,11 @@ static int slot_own(int s)
     song_t *g = &songs.song[proj.song];
     int p;
     char t[8];
+    if (app.slot_buf[s] >= 0) {                  /* a QY70 section: a pattern of its notes (up to 600) from here */
+        arr_pattern_copy(s, &scratch);
+        arr_load_pattern(s, &scratch);
+        app.slot_buf[s] = -1;
+    }
     if (g->style[s] < ARR_USER_PATTERNS)
         return 0;
     if ((p = pattern_free()) < 0) {
@@ -192,9 +242,16 @@ static int slot_own(int s)
 }
 /* the selected song: its six patterns into the slots, and its tracks when it has any (else free play: the
  * templates and the keys' chords) */
+static int one_bank_style(song_t *g, int b);
 static void song_load(void)
 {
-    const song_t *sg = &songs.song[proj.song];
+    song_t *sg = &songs.song[proj.song];
+    for (int s = 0; s < ARR_NSECT; s++)          /* one QY70 style a song: its first's */
+        if (sg->style[s] >= ARR_BANK0) {
+            if (one_bank_style(sg, (sg->style[s] - ARR_BANK0) / ARR_NSECT))
+                app.songs_dirty = 1;
+            break;
+        }
     for (int s = 0; s < ARR_NSECT; s++)
         slot_load(s, sg->style[s]);
     app.song_on = sg->bars > 0;
@@ -309,6 +366,10 @@ void app_start(void)
 {
     memset(&app, 0, sizeof app);
     app.tmpl = -1;
+    for (int s = 0; s < ARR_NSECT; s++)
+        app.slot_buf[s] = -1;
+    qbuf[0].index = qbuf[1].index = -1;
+    qb_mount();                                  /* the QY70 style bank, if one is installed */
     project_songs_load(&songs);
     arr_set_tempo(proj.tempo);
     arr_set_key(proj.key);
@@ -799,7 +860,7 @@ static int style_step(int s, int st, int d)
  * audio) */
 static void slot_style(int s, int to)
 {
-    int st = songs.song[proj.song].style[s];
+    int st = songs.song[proj.song].style[s], main_a = songs.song[proj.song].style[SEC_A - 1], a;
     char t[24];
     if (to == st)
         return;
@@ -814,13 +875,52 @@ static void slot_style(int s, int to)
         }
     }
     songs.song[proj.song].style[s] = (uint16_t)to;
-    if (s == SEC_A - 1 && style_index(to) >= 0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
-        set_tempo(style_tempo(style_index(to)));
     app.songs_dirty = 1;
     app.chg++;
     slot_load(s, to);
+    if (to >= ARR_BANK0 && one_bank_style(&songs.song[proj.song], (to - ARR_BANK0) / ARR_NSECT))
+        for (int j = 0; j < ARR_NSECT; j++)      /* the song's other QY70 sections: this style's now */
+            if (j != s && songs.song[proj.song].style[j] >= ARR_BANK0 && app.slot_buf[j] != app.slot_buf[s])
+                slot_load(j, songs.song[proj.song].style[j]);
+    a = songs.song[proj.song].style[SEC_A - 1];
+    if (a != main_a && style_index(a) >= 0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
+        set_tempo(style_tempo(style_index(a)));
     style_name(to, t);
     say(SECT_NAME[s + 1], t);
+}
+/* a song plays one QY70 bank style at a time (the app keeps one decoded, and one more for a switch): its sections
+ * of another bank style become style b's same section. 1: one changed */
+static int one_bank_style(song_t *g, int b)
+{
+    int changed = 0;
+    for (int j = 0; j < ARR_NSECT; j++)
+        if (g->style[j] >= ARR_BANK0 && (g->style[j] - ARR_BANK0) / ARR_NSECT != b) {
+            g->style[j] = (uint16_t)(ARR_BANK0 + ARR_NSECT * b + j);
+            changed = 1;
+        }
+    return changed;
+}
+/* the QY70 bank written (bank_rx.c) or loaded (the simulator): mounted again, the song's patterns again */
+void app_bank_changed(void)
+{
+    for (int s = 0; s < ARR_NSECT; s++)          /* no slot plays a decoded style: both buffers free */
+        if (app.slot_buf[s] >= 0) {
+            pattern_empty(&scratch);
+            arr_load_pattern(s, &scratch);
+            app.slot_buf[s] = -1;
+        }
+    qbuf[0].index = qbuf[1].index = -1;
+    qb_mount();
+    song_load();
+}
+static void style_all(int n);
+/* the Style knob and PRESETS on the song-patterns pages: d styles on (from user patterns: the first) */
+static void style_turn(int d)
+{
+    int a = songs.song[proj.song].style[SEC_A - 1], i = style_index(a);
+    int n = i < 0 ? 0 : clampi(i + d, 0, styles_n() - 1);
+    if (n != i)
+        style_all(n);
 }
 /* the Style knob (the song-patterns pages): all six slots from style n (0..styles_n()-1); as slot_style, each
  * saved first or refused while playing */
@@ -841,7 +941,7 @@ static void style_all(int n)
     }
     for (int s = 0; s < ARR_NSECT; s++)
         slot_style(s, style_number(n, s));
-    say("STYLE", style_label(n));
+    say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
 }
 static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
 {
@@ -896,14 +996,11 @@ static void song_page_knob(int k, int32_t e)
         song_edited();
         break;
     case P_ARRANGE2: case P_ARRANGE3: {
-        int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
+        int first = ui.page == P_ARRANGE3 ? 3 : 0;
         if (k < 3)
             slot_style(first + k, style_step(first + k, g->style[first + k], accel(EN_K1 + k, e)));
-        else {                                   /* the style, one step (from user patterns: the first) */
-            int n = style_index(a) < 0 ? 0 : clampi(style_index(a) + d, 0, styles_n() - 1);
-            if (n != style_index(a))
-                style_all(n);
-        }
+        else
+            style_turn(accel(EN_K4, e));
         break;
     }
     case P_TEMPLATES: case P_TCOPY:
@@ -1194,7 +1291,10 @@ static void presets(int32_t e)
             song_change(s);
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
         pattern_pick(e);
-    else if (ui.page == P_CHORDS || arrange_page(ui.page) || ui.page == P_TCOPY) {
+    else if (ui.page == P_ARRANGE2 || ui.page == P_ARRANGE3) {   /* the style browser: all six from the next style */
+        style_turn(e > 0 ? 1 : -1);
+        touch(3);
+    } else if (ui.page == P_CHORDS || arrange_page(ui.page) || ui.page == P_TCOPY) {
         if (ui.page == P_CHORDS)
             cursor_move(e > 0 ? 1 : -1);
         else
