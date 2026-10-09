@@ -423,6 +423,16 @@ static int expect(const char *what, const char *val)
             w[i] = what[8 + i] == '_' ? ' ' : what[8 + i];
         w[i] = 0;
         got = plat_ms() < ui.msg_until && !strncmp(ui.msg[1], w, strlen(w));
+    } else if (!strncmp(what, "songtext_is_", 12)) {   /* songtext_is_WORDS: the Song page header's style text ("_": a space) */
+        char w[32], t[32];
+        int i;
+        for (i = 0; i < 31 && what[12 + i]; i++)
+            w[i] = what[12 + i] == '_' ? ' ' : what[12 + i];
+        w[i] = 0;
+        song_style_text(t);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (song text: \"%s\")\n", t);
     } else if (!strcmp(what, "sel_shown"))        /* SEL held long enough: the keys' shortcuts on screen */
         got = sel_shown();
     else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
@@ -817,7 +827,7 @@ int main(int argc, char **argv)
             old[8 + 1 * SONG3_BYTES + 2] = 24 + 6 * 2 + 2;       /* song 2's Main B: factory style 3's (Rock B) */
             plat_store_save(OBJ_SONGS, old, sizeof old);
         } else if (!strcmp(cmd, "poke_songs4")) {     /* host-only: songs of format 4 (no style, no mutes): song 1 on
-                                                       * P01 for Main A, the Funk style's other sections (style 2) */
+                                                       * P01 for Main A, the Rock style's other sections (style 2) */
             static uint8_t old[8 + ARR_SONGS * SONG4_BYTES];
             uint32_t m = SONGS_MAGIC, f = 4;
             songs_defaults(&dbg_songs);

@@ -49,7 +49,7 @@ static const char *const TYPE_NAME[NXT] = {"Bypass", "Parallel", "Chord 1", "Cho
 static const char *const TYPE_SHORT[NXT] = {"Bypass", "Parall.", "Chord1", "Chord2", "Bass"};
 static const char *const REV_NAME[5] = {"Off", "Large hall", "Hall", "Chamber", "Room"};
 static const char *const REV_SHORT[5] = {"off", "L.hall", "Hall", "Chamb.", "Room"};
-static const char *const JOB_NAME[3] = {"Erase track", "Copy pattern", "Clear pattern"};
+static const char *const JOB_NAME[4] = {"Erase track", "Copy pattern", "Clear pattern", "Back to style"};
 static const char *const SONG_JOB_NAME[2] = {"Clear song", "Copy song"};
 static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
 static const char *const LIGHTS_NAME[3] = {"off", "on", "notes"};
@@ -305,7 +305,9 @@ static void draw_header(void)
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)ui.chord << 10 |
                                        (uint32_t)rec << 11 | (uint32_t)ext << 12 | (uint32_t)sel << 13 |
                                        (uint32_t)proj.tempo << 16);
-    h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].style[SEC_A - 1] << 8);
+    h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].sty << 8);
+    for (int k = 0; k < ARR_NSECT; k++)              /* the sections on user patterns ("Pop, A user") */
+        h = hash(h, songs.song[proj.song].style[k] < ARR_USER_PATTERNS);
     if (msg)
         h = hash(h, ui.msg_until);
     if (h == ui.sig[0])
@@ -346,12 +348,20 @@ static void draw_header(void)
             cv_round(r, 4, w, 16, 5, K_TEAL);
             text_c(r + w / 2, 5, &FONT_XS, "CHORD", K_BG);
         }
-        if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8) {
+        if (ui.page == P_SONG)                       /* the style ("Pop, A user") */
+            song_style_text(t);
+        if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8 &&   /* (the Song page: the style first; SAVE's lit) */
+            (ui.page != P_SONG || r - 6 - text_w(&FONT_XS, "unsaved") - 8 >= x + 8 + text_w(&FONT_B, t))) {
             r -= 6 + text_w(&FONT_XS, "unsaved");
             cv_text(r, 5, &FONT_XS, "unsaved", K_DIM);
         }
-        if (ui.page == P_SONG) {                     /* the style, in what room is left */
-            song_style_text(t);
+        if (ui.page == P_SONG) {                     /* in what room is left: whole, else the style's name alone */
+            if (text_w(&FONT_B, t) > r - 8 - (x + 8))
+                for (char *c = t; *c; c++)
+                    if (*c == ',') {
+                        *c = 0;
+                        break;
+                    }
             text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
         }
     }
@@ -514,15 +524,29 @@ static int style_number(int i, int k)
 }
 static const char *style_label(int i) { return style_bank(i) ? qb_name(i - arr_styles()) : arr_style_name(i); }
 static int style_tempo(int i) { return style_bank(i) ? qb_tempo(i - arr_styles()) : arr_style_tempo(i); }
-/* the song's style (Main A's; the Style knobs set all six from one): "Funk", "QY Bossa", or "user patterns" */
+/* the song's style (song_t.sty: the Style knob's), 0..styles_n()-1; -1: a QY70 style with no bank installed */
+static int song_style(void) { return style_index(songs.song[proj.song].sty); }
+/* the song's style and the sections on user patterns (the style's no longer): "Funk", "QY Bossa", "Pop, A user"
+ * (Main A), "Pop, 3 user", "Pop, all user" */
 static void song_style_text(char *t)
 {
-    int i = style_index(songs.song[proj.song].style[SEC_A - 1]);
+    static const char *const LETTER[ARR_NSECT] = {"I", "A", "B", "AB", "BA", "E"};
+    const song_t *g = &songs.song[proj.song];
+    int i = song_style(), n = 0, one = 0;
+    char *e;
     *t = 0;
-    if (i < 0)
-        cat_s(t, "user patterns");
-    else
-        cat_s(style_bank(i) ? cat_s(t, "QY ") : t, style_label(i));
+    e = i < 0 ? cat_s(t, "QY -") : cat_s(style_bank(i) ? cat_s(t, "QY ") : t, style_label(i));
+    for (int k = 0; k < ARR_NSECT; k++)
+        if (g->style[k] < ARR_USER_PATTERNS) {
+            n++;
+            one = k;
+        }
+    if (n == 1)
+        cat_s(cat_s(cat_s(e, ", "), LETTER[one]), " user");
+    else if (n == ARR_NSECT)
+        cat_s(e, ", all user");
+    else if (n)
+        cat_s(itoa_u((uint32_t)n, cat_s(e, ", ")), " user");
 }
 
 /* a song's pattern number by name: "P05" (a user pattern), "Pop Intro", "Pop A", "Pop B", "Pop Fill AB", "Pop
@@ -841,7 +865,7 @@ static void draw_jobs(void)
 {
     int s = pslot(), i;
     uint32_t h = hash(2166136261u, 512u + ui.job_sel + ((uint32_t)ui.job_to << 4) + ((uint32_t)proj.trk << 8) +
-                                       ((uint32_t)s << 12));
+                                       ((uint32_t)s << 12) + ((uint32_t)songs.song[proj.song].sty << 16));
     char t[24], *e;
     if (ui.job == 2) {
         draw_song_jobs();
@@ -852,9 +876,9 @@ static void draw_jobs(void)
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
     pattern_head(s, &h);
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 4; i++) {
         int on = i == ui.job_sel;
-        int32_t y = 26 + i * 30;
+        int32_t y = 22 + i * 27;
         cv_round(8, y, 224, 26, 6, on ? K_TEAL : K_PANEL);
         cv_text(18, y + 4, &FONT_B, JOB_NAME[i], on ? K_BG : K_TEXT);
         if (i == 0)
@@ -864,12 +888,16 @@ static void draw_jobs(void)
             *e++ = (char)('0' + (ui.job_to + 1) / 10);
             *e++ = (char)('0' + (ui.job_to + 1) % 10);
             *e = 0;
-        } else
+        } else if (i == 2)
             e = cat_s(t, SECT_NAME[s + 1]);
+        else if (song_style() < 0)                   /* back to the song's style: its section, "Pop A" */
+            e = cat_s(t, "-");
+        else
+            style_name(style_number(song_style(), s), t);
         (void)e;
         cv_text(222 - text_w(&FONT_S, t), y + 4, &FONT_S, t, on ? K_BG : K_DIM);
     }
-    text_c(120, 120, &FONT_XS, "SEL: do it      SAVE: cancel", K_DIM);
+    text_c(120, 130, &FONT_XS, "SEL: do it      SAVE: cancel", K_DIM);
     cv_blit(0, MAIN_Y);
 }
 
@@ -1208,15 +1236,15 @@ static void kn(knob_t *k, const char *name, int32_t v, int32_t max)
     k->num = v;
     k->max = max;
 }
-/* the Style knob (the Song page's KNOB 1, the Song patterns pages' KNOB 4): the song's style (Main A's; a QY70
- * bank style's label says so), or "user" (Main A plays a user pattern) */
+/* the Style knob (the Song page's KNOB 1, the Song patterns pages' KNOB 4): the song's style (a QY70 bank style's
+ * label says so), also when sections play user patterns (they keep them) */
 static void style_knob(knob_t *k)
 {
-    int i = style_index(songs.song[proj.song].style[SEC_A - 1]);
+    int i = song_style();
     if (i >= 0)
         kv(k, style_bank(i) ? "QY style" : "Style", style_label(i), i + 1, styles_n());
     else
-        kv(k, "Style", "user", 0, styles_n());
+        kv(k, "QY style", "-", 0, styles_n());
 }
 /* the Grid knob's bar: fills clockwise, as the grid gets finer (1/8 empty .. off full) */
 static int grid_fill(void) { return proj.quant % ARR_NQ; }
@@ -1364,7 +1392,7 @@ static void job_knobs(knob_t *k)
         kn(&k[1], "To song", ui.job_to % ARR_SONGS + 1, ARR_SONGS);
         return;
     }
-    kn(&k[0], "Job", ui.job_sel + 1, 3);
+    kn(&k[0], "Job", ui.job_sel + 1, 4);
     kv(&k[1], "Copy to", b, ui.job_to, ARR_USER_PATTERNS - 1);
 }
 

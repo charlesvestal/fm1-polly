@@ -91,7 +91,8 @@ tap PLAY
 wait 100
 expect slot1_nev >20
 expect song1_style0 512
-# Dense (the bank's 17th): Main A 8 bars of 1-bar phrases, 704 notes, played whole
+# Dense (the bank's 17th): Main A 8 bars of 1-bar phrases, 704 notes, played whole. The Style knob moves the
+# sections playing the style; Main A keeps its user pattern until the job Back to style puts it back
 tap ENV
 tap ENV
 tap ENV
@@ -99,6 +100,20 @@ spin K4 1
 spin K4 32
 wait 50
 expect song1_style0 608
+expect song1_sty 608
+expect song1_style1 0
+tap SEQ
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K1 1
+spin K1 1
+tap SEL
+wait 50
+expect msg_is_BACK 1
+expect song1_style1 609
+expect pat0_nev >20
 expect slot1_nev 600
 hitreset
 press SEL

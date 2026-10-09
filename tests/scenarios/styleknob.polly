@@ -1,36 +1,106 @@
-# POLLY, styleknob: the Style knob (KNOB 4 on the Song patterns pages) changes all six sections or none. While
-# playing, a section with unsaved changes refuses the whole change (UNSAVED, SAVE FIRST); stopped, the changes
-# are saved first, then all six switch.
-poke_user_songs
-reboot
+# POLLY, styleknob: the song has a style; the Style knob (the Song page's KNOB 1, PRESETS there, KNOB 4 on the
+# Song patterns pages) shows it always and changes the sections that play the style. A section recorded into
+# (a user pattern) keeps its pattern, while playing too (nothing to save first); the header says which ("Pop,
+# A user"). The job Back to style (SAVE held on the Pattern page) puts the style's section back, the user
+# pattern kept. A song all on user patterns keeps a style for them.
 wait 300
+expect song1_sty 32
+expect songtext_is_Pop 1
 tap PLAY
-wait 200
+wait 4100
 expect sect 2
 tap REC
 tapkey 7
 wait 600
 tap REC
-expect slot1_nev 1
+expect song1_style1 0
+expect slot1_nev 70
 expect dirty 1
+expect songtext_is_Pop,_A_user 1
+shot user_a.png
+# KNOB 1 while playing: Funk for the other five, Main A's take plays on
+tap HOME
+spin K1 1
+wait 50
+expect msg_is_STYLE 1
+expect msg_is_UNSAVED 0
+expect song1_sty 38
+expect song1_style0 38
+expect song1_style1 0
+expect song1_style2 40
+expect song1_style5 43
+expect slot1_nev 70
+expect songtext_is_Funk,_A_user 1
+shot funk_a_user.png
+# PRESETS on the Song page and KNOB 4 on the Song patterns pages: the same
+turn PRESET 1
+wait 50
+expect song1_sty 44
+expect song1_style1 0
 tap ENV
 tap ENV
-spin K4 1
-wait 20
+spin K4 -1
+wait 50
+expect song1_sty 38
+expect song1_style2 40
+expect song1_style1 0
+# Back to style, while playing with the take unsaved: refused (a save pauses the audio)
+tap SEQ
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K1 1
+spin K1 1
+shot back_job.png
+tap SEL
+wait 50
 expect msg_is_UNSAVED 1
+expect song1_style1 0
+# stopped: saved first (P01 kept), then Main A plays Funk's
+tap PLAY
+wait 100
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K1 1
+spin K1 1
+tap SEL
+wait 50
+expect msg_is_BACK 1
+expect song1_style1 39
+expect pat0_nev 70
+expect songtext_is_Funk 1
+# again on a section playing the style: it says so
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K1 1
+spin K1 1
+tap SEL
+wait 50
+expect msg2_is_plays_the_style 1
+# a song all on user patterns: the knob sets its style, the six keep their patterns
+poke_user_songs
+reboot
+wait 300
+expect song1_sty 32
+expect songtext_is_Pop,_all_user 1
+tap HOME
+spin K1 2
+wait 50
+expect song1_sty 44
 expect song1_style0 0
 expect song1_style1 1
 expect song1_style5 5
-shot refused.png
-tap PLAY
-wait 100
-spin K4 1
+expect songtext_is_Rock,_all_user 1
+tap SAVE
 wait 50
-expect song1_style0 32
-expect song1_style1 33
-expect song1_style5 37
-expect pat1_nev 1
-shot switched.png
+reboot
+wait 300
+expect song1_sty 44
 # SEL + black key 1 stopped: "FIRST Intro", gone once PLAY starts it
 tap HOME
 press SEL

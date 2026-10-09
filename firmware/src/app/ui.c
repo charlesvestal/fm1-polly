@@ -581,6 +581,7 @@ static void jobs_open(void)
     ui.job_to = (uint8_t)(st < ARR_USER_PATTERNS ? (st + 1) % ARR_USER_PATTERNS : pattern_free() < 0 ? 0 : pattern_free());
     ui.touched = -1;
 }
+static void slot_style(int s, int to);
 static void pat_name(int st, char *t)            /* "P05" */
 {
     t[0] = 'P';
@@ -594,6 +595,20 @@ static void job_run(void)
     char t[8];
     ui.job = 0;
     edits_flush();
+    if (ui.job_sel == 3) {                       /* back to the song's style: its section, the user pattern kept */
+        int i = style_index(songs.song[proj.song].sty);
+        if (st >= ARR_USER_PATTERNS)
+            say(SECT_NAME[s + 1], "plays the style");
+        else if (i >= 0) {
+            slot_style(s, style_number(i, s));   /* (saved first; refused while playing with changes unsaved) */
+            if (songs.song[proj.song].style[s] != st) {
+                char b[24];
+                style_name(songs.song[proj.song].style[s], b);
+                say("BACK TO", b);
+            }
+        }
+        return;
+    }
     if (ui.job_sel != 1) {                       /* erase, clear: a style's section gets a user pattern first */
         slot_own(s);
         st = songs.song[proj.song].style[s];
@@ -936,6 +951,7 @@ static void slot_style(int s, int to)
         for (int j = 0; j < ARR_NSECT; j++)      /* the song's other QY70 sections: this style's now */
             if (j != s && songs.song[proj.song].style[j] >= ARR_BANK0 && app.slot_buf[j] != app.slot_buf[s])
                 slot_load(j, songs.song[proj.song].style[j]);
+    song_style_derive(&songs.song[proj.song]);   /* the song's style: its sections' (Main A's first) */
     a = songs.song[proj.song].style[SEC_A - 1];
     if (a != main_a && style_index(a) >= 0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
         set_tempo(style_tempo(style_index(a)));
@@ -968,35 +984,32 @@ void app_bank_changed(void)
     song_load();
 }
 static void style_all(int n);
-/* the Style knob and PRESETS on the song-patterns pages: d styles on (from user patterns: the first) */
+/* the Style knob (the Song page's KNOB 1, PRESETS there; the song-patterns pages' KNOB 4): d styles on from the
+ * song's (a QY70 style with no bank: from the first) */
 static void style_turn(int d)
 {
-    int a = songs.song[proj.song].style[SEC_A - 1], i = style_index(a);
-    int n = i < 0 ? 0 : clampi(i + d, 0, styles_n() - 1);
+    int i = style_index(songs.song[proj.song].sty);
+    int n = clampi((i < 0 ? -1 : i) + d, 0, styles_n() - 1);
     if (n != i)
         style_all(n);
 }
-/* the Style knob (the song-patterns pages): all six slots from style n (0..styles_n()-1); as slot_style, each
- * saved first or refused while playing */
+/* the song's style becomes style n (0..styles_n()-1): the sections playing a style's pattern play n's now; a
+ * section on a user pattern (recorded into, edited) keeps it (the jobs' Back to style puts it back). Never a
+ * save: a style's section has nothing unsaved (its first change gives it a user pattern) */
 static void style_all(int n)
 {
-    int unsaved_any = 0;
+    song_t *g = &songs.song[proj.song];
     if (style_bank(n) && bank_get(n - arr_styles()) < 0)
         return;                                  /* a damaged QY70 style (said): nothing changes */
-    for (int s = 0; s < ARR_NSECT; s++)          /* all six or none: a slot with changes first saved (stopped) */
-        unsaved_any |= slot_unsaved(s);
-    if (unsaved_any) {
-        if (arr_playing) {
-            say("UNSAVED", "SAVE FIRST");
-            return;
-        }
-        if (save_all() != 0) {
-            say("NOT SAVED", "STYLE KEPT");
-            return;
-        }
-    }
     for (int s = 0; s < ARR_NSECT; s++)
-        slot_style(s, style_number(n, s));
+        if (g->style[s] >= ARR_USER_PATTERNS)
+            slot_style(s, style_number(n, s));
+    g->sty = (uint16_t)style_number(n, 0);       /* (also with every section on a user pattern) */
+    app.songs_dirty = 1;
+    app.chg++;
+    app.gen++;
+    if (song_blank(g))                           /* a style for a new song: its tempo */
+        set_tempo(style_tempo(n));
     say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
 }
 static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
@@ -1344,7 +1357,7 @@ static void knob(int k, int32_t e)
     if (ui.job) {                                /* the jobs: KNOB 1 the job, KNOB 2 the copy's pattern / song */
         int n = ui.job == 2 ? ARR_SONGS : ARR_USER_PATTERNS;
         if (k == 0)
-            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, ui.job == 2 ? 1 : 2);
+            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, ui.job == 2 ? 1 : 3);
         else if (k == 1)
             ui.job_to = (uint8_t)(((ui.job_to + accel(EN_K2, e)) % n + n) % n);
         touch(k);
