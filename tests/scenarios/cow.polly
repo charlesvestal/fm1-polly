@@ -53,7 +53,9 @@ expect song2_style1 33
 # (NO FREE PATTERN: the take plays, unsaved), never one with notes
 poke_full_patterns
 tap HOME
+press SEL
 turn PRESET 1
+release SEL
 wait 100
 expect song 2
 expect song2_style1 33

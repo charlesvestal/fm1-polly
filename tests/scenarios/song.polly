@@ -107,8 +107,10 @@ press SAVE
 wait 800
 release SAVE
 expect job 0
-# a song picked while playing waits for the stop (a save would pause the audio)
+# a song picked (SEL held + PRESETS) while playing waits for the stop (a save would pause the audio)
+press SEL
 turn PRESET 1
+release SEL
 expect song 1
 shot song_at_stop.png
 tap PLAY

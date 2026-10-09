@@ -35,7 +35,7 @@ expect slot2_nev 2
 expect dirty 0
 # a flash error: said once, tried once, again only after a change
 flash_fail 1
-spin K1 1
+spin K3 1
 wait 5000
 expect dirty 1
 # 3: the shared song (poke), the pattern (SAVE), one autosave that failed
@@ -44,6 +44,6 @@ shot flash_error.png
 wait 5000
 expect store_tries 3
 flash_fail 0
-spin K1 1
+spin K3 1
 wait 5000
 expect dirty 0

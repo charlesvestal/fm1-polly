@@ -28,6 +28,18 @@ static const char *const PAGE_NAME[NPAGES] = {"Song", "Pattern", "Pattern setup"
 /* the Arrange pages (ENV): the section track, then the six patterns, three a page (Intro, Main A, Main B;
  * Fill AB, Fill BA, Ending) and the style on KNOB 4 */
 static int arrange_page(int p) { return p == P_ARRANGE || p == P_ARRANGE2 || p == P_ARRANGE3; }
+/* the page buttons: a button holds up to three pages, pressed again: the next (the header's dots: which) */
+static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
+    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 3},
+    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 3}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
+#define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
+static int page_group(int p)                         /* the PAGE_BTN entry page p is on */
+{
+    for (uint32_t i = 0; i < NPAGE_BTN; i++)
+        if (p >= PAGE_BTN[i].first && p < PAGE_BTN[i].first + PAGE_BTN[i].n)
+            return (int)i;
+    return 0;
+}
 static const char *const TRACK_NAME[ARR_TRACKS] = {"D1", "D2", "PC", "BA", "C1", "C2", "C3", "C4"};
 /* SEC_* (SEC_FILL: the Fill asked for, AB or BA by the Main playing) */
 static const char *const SECT_NAME[SEC_FILL + 1] = {"", "Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending", "Fill"};
@@ -99,6 +111,7 @@ static struct {
     uint8_t name_cur;                                /* the pattern name's letter edited */
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint32_t mute_t;                                 /* the mute knob's last detent */
+    uint8_t rec_want, rec_seen;                      /* REC asked on, and the engine seen recording since */
     uint8_t rec_chords;                              /* REC on the Chords page: chords played go into the song */
     uint8_t chord_forced;                            /* REC turned CHORD on (leaving the page turns it off) */
     int16_t centry;                                  /* the beat the chord held was written at, -1 none */
@@ -272,13 +285,24 @@ static char *note_name(int n, char *b)
 #define KNB_Y 172
 #define KNB_H 68
 
+/* SEL held this long: the keys' shortcuts on screen (draw_sel), and its release is no CHORD tap */
+#define SEL_HOLD_MS 400u
+static int sel_shown(void)
+{
+    return (ui.btn >> B_SEL & 1u) && !ui.job && plat_ms() - ui.btn_t[B_SEL] >= SEL_HOLD_MS;
+}
+static void song_style_text(char *t);
+/* the header: the page's name and, for a button with more pages, which of them (dots); on the Song page the
+ * song and its style. Right: the tempo (or "ext"), REC's dot, CHORD, "unsaved". A message replaces it all */
 static void draw_header(void)
 {
-    char t[24], *e;
-    int msg = plat_ms() < ui.msg_until, tn = arr_template_now, rec = arr_recording, ext = arr_ext;
-    uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)unsaved() << 9 | (uint32_t)ui.chord << 10 |
-                                       (uint32_t)rec << 11 | (uint32_t)ext << 12 | (uint32_t)proj.tempo << 16);
-    h = hash(h, (uint32_t)(uint8_t)tn | (uint32_t)app.song_on << 8 | (uint32_t)proj.song << 9);
+    char t[24];
+    int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords, ext = arr_ext, sel = sel_shown();
+    int g = page_group(ui.page), un = unsaved();
+    uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)ui.chord << 10 |
+                                       (uint32_t)rec << 11 | (uint32_t)ext << 12 | (uint32_t)sel << 13 |
+                                       (uint32_t)proj.tempo << 16);
+    h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].style[SEC_A - 1] << 8);
     if (msg)
         h = hash(h, ui.msg_until);
     if (h == ui.sig[0])
@@ -287,18 +311,22 @@ static void draw_header(void)
     cv_begin(240, HDR_H, K_BG);
     if (msg) {
         int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
-        cv_text(x + 8, 4, &FONT_B, ui.msg[1], K_ACCENT);
+        text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
+    } else if (sel) {                                /* SEL held: what it does with the keys, PRESETS */
+        cv_text(8, 4, &FONT_B, "SEL + a key", K_TEXT);
+        cv_text(232 - text_w(&FONT_XS, "PRESETS: song"), 5, &FONT_XS, "PRESETS: song", K_DIM);
     } else {
         int32_t x = cv_text(8, 4, &FONT_B, PAGE_NAME[ui.page], K_TEXT), r = 232;
         if (ui.page == P_SONG) {
-            e = cat_s(t, " ");
-            itoa_u(proj.song + 1u, e);
+            itoa_u(proj.song + 1u, cat_s(t, " "));
             x = cv_text(x, 4, &FONT_B, t, K_TEXT);
-            if (tn >= 0 && tn < NTEMPLATES)
-                text_fit(x + 8, 6, &FONT_XS, TEMPLATES[tn].name, 84 - (x - 64), K_DIM);
         }
-        if (unsaved())
-            cv_round(x + 4, 10, 5, 5, 2, K_DIM);
+        if (PAGE_BTN[g].n > 1) {                     /* page 2 of 3: o * o */
+            int32_t d;
+            x += 6;
+            for (d = 0; d < PAGE_BTN[g].n; d++, x += 9)
+                cv_round(x, 10, 6, 6, 3, d == ui.page - PAGE_BTN[g].first ? K_TEAL : K_LINE);
+        }
         if (ext)
             cat_s(t, "ext");
         else
@@ -314,6 +342,14 @@ static void draw_header(void)
             r -= w + 6;
             cv_round(r, 4, w, 16, 5, K_TEAL);
             text_c(r + w / 2, 5, &FONT_XS, "CHORD", K_BG);
+        }
+        if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8) {
+            r -= 6 + text_w(&FONT_XS, "unsaved");
+            cv_text(r, 5, &FONT_XS, "unsaved", K_DIM);
+        }
+        if (ui.page == P_SONG) {                     /* the style, in what room is left */
+            song_style_text(t);
+            text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
         }
     }
     cv_blit(0, 0);
@@ -336,7 +372,7 @@ static void draw_song(void)
     h = hash(2166136261u, pl.chord);
     for (i = 0; i < ARR_TRACKS; i++) {
         uint32_t hit = arr_track_hit[i];
-        if (hit && now - hit < 8u)
+        if (play && hit && now - hit < 8u)       /* (stopped: nothing plays, nothing lit) */
             lit |= 1u << i;
     }
     h = hash(h, (uint32_t)sect | (uint32_t)next << 4 | (uint32_t)play << 8 | (uint32_t)(next ? blink : 0) << 9 |
@@ -375,7 +411,7 @@ static void draw_song(void)
             chord_name(nc, t);
             cv_text(160, 46, &FONT_B, t, K_DIM);
         } else
-            cv_text(160, 48, &FONT_S, ui.chord ? "the keys" : "-", K_LINE);
+            cv_text(160, 48, &FONT_S, ui.chord ? "the keys" : "-", K_DIM);
     }
     {   /* the progression: the template's bars, or the song's, or a hint */
         int32_t y = 72;
@@ -409,7 +445,7 @@ static void draw_song(void)
                 }
             }
         } else
-            text_c(120, y + 1, &FONT_XS, ui.chord ? "Hold a chord on the keys" : "SEL + a white key: a progression",
+            text_c(120, y + 1, &FONT_XS, ui.chord ? "Hold a chord on the keys" : "Hold SEL: progressions, sections",
                    K_DIM);
     }
     for (i = 0; i < ARR_TRACKS; i++) {   /* the eight tracks: lit as they play, with their sounds */
@@ -475,6 +511,16 @@ static int style_number(int i, int k)
 }
 static const char *style_label(int i) { return style_bank(i) ? qb_name(i - arr_styles()) : arr_style_name(i); }
 static int style_tempo(int i) { return style_bank(i) ? qb_tempo(i - arr_styles()) : arr_style_tempo(i); }
+/* the song's style (Main A's; the Style knobs set all six from one): "Funk", "QY Bossa", or "user patterns" */
+static void song_style_text(char *t)
+{
+    int i = style_index(songs.song[proj.song].style[SEC_A - 1]);
+    *t = 0;
+    if (i < 0)
+        cat_s(t, "user patterns");
+    else
+        cat_s(style_bank(i) ? cat_s(t, "QY ") : t, style_label(i));
+}
 
 /* a song's pattern number by name: "P05" (a user pattern), "Pop Intro", "Pop A", "Pop B", "Pop Fill AB", "Pop
  * Fill BA", "Pop End" (a style's), "QY Bossa A" (a QY70 bank style's; "QY -" with no bank); up to 20 characters */
@@ -658,7 +704,7 @@ static void draw_track(void)
         note_name(t->x.hi, b);
         cv_text(x0, y + 12, &FONT_XS, a, K_DIM);
         cv_text(x0 + w - text_w(&FONT_XS, b), y + 12, &FONT_XS, b, K_DIM);
-        cv_text(120 - text_w(&FONT_XS, "range") / 2, y + 12, &FONT_XS, "range", K_LINE);
+        cv_text(120 - text_w(&FONT_XS, "range") / 2, y + 12, &FONT_XS, "range", K_DIM);
     }
     if (k2) {
         char *e = cat_s(a, "high key ");
@@ -1051,11 +1097,11 @@ static char *key_num(char *t)                    /* "-3", "0", "+5" */
         *e++ = '-';
     return itoa_u((uint32_t)(k < 0 ? -k : k), e);
 }
-static void key_text(char *t)                    /* "-3 (A)" */
+static void key_text(char *t)                    /* "A (-3)" */
 {
-    char *e = key_num(t);
+    char *e = cat_s(t, KEY_NAME[proj.key % 12u]);
     e = cat_s(e, " (");
-    e = cat_s(e, KEY_NAME[proj.key % 12u]);
+    e = key_num(e);
     cat_s(e, ")");
 }
 static void draw_setup(void)
@@ -1101,38 +1147,49 @@ static void draw_panel(void)
     cv_blit(0, MAIN_Y);
 }
 
+/* SEL held: the keys' shortcuts. The black keys 1-5 (the sections, the one playing or next outlined), the white
+ * keys 1-16 (the templates, the one playing lit) */
+static void draw_sel(void)
+{
+    static const uint8_t SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
+    static const char *const LABEL[5] = {"Intro", "Main A", "Main B", "Fill", "Ending"};
+    int n = arr_next_sect, cur = n >= SEC_INTRO && n <= SEC_FILL ? n : arr_sect, tn = arr_template_now, i;
+    uint32_t h = hash(2166136261u, 32768u + (uint32_t)cur + ((uint32_t)(uint8_t)tn << 8) + ((uint32_t)proj.key << 16));
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    if (cur == SEC_FILL_AB || cur == SEC_FILL_BA)
+        cur = SEC_FILL;
+    cv_begin(240, MAIN_H, K_BG);
+    cv_text(8, 0, &FONT_XS, "black keys 1-5: a section, next bar", K_DIM);
+    for (i = 0; i < 5; i++) {
+        int32_t x = 8 + i * 45;
+        uint16_t c = sect_colour(SECT[i]);
+        if (SECT[i] == cur)
+            cv_round(x - 2, 14, 45, 24, 6, K_TEXT);
+        cv_round(x, 16, 41, 20, 6, c);
+        text_c(x + 20, 18, &FONT_XS, LABEL[i], K_BG);
+    }
+    cv_text(8, 42, &FONT_XS, "white keys 1-16: a progression, now", K_DIM);
+    for (i = 0; i < NTEMPLATES; i++) {               /* three columns, down then across */
+        int32_t x = 6 + (i / 6) * 78, y = 58 + (i % 6) * 14;
+        int on = i == tn;
+        char t[4];
+        if (on)
+            cv_round(x, y + 1, 76, 14, 4, K_TEAL);
+        itoa_u((uint32_t)i + 1u, t);
+        cv_text(x + 3, y, &FONT_XS, t, on ? K_BG : K_DIM);
+        text_fit(x + 18, y, &FONT_XS, TEMPLATES[i].name, 57, on ? K_BG : K_TEXT);
+    }
+    cv_blit(0, MAIN_Y);
+}
+
 /* ------------------------------------------------------------- knobs --- */
 typedef struct {
     const char *name;
     char val[12];
     int32_t num, max;                                /* the bar: num of max (max 0: no bar) */
 } knob_t;
-
-static void song_knobs(knob_t *k)
-{
-    int t = arr_template_now;                        /* the template playing, or none ("-") */
-    if (t >= NTEMPLATES)
-        t = -1;
-    k[0].name = "Key";
-    cat_s(k[0].val, KEY_NAME[proj.key % 12u]);
-    k[0].num = proj.key;
-    k[0].max = 11;
-    k[1].name = "Tempo";
-    itoa_u(proj.tempo, k[1].val);
-    k[1].num = proj.tempo - 40;
-    k[1].max = 200;
-    k[2].name = "Grid";
-    cat_s(k[2].val, GRID_NAME[proj.quant % ARR_NQ]);
-    k[2].num = ARR_NQ - 1 - proj.quant;
-    k[2].max = ARR_NQ - 1;
-    k[3].name = "Template";
-    if (t >= 0)
-        itoa_u((uint32_t)t + 1u, k[3].val);
-    else
-        cat_s(k[3].val, "-");
-    k[3].num = t + 1;
-    k[3].max = NTEMPLATES;
-}
 
 static void kv(knob_t *k, const char *name, const char *val, int32_t num, int32_t max)
 {
@@ -1148,6 +1205,28 @@ static void kn(knob_t *k, const char *name, int32_t v, int32_t max)
     k->num = v;
     k->max = max;
 }
+/* the Style knob (the Song page's KNOB 1, the Song patterns pages' KNOB 4): the song's style (Main A's; a QY70
+ * bank style's label says so), or "user" (Main A plays a user pattern) */
+static void style_knob(knob_t *k)
+{
+    int i = style_index(songs.song[proj.song].style[SEC_A - 1]);
+    if (i >= 0)
+        kv(k, style_bank(i) ? "QY style" : "Style", style_label(i), i + 1, styles_n());
+    else
+        kv(k, "Style", "user", 0, styles_n());
+}
+/* the key (templates are transposed by it; -6..+5): its note, "C", "D", "Bb" */
+static void key_knob(knob_t *k) { kv(k, "Key", KEY_NAME[proj.key % 12u], key_signed() + 6, 11); }
+static void song_knobs(knob_t *k)
+{
+    int t = arr_template_now;                        /* the template playing, or none ("-") */
+    if (t >= NTEMPLATES)
+        t = -1;
+    style_knob(&k[0]);
+    kv(&k[1], "Template", t >= 0 ? TEMPLATES[t].name : "-", t + 1, NTEMPLATES);
+    key_knob(&k[2]);
+    kv(&k[3], "Grid", GRID_NAME[proj.quant % ARR_NQ], ARR_NQ - 1 - proj.quant, ARR_NQ - 1);
+}
 static void edit_knobs(knob_t *k)
 {
     int s = pslot();
@@ -1156,7 +1235,7 @@ static void edit_knobs(knob_t *k)
     switch (ui.page) {
     case P_PATTERN:
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], ARR_NQ - 1 - proj.quant, ARR_NQ - 1);
-        kv(&k[3], "Track", t->mute ? "muted" : "plays", t->mute, 0);
+        kv(&k[3], "Mute", t->mute ? "on" : "off", t->mute, 0);
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);
@@ -1236,10 +1315,11 @@ static void song_page_knobs(knob_t *k)
         kv(&k[0], "Section", SHORT[se], se, SEC_END);
         kn(&k[1], "Length", g->bars, ARR_SONGBARS);
         kv(&k[2], "Loop", g->loop ? "on" : "off", g->loop, 1);
+        kn(&k[3], "Song", (app.song_pend ? app.song_pend - 1 : proj.song) + 1, ARR_SONGS);
         break;
     }
     case P_ARRANGE2: case P_ARRANGE3: {
-        int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
+        int first = ui.page == P_ARRANGE3 ? 3 : 0;
         for (int i = 0; i < 3; i++) {
             static const char *const N[ARR_NSECT] = {"Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending"};
             int st = g->style[first + i], si = style_index(st);
@@ -1247,34 +1327,24 @@ static void song_page_knobs(knob_t *k)
             kv(&k[i], N[first + i], si < 0 ? b : style_label(si), si < 0 ? st : ARR_USER_PATTERNS + si,
                ARR_USER_PATTERNS + styles_n() - 1);
         }
-        /* the style: all six from one style (Main A's; a QY70 bank style's label says so), or "user" (Main A plays a
-         * user pattern) */
-        if (style_index(a) >= 0)
-            kv(&k[3], style_bank(style_index(a)) ? "QY style" : "Style", style_label(style_index(a)), style_index(a) + 1,
-               styles_n());
-        else
-            kv(&k[3], "Style", "user", 0, styles_n());
+        style_knob(&k[3]);                       /* all six from one style */
         break;
     }
     case P_TEMPLATES: case P_TCOPY: {
         int cur = app.tmpl < 0 ? 0 : app.tmpl;
         kn(&k[0], "Template", cur + 1, NTEMPLATES);
-        if (ui.page == P_TEMPLATES) {
-            char t[12];
-            key_num(t);
-            kv(&k[1], "Key", t, proj.key, 11);
-        } else {
+        if (ui.page == P_TEMPLATES)
+            key_knob(&k[1]);
+        else {
             kn(&k[1], "Times", app.reps ? app.reps : 1, 8);
             kn(&k[2], "From bar", app.cbeat / 4 + 1, ARR_SONGBARS);
         }
         break;
     }
     case P_SETUP: {
-        char t[12];
         kv(&k[0], "Clock", proj.clock ? "MIDI" : "intern.", proj.clock, 1);
         kv(&k[1], "MIDI out", proj.mout ? "on" : "off", proj.mout, 1);
-        key_num(t);
-        kv(&k[2], "Key", t, proj.key, 11);
+        key_knob(&k[2]);
         kv(&k[3], "Lights", LIGHTS_NAME[proj.leds % 3u], proj.leds, 2);
         break;
     }
@@ -1327,10 +1397,14 @@ static void draw_knobs(void)
         if (!k[i].name)
             continue;
         text_c(cx, 6, &FONT_XS, k[i].name, hot ? K_TEXT : K_DIM);
-        if (upper_only(k[i].val))
+        if (upper_only(k[i].val) && text_w(&FONT_M, k[i].val) <= 58)
             text_c(cx, 22, &FONT_M, k[i].val, hot ? K_ACCENT : K_TEXT);
-        else                                     /* FONT_M has no lower case: "Bb", "off" */
+        else if (text_w(&FONT_B, k[i].val) <= 58)   /* FONT_M has no lower case: "Bb", "off" */
             text_c(cx, 27, &FONT_B, k[i].val, hot ? K_ACCENT : K_TEXT);
+        else if (text_w(&FONT_XS, k[i].val) <= 58)  /* a long name: "Andalusian", "8BtRock1" */
+            text_c(cx, 28, &FONT_XS, k[i].val, hot ? K_ACCENT : K_TEXT);
+        else
+            text_fit(x + 1, 28, &FONT_XS, k[i].val, 58, hot ? K_ACCENT : K_TEXT);
         if (k[i].max > 0) {
             int32_t bw = 44 * k[i].num / k[i].max;
             cv_round(cx - 22, 50, 44, 6, 3, K_LINE);
@@ -1345,6 +1419,8 @@ static void draw_page(void)
 {
     if (ui.job)
         draw_jobs();
+    else if (sel_shown())
+        draw_sel();
     else if (ui.page == P_SONG)
         draw_song();
     else if (ui.page == P_PATTERN)

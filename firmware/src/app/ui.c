@@ -5,12 +5,15 @@
  *
  *   PLAY            start / stop                 REC       record into the selected track (its light: the engine's)
  *   SEL tap         CHORD on / off: the keys enter chords, or play the selected track
- *   SEL + black key 1..5   Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
- *   SEL + white key 1..16  a chord template, at once
- *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x3), LFO Chords, ENV Arrange (x3), ARP Templates (x2),
- *   GLO Setup (x2)
- *   SAVE            saves (held: the jobs)       OCT- / OCT+   the keys' octave
- *   SELECT          tempo       ALGORITHM   the track       PRESETS   per page (Song: the song)
+ *   SEL held        the shortcuts on screen:
+ *     + black key 1..5    Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
+ *     + white key 1..16   a chord template, at once
+ *     + PRESETS           the song (while playing: after the stop)
+ *   HOME Song: KNOB 1 the style (PRESETS too), 2 the template, 3 the key, 4 the record grid
+ *   SEQ Pattern (x2), EDIT Track (x2), FX Mixer (x3), LFO Chords, ENV Arrange (x3; KNOB 4 the song), ARP Templates
+ *   (x2), GLO Setup (x2); the header's dots: which of a button's pages
+ *   SAVE            saves (lit: something to save; held: the jobs)        OCT- / OCT+   the keys' octave
+ *   SELECT          tempo       ALGORITHM   the track       PRESETS   per page (Song: the style)
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 
 static void say(const char *a, const char *b)
@@ -24,6 +27,12 @@ static void say(const char *a, const char *b)
     ui.msg[1][i] = 0;
     ui.msg_until = plat_ms() + 1300u;
     ui.msg_first = 0;
+#if defined(GM_HOST) && !defined(GM_WEB)        /* the simulator: a message the header cuts is a bug */
+    if (8 + text_w(&FONT_B, ui.msg[0]) + 8 + text_w(&FONT_B, ui.msg[1]) > 232) {
+        printf("  FAIL message too wide for the header: %s %s\n", ui.msg[0], ui.msg[1]);
+        msg_too_wide++;
+    }
+#endif
 }
 void ui_say(const char *a, const char *b) { say(a, b); }
 
@@ -505,11 +514,7 @@ static void key_up(int k)
         chord_keys();
 }
 
-/* the page buttons: a button holds up to three pages, pressed again: the next */
-static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 3},
-    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 3}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
-#define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
+/* the page buttons (PAGE_BTN, pages.c): pressed again, the next page */
 static void set_chord_mode(int on);
 static void page_leave(int from, int to)
 {
@@ -637,11 +642,22 @@ static void button_down(int b)
             break;
         }
     {
-        int on = !arr_recording;                 /* the state asked for (the engine's follows a block later) */
+        int on = !arr_recording, s = eslot();   /* the state asked for (the engine's follows a block later) */
+        int st = songs.song[proj.song].style[s];
+        char a[16], t[16];
         if (on)
-            slot_own(eslot());                   /* recording into a style's section: a user pattern first */
+            slot_own(s);                         /* recording into a style's section: a user pattern first */
         arr_record(proj.trk, on);
-        say(on ? "RECORD" : "RECORD OFF", on ? TRACK_NAME[proj.trk] : 0);
+        ui.rec_want = (uint8_t)on;
+        ui.rec_seen = 0;
+        cat_s(cat_s(a, "RECORD "), TRACK_NAME[proj.trk]);
+        if (!on)
+            say("RECORD OFF", 0);
+        else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: say which */
+            pat_name(songs.song[proj.song].style[s], cat_s(t, "into new "));
+            say(a, t);
+        } else
+            say(a, SECT_NAME[s + 1]);
     }
         break;
     default: break;
@@ -703,10 +719,10 @@ static void holds(void)
             ui.job_to = (uint8_t)((proj.song + 1u) % ARR_SONGS);
             ui.touched = -1;
         } else
-            say("JOBS", "on the Pattern or Chords page");
+            say("JOBS", "on the Pattern, Chords pages");
     }
-    if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] > HOLD_MS)
-        ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
+    if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] >= SEL_HOLD_MS)
+        ui.btn_used |= 1u << B_SEL;              /* SEL held to look (the lights, the shortcuts): not a tap */
 }
 
 /* another song: recording off, what changed saved (else nothing changes: the takes would be lost), its
@@ -716,6 +732,7 @@ static void song_change(int s)
     char t[12];
     int rec = arr_recording;
     arr_record(proj.trk, 0);
+    ui.rec_want = 0;
     if (unsaved() && save_all() != 0) {
         say("NOT SAVED", "SONG KEPT");
         if (rec)
@@ -773,6 +790,7 @@ static void rec_chords(int on)
     if (on) {
         if (arr_recording)
             arr_record(proj.trk, 0);             /* one REC at a time: the track's ends */
+        ui.rec_want = 0;
         if (!g->bars) {
             g->bars = 8;
             g->loop = 1;
@@ -957,6 +975,21 @@ static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
     arr_set_key(proj.key);
     mark_dirty();
 }
+/* another song, d on (PRESETS with SEL held, the Arrange page's KNOB 4); while playing it waits for the stop (a
+ * save, a flash write, would pause the audio) */
+static void song_pick(int d)
+{
+    int s = (app.song_pend ? app.song_pend - 1 : proj.song) + (d > 0 ? 1 : -1);
+    char t[12];
+    if (s < 0 || s >= ARR_SONGS)
+        return;
+    if (arr_playing) {
+        app.song_pend = (uint8_t)(s == proj.song ? 0 : s + 1);
+        itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
+        say(t, s == proj.song ? "stays" : "after the stop");
+    } else
+        song_change(s);
+}
 static void song_page_knob(int k, int32_t e)
 {
     song_t *g = csong();
@@ -998,8 +1031,10 @@ static void song_page_knob(int k, int32_t e)
             g->bars = (uint8_t)clampi(g->bars + accel(EN_K2, e), 0, ARR_SONGBARS);
         else if (k == 2)
             g->loop = (uint8_t)(d > 0);
-        else
+        else {
+            song_pick(d);                        /* the song */
             break;
+        }
         song_edited();
         break;
     case P_ARRANGE2: case P_ARRANGE3: {
@@ -1144,32 +1179,30 @@ static void song_job_run(void)
     }
 }
 
-/* the four knobs on the page shown */
+/* the record grid (Song page KNOB 4, Pattern page KNOB 1): clockwise finer */
+static void grid_turn(int32_t e)
+{
+    int q = proj.quant + (e > 0 ? -1 : 1);
+    if (q >= 0 && q < ARR_NQ) {
+        proj.quant = (uint8_t)q;
+        arr_set_quant(q);
+        mark_dirty();
+    }
+}
+/* the Song page's knobs: the style, the template, the key, the grid (the tempo: SELECT) */
 static void song_knob(int k, int32_t e)
 {
     switch (k) {
-    case 0:
-        proj.key = (uint8_t)((proj.key + (e > 0 ? 1 : 11)) % 12u);
-        arr_set_key(proj.key);
-        mark_dirty();
-        break;
-    case 1: set_tempo(proj.tempo + accel(EN_K2, e)); break;
-    case 2: {
-        int q = proj.quant + (e > 0 ? -1 : 1);   /* clockwise: finer */
-        if (q >= 0 && q < ARR_NQ) {
-            proj.quant = (uint8_t)q;
-            arr_set_quant(q);
-            mark_dirty();
-        }
-        break;
-    }
-    case 3: {
+    case 0: style_turn(accel(EN_K1, e)); break;
+    case 1: {
         int t = arr_template_now;                /* from none: the last one picked, or the first */
         t = t >= 0 && t < NTEMPLATES ? t + (e > 0 ? 1 : -1) : app.tmpl >= 0 ? app.tmpl : 0;
         if (t >= 0 && t < NTEMPLATES)
             pick_template(t);
         break;
     }
+    case 2: key_turn(EN_K3, e); break;
+    case 3: grid_turn(e); break;
     default: break;
     }
 }
@@ -1190,7 +1223,7 @@ static void edit_knob(int k, int32_t e)
     switch (ui.page) {
     case P_PATTERN:
         if (k == 0)
-            song_knob(2, e);                     /* the grid, as on the Song page */
+            grid_turn(e);                        /* the grid, as on the Song page */
         else if (k == 3)
         {                                        /* a turn, either way: muted / plays; once a burst */
             uint32_t now = plat_ms();
@@ -1291,17 +1324,12 @@ static void pattern_pick(int32_t e)
 }
 static void presets(int32_t e)
 {
-    if (ui.page == P_SONG) {
-        int s = (app.song_pend ? app.song_pend - 1 : proj.song) + (e > 0 ? 1 : -1);
-        char t[12];
-        if (s < 0 || s >= ARR_SONGS)
-            return;
-        if (arr_playing) {                       /* a save (flash) would pause the audio: at the stop */
-            app.song_pend = (uint8_t)(s == proj.song ? 0 : s + 1);
-            itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
-            say(t, s == proj.song ? "stays" : "at stop");
-        } else
-            song_change(s);
+    if (ui.btn >> B_SEL & 1u) {                  /* SEL held: the song, on any page */
+        ui.btn_used |= 1u << B_SEL;
+        song_pick(e > 0 ? 1 : -1);
+    } else if (ui.page == P_SONG) {              /* the Song page: the style, as KNOB 1 */
+        style_turn(e > 0 ? 1 : -1);
+        touch(0);
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
         pattern_pick(e);
     else if (ui.page == P_ARRANGE2 || ui.page == P_ARRANGE3) {   /* the style browser: all six from the next style */
@@ -1389,11 +1417,8 @@ static void input(void)
                 key_up((int)i);
         }
     midi_in();
-    if ((e = plat_enc(EN_SELECT)) != 0) {
+    if ((e = plat_enc(EN_SELECT)) != 0)
         set_tempo(proj.tempo + accel(EN_SELECT, e));
-        if (ui.page == P_SONG)
-            touch(1);
-    }
     if ((e = plat_enc(EN_ALGO)) != 0)
         set_track(proj.trk + (e > 0 ? 1 : -1));
     if ((e = plat_enc(EN_PRESET)) != 0)
@@ -1416,6 +1441,8 @@ static void leds(void)
         b |= 1u << B_REC;
     if (ui.chord)
         b |= 1u << B_SEL;
+    if (unsaved())
+        b |= 1u << B_SAVE;                       /* something to save */
     for (i = 0; i < NPAGE_BTN; i++)
         if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
             b |= 1u << PAGE_BTN[i].btn;
@@ -1464,6 +1491,14 @@ void ui_frame(void)
 {
     input();
     watch_takes();
+    if (ui.rec_want) {                           /* the engine ends a take at a section change: say so */
+        if (arr_recording)
+            ui.rec_seen = 1;
+        else if (ui.rec_seen) {
+            ui.rec_want = ui.rec_seen = 0;
+            say("RECORD OFF", "section ended");
+        }
+    }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
     if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
         edits_flush();

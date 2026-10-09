@@ -170,6 +170,7 @@ uint32_t plat_cpu_pct(void) { return cpu_pct; }
 uint32_t plat_xruns(void) { return 0; }
 
 /* -------------------------------------------------------------- app --- */
+static int msg_too_wide;                 /* ui.c's say(): messages wider than the header */
 #include "../firmware/src/app/app.h"
 #include "../firmware/src/app/project.c"
 #include "../firmware/src/app/pages.c"
@@ -415,7 +416,19 @@ static int expect(const char *what, const char *val)
         got = arr_sect;
     else if (!strcmp(what, "next_sect"))          /* the section waiting for the bar, 0 none (7: Fill, AB or BA) */
         got = arr_next_sect;
-    else if (!strncmp(what, "msg_is_", 7))        /* msg_is_WORD: the message showing starts with WORD (1 / 0) */
+    else if (!strncmp(what, "msg2_is_", 8)) {     /* msg2_is_WORDS: its second part starts with WORDS ("_": a space) */
+        char w[24];
+        int i;
+        for (i = 0; i < 23 && what[8 + i]; i++)
+            w[i] = what[8 + i] == '_' ? ' ' : what[8 + i];
+        w[i] = 0;
+        got = plat_ms() < ui.msg_until && !strncmp(ui.msg[1], w, strlen(w));
+    } else if (!strcmp(what, "sel_shown"))        /* SEL held long enough: the keys' shortcuts on screen */
+        got = sel_shown();
+    else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
+        int b = find_name(BTN_N, NB, what + 4);
+        got = b >= 0 && (lit_btn >> b & 1u);
+    } else if (!strncmp(what, "msg_is_", 7))      /* msg_is_WORD: the message showing starts with WORD (1 / 0) */
         got = plat_ms() < ui.msg_until && !strncmp(ui.msg[0], what + 7, strlen(what + 7));
     else if (!strcmp(what, "msg"))                /* a message showing */
         got = plat_ms() < ui.msg_until;
@@ -809,6 +822,7 @@ int main(int argc, char **argv)
     wav_close();
     if (midi_log)
         fclose(midi_log);
+    fails += msg_too_wide;
     printf("host: %u ms simulated, %u blits, render %.1f%% of real time (host CPU)%s\n", now_ms, blits,
            render_budget_ns_total > 0 ? 100.0 * render_ns_total / render_budget_ns_total : 0.0,
            fails ? ", EXPECTATIONS FAILED" : "");
