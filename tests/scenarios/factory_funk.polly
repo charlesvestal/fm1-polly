@@ -15,11 +15,12 @@ expect song1_style3 23
 shot patterns.png
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 100
-wait 100
 press SEL
 key w13 down
 key w13 up
 release SEL
+# the engine takes the template at its next audio block (up to 5.8 ms): wait for it before looking
+wait 10
 expect template 13
 hitreset
 wav funk.wav

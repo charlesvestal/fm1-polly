@@ -73,13 +73,15 @@ grid 1.1 e tamb  ggXgggXg|ggXgggXX
 ```
 
 **Drums from a MIDI file:** `drums from=FILE.mid [bars=N] [start=B] [at=A] [quant=Q] [vel=P] [scale=..]
-[only=..] [skip=..] [shift=..]` takes N bars (default: the section's) starting at the file's bar B (from 0)
+[only=..] [skip=..] [shift=..] [map=..]` takes N bars (default: the section's) starting at the file's bar B (from 0)
 into the track from the section's bar A (default 1). Every note-on of the file counts (the Groove MIDI
 Dataset's Roland TD-11 notes are mapped to GM: hi-hat edges, rims, the second ride, ...); times go to the
 nearest of 24 ticks a beat (`quant=6`: the nearest sixteenth). `shift` (default `auto`): the median
-distance of the window's hits from their nearest sixteenth is removed, so a drummer playing just behind
-the click sits on the band's grid while keeping the feel; or a number of the file's own ticks. `vel=P`
-scales every velocity by P percent, `scale=kick:140,chh:80` by instrument. `only=` / `skip=` take drum names.
+distance from the beat of the hits near a beat (within a 32nd) is removed, so a drummer playing just behind
+the click sits on the band's grid while keeping the feel (straight or swung); or a number of the file's own
+ticks. `vel=P`
+scales every velocity by P percent, `scale=kick:140,chh:80` by instrument. `only=` / `skip=` take drum names (the file's, after the
+GM mapping); `map=snare:rim` plays one instrument as another (after `only` / `skip`; `scale` names the new one).
 A hit just before the window (a downbeat played early) counts as its first tick; one just before its end
 belongs to the next window. Use `--grid` to find good bars.
 
@@ -108,7 +110,28 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 | 1 | Pop | 105 | GMD drummer 3, rock 105: A bars 4-5, B 22-23 (on the ride), fill 17, ending 13 + a crash | kick-locked bass, 3-3-2 piano, strings | eighth bass with a walk, eighth piano, clean guitar arpeggio, tambourine | bass climbs into the toms | a tom fill, everything on the one |
 | 2 | Funk | 100 | GMD drummer 7, funk 100: A bars 37-38, B 13-14 (open hi-hat), fill 23, ending 45 + a crash | bass with octave pops, clavinet 3rd+7th in sixteenths, guitar chank on 2 and 4 | busier bass, guitar scratch, brass stabs, tambourine | a bass run, brass hits | a break on the and of 4, the root on the one |
 
+| 3 | Rock | 120 | GMD drummer 7, rock 120: A bars 27-28, B 10-11 + a crash, fill 16 (snare build), ending 20 + hits | palm-muted power chords in eighths (distortion guitar), root-eighths bass | open power chords, overdriven guitar arpeggio, rock organ pad, bass to the octave | eighths into sixteenths on bass and guitar | a tom fill, everything on the one |
+| 4 | Ballad | 72 | GMD drummer 7, rock 75: A bars 2-3 on the cross-stick (`map=snare:rim`), B 10-11 on the snare + a soft crash, fill 16, ending 8 + hits | piano arpeggios in eighths, fretless bass, soft strings | piano quarter-note chords, a high string line, strings up, the bass moving | the piano climbs the chord | a broken chord, then the whole chord held |
+| 5 | Bossa | 128 | by hand: the bossa clave on the cross-stick, kick 1 / 2& / 3 / 4&, hi-hat eighths; B on the ride + shaker | nylon guitar comping in 3rd-7th-9th voicings, bass root-fifth with pickups, soft strings | a flute line, the ride and shaker, the bass walking to the 3rd | toms down the kit | the chord on the one with a soft crash |
+| 6 | Swing | 124 | GMD drummer 10, jazz swing 124: A bars 10-11 on the closed hi-hat (`map=ohh:chh`), B 14-15 on the ride, fill 12, ending 10 + hits | walking bass, piano Charleston in 3-5-7 voicings, soft drawbar organ | ride, walk with triplet pickups, busier piano, a vibraphone line, organ up | a walk up and two kicks | the 3-5-7 chord held over the root |
+
 (The bar numbers above count from 1; `start=` counts from 0.)
+
+Bossa's drums are written by hand: the dataset's bossa takes (drummer 5, 127) are improvised around the
+groove, the cross-stick sparse and the kick at ghost level, and a style needs the steady bossa clave.
+
+## Checking and listening
+
+- `tests/host/style_chords_test.c` (in `run_tests.sh`) plays every pattern of every style through the real
+  engine as a song's Main A over the Pop template, the 12-bar blues, the Andalusian progression and a bar
+  each of ten chord types (maj, m, 7, M7, m7, 6, sus4, m7(b5), dim, aug): every note of a Chord 1 / Chord 2
+  track sounding an eighth or longer must be a tone of its chord or an allowed tension (9 and 13 over major
+  and dominant, 9 and 11 over minor, 11 and b13 over m7(b5), ...: `allowed()`). A deliberate tension goes in
+  its `ALLOW` list (style, track, interval, chord type).
+- `sh tools/render_styles.sh [NN ...]` renders `build/styles/NN.wav`: the style at its tempo over the Pop
+  template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz), each pass Main A,
+  Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit near -27 dBFS RMS at the
+  default master, the ballad a few dB under).
 
 ## The drums: the Groove MIDI Dataset
 

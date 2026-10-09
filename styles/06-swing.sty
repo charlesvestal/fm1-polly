@@ -1,0 +1,132 @@
+# Swing: a medium swing at ~124, eighths swung as triplets (the and of a beat at tick 16). Drums from the
+# Groove MIDI Dataset (drummer 10, a jazz swing at 124, CC BY 4.0: styles/README.md); the rest written for
+# Polly over C M7, in 3rd-5th-7th voicings so it follows sevenths, sixths and half-diminished alike.
+# Main A: time on the closed hi-hat (the drummer's open-hat chick played closed), a walking bass in quarters, piano comping the Charleston, a soft organ.
+# Main B: the drummer on the ride, the walk with triplet pickups, busier piano, a vibraphone line, the
+# organ up.
+style Swing
+tempo 124
+
+track d1 type=bypass chan=10 vol=110 rev=40
+track d2 type=bypass chan=10 vol=110 rev=40   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=110 rev=40
+track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=122 rev=24
+track c1 type=chord1 program=0 chan=3 lo=Bb3 hi=E5 hikey=F# vol=100 pan=48 rev=48
+track c2 type=chord1 program=11 chan=4 lo=E4 hi=E6 hikey=F# vol=80 pan=84 rev=56
+track c3 type=chord2 program=16 chan=5 lo=G3 hi=C5 vol=48 pan=64 rev=50 cho=30
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=9 bars=2 map=ohh:chh scale=kick:70,snare:55,chh:80
+track ba
+# walking: root, a step, the 3rd, the 5th; then root, 5th below, the 6th and the 7th up into the next root
+1.1.0  C2 22 104
+1.2.0  D2 22 86
+1.3.0  E2 22 94
+1.4.0  G2 22 88
+2.1.0  C2 22 104
+2.2.0  G1 22 86
+2.3.0  A1 22 92
+2.4.0  B1 22 88
+track c1
+# the Charleston: a short one, the and of 2 held over
+1.1.0  E4+G4+B4 10 82
+1.2.16 E4+G4+B4 20 72
+2.1.0  E4+G4+B4 10 78
+2.2.16 E4+G4+B4 20 70
+2.4.16 E4+G4+B4 8 64
+track c3
+1.1.0  B3+E4+G4 94 50
+2.1.0  B3+E4+G4 94 46
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=13 bars=2 scale=kick:45,ride:72,bell:55,snare:55,hmtom:45
+track ba
+1.1.0  C2 22 106
+1.2.0  E2 22 88
+1.3.0  G2 22 96
+1.4.0  A2 14 88
+1.4.16 G2 8 80
+2.1.0  C2 22 106
+2.2.0  E2 22 88
+2.3.0  G2 14 94
+2.3.16 E2 8 78
+2.4.0  B1 22 90
+track c1
+1.1.0  E4+G4+B4 8 84
+1.1.16 E4+G4+B4 14 70
+1.2.16 E4+G4+B4+D5 8 76
+1.3.16 E4+G4+B4 20 74
+1.4.16 E4+G4+B4 8 66
+2.1.0  E4+G4+B4 10 82
+2.2.16 E4+G4+B4 20 74
+2.3.16 E4+G4+B4+D5 8 70
+2.4.16 E4+G4+B4 8 72
+track c2
+# vibes: the 5th, the 7th and 3rd, a swung run down to the 5th
+1.1.0  G5 16 80
+1.1.16 E5 8 64
+1.2.0  B5 24 78
+1.3.0  G5 16 74
+1.3.16 E5 8 62
+1.4.0  C5 24 72
+2.1.0  E5 40 78
+2.2.16 G5 8 66
+2.3.0  E5 16 72
+2.3.16 D5 8 60
+2.4.0  C5 8 66
+2.4.16 G4 8 60
+track c3
+1.1.0  B3+E4+G4 94 70
+2.1.0  B3+E4+G4 94 66
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=11 bars=1 map=ohh:chh scale=kick:70,snare:85,chh:80
+track ba
+1.1.0  C2 22 104
+1.2.0  E2 22 88
+1.3.0  G2 14 94
+1.3.16 A2 8 82
+1.4.0  B2 14 92
+1.4.16 G2 8 84
+track c1
+1.1.0  E4+G4+B4 10 84
+1.3.16 E4+G4+B4+D5 8 90
+1.4.16 E4+G4+B4+D5 8 96
+track c3
+1.1.0  B3+E4+G4 94 54
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=9 bars=1 map=ohh:chh scale=kick:70,snare:55,chh:80
+2.1.0 kick 24 100
+2.1.0 snare 12 96
+2.1.0 crash 96 96
+track ba
+1.1.0  C2 22 104
+1.2.0  E2 22 88
+1.3.0  G2 22 94
+1.4.0  G1 14 90
+1.4.16 G1 8 96
+2.1.0  C2 72 106
+track c1
+1.1.0  E4+G4+B4 10 82
+1.2.16 E4+G4+B4 20 72
+1.4.16 E4+G4+B4+D5 8 92
+2.1.0  E4+G4+B4 72 94
+track c2
+1.4.16 G4 8 70
+2.1.0  E5 72 80
+track c3
+1.1.0  B3+E4+G4 94 50
+2.1.0  B3+E4+G4 72 60

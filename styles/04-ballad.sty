@@ -1,0 +1,136 @@
+# Ballad: a slow pop ballad at ~72. Drums from the Groove MIDI Dataset (drummer 7, a rock ballad at 75,
+# CC BY 4.0: styles/README.md): Main A on the cross-stick, Main B on the snare; the rest written for Polly
+# over C M7.
+# Main A: piano arpeggios in eighths, a fretless bass on roots and fifths, soft strings.
+# Main B: the piano in quarter-note chords with a lift, the strings up, a high string line, the bass moving.
+style Ballad
+tempo 72
+
+track d1 type=bypass chan=10 vol=112 rev=48
+track d2 type=bypass chan=10 vol=112 rev=48   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=112 rev=48
+track ba type=bass program=35 chan=2 lo=E1 hi=G3 hikey=F# vol=120 rev=30
+track c1 type=chord1 program=0 chan=3 lo=C3 hi=C6 hikey=off vol=112 pan=54 rev=64
+track c2 type=chord1 program=48 chan=4 lo=G4 hi=G6 hikey=F# vol=76 pan=80 rev=80
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=84 pan=64 rev=80 cho=20
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-27_rock_75_beat_4-4.mid start=1 bars=2 map=snare:rim scale=kick:150,chh:70,rim:110
+track ba
+1.1.0  C2 60 100
+1.3.12 G1 12 76
+1.4.0  G1 24 84
+2.1.0  C2 48 100
+2.3.0  G2 24 86
+2.4.0  E2 24 80
+track c1
+# a broken chord in eighths: up and back down
+1.1.0  C4 14 78
+1.1.12 G4 14 60
+1.2.0  C5 14 66
+1.2.12 E5 14 62
+1.3.0  G4 14 70
+1.3.12 C5 14 58
+1.4.0  E5 14 64
+1.4.12 C5 14 56
+2.1.0  C4 14 78
+2.1.12 G4 14 60
+2.2.0  C5 14 66
+2.2.12 E5 14 62
+2.3.0  G5 14 70
+2.3.12 E5 14 58
+2.4.0  C5 14 64
+2.4.12 G4 14 56
+track c3
+1.1.0  G3+C4+E4 94 48
+2.1.0  G3+C4+E4 94 44
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-27_rock_75_beat_4-4.mid start=9 bars=2 scale=kick:150,chh:70
+track d2
+1.1.0 crash 48 70
+track ba
+1.1.0  C2 36 104
+1.2.12 C2 12 76
+1.3.0  G1 24 90
+1.4.0  E2 12 84
+1.4.12 G2 12 80
+2.1.0  C2 36 104
+2.2.12 C2 12 76
+2.3.0  E2 24 90
+2.4.0  G2 24 86
+track c1
+# quarter-note chords, the right hand over a left-hand octave, a lift on the and of 4
+1.1.0  C3+C4+E4+G4 22 86
+1.2.0  E4+G4+C5 22 70
+1.3.0  E4+G4+C5 22 78
+1.4.0  E4+G4+C5 10 68
+1.4.12 E4+G4+C5 12 74
+2.1.0  C3+C4+E4+G4 22 86
+2.2.0  E4+G4+C5 22 70
+2.3.0  G4+C5+E5 22 78
+2.4.0  E4+G4+C5 22 70
+track c2
+# strings, a high line: the 3rd, rising to the 5th
+1.1.0  E5 48 76
+1.3.0  G5 48 72
+2.1.0  E5 72 76
+2.4.0  C6 24 70
+track c3
+1.1.0  G3+C4+E4 94 66
+2.1.0  G3+C4+E4 94 62
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer7-session2-27_rock_75_beat_4-4.mid start=15 bars=1 scale=kick:150,chh:70
+track ba
+1.1.0  C2 36 100
+1.2.12 E2 12 80
+1.3.0  G2 24 88
+1.4.0  E2 12 84
+1.4.12 G2 12 88
+track c1
+1.1.0  C3+C4+E4+G4 34 84
+1.2.12 E4+G4+C5 12 72
+1.3.0  G4 12 70
+1.3.12 C5 12 68
+1.4.0  E5 12 72
+1.4.12 G5 12 76
+track c3
+1.1.0  G3+C4+E4 94 60
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-27_rock_75_beat_4-4.mid start=7 bars=1 scale=kick:150,chh:70
+2.1.0 kick 24 96
+2.1.0 crash 96 84
+track ba
+1.1.0  C2 48 100
+1.3.0  G1 24 86
+1.4.0  G1 24 80
+2.1.0  C2 90 100
+track c1
+1.1.0  C4 14 78
+1.1.12 G4 14 60
+1.2.0  C5 14 66
+1.2.12 E5 14 62
+1.3.0  G4 14 70
+1.3.12 C5 14 58
+1.4.0  E5 14 64
+1.4.12 G5 14 60
+2.1.0  C3+G3+C4+E4+G4+C5 90 84
+track c2
+2.1.0  E5 90 72
+track c3
+1.1.0  G3+C4+E4 94 56
+2.1.0  G3+C4+E4 90 60

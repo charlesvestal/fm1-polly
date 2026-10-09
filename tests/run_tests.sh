@@ -33,6 +33,9 @@ run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src
 run styles sh -c "python3 tools/make_styles.py --check styles/*.sty && python3 tools/make_styles.py --roundtrip styles/*.sty && \
     python3 tools/make_styles.py styles/*.sty > $OUT/styles.h && cmp $OUT/styles.h firmware/src/dsp/styles.h && \
     sh tests/host/styles_test.sh $OUT"
+# the styles' chord parts: every Chord 1 / 2 note held an eighth or more is a chord tone or an allowed tension,
+# over the Pop template, the blues, the Andalusian progression and ten chord types (the real engine)
+run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -Itests/host -o $OUT/style_chords_test tests/host/style_chords_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/style_chords_test"
 run storage sh -c "$CC -O2 -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then

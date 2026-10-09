@@ -184,18 +184,19 @@ def vlq(d, p):
             return v, p
 
 
-def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale):
+def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale, remap):
     """a drum loop from a MIDI file: `bars` bars from bar `start` (0-based), at 24 PPQ. shift: ticks of the
-    file (at its own resolution) to move every hit by; "auto": the median distance of the window's hits from
-    their nearest 16th, so a drummer playing behind or ahead of the click sits on the band's grid"""
+    file (at its own resolution) to move every hit by; "auto": the median distance from the beat of the
+    window's hits near a beat (within a 32nd), so a drummer playing behind or ahead of the click sits on the
+    band's grid (straight or swung alike)"""
     div, notes = read_midi(path)
     n = bars * beats * PPQ
     off = start * beats * div
     win = [(t - off, TD11.get(note, note), vel) for t, ch, note, vel in notes
            if -div // 8 <= t - off < bars * beats * div]
     if shift == "auto":
-        q = div // 4
-        d = sorted((t + q // 2) % q - q // 2 for t, g, v in win)
+        q = div
+        d = sorted(x for x in ((t + q // 2) % q - q // 2 for t, g, v in win) if abs(x) <= div // 8)
         sh = -d[len(d) // 2] if d else 0
     else:
         sh = int(shift)
@@ -203,6 +204,7 @@ def midi_drums(path, beats, bars, start, quant, velpct, only, skip, shift, scale
     for t, g, vel in win:
         if only and g not in only or g in skip:
             continue
+        g = remap.get(g, g)
         tk = round((t + sh) * PPQ / div / quant) * quant
         if -2 <= tk < 0:
             tk = 0                       # a downbeat played early
@@ -320,7 +322,7 @@ def parse(path, text=None):
                 if not src:
                     raise StyErr("drums: from=FILE.mid")
                 for name in opt:
-                    if name not in ("from", "bars", "start", "quant", "vel", "only", "skip", "at", "shift", "scale"):
+                    if name not in ("from", "bars", "start", "quant", "vel", "only", "skip", "at", "shift", "scale", "map"):
                         raise StyErr("drums: unknown option " + name)
                 nb = int_in(opt.get("bars", str(pat["bars"])), 1, MAXBARS, "bars")
                 at = int_in(opt.get("at", "1"), 1, MAXBARS, "at") - 1
@@ -329,7 +331,9 @@ def parse(path, text=None):
                                 int_in(opt.get("quant", "1"), 1, 24, "quant"), int(opt.get("vel", "100")),
                                 names(opt.get("only")), names(opt.get("skip")), opt.get("shift", "auto"),
                                 {note_num(a): int(b) for a, b in (x.split(":") for x in opt["scale"].split(","))}
-                                if opt.get("scale") else {})
+                                if opt.get("scale") else {},
+                                {note_num(a): note_num(b) for a, b in (x.split(":") for x in opt["map"].split(","))}
+                                if opt.get("map") else {})
                 o = at * pat["beats"] * PPQ
                 pat["ev"][trk] += [(t + o, l, n, v, lineno) for t, l, n, v in ev]
             elif k == "grid":

@@ -1,0 +1,126 @@
+# Rock: a straight-eighths rock band at ~120. Drums from the Groove MIDI Dataset (drummer 7, a rock groove
+# at 120, CC BY 4.0: styles/README.md), the rest written for Polly over C M7.
+# Main A: palm-muted power chords in eighths, a root-eighths bass, the drummer's hi-hat groove.
+# Main B: the power chords ring open, an overdriven guitar arpeggio on top, a rock organ underneath,
+# a busier kick, the bass climbing to the octave; a crash on its one.
+style Rock
+tempo 120
+
+track d1 type=bypass chan=10 vol=106 rev=24
+track d2 type=bypass chan=10 vol=106 rev=24   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=106 rev=24
+track ba type=bass program=34 chan=2 lo=E1 hi=G3 hikey=F# vol=108 rev=8
+# power chords (root, fifth, octave) low: the high key keeps G..B below C
+track c1 type=chord1 program=30 chan=3 lo=E2 hi=G4 hikey=F# vol=78 pan=40 rev=20
+track c2 type=chord1 program=29 chan=4 lo=G4 hi=E6 hikey=F# vol=62 pan=88 rev=40
+track c3 type=chord2 program=18 chan=5 lo=G3 hi=C5 vol=58 pan=64 rev=40 cho=30
+
+[main a]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=26 bars=2 scale=kick:130,chh:85
+track ba
+# root eighths, the fifth and the octave to turn the bar
+1.1.0  C2 10 108/78 x6 12
+1.4.0  G1 10 96
+1.4.12 G1 10 80
+2.1.0  C2 10 108/78 x6 12
+2.4.0  C3 10 98
+2.4.12 G2 10 86
+track c1
+# palm-muted eighths, accented on the beat and on the and of 2
+grid 1.1 e C3+G3+C4 xgxXgxgx|xgxXgxXg len=7
+track c3
+1.1.0  G3+C4+E4 94 40
+
+[main b]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=9 bars=2 scale=kick:130,chh:85
+track d2
+1.1.0 crash 24 96
+track ba
+1.1.0  C2 10 110/80 x4 12
+1.3.0  C3 10 100
+1.3.12 C2 10 80
+1.4.0  G1 10 96
+1.4.12 G1 10 82
+2.1.0  C2 10 110/80 x4 12
+2.3.0  E2 10 96
+2.3.12 E2 10 80
+2.4.0  G2 10 98
+2.4.12 G2 10 86
+track c1
+# open: the one rings, eighths push into beat 3, the and of 4 anticipates
+1.1.0  C3+G3+C4 34 104
+1.2.12 C3+G3+C4 10 88
+1.3.0  C3+G3+C4 22 96
+1.4.0  C3+G3+C4 10 84
+1.4.12 C3+G3+C4 12 92
+2.1.0  C3+G3+C4 34 104
+2.2.12 C3+G3+C4 10 88
+2.3.0  C3+G3+C4 22 96
+2.4.0  C3+G3+C4 10 84
+2.4.12 C3+G3+C4 12 96
+track c2
+# overdriven guitar, an arpeggio in eighths over the top: 5, 1, 3, 5, then up to the octave
+1.1.0  G4 12 86
+1.1.12 C5 12 74
+1.2.0  E5 12 80
+1.2.12 G5 12 72
+1.3.0  E5 12 82
+1.3.12 C5 12 72
+1.4.0  G4 12 78
+1.4.12 C5 12 70
+2.1.0  G4 12 86
+2.1.12 C5 12 74
+2.2.0  E5 12 80
+2.2.12 G5 12 72
+2.3.0  C6 24 88
+2.4.0  G5 12 78
+2.4.12 E5 12 70
+track c3
+1.1.0  G3+C4+E4 94 64
+2.1.0  G3+C4+E4 94 60
+
+[fill]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=15 bars=1 scale=kick:130,chh:85
+track ba
+1.1.0  C2 10 108
+1.1.12 C2 10 80
+1.2.0  C2 10 96
+1.2.12 C2 10 80
+1.3.0  E2 6 96 x4 6
+1.4.0  G2 6 100 x4 6
+track c1
+1.1.0  C3+G3+C4 22 104
+1.2.12 C3+G3+C4 10 92
+1.3.0  C3+G3+C4 6 96 x8 6
+
+[ending]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=19 bars=1 scale=kick:130,chh:85
+2.1.0 kick 24 106
+2.1.0 snare 12 100
+2.1.0 crash 96 100
+track d2
+2.1.0 crash2 96 86
+track ba
+1.1.0  C2 10 108/78 x6 12
+1.4.0  G1 10 100
+1.4.12 G1 10 100
+2.1.0  C2 84 112
+track c1
+grid 1.1 e C3+G3+C4 xgxXgxXX len=7
+2.1.0  C3+G3+C4 84 112
+track c2
+2.1.0  E5+G5+C6 84 90
+track c3
+2.1.0  G3+C4+E4 84 64

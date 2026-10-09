@@ -15,15 +15,19 @@ expect song1_style2 18
 expect song1_style3 19
 expect slot0_nev >20
 shot patterns.png
-# past the last style: it stays on the last
-spin K1 40
+# the next style (Funk's Main A); past either end: it stays at the end (P01, the last style)
+spin K1 1
 expect song1_style0 20
-spin K1 -1
+spin K1 -300
+expect song1_style0 0
+spin K1 300
+expect song1_style0 >19
+spin K1 -300
+spin K1 16
 expect song1_style0 16
 # the Pop template, PLAY: 4 bars of Main A
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 105
-wait 100
 press SEL
 key w0 down
 key w0 up

@@ -1,0 +1,119 @@
+# Bossa: a bossa nova at ~128, written for Polly over C M7. Drums by hand (the Groove MIDI Dataset's bossa
+# takes are improvised, the cross-stick sparse; a style needs the steady bossa clave).
+# Main A: the cross-stick clave, soft hi-hat eighths, the bass on root and fifth with their pickups,
+# a nylon guitar comping the syncopated pattern in 3rd-7th-9th voicings, soft strings.
+# Main B: the ride, a shaker in sixteenths, a flute line, the strings up, the bass walking to the 3rd.
+style Bossa
+tempo 128
+
+track d1 type=bypass chan=10 vol=96 rev=40
+track d2 type=bypass chan=10 vol=96 rev=40   # shares channel 10 with d1: the same mixer
+track pc type=bypass chan=10 vol=96 rev=40
+track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=108 rev=24
+track c1 type=chord1 program=24 chan=3 lo=E3 hi=G5 hikey=off vol=96 pan=46 rev=48
+track c2 type=chord1 program=73 chan=4 lo=C5 hi=C7 hikey=F# vol=66 pan=82 rev=64
+track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=56 pan=64 rev=70 cho=20
+
+[main a]
+bars 2
+beats 4
+track d1
+grid 1.1 s kick  6.....4.6.....4.|6.....4.6.....4.
+grid 1.1 s rim   5.....5.....5...|....5.....5.....
+grid 1.1 e chh   34343434|34343434
+grid 1.2 h phh   44|44
+track ba
+1.1.0  C2 30 98
+1.2.12 C2 10 66
+1.3.0  G1 30 92
+1.4.12 G1 10 64
+2.1.0  C2 30 98
+2.2.12 C2 10 66
+2.3.0  G1 30 92
+2.4.12 G1 10 70
+track c1
+# the comping rhythm over two bars, in eighths
+grid 1.1 e E3+B3+D4+G4 x.xx.x.x|.xx.x.x. len=9
+track c3
+1.1.0  G3+C4+E4 94 40
+2.1.0  G3+C4+E4 94 36
+
+[main b]
+bars 2
+beats 4
+track d1
+grid 1.1 s kick  6.....4.6.....4.|6.....4.6.....4.
+grid 1.1 s rim   5.....5.....5...|....5.....5.....
+grid 1.1 e ride  45354535|45354535
+grid 1.2 h phh   44|44
+track pc
+grid 1.1 s shaker 3232423232324232|3232423232324232 len=6
+track ba
+1.1.0  C2 30 100
+1.2.12 C2 10 68
+1.3.0  G1 30 94
+1.4.12 G1 10 66
+2.1.0  C2 30 100
+2.2.12 C2 10 68
+2.3.0  E2 30 94
+2.4.12 G2 10 72
+track c1
+grid 1.1 e E3+B3+D4+G4 x.xx.x.x|.xx.x.xx len=9
+track c2
+# flute: the 5th, down through the 3rd, the 7th and back
+1.1.0  G5 24 84
+1.2.0  E5 10 70
+1.2.12 D5 10 66
+1.3.0  E5 36 78
+1.4.12 G5 12 70
+2.1.0  B5 24 82
+2.2.0  G5 48 76
+2.4.0  E5 22 70
+track c3
+1.1.0  G3+C4+E4 94 60
+2.1.0  G3+C4+E4 94 56
+
+[fill]
+bars 1
+beats 4
+track d1
+grid 1.1 s kick  6.....4.6.......
+grid 1.1 s rim   6.....6.........
+grid 1.3 s htom  54..
+grid 1.3.12 s hmtom 54..
+grid 1.4 s ltom  54..
+grid 1.4.12 s ftom 65
+track ba
+1.1.0  C2 30 98
+1.2.12 C2 10 66
+1.3.0  E2 12 86
+1.3.12 G2 12 88
+1.4.0  E2 12 86
+1.4.12 G1 12 84
+track c1
+grid 1.1 e E3+B3+D4+G4 x.xx.x.. len=9
+1.4.12 E3+B3+D4+G4 9 92
+track c3
+1.1.0  G3+C4+E4 94 46
+
+[ending]
+bars 2
+beats 4
+track d1
+grid 1.1 s kick  6.....4.6.....4.|7...............
+grid 1.1 s rim   6.....6.....6...|7...............
+grid 1.1 e chh   34343434
+2.1.0 crash 72 70
+track ba
+1.1.0  C2 30 98
+1.2.12 C2 10 66
+1.3.0  G1 30 92
+1.4.12 G1 10 70
+2.1.0  C2 72 100
+track c1
+grid 1.1 e E3+B3+D4+G4 x.xx.x.x len=9
+2.1.0  C3+G3+E4+G4 72 88
+2.1.4  C5 68 70
+track c3
+1.1.0  G3+C4+E4 94 40
+2.1.0  G3+C4+E4 72 48
