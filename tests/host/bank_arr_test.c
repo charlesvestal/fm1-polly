@@ -148,6 +148,7 @@ static void make_a(void)
     A.ph[c].hi = 84;
     note(&A, 0, 3600, 64, 80);
     ctl(&A, 0, 2, 30);
+    ctl(&A, 960, 5, 30);                          /* brightness down (CC 74) on beat 3 */
     ctl(&A, 1920, 2, 100);
     e = phrase(&A, XT_CHORD1, 0, 1920);
     A.ph[e].lo = 48;
@@ -219,6 +220,8 @@ static void t_repeat_and_controllers(void)
     CHECK(last_val(0xE1, 0, f1, 1) == 40 && last_val(0xE1, 0, f0, 1) == 64, "bend down on beat 2 (%d)", last_val(0xE1, 0, f1, 1));
     CHECK(last_val(0xE1, 0, BAR + 2 * BEAT + 10, 1) == 64, "and back on beat 3, in the repeat too");
     CHECK(last_val(0xB2, 11, BAR - 300, 1) == 30 && last_val(0xB2, 11, BAR + 10, 1) == 100, "C1's expression: 30, then 100 on bar 2");
+    CHECK(last_val(0xB2, 74, 2 * BEAT - 300, 1) == 64 && last_val(0xB2, 74, 2 * BEAT + 10, 1) == 30,
+          "C1's brightness: the track's 64, then the phrase's 30 on beat 3");
     CHECK(count(out_log, out_n, 0, 0, 2 * BAR - 300, 0xE1, 0) == 6 && count(out_log, out_n, 0, 0, 2 * BAR - 300, 0xB2, 11) == 2,
           "the controllers go to MIDI out too");
     /* the transposer leaves them alone: over G, the bass plays G, the bend's values stay */
@@ -234,7 +237,8 @@ static void t_repeat_and_controllers(void)
         run_to(stub_frame + 512);
         CHECK(count(stub_log, stub_n, n0, 0, ~0u, 0xE1, 0) == 1 && last_val(0xE1, 0, ~0u, 1) == 64, "stop: bend centred");
         CHECK(last_val(0xB2, 11, ~0u, 1) == 127 && last_val(0xB2, 1, ~0u, 1) == 0 && last_val(0xD2, -1, ~0u, 0) == 0 &&
-              last_val(0xB2, 64, ~0u, 1) == 0 && last_val(0xB2, 10, ~0u, 1) == 64, "stop: C1's channel reset");
+              last_val(0xB2, 64, ~0u, 1) == 0 && last_val(0xB2, 10, ~0u, 1) == 64 && last_val(0xB2, 74, ~0u, 1) == 64 &&
+              last_val(0xB2, 71, ~0u, 1) == 64, "stop: C1's channel reset (brightness, resonance 64 too)");
         CHECK(count(stub_log, stub_n, n0, 0, ~0u, 0xE9, -1) == 0, "the drums' channel: nothing to reset");
         CHECK(count(out_log, out_n, o0, 0, ~0u, 0xE1, 0) == 1, "... MIDI out too");
         n0 = stub_n;
@@ -242,6 +246,26 @@ static void t_repeat_and_controllers(void)
         run_to(stub_frame + 512);
         CHECK(count(stub_log, stub_n, n0, 0, ~0u, 0xE1, -1) == 0, "reset once, not at every stop");
     }
+}
+
+/* a track's brightness and resonance (the Mixer's tone page) go with its sounds, and are what a reset returns to */
+static void t_tone(void)
+{
+    reset();
+    make_a();
+    arr_bank_pattern(&A, SEC_A - 1, &P);
+    P.trk[4].bright = arr_xor64(100);
+    P.trk[4].reso = arr_xor64(20);
+    arr_load_bank(SEC_A - 1, &A, SEC_A - 1, &P);
+    arr_section(SEC_A);
+    arr_play(1);
+    run_to(BAR - 300);
+    CHECK(last_val(0xB2, 74, 300, 1) == 100 && last_val(0xB2, 71, 300, 1) == 20, "the track's tone sent at the start");
+    arr_play(0);
+    run_to(stub_frame + 512);
+    CHECK(last_val(0xB2, 74, ~0u, 1) == 100 && last_val(0xB2, 71, ~0u, 1) == 20, "the reset: back to the track's tone");
+    P.trk[4].bright = 0;
+    CHECK(arr_bright(&P.trk[4]) == 64, "0 stored: the neutral 64 (patterns saved before)");
 }
 
 static void t_section_change(void)
@@ -473,6 +497,7 @@ int main(int argc, char **argv)
 {
     t_repeat_and_controllers();
     t_section_change();
+    t_tone();
     t_chord_hold();
     t_reset_owed();
     t_switch_while_playing();

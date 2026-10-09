@@ -31,8 +31,8 @@ python3 tools/qy70_install.py qy70main.bin [--yes]               # build the ban
 python3 tools/qy70_install.py qy70main.bin --image-out FILE      # the image only (the simulator's `bank FILE`)
 ```
 
-All 128 styles, with their bends, modulation, expression, pan and pressure, as the range-coded bank below
-(234,727 bytes from the ROM we have). After the 16 factory styles, the Style knob (and PRESETS on the Song
+All 128 styles, with their bends, modulation, expression, pan, pressure and filter moves (CC 74 brightness,
+CC 71 resonance), as the range-coded bank below (254,406 bytes from the ROM we have). After the 16 factory styles, the Style knob (and PRESETS on the Song
 patterns pages) goes on through the bank's styles by name ("QY Bossa A" on the page); Setup shows the bank
 (none, 128 styles, damaged, old format).
 
@@ -41,7 +41,7 @@ up: Polly keeps 16, 0x99000-0xB8FFF), 0xDE000-0xDFFFF and 0xE5000-0xFBFFF, 64 se
 write exactly these (`FL_BANK_OK`). 0xDE000 is the directory: magic, version, the codec's magic, per style its
 name, tempo, beats, place, sizes and CRC-32, then a CRC-32 of the directory. The other 63 sectors are one logical
 stream that steps over bytes 0xF00-0xF07 of every sector (kept 0xFF, so no sector looks like an update record to
-the loader): 257,544 bytes, 22.8 KB to spare. The priors first, then each style's record (its header, its stream).
+the loader): 257,544 bytes, 3.1 KB to spare. The priors first, then each style's record (its header, its stream).
 
 **Writing it** (`firmware/src/bank_rx.c`): the update's SysEx protocol. The host asks (cmd 0x40: the image's size
 and CRC-32); the FM-1 stops playing and asks for the image piece by piece (cmd 0x30, 512 bytes, each frame
@@ -58,7 +58,7 @@ buffer playing meanwhile, so a style changes while playing without a gap. Each t
 section's start, repeated to fill the section (cut at its end), through the transposer with the phrase's type,
 limits and high key and the program the section gives it; no note limit. The controllers go to the track's
 channel (synth and MIDI out), never through the transposer; the channels they moved are reset (bend centred,
-modulation 0, expression 127, pressure 0, sustain off, pan the track's) at a section change, a stop and a style
+modulation 0, expression 127, pressure 0, sustain off; pan, brightness and resonance the track's) at a section change, a stop and a style
 change. A song plays one bank style at a time (a section picked from another moves its other bank sections
 with it). Recording into or editing a bank section first makes it a pattern (its notes, the quietest dropped
 past 600, no controllers) in a user pattern of its own.
@@ -68,10 +68,10 @@ the section's first beat stays until it ends; a template's first bar comes with 
 (the keys) still changes it at once.
 
 **The cost** (`tests/host/bank_test.c` on the ROM's bank): RAM 2 x 32.2 KB (the two style buffers: 2,560
-notes, 4,096 controller events, 64 phrases each; the largest style, Hi-Life, decodes to 20.6 KB), 13.5 KB of
-decoder working memory, 8 KB for a style's record, 3 KB for the directory and 2.3 KB of priors, all in the pool;
-the firmware's code grows by about 16 KB. Decoding all 128 styles takes 16 ms on this Mac (the slowest, Hi-Life,
-0.36 ms); on the FM-1 some 11-17 ms for the largest, once, when it is picked.
+notes, 4,096 controller events, 64 phrases each; the largest style, Hi-Life, decodes to 20.6 KB), 14.9 KB of
+decoder working memory, 8 KB for a style's record, 3 KB for the directory and 2.6 KB of priors, all in the pool;
+the firmware's code grows by about 17 KB. Decoding all 128 styles takes 17 ms on this Mac (the slowest, Hi-Life,
+0.38 ms); on the FM-1 some 11-17 ms for the largest, once, when it is picked.
 
 **Tests without a ROM** use a synthetic bank of the same format (`tools/qybank_synth.py`: Polly's own styles coded
 as bank styles, with controllers, and a dense style of 800-note sections). With `QY70_ROM=path/to/qy70main.bin`,
@@ -314,7 +314,8 @@ sign).
 |---|---|
 | phrase bank, format 2, notes only / with controllers | 363,895 / 439,840 |
 | range-coded, notes only | ~197,000 |
-| **range-coded, with bends and controllers** | **235,247** (priors 2,268; styles 611..5,201 bytes, median 1,615) |
+| range-coded, with bends and controllers | 235,247 (priors 2,268; styles 611..5,201 bytes, median 1,615) |
+| **range-coded, with CC 74 and 71 too (the bank on Polly, "QYB3")** | **254,926** (priors 2,601; 46,778 controller events) |
 
 **What fits** (192 KB of free flash plus 8 KB for each user pattern slot given up, less 0.2% for the sectors'
 update-record guard):

@@ -33,7 +33,7 @@ expect pat11_nev 1
 tap ENV
 tap ENV
 tap ENV
-expect page 10
+expect page 11
 spin K3 6
 wait 50
 expect song1_style5 11

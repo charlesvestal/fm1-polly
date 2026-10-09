@@ -16,7 +16,7 @@ shot setup_bank.png
 # the Style knob: Pop (factory 1) + 16 = the bank's first, "QY Pop"
 tap ENV
 tap ENV
-expect page 9
+expect page 10
 spin K4 16
 wait 50
 expect song1_style0 512

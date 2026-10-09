@@ -23,12 +23,13 @@ PPQ = q.QPPQ
 GATE_UNIT = 10                   # melodic gates are stored in 10-tick units (+-5 ticks: 5 ms at 120 bpm)
 DRUM_GATE = 60                   # drums have no stored gate: they play this long
 # controllers kept, in a phrase's stream: kind -> (name, the MIDI controller, the smallest step kept)
-KINDS = [("bend", None, 1), ("mod", 1, 2), ("expression", 11, 2), ("pan", 10, 1), ("pressure", None, 2)]
-KIND_OF = {"bend": 0, 1: 1, 11: 2, 10: 3, "pressure": 4}
+KINDS = [("bend", None, 1), ("mod", 1, 2), ("expression", 11, 2), ("pan", 10, 1), ("pressure", None, 2),
+         ("brightness", 74, 2), ("resonance", 71, 2)]
+KIND_OF = {"bend": 0, 1: 1, 11: 2, 10: 3, "pressure": 4, 74: 5, 71: 6}
 # Polly's synth (Sonivox EAS, eas_voicemgt.c VMControlChange) answers bank select, 1 (vibrato depth), 7, 10, 11,
 # 64, 91, 93, the RPNs (bend range) and 120..127, plus pitch bend and channel pressure (vibrato depth too); the
-# QY70 phrases use 1, 10, 11, bend and pressure of those. CC 74 and 71 (the XG filter's cutoff and resonance,
-# 24,500 events) fall through to its default case: not stored
+# QY70 phrases use 1, 10, 11, bend and pressure of those; and CC 74 and 71 (the XG filter's cutoff and resonance,
+# 24,500 events), which Polly's EAS now answers too (the per-voice filter): kept as kinds 5 and 6
 END, LONG, CTRL = 0xFF, 0xFE, 0xF0
 
 

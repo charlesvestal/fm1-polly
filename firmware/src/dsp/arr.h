@@ -34,7 +34,9 @@ typedef struct {
     uint8_t chan;                        /* MIDI channel 0..15 (drums: 9) */
     xtrack_t x;                          /* type, limits, high key */
     uint8_t vol, pan, rev, cho, mute;
-    uint8_t rsv[3];
+    uint8_t bright, reso;                /* CC 74 (brightness: the filter's cutoff), CC 71 (resonance), each stored XOR
+                                          * 64: 0 is the neutral 64 (patterns saved before them hold 0) */
+    uint8_t rsv;
     uint16_t first, count;               /* its events: ev[first .. first + count), sorted by tick */
 } arr_trk_t;
 
@@ -82,6 +84,9 @@ int arr_style_tempo(int s);                      /* its tempo, as written */
 /* factory pattern n (ARR_FACTORY0..) expanded into *p (the app then loads it into a slot); -1 for none */
 int arr_factory_pattern(int n, pattern_t *p);
 
+static inline uint8_t arr_bright(const arr_trk_t *t) { return (uint8_t)((t->bright ^ 64u) & 127u); }
+static inline uint8_t arr_reso(const arr_trk_t *t) { return (uint8_t)((t->reso ^ 64u) & 127u); }
+static inline uint8_t arr_xor64(int v) { return (uint8_t)(((unsigned)v & 127u) ^ 64u); }
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
 _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
 

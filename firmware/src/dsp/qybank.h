@@ -10,7 +10,7 @@
  * so the logical stream steps over them (4088 bytes a sector).
  *
  * The directory (little-endian; written last, so a bank cut off while it was written has none):
- *   0  "PQB1"  4  version (QB_VERSION), styles (u16)  8  the codec's magic ("QYB2", tools/qy70_codec.py)
+ *   0  "PQB1"  4  version (QB_VERSION), styles (u16)  8  the codec's magic ("QYB3", tools/qy70_codec.py)
  *   12 data bytes used (u32)  16 the priors' logical offset (u32)  20 their bytes (u16)  22 rsv (u16)
  *   24 the priors' CRC-32  28 rsv (u32)  32 the styles, 24 bytes each:
  *      name (8, space padded), record offset (u32, logical), header bytes (u16), stream bytes (u16),
@@ -45,7 +45,7 @@
 
 #define QB_MAGIC 0x31425150u             /* "PQB1" */
 #define QB_VERSION 1u
-#define QB_CODEC 0x32425951u             /* "QYB2" */
+#define QB_CODEC 0x33425951u             /* "QYB3" (a bank of another codec: QB_OLD, install it again) */
 #define QB_MAXSTYLES 128
 #define QB_DIR_HEAD 32u
 #define QB_DIR_ENTRY 24u

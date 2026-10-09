@@ -8,7 +8,7 @@
 #define QY_PPQ 480
 #define QY_GATE_UNIT 10
 #define QY_DRUM_GATE 60
-#define QY_NKINDS 5                       /* controllers: bend (top 7 bits), CC 1, CC 11, CC 10, pressure */
+#define QY_NKINDS 7                       /* controllers: bend (top 7 bits), CC 1, CC 11, CC 10, pressure, CC 74, CC 71 */
 
 /* the model's probabilities, in the order tools/qy70_codec.py's Layout takes them */
 #define QY_UK 18

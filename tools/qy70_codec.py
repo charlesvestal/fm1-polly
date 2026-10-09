@@ -37,7 +37,7 @@ DRUM_GATE = qb.DRUM_GATE
 UNITS = qb.UNITS
 SHIFT = 4                        # probability adaptation rate (LZMA uses 5; 4 suits short phrases)
 NKINDS = len(qb.KINDS)
-MAGIC = b"QYB2"
+MAGIC = b"QYB3"                  # 3: CC 74 and 71 kept (kinds 5, 6)
 
 # ---------------------------------------------------------------- the model's probability layout (the C decoder
 # mirrors it: firmware/src/dsp/qydec.h)

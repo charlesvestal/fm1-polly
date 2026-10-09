@@ -70,12 +70,14 @@ def from_sty(path, controllers=True):
 
 
 def _controllers(t, length):
-    """Main A's: the bass a bend down and back in its first beat (kind 0), C1 a modulation swell (1), C3 an
-    expression swell across the section (2)"""
+    """Main A's: the bass a bend down and back in its first beat (kind 0), C1 a modulation swell (1), C2 a
+    brightness sweep and a resonance (5, 6: CC 74, 71), C3 an expression swell across the section (2)"""
     if t == 3:
         return [(0, 0, 64), (60, 0, 56), (120, 0, 48), (240, 0, 56), (360, 0, 64)]
     if t == 4:
         return [(0, 1, 0), (PPQ, 1, 40), (2 * PPQ, 1, 80), (3 * PPQ, 1, 0)]
+    if t == 5:
+        return [(0, 5, 40), (PPQ, 5, 90), (2 * PPQ, 6, 80), (3 * PPQ, 5, 64)]
     if t == 6:
         n = 8
         return [(length * i // n, 2, 40 + 80 * i // (n - 1)) for i in range(n)]

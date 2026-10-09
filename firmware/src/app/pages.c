@@ -20,10 +20,10 @@
 #define K_PLUM RGB(150, 112, 170)                    /* the Intro */
 #define K_SLATE RGB(84, 118, 168)                    /* the Ending */
 
-enum { P_SONG, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_MASTER, P_CHORDS, P_ARRANGE, P_ARRANGE2,
+enum { P_SONG, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_TONE, P_MASTER, P_CHORDS, P_ARRANGE, P_ARRANGE2,
        P_ARRANGE3, P_TEMPLATES, P_TCOPY, P_SETUP, P_PANEL, NPAGES };
 static const char *const PAGE_NAME[NPAGES] = {"Song", "Pattern", "Pattern setup", "Track", "Track keys", "Mixer",
-                                              "Master FX", "Chords", "Arrange", "Song patterns", "Song patterns",
+                                              "Mixer tone", "Master FX", "Chords", "Arrange", "Song patterns", "Song patterns",
                                               "Templates", "Copy template", "Setup", "Panel"};
 /* the Arrange pages (ENV): the section track, then the six patterns, three a page (Intro, Main A, Main B;
  * Fill AB, Fill BA, Ending) and the style on KNOB 4 */
@@ -710,6 +710,38 @@ static void draw_mixer(void)
     }
     cv_blit(0, MAIN_Y);
 }
+/* the tone: each track's brightness (CC 74, the filter's cutoff) and resonance (CC 71), 64 neutral (a line) */
+static void draw_tone(void)
+{
+    int s = pslot(), i;
+    uint32_t h = hash(2166136261u, 0x70000u | (uint32_t)s | (uint32_t)proj.trk << 4);
+    for (i = 0; i < ARR_TRACKS; i++)
+        h = hash(h, app.trk[s][i].bright | (uint32_t)app.trk[s][i].reso << 8 | (uint32_t)app.trk[s][i].mute << 16);
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    for (i = 0; i < ARR_TRACKS; i++) {
+        const arr_trk_t *t = &app.trk[s][i];
+        int32_t x = 4 + i * 29, w = 27, sel = i == proj.trk, b = arr_bright(t), r = arr_reso(t);
+        int32_t bh = 76 * b / 127, rh = 76 * r / 127;
+        char v[6];
+        cv_round(x, 0, w, 144, 5, sel ? K_TEAL_T : K_PANEL);
+        text_c(x + w / 2, 0, &FONT_XS, TRACK_NAME[i], sel ? K_TEXT : K_DIM);
+        cv_round(x + 5, 20, 7, 78, 3, K_BG);    /* brightness */
+        cv_round(x + 15, 20, 7, 78, 3, K_BG);   /* resonance */
+        if (bh > 0)
+            cv_round(x + 5, 20 + 78 - bh - 1, 7, bh, 3, t->mute ? K_LINE : K_TEAL);
+        if (rh > 0)
+            cv_round(x + 15, 20 + 78 - rh - 1, 7, rh, 3, t->mute ? K_LINE : K_AMBER);
+        cv_rect(x + 3, 20 + 78 - 39, w - 6, 1, K_DIM); /* 64: neutral */
+        itoa_u((uint32_t)b, cat_s(v, "B"));
+        text_c(x + w / 2, 104, &FONT_XS, v, b == 64 ? K_DIM : K_TEXT);
+        itoa_u((uint32_t)r, cat_s(v, "R"));
+        text_c(x + w / 2, 120, &FONT_XS, v, r == 64 ? K_DIM : K_TEXT);
+    }
+    cv_blit(0, MAIN_Y);
+}
 static void draw_master(void)
 {
     uint32_t h = hash(2166136261u, proj.rev_type | (uint32_t)proj.rev_level << 8 | (uint32_t)proj.cho_type << 16 |
@@ -1167,6 +1199,10 @@ static void edit_knobs(knob_t *k)
         kn(&k[2], "Reverb", t->rev, 127);
         kn(&k[3], "Chorus", t->cho, 127);
         break;
+    case P_TONE:
+        kn(&k[0], "Bright", arr_bright(t), 127);
+        kn(&k[1], "Reso", arr_reso(t), 127);
+        break;
     case P_MASTER:
         kv(&k[0], "Reverb", REV_SHORT[proj.rev_type <= 4u ? proj.rev_type : 0], proj.rev_type, 4);
         kn(&k[1], "Rev lvl", proj.rev_level, 127);
@@ -1319,6 +1355,8 @@ static void draw_page(void)
         draw_track();
     else if (ui.page == P_MIXER)
         draw_mixer();
+    else if (ui.page == P_TONE)
+        draw_tone();
     else if (ui.page == P_MASTER)
         draw_master();
     else if (ui.page == P_CHORDS)

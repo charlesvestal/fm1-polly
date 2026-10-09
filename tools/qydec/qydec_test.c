@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     n = ftell(f);
     fseek(f, 0, SEEK_SET);
     b = malloc((size_t)n);
-    if (!b || fread(b, 1, (size_t)n, f) != (size_t)n || memcmp(b, "QYB2", 4))
+    if (!b || fread(b, 1, (size_t)n, f) != (size_t)n || memcmp(b, "QYB3", 4))
         return 2;
     fclose(f);
     if (!(f = fopen(argv[2], "w")))

@@ -3,7 +3,7 @@
 # recorded while playing), the song's jobs, the Setup page.
 wait 300
 tap LFO
-expect page 7
+expect page 8
 spin K1 9
 spin K2 18
 wait 100
@@ -18,13 +18,13 @@ expect song_chord4 700
 expect song_bars 2
 shot chords.png
 tap ENV
-expect page 8
+expect page 9
 spin K1 3
 wait 100
 expect song_sect1 3
 shot arrange.png
 tap ENV
-expect page 9
+expect page 10
 shot patterns.png
 tap SAVE
 wait 50
@@ -47,7 +47,7 @@ tap PLAY
 wait 100
 # Templates: PRESETS picks, PLAY auditions
 tap ARP
-expect page 11
+expect page 12
 turn PRESET 1
 tap PLAY
 wait 300
@@ -58,7 +58,7 @@ tap PLAY
 wait 100
 # its second page: copied into the song from bar 3, SEL
 tap ARP
-expect page 12
+expect page 13
 spin K3 2
 tap SEL
 wait 100
@@ -134,7 +134,7 @@ wait 100
 expect song_bars 0
 # Setup: the clock internal (MIDI clock in ignored), the key -3
 tap GLO
-expect page 13
+expect page 14
 spin K1 -1
 spin K3 -3
 expect clock 0
@@ -145,6 +145,6 @@ midi FA 00 00
 clock 50
 expect playing 0
 tap GLO
-expect page 14
+expect page 15
 shot panel.png
 tap HOME

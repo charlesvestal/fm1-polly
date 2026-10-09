@@ -7,7 +7,7 @@
  *   SEL tap         CHORD on / off: the keys enter chords, or play the selected track
  *   SEL + black key 1..5   Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
  *   SEL + white key 1..16  a chord template, at once
- *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x2), LFO Chords, ENV Arrange (x3), ARP Templates (x2),
+ *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x3), LFO Chords, ENV Arrange (x3), ARP Templates (x2),
  *   GLO Setup (x2)
  *   SAVE            saves (held: the jobs)       OCT- / OCT+   the keys' octave
  *   SELECT          tempo       ALGORITHM   the track       PRESETS   per page (Song: the song)
@@ -507,7 +507,7 @@ static void key_up(int k)
 
 /* the page buttons: a button holds up to three pages, pressed again: the next */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 2},
+    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 3},
     {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 3}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static void set_chord_mode(int on);
@@ -1241,6 +1241,13 @@ static void edit_knob(int k, int32_t e)
         trk_set(v, *v + accel(EN_K1 + k, e), 0, 127);
         break;
     }
+    case P_TONE:                                 /* brightness, resonance: stored XOR 64 (0 neutral) */
+        if (k < 2) {
+            uint8_t *v = k == 0 ? &t->bright : &t->reso;
+            int to = clampi((*v ^ 64) + accel(EN_K1 + k, e), 0, 127);
+            trk_set(v, to ^ 64, 0, 127);
+        }
+        break;
     case P_MASTER: {
         uint8_t *v = k == 0 ? &proj.rev_type : k == 1 ? &proj.rev_level : k == 2 ? &proj.cho_type : &proj.cho_level;
         int to = k == 1 || k == 3 ? clampi(*v + accel(EN_K1 + k, e), 0, 127) : clampi(*v + d, 0, k == 0 ? 4 : 3);

@@ -468,6 +468,12 @@ static int expect(const char *what, const char *val)
     } else if (!strncmp(what, "trk", 3) && strstr(what, "_mute")) {
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].mute;
+    } else if (!strncmp(what, "trk", 3) && strstr(what, "_bright")) {   /* trkN_bright / _reso: CC 74 / 71 */
+        arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
+        got = arr_bright(&dbg_pat.trk[(atoi(what + 3) - 1) & 7]);
+    } else if (!strncmp(what, "trk", 3) && strstr(what, "_reso")) {
+        arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
+        got = arr_reso(&dbg_pat.trk[(atoi(what + 3) - 1) & 7]);
     } else if (!strncmp(what, "trk", 3) && strstr(what, "_vol")) {
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].vol;

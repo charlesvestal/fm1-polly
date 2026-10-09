@@ -41,8 +41,18 @@ spin K1 -20
 wait 100
 expect trk5_vol 80
 shot mixer.png
+# the Mixer's tone page: the track's brightness (CC 74) and resonance (CC 71), neutral 64
 tap FX
 expect page 6
+expect trk5_bright 64
+spin K1 -24
+spin K2 30
+wait 100
+expect trk5_bright 40
+expect trk5_reso 94
+shot tone.png
+tap FX
+expect page 7
 spin K1 1
 expect rev_type 3
 shot master.png
