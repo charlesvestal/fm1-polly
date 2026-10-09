@@ -42,6 +42,9 @@ run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/ds
 # decoder against the Python one; the bank written to a simulated flash, mounted, decoded, damaged
 run bank-codec python3 tools/qy70_codec.py --synthetic --ctest --image $OUT/synth.qyi
 run bank sh -c "$CC -std=c99 -Wall -Wextra -Werror -O2 -Ifirmware/src/dsp -o $OUT/bank_test tests/host/bank_test.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c && $OUT/bank_test $OUT/synth.qyi 17"
+# the arranger playing bank styles: hand-made ones (phrases repeated, controllers sent and reset, the Intro's held
+# chord, a switch while playing, a section of 800 notes), then every style of the synthetic bank
+run bank-arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/bank_arr_test tests/host/bank_arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/bank_arr_test $OUT/synth.qyi"
 # the QY70 importer's chord mapping against xpose.c, the codec, the bank: need a QY70 main ROM (yours; never in the
 # repo). What is made from it goes to a temporary directory, removed after (QY70_OUT: keep it there instead)
 if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
@@ -50,6 +53,7 @@ if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
     run qy70-import python3 tools/qy70_import.py "$QY70_ROM" --selftest
     run qy70-codec sh -c "python3 tools/qy70_codec.py '$QY70_ROM' --test && python3 tools/qy70_codec.py '$QY70_ROM' --ctest"
     run qy70-bank sh -c "python3 tools/qy70_codec.py '$QY70_ROM' --image '$QDIR/qy70.qyi' && $OUT/bank_test '$QDIR/qy70.qyi' 128"
+    run qy70-bank-arr $OUT/bank_arr_test "$QDIR/qy70.qyi"
 else
     echo "  skip qy70-import, qy70-codec, qy70-bank (set QY70_ROM=path/to/qy70main.bin)"
 fi

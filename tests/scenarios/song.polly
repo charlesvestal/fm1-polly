@@ -20,6 +20,13 @@ expect playing 1
 wait 1000
 expect chord_root 0
 shot pop_c.png
+# a new song plays the Pop style: its Intro (2 bars) holds the chord, the template's first bar comes with Main A
+wait 2000
+expect sect 1
+expect chord_root 0
+wait 2000
+expect sect 2
+expect chord_root 0
 wait 2000
 expect chord_root 7
 shot pop_g.png

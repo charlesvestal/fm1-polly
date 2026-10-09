@@ -54,6 +54,10 @@ static void post(uint32_t c, uint32_t a, uint32_t b)
  * the render, which interrupts the main loop and never the other way round, leaves a busy slot alone and,
  * seeing a new generation, finds its tracks' places in it before it plays anything (sync). */
 static pattern_t pat[ARR_NSECT];
+/* a slot playing a bank style's section: the style (else 0) and the section; written with the slot busy, read by
+ * the render only when it is not */
+static const qb_style_t *bk[ARR_NSECT];
+static uint8_t bsec[ARR_NSECT];
 static volatile uint8_t busy[ARR_NSECT], gen[ARR_NSECT];
 static volatile uint8_t ident[ARR_NSECT];         /* counts loads of another pattern (not stores of an edit) */
 static uint8_t seen[ARR_NSECT];
@@ -141,8 +145,28 @@ void arr_load_pattern(int slot, const pattern_t *p)
     BARRIER();
     memcpy(&pat[slot], p, sizeof *p);
     pat[slot].format = ARR_PAT_FORMAT;
+    bk[slot] = 0;
     gen[slot]++;
     ident[slot]++;                                 /* notes being recorded into the one before: dropped */
+    arr_full = 0;
+    BARRIER();
+    busy[slot] = 0;
+}
+void arr_load_bank(int slot, const qb_style_t *s, int k, const pattern_t *p)
+{
+    if (slot < 0 || slot >= ARR_NSECT || !s || k < 0 || k >= ARR_NSECT) {
+        if (slot >= 0 && slot < ARR_NSECT)
+            arr_load_pattern(slot, p);
+        return;
+    }
+    busy[slot] = 1;
+    BARRIER();
+    memcpy(&pat[slot], p, sizeof *p);
+    pat[slot].format = ARR_PAT_FORMAT;
+    bk[slot] = s;
+    bsec[slot] = (uint8_t)k;
+    gen[slot]++;
+    ident[slot]++;
     arr_full = 0;
     BARRIER();
     busy[slot] = 0;
@@ -189,7 +213,9 @@ typedef struct {
 } held_t;
 typedef struct {
     xstate_t xs;
-    uint16_t nx;                                   /* the next event (index into ev) */
+    uint16_t nx;                                   /* the next event (index into ev; a bank section: into its notes) */
+    uint16_t cx;                                   /* a bank section: the next controller event */
+    uint32_t rep;                                  /* a bank section: where its phrase's pass started (pattern ticks) */
     uint8_t nh, mute;
     held_t h[ARR_HELD];
 } track_t;
@@ -353,6 +379,56 @@ static void all_off(void)
         track_off(&tk[t]);
 }
 
+/* ---------------------------------------------------------- controllers --- */
+/* a bank phrase's controller kinds (qydec.h QY_NKINDS): bend (its top 7 bits), CC 1, CC 11, CC 10, pressure */
+static const uint8_t KIND_ST[QY_NKINDS] = {0xE0, 0xB0, 0xB0, 0xB0, 0xD0};
+static const uint8_t KIND_CC[QY_NKINDS] = {0, 1, 11, 10, 0};
+_Static_assert(QY_NKINDS == 5, "each controller kind its message (KIND_ST, KIND_CC)");
+static uint16_t ctl_dirty;                         /* channels a phrase's controllers moved */
+static void ctl_msg(uint32_t st, uint32_t d1, uint32_t d2)   /* to the synth, and MIDI out when it has room */
+{
+    gm_midi_now(st, d1, d2, at);
+    if (mout && out_room(1))
+        arr_midi_out(st, d1, d2);
+}
+static void ctl_send(uint32_t chan, uint32_t kind, uint32_t v)
+{
+    uint32_t st = KIND_ST[kind] | chan;
+    if (KIND_ST[kind] == 0xE0u)
+        ctl_msg(st, 0, v);                         /* a bend's top 7 bits: the MSB */
+    else if (KIND_ST[kind] == 0xD0u)
+        ctl_msg(st, v, 0);
+    else {
+        ctl_msg(st, KIND_CC[kind], v);
+        if (KIND_CC[kind] == 10)
+            out_sent[chan][2] = 0xFF;              /* the far side's pan: not the track's now */
+    }
+    ctl_dirty |= (uint16_t)(1u << chan);
+}
+/* the channels the phrases moved, back: bend centred, modulation 0, expression full, pressure 0, sustain off,
+ * pan the slot playing's (its first track on that channel; centre without one) */
+static void ctl_reset(void)
+{
+    for (uint32_t c = 0; c < 16 && ctl_dirty; c++) {
+        uint32_t pan = 64;
+        if (!(ctl_dirty >> c & 1u))
+            continue;
+        for (int t = ARR_TRACKS - 1; t >= 0; t--)
+            if ((pat[cur].trk[t].chan & 15u) == c)
+                pan = pat[cur].trk[t].pan & 127u;
+        ctl_msg(0xE0u | c, 0, 64);
+        ctl_msg(0xB0u | c, 1, 0);
+        ctl_msg(0xB0u | c, 11, 127);
+        ctl_msg(0xD0u | c, 0, 0);
+        ctl_msg(0xB0u | c, 64, 0);
+        ctl_msg(0xB0u | c, 10, pan);
+        if (mout)
+            out_sent[c][2] = 0xFF;                 /* the slot's sounds again (sounds_out) */
+        ctl_dirty &= (uint16_t)~(1u << c);
+    }
+    out_pend |= mout && arr_playing;
+}
+
 /* the playing pattern's sounds: program, volume, pan, sends. To the synth whenever a pattern starts (setup);
  * to MIDI out after the block's notes, only what changed since it was last sent, the rest in later blocks
  * (sounds_out). sound(): track t's message k (0 the program, 1..4 the CCs) as st | d1 << 8 | d2 << 16 */
@@ -419,9 +495,38 @@ static int sounds_fit_first(void)
     }
     return arr_midi_out_room() >= out_owed + OUT_RESERVE + need;
 }
+/* a bank section's track t: the phrase it plays, or 0 */
+static const qy_phrase_t *bphrase(int t)
+{
+    const qb_style_t *S = bk[cur];
+    uint32_t u;
+    if (!S)
+        return 0;
+    u = S->use[bsec[cur]][t];
+    return u < S->nph && S->ph[u].length ? &S->ph[u] : 0;
+}
 static void seek(void)                             /* each track's next event, from pos */
 {
     const pattern_t *p = &pat[cur];
+    if (bk[cur] && !busy[cur]) {                   /* a bank section: its phrase's pass, the next note and controller */
+        const qb_style_t *S = bk[cur];
+        for (int i = 0; i < ARR_TRACKS; i++) {
+            const qy_phrase_t *P = bphrase(i);
+            uint32_t pp, n, c;
+            if (!P)
+                continue;
+            pp = pos % P->length;
+            tk[i].rep = pos - pp;
+            for (n = P->note0; n < (uint32_t)P->note0 + P->nnotes && S->note[n].t < pp; n++)
+                ;
+            for (c = P->ctl0; c < (uint32_t)P->ctl0 + P->nctl && S->ctl[c].t < pp; c++)
+                ;
+            tk[i].nx = (uint16_t)n;
+            tk[i].cx = (uint16_t)c;
+        }
+        wake = 1;
+        return;
+    }
     for (int i = 0; i < ARR_TRACKS; i++) {
         uint32_t n = p->trk[i].first, e = ev_end(&p->trk[i]);
         while (n < e && p->ev[n].tick < pos)
@@ -435,6 +540,7 @@ static void sync(void)                             /* the playing slot reloaded:
     if (busy[cur] || seen[cur] == gen[cur])
         return;
     seen[cur] = gen[cur];
+    ctl_reset();                                   /* another style's phrases: nothing left bent */
     if (pos >= pat_len(&pat[cur]))                 /* shortened past its place: wrapped within the new length, */
         pos %= pat_len(&pat[cur]);                 /* in step with the bars (a jump to 0 would be a bar line) */
     for (int t = 0; t < ARR_TRACKS; t++)           /* a track muted in the pattern: its notes end now too */
@@ -579,8 +685,9 @@ static void rec_press(int key, int vel)
     for (int i = 0; i < REC_N && !r; i++)
         if (rec[i].state == R_FREE)
             r = &rec[i];
-    if (!r || busy[cur])
-        return;                                    /* more than REC_N held: this one only sounds */
+    if (!r || busy[cur] || bk[cur])
+        return;                                    /* more than REC_N held: this one only sounds (a bank section:
+                                                    * the app gives the slot a pattern before recording) */
     kabs = key_tick(&kpos, quant == ARR_Q_OFF);   /* grid off: a key at the loop's start is its tick 0 */
     m = kpos % q;
     if (2 * m >= q) {                              /* to the nearest grid line */
@@ -781,6 +888,7 @@ static void transport_stop(void)
     start_wait = 0;
     ext_pend = 0;                                  /* no tick after a stop */
     all_off();
+    ctl_reset();
 }
 static void stop_ours(void)                        /* a stop of ours (PLAY, an ending, a song's end): FC out */
 {
@@ -800,6 +908,9 @@ static void switch_to(uint8_t sec)
 {
     rec_flush(1);                                  /* recording: the pass ends here, and recording too */
     rec_on = arr_recording = 0;                    /* (it would go on into the other pattern) */
+    ctl_reset();                                   /* the phrases' bends and swells end with their section */
+    if (arr_sect == SEC_INTRO && sec != SEC_INTRO)
+        t_origin = beat_now;                       /* a template's first bar: after the Intro */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -891,6 +1002,8 @@ static chord_t tmpl_chord(void)                    /* the template's chord on th
 static void beat_chord(int play)
 {
     uint32_t beat = pos % bar_len(&pat[cur]) / ARR_PPQ;
+    if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && (pos || sec_bars))
+        return;                                    /* the Intro and the Ending: the chord of their first beat, held */
     if (song_on) {
         if (!song_restart && beat < 4 && sbar < ARR_SONGBARS) {
             chord_t c = song.chord[sbar * 4u + beat];
@@ -917,6 +1030,57 @@ static void ends_due(void)
 }
 /* the events on the tick pos (the ones before it, passed over: a place moved on by a reload), and the
  * earliest event after it */
+/* a bank section's events at pos: each track's phrase, its pass from tk.rep (a new pass: from its start; one
+ * entered midway, a reload, a skip: from pos, the ones before passed over), and the next event's place */
+static void bank_events(int play)
+{
+    const pattern_t *p = &pat[cur];
+    const qb_style_t *S = bk[cur];
+    uint32_t nx = 0xFFFFFFFFu;
+    for (int t = 0; t < ARR_TRACKS; t++) {
+        const qy_phrase_t *P = bphrase(t);
+        const arr_trk_t *tr = &p->trk[t];
+        uint32_t L, pp, base, n, c, ne, ce, a;
+        int audible = play && !tk[t].mute && !tr->mute;
+        if (!P)
+            continue;
+        L = P->length;
+        pp = pos % L;
+        base = pos - pp;
+        n = tk[t].nx;
+        c = tk[t].cx;
+        ne = (uint32_t)P->note0 + P->nnotes;
+        ce = (uint32_t)P->ctl0 + P->nctl;
+        if (base != tk[t].rep || n < P->note0 || n > ne || c < P->ctl0 || c > ce) {   /* a new pass */
+            tk[t].rep = base;
+            for (n = P->note0; n < ne && S->note[n].t < pp; n++)
+                ;
+            for (c = P->ctl0; c < ce && S->ctl[c].t < pp; c++)
+                ;
+        }
+        for (; c < ce && S->ctl[c].t <= pp; c++)  /* the controllers first: a bend before its note */
+            if (audible && S->ctl[c].kind < QY_NKINDS)
+                ctl_send(tr->chan & 15u, S->ctl[c].kind, S->ctl[c].val & 127u);
+        for (; n < ne && S->note[n].t <= pp; n++) {
+            const qy_note_t *e = &S->note[n];
+            int out, vel;
+            if (e->t != pp || !audible)
+                continue;
+            out = xpose(&tr->x, &tk[t].xs, e->key, chord);
+            vel = (int)((uint32_t)e->vel * S->trk[t].vscale >> 7);
+            if (out >= 0)
+                note_start(t, e->key, out, vel < 1 ? 1 : vel > 127 ? 127 : vel, tr->chan & 15, e->gate);
+        }
+        tk[t].nx = (uint16_t)n;
+        tk[t].cx = (uint16_t)c;
+        a = base + (n < ne ? S->note[n].t : L);    /* the next note, else the next pass */
+        if (c < ce && base + S->ctl[c].t < a)
+            a = base + S->ctl[c].t;
+        if (a < nx)
+            nx = a;
+    }
+    next_ev = nx;
+}
 static void events(int play)
 {
     const pattern_t *p = &pat[cur];
@@ -924,6 +1088,10 @@ static void events(int play)
     wake = 0;
     if (busy[cur]) {                               /* being loaded: none now, look again at the next tick */
         wake = 1;
+        return;
+    }
+    if (bk[cur]) {
+        bank_events(play);
         return;
     }
     for (int t = 0; t < ARR_TRACKS; t++) {
@@ -1296,11 +1464,13 @@ void arr_init(void)                                /* at boot, before the render
         busy[i] = 0;
         gen[i] = seen[i] = 0;
         ident[i] = 0;
+        bk[i] = 0;
     }
     for (int t = 0; t < ARR_TRACKS; t++) {
         xpose_reset(&tk[t].xs);
         arr_track_hit[t] = 0;
     }
+    ctl_dirty = 0;
     chord.root = 0;
     chord.type = CH_MAJ7;                          /* patterns are written over C M7: as written */
     chord.bass = CH_NOBASS;
@@ -1405,4 +1575,84 @@ int arr_factory_pattern(int n, pattern_t *p)
         k->count = (uint16_t)(p->nev - k->first);
     }
     return 0;
+}
+
+/* ------------------------------------------------------------ bank styles --- */
+int arr_bank_pattern(const qb_style_t *S, int k, pattern_t *p)
+{
+    static uint16_t hist[128];                     /* (static: the render's stack is small, and so is the loop's) */
+    uint32_t slen, keep = 0, edge = 128, extra = 0, total = 0;
+    int t, i, dropped = 0;
+    memset(p, 0, sizeof *p);
+    p->format = ARR_PAT_FORMAT;
+    if (k < 0 || k >= ARR_NSECT)
+        k = SEC_A - 1;
+    for (i = 0; i < 8 && S->name[i]; i++)
+        p->name[i] = S->name[i];
+    p->bars = S->bars[k] < 1 ? 1 : S->bars[k] > ARR_MAXBARS ? ARR_MAXBARS : S->bars[k];
+    p->beats = S->beats < 2 ? 4 : S->beats > 7 ? 7 : S->beats;
+    slen = (uint32_t)p->bars * p->beats * ARR_PPQ;
+    memset(hist, 0, sizeof hist);
+    for (t = 0; t < ARR_TRACKS; t++) {             /* the velocities, as played: the quietest go past ARR_NEV */
+        uint32_t u = S->use[k][t];
+        const qy_phrase_t *P = u < S->nph ? &S->ph[u] : 0;
+        if (!P || !P->length)
+            continue;
+        for (uint32_t base = 0; base < slen; base += P->length)
+            for (uint32_t j = 0; j < P->nnotes && base + S->note[P->note0 + j].t < slen; j++) {
+                uint32_t v = (uint32_t)S->note[P->note0 + j].vel * S->trk[t].vscale >> 7;
+                hist[v > 127 ? 127 : v < 1 ? 1 : v]++;
+                total++;
+            }
+    }
+    if (total > ARR_NEV) {                         /* the loudest ARR_NEV: all from velocity edge up, `extra` at edge - 1 */
+        for (edge = 128; edge > 1 && keep + hist[edge - 1] <= ARR_NEV; edge--)
+            keep += hist[edge - 1];
+        extra = ARR_NEV - keep;
+    } else
+        edge = 0;
+    for (t = 0; t < ARR_TRACKS; t++) {
+        arr_trk_t *r = &p->trk[t];
+        const qb_trk_t *q = &S->trk[t];
+        uint32_t u = S->use[k][t];
+        const qy_phrase_t *P = u < S->nph ? &S->ph[u] : 0;
+        r->chan = q->chan & 15u;
+        r->program = q->drum ? 0 : S->prog[k][t] & 127u;
+        r->vol = q->vol;
+        r->pan = q->pan;
+        r->rev = q->rev;
+        r->cho = q->cho;
+        r->x.type = P && P->typ < NXT ? P->typ : XT_BYPASS;
+        r->x.lo = P ? P->lo : 0;
+        r->x.hi = P ? P->hi : 127;
+        r->x.hikey = P && P->hikey <= XT_NOKEY ? P->hikey : XT_NOKEY;
+        r->first = p->nev;
+        if (!P || !P->length)
+            continue;
+        for (uint32_t base = 0; base < slen; base += P->length)
+            for (uint32_t j = 0; j < P->nnotes; j++) {
+                const qy_note_t *e = &S->note[P->note0 + j];
+                uint32_t tick = base + e->t, v = (uint32_t)e->vel * q->vscale >> 7, len = e->gate;
+                if (tick >= slen)
+                    break;
+                v = v > 127 ? 127 : v < 1 ? 1 : v;
+                if (v < edge && !(v == edge - 1 && extra)) {
+                    dropped++;
+                    continue;
+                }
+                if (v < edge)
+                    extra--;
+                if (p->nev >= ARR_NEV) {
+                    dropped++;
+                    continue;
+                }
+                p->ev[p->nev].tick = (uint16_t)tick;
+                p->ev[p->nev].len = (uint16_t)(len < 1 ? 1 : len > slen ? slen : len);
+                p->ev[p->nev].note = e->key & 127u;
+                p->ev[p->nev].vel = (uint8_t)v;
+                p->nev++;
+            }
+        r->count = (uint16_t)(p->nev - r->first);
+    }
+    return dropped;
 }

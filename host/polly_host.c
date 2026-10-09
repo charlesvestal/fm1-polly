@@ -143,6 +143,21 @@ int plat_store_save(uint32_t obj, const void *src, uint32_t len)
     return 0;
 }
 
+/* the flash the QY70 style bank lives in (qybank.h): erased, until a `bank FILE` writes an image into it */
+static uint8_t sim_flash[0x100000];
+static int sim_flash_ready;
+int qb_flash_read(uint32_t off, void *dst, uint32_t n)
+{
+    if (!sim_flash_ready) {
+        memset(sim_flash, 0xFF, sizeof sim_flash);
+        sim_flash_ready = 1;
+    }
+    if (off > sizeof sim_flash || n > sizeof sim_flash - off)
+        return -1;
+    memcpy(dst, sim_flash + off, n);
+    return 0;
+}
+
 static uint32_t trk_hits[8], trk_last[8];  /* note-ons seen per track since hitreset (arr_track_hit moving) */
 
 static uint32_t cpu_pct;

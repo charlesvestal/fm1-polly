@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "chords.h"
 #include "xpose.h"
+#include "qybank.h"
 
 /* stored as raw bytes, native (little-endian) order, no packing pragma: every member is naturally
  * aligned by the rsv fields placed by hand, so the layout is stable without padding surprises. */
@@ -110,7 +111,28 @@ void arr_set_tempo(int bpm);                     /* 40..240 */
 void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
 /* slot 0..5 (a section's: sec - 1): Intro, Main A, Main B, Fill AB, Fill BA, Ending (copied) */
 void arr_load_pattern(int slot, const pattern_t *p);
-/* SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
+/* slot 0..5 plays section k (0..5) of a QY70 bank style, decoded in RAM (qybank.h; the caller keeps *s as it is
+ * while any slot plays it: a slot stops playing it when another pattern or style is loaded into it, at once).
+ * Each track plays its phrase from the section's start, repeated to fill the section (cut at its end), through
+ * the transposer with the phrase's type, limits and high key; its notes are not held to ARR_NEV. Its
+ * controllers (bend, modulation, expression, pan, channel pressure: qydec.h) go to the track's channel, synth and
+ * MIDI out, never through the transposer; the channels they moved are reset (bend centred, modulation 0,
+ * expression 127, pressure 0, sustain off, pan the track's) at a section change, a stop, and a reload of the
+ * slot playing. *p: the section as a pattern (arr_bank_pattern): its tracks' sounds and settings (the ones
+ * played: an edit stored with arr_store_pattern changes them) and its notes for the screen (not played).
+ * Recording never goes into a bank section (the app gives the slot a pattern first). */
+void arr_load_bank(int slot, const qb_style_t *s, int k, const pattern_t *p);
+/* section k of bank style *s as a pattern: its bars and beats, each track's sounds, mixer, type, limits and high
+ * key (the program the section's phrase plays), the phrases repeated to fill the section; past ARR_NEV notes the
+ * quietest are dropped (their count returned) */
+int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
+/* The Intro and the Ending play over a held chord (the QY70's way: their phrases carry their own lead-in and
+ * cadence): the chord on the section's first beat (the song's or the template's on that beat, else the one
+ * before) stays until the section ends; the song's chord track and the template change it again from the next
+ * section. A template counts its bars from the end of the Intro (its first bar starts with Main A). Chords the
+ * player sets (the keys, arr_set_chord, a template picked or the key changed) change it at once, also in the
+ * Intro and the Ending.
+ * SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
  * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
  * is Fill BA from Main B, else Fill AB (from Main A); a fill during a fill adds a bar; SEC_FILL during the Intro
  * or the Ending is ignored (they play out). An ending plays its pattern once, then stops (Ending again during
