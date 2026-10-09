@@ -36,6 +36,12 @@ run styles sh -c "python3 tools/make_styles.py --check styles/*.sty && python3 t
 # the styles' chord parts: every Chord 1 / 2 note held an eighth or more is a chord tone or an allowed tension,
 # over the Pop template, the blues, the Andalusian progression and ten chord types (the real engine)
 run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -Itests/host -o $OUT/style_chords_test tests/host/style_chords_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/style_chords_test"
+# the QY70 importer's chord mapping against xpose.c: needs a QY70 main ROM (yours; never in the repo)
+if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
+    run qy70-import python3 tools/qy70_import.py "$QY70_ROM" --selftest
+else
+    echo "  skip qy70-import (set QY70_ROM=path/to/qy70main.bin)"
+fi
 run storage sh -c "$CC -O2 -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then

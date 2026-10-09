@@ -6,6 +6,7 @@
     python3 tools/qy70_import.py qy70main.bin --style Bossa --out DIR   # one style -> DIR/NN-bossa.sty
     python3 tools/qy70_import.py qy70main.bin --all --out DIR           # all of them
     python3 tools/qy70_import.py qy70main.bin --phrase Bossa-1a         # one phrase's events, decoded
+    python3 tools/qy70_import.py qy70main.bin --selftest                # the chord mapping against xpose.c
 
 Options: --first N (the first file number, default 17: after Polly's 16 factory styles; --style takes
 --number N), --legacy (Polly's 24 ticks a beat and four sections: Main A, Main B, Fill = Fill AB, Ending),
@@ -224,27 +225,58 @@ def gm_program(msb, lsb, prog):
     return prog, False, "XG bank %d/%d program %d -> GM %d" % (msb, lsb, prog, prog)
 
 
-def to_cm7(note, typ, root, chord):
-    """a note of a phrase written over (root, chord) moved to the same degree over C M7, near where it was"""
-    base = -root if root <= 6 else 12 - root
+def cm7_base(typ, root, hikey):
+    """the octave shift taking a phrase's source root to C, chosen so that Polly playing it back over the source
+    chord gives the original notes: Chord 1 and Bass add the root, less an octave for roots above the high key
+    (xpose.c); Chord 2 adds the root; Parallel (no high key in Polly): the nearer C"""
+    if typ in ("chord1", "bass") and hikey < 12 and root > hikey:
+        return 12 - root
+    if typ == "parallel" and root > 6:
+        return 12 - root
+    return -root
+
+
+def to_cm7(note, typ, root, chord, hikey=12):
+    """a note of a phrase written over (root, chord) moved to the same degree over C M7, in the octave that
+    plays back as written over the source chord"""
+    base = cm7_base(typ, root, hikey)
     if typ == "parallel":
         return note + base
     semis = QCHORD[chord][1] if chord < len(QCHORD) else CM7
+    # the source chord's degrees. A triad's "7th" is only the octave: not a degree (a leading tone over a triad
+    # is chromatic). A 6 chord's 6th is its 7th degree, as Polly's tables have it (A over C6 is stored as B: the
+    # 6th over a 6 chord, the 7th over a 7th chord, the root over a triad), but not the base of a chromatic note
+    # (Bb over C6 is 13 + 1, not 7 + 1, which would pass the octave)
+    degs = [dg for dg in DEG_ORDER if not (dg == 6 and semis[6] == 12)]
     rel = (note - root) % 12
     deg, off = None, 0
-    for dg in DEG_ORDER:
-        if semis[dg] % 12 == rel and not (semis[dg] == 12 and dg == 6):
+    if QCHORD[chord][0] == "m7(11)" and rel == 5:
+        # the 11th of a quartal m7(11) voicing (R b3 11 b7): stored as the 5th. As an 11th, Polly would play it
+        # as a 4th over every major and dominant chord (Chord 1 keeps the degree); as the 5th it fits every chord
+        return note - rel + CM7[4] + base
+    for dg in degs:
+        if semis[dg] % 12 == rel:
             deg = dg
             break
     if deg is None:                                   # chromatic: just above the highest degree below it
-        cands = [(semis[dg], dg) for dg in range(7) if semis[dg] < 12 and semis[dg] <= rel]
-        s, deg = max(cands)
+        s, deg = max((semis[dg], dg) for dg in degs if semis[dg] <= rel and not (dg == 6 and semis[6] == semis[5]))
         off = rel - s
-    pc = (CM7[deg] + off) % 12
-    dlt = (pc - note) % 12
-    if abs(dlt - 12 - base) < abs(dlt - base):
-        dlt -= 12
-    return note + dlt
+    # the degree's pitch over C M7, in the octave of (the note's octave over the root) + base
+    return note - rel + CM7[deg] + off + base
+
+
+def limits(p, typ, notes):
+    """the track's lo / hi. The QY70's limits as written, except a Chord 2 phrase with no limits (0..127): Polly's
+    Chord 2 moves each note to the octave nearest the note before, which with no range walks a voicing up or
+    down the keyboard chord by chord (the QY70 keeps the voicing's register), so it gets a window around the
+    notes as written (at least an octave and a half, the notes' own span plus a third each side)"""
+    lo, hi = p["lo"], p["hi"]
+    if typ != "chord2" or lo > 0 or hi < 127 or not notes:
+        return lo, hi
+    a, b = min(notes), max(notes)
+    half = max((b - a + 1) // 2 + 4, 9)
+    c = (a + b + 1) // 2
+    return max(0, c - half), min(127, c + half)
 
 
 def note_name(n):
@@ -286,6 +318,11 @@ def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
         p = ph[i]
         return (p["msb"], p["lsb"], p["prog"])
 
+    def conv_keys(p, typ):
+        if typ == "bypass":
+            return [n[2] for n in p["notes"]]
+        return [to_cm7(n[2], typ, p["root"], p["chord"], p["hikey"]) for n in p["notes"]]
+
     first = {}
     for t in range(8):                   # the tracks' defaults: Main A's phrase, else Main B's, ...
         for s in sorted(secs, key=lambda s: [1, 2, 3, 4, 0, 5].index(s)):
@@ -314,7 +351,7 @@ def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
         mix = dref if drum else t
         line = "track %s type=%s chan=%d" % (TRACKS[t], typ, trk_chan[t])
         if not drum:
-            line += " program=%d lo=%d hi=%d" % (prog, p["lo"], p["hi"])
+            line += " program=%d lo=%d hi=%d" % ((prog,) + limits(p, typ, conv_keys(p, typ)))
             if typ in ("chord1", "bass"):
                 line += " hikey=%s" % NOTE[p["hikey"] % 12]
         line += " vol=%d pan=%d rev=%d cho=%d" % (st["vol"][mix], st["pan"][mix], st["rev"][mix], st["cho"][mix])
@@ -341,7 +378,7 @@ def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
             typ = "bypass" if drum else QTYPE.get(p["type"], "chord1")
             hdr = "track %s type=%s" % (TRACKS[t], typ)
             if not drum:
-                hdr += " program=%d lo=%d hi=%d" % (prog, p["lo"], p["hi"])
+                hdr += " program=%d lo=%d hi=%d" % ((prog,) + limits(p, typ, conv_keys(p, typ)))
                 if typ in ("chord1", "bass"):
                     hdr += " hikey=%s" % NOTE[p["hikey"] % 12]
             hdr += "   # %s" % p["name"]
@@ -367,7 +404,7 @@ def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
                         vel = round(vel * vscale)
                         gate = max(gate, 1)
                     elif typ != "bypass":
-                        key = to_cm7(key, typ, p["root"], p["chord"])
+                        key = to_cm7(key, typ, p["root"], p["chord"], p["hikey"])
                     if not 0 <= key <= 127:
                         continue
                     vel = max(1, min(127, vel))
@@ -412,6 +449,84 @@ def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
     return "\n".join(out), rep
 
 
+HARNESS = r"""
+#include <stdio.h>
+#include "xpose.h"
+int main(void)
+{
+    xtrack_t t = {0, 0, 127, 12};
+    xstate_t s;
+    chord_t c = {0, 0, CH_NOBASS};
+    char line[96];
+    int a, b, d, e, f, g;
+    while (fgets(line, sizeof line, stdin)) {
+        if (line[0] == 'P' && sscanf(line + 1, "%d %d %d %d %d %d", &a, &b, &d, &e, &f, &g) == 6) {
+            t.type = (uint8_t)a, t.lo = (uint8_t)b, t.hi = (uint8_t)d, t.hikey = (uint8_t)e;
+            c.root = (uint8_t)f, c.type = (uint8_t)g;
+            xpose_reset(&s);
+        } else if (sscanf(line + 1, "%d", &a) == 1)
+            printf("%d\n", xpose(&t, &s, a, c));
+    }
+    return 0;
+}
+"""
+# the QY70's chord codes as Polly's (chords.h CH_*); 6(9) and 7(b5) have no Polly type: 6 and 7
+QY_TO_CH = [2, 0, 4, 20, 3, 1, 16, 21, 18, 23, 22, 19, 17, 6, 13, 9, 7, 8, 12, 11, 10, 14, 15, 24, 5, 4, 6]
+XT = {"bypass": 0, "parallel": 1, "chord1": 2, "chord2": 3, "bass": 4}
+
+
+def selftest(rom):
+    """every phrase that transposes, stored over C M7 as the importer stores it, played back by Polly's own
+    transposer (firmware/src/dsp/xpose.c, compiled here with cc) over the phrase's source chord: Chord 1 and
+    Bass must give back the ROM's notes exactly, Chord 2 and Parallel their pitch classes (Polly's Chord 2
+    picks octaves by voice leading; Parallel keeps its octave near C). Up to 1% may differ: the chromatic notes
+    Polly's degree tables can't keep (a leading tone over a triad, whose 7th is the octave: Polly plays the
+    root). 0 = pass."""
+    import subprocess
+    import tempfile
+    dsp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "firmware", "src", "dsp")
+    with tempfile.TemporaryDirectory() as tmp:
+        src, exe = os.path.join(tmp, "h.c"), os.path.join(tmp, "h")
+        with open(src, "w") as f:
+            f.write(HARNESS)
+        subprocess.run([os.environ.get("CC", "cc"), "-O1", "-I" + dsp, "-o", exe, src,
+                        os.path.join(dsp, "xpose.c"), os.path.join(dsp, "chords.c")], check=True)
+        lines, meta = [], []
+        for i in range(rom.nph):
+            p = rom.phrase(i)
+            typ = QTYPE.get(p["type"])
+            if typ in (None, "bypass") or p["chord"] >= len(QY_TO_CH):
+                continue
+            lines.append("P %d 0 127 %d %d %d" % (XT[typ], p["hikey"] if p["hikey"] < 12 else 12, p["root"],
+                                                QY_TO_CH[p["chord"]]))
+            for j, n in enumerate(sorted(p["notes"], key=lambda n: (n[0], n[2]))):
+                lines.append("N %d" % to_cm7(n[2], typ, p["root"], p["chord"], p["hikey"]))
+                skip = (j == 0 and typ == "bass") or \
+                    (QCHORD[p["chord"]][0] == "m7(11)" and (n[2] - p["root"]) % 12 == 5)
+                meta.append((None if skip else typ, n[2]))   # Bass: its first note is the root; m7(11): to_cm7
+        out = subprocess.run([exe], input="\n".join(lines) + "\n", capture_output=True, text=True,
+                             check=True).stdout.split()
+    tot, pc, octv = {}, {}, {}
+    for (typ, k), o in zip(meta, out):
+        o = int(o)
+        if typ is None:
+            continue
+        tot[typ] = tot.get(typ, 0) + 1
+        if o % 12 != k % 12:
+            pc[typ] = pc.get(typ, 0) + 1
+        elif o != k:
+            octv[typ] = octv.get(typ, 0) + 1
+    fail = 0
+    for typ in sorted(tot):
+        bad = pc.get(typ, 0) + (octv.get(typ, 0) if typ in ("chord1", "bass") else 0)
+        ok = bad <= tot[typ] // 100
+        fail += not ok
+        print("selftest %-8s %6d notes over their source chords: %d another pitch class, %d another octave%s" % (
+            typ, tot[typ], pc.get(typ, 0), octv.get(typ, 0), "" if ok else "  FAIL"))
+    print("selftest %s" % ("FAILED" if fail else "ok"))
+    return 1 if fail else 0
+
+
 def slug(name):
     s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return s or "style"
@@ -436,6 +551,7 @@ def main(argv=None):
     ap.add_argument("--legacy", action="store_true")
     ap.add_argument("--max-notes", type=int, default=600)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     with open(a.rom, "rb") as f:
         data = f.read()
@@ -444,6 +560,8 @@ def main(argv=None):
     except RomError as e:
         raise SystemExit("qy70_import: %s" % e)
     styles = rom.styles()
+    if a.selftest:
+        raise SystemExit(selftest(rom))
     if a.list:
         for st in styles:
             print("%3d %-8s %5.1f bpm %d/4  bars %s" % (st["index"] + 1, st["name"], st["tempo"], st["num"],
