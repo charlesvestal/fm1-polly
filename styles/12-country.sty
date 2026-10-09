@@ -5,6 +5,10 @@
 # a walk up at the end of the phrase, soft strings.
 # Main B: a fiddle line on top (the pedal steel's job, on the GM set's fiddle), honky-tonk piano eighths,
 # tambourine and a crash, the strings up.
+# Intro (2 bars): the train beat on the snare alone under a rolled chord and the fiddle, then boom-chick and
+# the 5-6-7 walk up into Main A.
+# Fill BA (1 bar): the drummer's tom fill (bar 20), the bass walking down from the octave to the fifth, a big
+# strum held on 3.
 style Country
 tempo 114
 
@@ -16,6 +20,49 @@ track c1 type=chord1 program=25 chan=3 lo=G3 hi=G5 hikey=F# vol=88 pan=40 rev=40
 track c2 type=chord1 program=110 chan=4 lo=G4 hi=G6 hikey=F# vol=70 pan=84 rev=60
 track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=48 pan=64 rev=60
 track c4 type=chord1 program=3 chan=6 lo=G4 hi=G6 hikey=F# vol=62 pan=60 rev=40
+
+[intro]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=1 bars=1 only=snare scale=snare:80
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=10 bars=1 at=2 scale=kick:200,snare:90
+track ba
+2.1.0  C2 400 108
+2.3.0  G1 240 100
+2.3.240 A1 200 88
+2.4.0  B1 200 94
+2.4.240 B1 160 70
+track c1
+# a rolled chord let ring, then the chick on 2 and 4
+1.1.0  G3 1800 84
+1.1.20  C4 1780 80
+1.1.40  E4 1760 78
+1.1.60  C5 1740 76
+2.2.0  G3 200 92
+2.2.20  C4 180 88
+2.2.40  E4 160 86
+2.2.60  C5 140 84
+2.2.240 C4+E4+G4 120 56
+2.4.0  G3 200 92
+2.4.20  C4 180 88
+2.4.40  E4 160 86
+2.4.60  C5 140 84
+track c2
+# the fiddle kicks it off
+1.1.0  D5 80 60
+1.1.80  E5 880 80
+1.3.0  G5 480 76
+1.4.0  E5 240 70
+1.4.240 G5 240 72
+2.1.0  C6 720 80
+2.2.240 G5 240 70
+2.3.0  E5 480 74
+2.4.0  C5 240 68
+2.4.240 E5 200 66
+track c3
+1.1.0  G3+C4+E4 1880 36
+2.1.0  G3+C4+E4 1880 40
 
 [main a]
 bars 2
@@ -110,7 +157,7 @@ track c3
 1.1.0  G3+C4+E4 1880 56
 2.1.0  G3+C4+E4 1880 52
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -129,6 +176,35 @@ track c1
 1.4.0  G3+C4+E4+C5 120 96 x2 240
 track c3
 1.1.0  G3+C4+E4 1880 44
+
+[fill ba]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer1-session2-10_country_114_beat_4-4.mid start=19 bars=1 scale=kick:200,snare:90
+track ba
+# down from the octave to the fifth
+1.1.0  C2 400 108
+1.3.0  C3 240 100
+1.3.240 B2 240 92
+1.4.0  A2 240 94
+1.4.240 G2 240 96
+track c1
+1.2.0  G3 200 92
+1.2.20  C4 180 88
+1.2.40  E4 160 86
+1.2.60  C5 140 84
+1.3.0  G3 900 98
+1.3.20  C4 880 94
+1.3.40  E4 860 92
+1.3.60  C5 840 90
+track c4
+1.4.0  E5 120 70
+1.4.120 D5 120 64
+1.4.240 C5 120 66
+1.4.360 G4 120 62
+track c3
+1.1.0  G3+C4+E4 1880 46
 
 [ending]
 bars 2

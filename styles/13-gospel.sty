@@ -6,6 +6,10 @@
 # Main A: kick on 1 and 3, a cross-stick on 2 and 4, hi-hat triplets; the bass on root and fifth with
 # pickups; piano triplet chords; a drawbar organ held under it.
 # Main B: the snare and a tambourine on 2 and 4, the ride, a choir on the chord, the bass walking, the organ up.
+# Intro (2 bars): the piano's triplets alone over the organ, the hi-hat creeping in; then the kick, the
+# cross-stick and the bass, a triplet snare pickup into Main A.
+# Fill BA (1 bar): a stop: the band hits beat 3 together with a crash and holds, the hi-hat pedals the
+# triplets of beat 4, the bass picks back up into Main A.
 style Gospel
 tempo 66
 
@@ -16,6 +20,29 @@ track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=104 rev=20
 track c1 type=chord1 program=0 chan=3 lo=G3 hi=G5 hikey=F# vol=84 pan=50 rev=60
 track c2 type=chord1 program=52 chan=4 lo=G3 hi=E5 hikey=F# vol=68 pan=76 rev=80
 track c3 type=chord2 program=16 chan=5 lo=G3 hi=C5 vol=56 pan=64 rev=50 cho=40
+
+[intro]
+bars 2
+beats 4
+track d1
+grid 1.3 160 chh 323323
+grid 2.1 q kick 7.6.
+grid 2.2 q rim 6
+grid 2.1 160 chh 534534534
+grid 2.4 160 snare 456
+2.4.320 kick 120 70
+track ba
+2.1.0  C2 400 108
+2.2.320 G1 160 84
+2.3.0  C2 400 104
+2.4.0  G1 160 90
+2.4.160 A1 160 84
+2.4.320 B1 160 92
+track c1
+grid 1.1 160 E4+G4+C5 xggxggxggxgg|XggxggXggxXX len=140
+track c3
+1.1.0  G3+C4+E4 1880 40
+2.1.0  G3+C4+E4 1880 50
 
 [main a]
 bars 2
@@ -82,7 +109,7 @@ track c3
 1.1.0  G3+C4+E4 1880 74
 2.1.0  G3+C4+E4 1880 70
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -105,6 +132,28 @@ track c1
 grid 1.1 160 E4+G4+C5 XggxggXxXxXX len=140
 track c3
 1.1.0  G3+C4+E4 1880 64
+
+[fill ba]
+bars 1
+beats 4
+track d1
+1.1.0  kick 240 104
+1.2.0  rim 240 84
+grid 1.1 160 chh 534534
+1.3.0  kick 480 110
+1.3.0  snare 240 100
+1.3.0  crash 1200 86
+grid 1.4 160 phh 456
+track ba
+1.1.0  C2 400 108
+1.2.320 G1 160 84
+1.3.0  C2 480 110
+1.4.320 G1 160 92
+track c1
+grid 1.1 160 E4+G4+C5 Xggxgg len=140
+1.3.0  E4+G4+C5 470 104
+track c3
+1.1.0  G3+C4+E4 1880 60
 
 [ending]
 bars 2

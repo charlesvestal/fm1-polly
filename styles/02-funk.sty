@@ -4,6 +4,8 @@
 # clavinet's E + B is the 3rd and 7th of any chord, the guitar's E + B + D its 3rd, 7th and 9th.
 # Main A: bass with octave pops, clavinet in sixteenths, a guitar chank on 2 and 4. Main B: the open hi-hat
 # groove, a busier bass, guitar scratches, brass stabs, tambourine.
+# Intro: the clavinet and guitar over the drums, then the bass and brass hits with the drummer's fill.
+# Fill AB runs the bass up into brass hits; Fill BA is a break: everyone stops after beat 2, a bass pickup.
 style Funk
 tempo 100
 
@@ -14,6 +16,33 @@ track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=108 rev=8
 track c1 type=chord1 program=7 chan=3 lo=Bb3 hi=Bb5 hikey=F# vol=78 pan=40 rev=20
 track c2 type=chord1 program=27 chan=4 lo=G3 hi=D6 hikey=F# vol=64 pan=90 rev=30 cho=30
 track c3 type=chord2 program=61 chan=5 lo=G3 hi=E5 vol=78 pan=70 rev=40
+
+[intro]
+bars 2
+beats 4
+track d1
+# a groove bar, then the drummer's fill (the snare on 2, the and of 2 and the and of 3)
+drums from=drums/drummer7-session2-72_funk_100_beat_4-4.mid start=29 bars=2 scale=kick:130,chh:85,ohh:85
+track ba
+# silent for a bar, then the one, the octave pop and a run down into Main A
+2.1.0  C2 100 112
+2.1.360 C3 80 96
+2.2.240 B1 100 88
+2.3.240 G1 120 102
+2.4.0  G2 60 86
+2.4.120  E2 60 84
+2.4.240 D2 60 88
+2.4.360 B1 80 96
+track c1
+# the clavinet alone, joined by the band in bar 2
+grid 1.1 s E4+B4 X.gx..x.g.xg..xg|x.gx..x.g.Xg.gx. len=60
+track c2
+grid 1.1 s E4+B4+D5 ....X......gX...|....X......gX..g len=80
+track c3
+# brass hits with the drummer's fill
+2.2.0  G4+B4+E5 120 100
+2.2.240 G4+B4+E5 120 106
+2.3.240 G4+B4+E5 160 112
 
 [main a]
 bars 2
@@ -92,7 +121,7 @@ track c3
 2.4.0  G4+B4+E5 80 90
 2.4.240 G4+B4+E5 200 112
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -116,6 +145,27 @@ track c3
 1.3.0  G4+B4+E5 80 104
 1.3.240 G4+B4+E5 80 104
 1.4.240 G4+B4+E5 160 116
+
+[fill ba]
+bars 1
+beats 4
+track d1
+# the break: the band stops after beat 2, the drummer with it
+drums from=drums/drummer7-session2-72_funk_100_beat_4-4.mid start=34 bars=1 scale=kick:130,chh:85,ohh:85
+track ba
+# the one, the pop, a hit on 2 with everyone, silence, a pickup
+1.1.0  C2 100 112
+1.1.240 C2 60 62
+1.1.360 C3 80 96
+1.2.0  C2 120 108
+1.4.240 G1 80 96
+1.4.360 B1 80 102
+track c1
+grid 1.1 s E4+B4 X.gx..x......... len=60
+track c2
+grid 1.1 s E4+B4+D5 ....X........... len=80
+track c3
+1.2.0  G4+B4+E5 160 114
 
 [ending]
 bars 2

@@ -1,0 +1,94 @@
+# POLLY, sections: SEL held + the black keys 1..5: Intro, Main A, Main B, Fill (Fill AB from Main A, Fill BA
+# from Main B) and Ending, each from the next bar; SEL held lights the section's key. The Pop style (the Style
+# knob on the Song patterns page: all six sections) over the Pop template; PLAY starts with its Intro.
+wait 300
+tap ENV
+tap ENV
+spin K4 1
+wait 50
+expect song1_style0 24
+expect song1_style5 29
+expect slot0_nev >10
+expect slot4_nev >10
+tap HOME
+press SEL
+key w0 down
+key w0 up
+release SEL
+wait 10
+# SEL + black key 1 before PLAY: FIRST Intro
+press SEL
+tapkey b0
+release SEL
+wait 10
+expect next_sect 1
+tap PLAY
+wait 100
+expect sect 1
+expect playing 1
+press SEL
+wait 700
+leds
+expect black_lit 1
+shot intro.png
+release SEL
+wait 2396
+expect sect 1
+wait 2286
+# the Intro played once (2 bars): Main A
+expect sect 2
+wait 229
+# SEL + black key 3: Main B
+press SEL
+tapkey b2
+release SEL
+wait 10
+expect next_sect 3
+wait 1953
+expect sect 3
+wait 229
+# SEL + black key 4 from Main B: Fill BA, then Main A
+press SEL
+tapkey b3
+release SEL
+wait 10
+expect next_sect 7
+press SEL
+wait 700
+leds
+expect black_lit 8
+release SEL
+wait 1249
+expect sect 5
+shot fill_ba.png
+wait 2286
+expect sect 2
+wait 229
+# SEL + black key 4 from Main A: Fill AB, then Main B
+press SEL
+tapkey b3
+release SEL
+wait 1963
+expect sect 4
+shot fill_ab.png
+wait 2286
+expect sect 3
+wait 229
+# SEL + black key 2: Main A
+press SEL
+tapkey b1
+release SEL
+wait 1963
+expect sect 2
+wait 229
+# SEL + black key 5: the Ending (2 bars), then it stops
+press SEL
+tapkey b4
+release SEL
+wait 10
+expect next_sect 6
+wait 1953
+expect sect 6
+shot ending.png
+wait 4571
+expect playing 0

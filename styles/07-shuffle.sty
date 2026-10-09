@@ -4,6 +4,8 @@
 # Main A: the boogie bass (root, 3rd, 5th, 6th, b7 and back), the guitar's 5-6 shuffle on the low strings,
 # the hi-hat shuffle, a soft organ.
 # Main B: the drummer on the ride, piano triplets on top, the organ up.
+# Intro: the piano's triplets alone, then stop-time hits on 1 and 3, the bass up in triplets into the one.
+# Fill AB climbs in triplets; Fill BA goes down the boogie from the octave, the piano running down to the root.
 style Shuffle
 tempo 112
 
@@ -14,6 +16,41 @@ track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=F# vol=100 rev=16
 track c1 type=chord1 program=29 chan=3 lo=E2 hi=E4 hikey=F# vol=74 pan=40 rev=30
 track c2 type=chord1 program=0 chan=4 lo=G4 hi=G6 hikey=F# vol=74 pan=84 rev=40
 track c3 type=chord2 program=16 chan=5 lo=G3 hi=C5 vol=56 pan=64 rev=40 cho=30
+
+[intro]
+bars 2
+beats 4
+track d1
+# stop time: the hi-hat ticks under the piano; the band hits 1 and 3 of bar 2, a snare triplet into the one
+grid 1.1 q phh 4545
+2.1.0  kick 480 104
+2.1.0  crash 960 88
+2.1.0  snare 240 92
+2.3.0  kick 480 100
+2.3.0  snare 240 90
+2.4.0  snare 140 70/84/100 x3 160
+track ba
+# the hits, then up in triplets to the root
+2.1.0  C2 280 106
+2.3.0  C2 280 102
+2.4.0  G1 140 92
+2.4.160  A1 140 94
+2.4.320 B1 140 100
+track c1
+2.1.0  C3+G3 280 96
+2.3.0  C3+G3 280 92
+track c2
+# the piano alone: triplets on the top, the 6th for colour, down to the 3rd
+1.1.0  G5+C6 140 80/62/70 x3 160
+1.2.0  A5+C6 140 80/62/70 x3 160
+1.3.0  G5+C6 140 80/62/70 x3 160
+1.4.0  E5+G5 140 78
+1.4.160  E5+G5 140 62
+1.4.320 C5+E5 140 72
+2.1.0  E5+G5+C6 280 86
+2.3.0  E5+G5+C6 280 82
+track c3
+2.1.0  B3+E4+G4 1880 48
 
 [main a]
 bars 2
@@ -112,7 +149,7 @@ track c3
 1.1.0  B3+E4+G4 1880 66
 2.1.0  B3+E4+G4 1880 62
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -137,6 +174,41 @@ track c1
 1.3.0  C3+G3 160 96 x6 160
 track c3
 1.1.0  B3+E4+G4 1880 50
+
+[fill ba]
+bars 1
+beats 4
+track d1
+# back on the hi-hat: open hats and a snare on the and of 3 and the last triplet
+drums from=drums/drummer8-session1-20_rock-shuffle_112_beat_4-4.mid start=7 bars=1 scale=kick:90,ohh:80
+track ba
+# down the boogie from the octave
+1.1.0  C3 280 104
+1.1.320 C3 160 74
+1.2.0  B2 280 96
+1.2.320 B2 160 72
+1.3.0  A2 280 98
+1.3.320 A2 160 72
+1.4.0  G2 280 96
+1.4.320 E2 160 78
+track c1
+1.1.0  C3+G3 280 92
+1.1.320 C3+A3 160 76
+1.2.0  C3+G3 280 86
+1.2.320 C3+A3 160 72
+1.3.0  C3+G3 280 90
+1.3.320 C3+A3 160 76
+1.4.0  C3+G3 440 88
+track c2
+# the piano runs down in triplets to the root
+1.3.0  C6 140 84
+1.3.160  A5 140 70
+1.3.320 G5 140 76
+1.4.0  E5 140 80
+1.4.160  D5 140 66
+1.4.320 C5 140 74
+track c3
+1.1.0  B3+E4+G4 1880 56
 
 [ending]
 bars 2

@@ -1,6 +1,6 @@
 # POLLY, factory: a song picks factory style 1 (Pop) on the Song patterns pages: KNOB 4 (Style) sets all six
 # sections at once; a section's knob sets one (P01..P24, then the styles by name). It plays over the Pop
-# template: Main A, Main B, the fill (from Main B: Fill BA, none yet: Fill AB's), Main A, the ending.
+# template: the Intro, Main A, Main B, the fill (Fill BA, from Main B), Main A, the ending.
 wait 300
 tap ENV
 tap ENV
@@ -41,7 +41,7 @@ spin K2 24
 expect song1_style1 25
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 105
-# the Pop template, PLAY: Main A (the style has no Intro yet)
+# the Pop template, PLAY: the Intro (2 bars), then Main A
 press SEL
 key w0 down
 key w0 up
@@ -51,7 +51,7 @@ wav pop.wav
 peakreset
 tap PLAY
 wait 200
-expect sect 2
+expect sect 1
 wait 8940
 expect sect 2
 expect notes_out >20
@@ -61,7 +61,7 @@ expect track_hits5 >6
 expect track_hits7 >2
 expect peak_db_max -0.1
 expect peak_db_min -24
-# Main B for 4 bars, the fill (from B: Fill BA, none yet: Fill AB's), Main A, the ending
+# Main B for 4 bars, the fill (from B: Fill BA), Main A, the ending
 press SEL
 tapkey b2
 release SEL
@@ -71,7 +71,7 @@ press SEL
 tapkey b3
 release SEL
 wait 2300
-expect sect 4
+expect sect 5
 wait 2300
 expect sect 2
 press SEL

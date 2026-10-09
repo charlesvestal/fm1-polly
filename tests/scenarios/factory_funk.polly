@@ -1,5 +1,5 @@
 # POLLY, factory_funk: factory style 2 (Funk) for a song (KNOB 4, Style, two steps), played over the Vamp
-# template (Dm7 G7): Main A, Main B, the fill (Fill BA: none yet, Fill AB's), Main A, the ending; the audio in funk.wav.
+# template (Dm7 G7): the Intro, Main A, Main B, the fill (Fill BA), Main A, the ending; the audio in funk.wav.
 wait 300
 tap ENV
 tap ENV
@@ -27,7 +27,7 @@ wav funk.wav
 peakreset
 tap PLAY
 wait 200
-expect sect 2
+expect sect 1
 wait 9400
 expect notes_out >40
 press SEL
@@ -39,7 +39,7 @@ press SEL
 tapkey b3
 release SEL
 wait 2400
-expect sect 4
+expect sect 5
 wait 2400
 expect sect 2
 press SEL

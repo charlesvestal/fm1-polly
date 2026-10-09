@@ -4,6 +4,10 @@
 # Main A: the octave bass in eighths, a muted guitar scratching sixteenths, Rhodes stabs on the offbeats,
 # soft strings.
 # Main B: the open hats, a crash, string stabs and a held string line, the bass with sixteenth pickups.
+# Intro (2 bars): the hi-hats alone under a string sweep up the chord, then the band in with octave bass and
+# the drummer's floor-tom pickup.
+# Fill BA (1 bar): another bar of the drummer's toms (bar 21), the strings falling down the chord, the bass's
+# octaves running down home.
 style Disco
 tempo 120
 
@@ -15,6 +19,39 @@ track c1 type=chord1 program=28 chan=3 lo=E4 hi=E5 hikey=F# vol=62 pan=34 rev=30
 track c2 type=chord1 program=48 chan=4 lo=G4 hi=G6 hikey=F# vol=74 pan=84 rev=60
 track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=52 pan=64 rev=60 cho=20
 track c4 type=chord1 program=4 chan=6 lo=Bb3 hi=E5 hikey=F# vol=64 pan=56 rev=40 cho=30
+
+[intro]
+bars 2
+beats 4
+track d1
+drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=2 bars=1 only=chh scale=chh:80
+drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=14 bars=1 at=2 scale=kick:110,chh:80,ohh:80
+track d2
+grid 2.2 h snare 66
+grid 2.2 h clap  55
+track ba
+2.1.0  C2 200 108/86 x6 240
+2.4.0  G1 200 100
+2.4.240 G2 200 88
+track c1
+grid 2.1 s E4+G4+C5 g.xg.gXg.gxg.gXg len=60
+track c2
+# strings: a sweep up the chord, then the stabs
+1.1.0  G4 240 70
+1.1.240 C5 240 74
+1.2.0  E5 240 78
+1.2.240 G5 240 82
+1.3.0  C6 240 86
+1.3.240 E6 240 90
+1.4.0  G6 480 96
+2.1.240 E5+G5+C6 100 96
+2.2.240 E5+G5+C6 100 90
+2.3.0  E5+G5+C6 960 84
+track c4
+grid 2.1 e E4+G4+B4 .x.x.x.x len=100
+track c3
+1.1.0  G3+C4+E4 1880 36
+2.1.0  G3+C4+E4 1880 42
 
 [main a]
 bars 2
@@ -72,7 +109,7 @@ track c3
 1.1.0  G3+C4+E4 1880 60
 2.1.0  G3+C4+E4 1880 56
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -93,6 +130,32 @@ track ba
 track c2
 1.4.0  E5+G5+C6 100 90
 1.4.240 E5+G5+C6 200 100
+track c3
+1.1.0  G3+C4+E4 1880 46
+
+[fill ba]
+bars 1
+beats 4
+track d1
+drums from=drums/drummer1-session3-7_dance-disco_120_beat_4-4.mid start=20 bars=1 scale=kick:110,chh:80,ohh:80
+track d2
+1.2.0 snare 240 80
+grid 1.2 h clap 55
+track ba
+1.1.0  C2 200 108/86 x6 240
+1.4.0  C3 120 98
+1.4.120 B2 120 90
+1.4.240 G2 120 92
+1.4.360 E2 120 94
+track c1
+grid 1.1 s E4+G4+C5 g.xg.gXg.gxg.gXg len=60
+track c2
+# strings falling down the chord
+1.1.0  G5+C6+E6 480 96
+1.2.0  E5+G5+C6 480 88
+1.3.0  C5+E5+G5 900 80
+track c4
+grid 1.1 e E4+G4+B4 .x.x.x.x len=100
 track c3
 1.1.0  G3+C4+E4 1880 46
 

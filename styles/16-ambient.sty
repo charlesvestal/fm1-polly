@@ -3,6 +3,9 @@
 # held into the next), a soft celesta arpeggio on Chord 1, a sub bass holding the root.
 # Main B: a shaker and a triangle, the arpeggio in a second voice an octave up, the pads up.
 # The ending holds the root chord and fades.
+# Intro (4 bars): the warm pad fading in alone, the halo pad, then the sub bass, the celesta's first notes
+# climbing into Main A.
+# Fill BA (1 bar): the arpeggio falls from the top of the chord, the vibes answer, a soft triangle.
 style Ambient
 tempo 70
 
@@ -14,6 +17,29 @@ track c1 type=chord1 program=8 chan=3 lo=G4 hi=G6 hikey=F# vol=96 pan=44 rev=110
 track c2 type=chord2 program=94 chan=4 lo=G3 hi=E5 vol=88 pan=84 rev=110 cho=60
 track c3 type=chord2 program=89 chan=5 lo=E3 hi=C5 vol=94 pan=40 rev=110 cho=40
 track c4 type=chord1 program=11 chan=6 lo=C5 hi=C7 hikey=F# vol=80 pan=76 rev=120
+
+[intro]
+bars 4
+beats 4
+track d2
+1.1.0 otri 1440 26
+track ba
+3.1.0  C2 1880 100
+4.1.0  C2 1880 112
+track c1
+4.1.0  C5 240 58
+4.2.0  E5 240 62
+4.3.0  G5 240 66
+4.4.0  C6 240 70
+track c3
+1.1.0  G3+C4+E4 1880 52
+2.1.0  G3+C4+E4 1880 70
+3.1.0  G3+C4+E4 1880 86
+4.1.0  G3+C4+E4 1880 96
+track c2
+2.3.0  G4+C5 920 50
+3.3.0  G4+E5 920 62
+4.3.0  G4+C5 920 70
 
 [main a]
 bars 2
@@ -90,7 +116,7 @@ track c2
 1.3.0  G4+C5 920 96
 2.3.0  G4+E5 920 90
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d2
@@ -110,6 +136,30 @@ track c1
 1.4.240 C6 240 67
 track c3
 1.1.0  G3+C4+E4 1880 106
+
+[fill ba]
+bars 1
+beats 4
+track d2
+1.3.0 mtri 480 36
+track ba
+1.1.0  C2 1880 118
+track c1
+# down the chord from the top
+1.1.0  G6 240 80
+1.1.240 E6 240 72
+1.2.0  C6 240 77
+1.2.240 G5 240 70
+1.3.0  E5 240 74
+1.3.240 C5 240 66
+1.4.0  G4 440 64
+track c4
+1.1.120 E6 600 66
+1.3.120 C6 600 60
+track c3
+1.1.0  G3+C4+E4 1880 106
+track c2
+1.3.0  G4+C5 920 80
 
 [ending]
 bars 2

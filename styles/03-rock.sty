@@ -3,6 +3,9 @@
 # Main A: palm-muted power chords in eighths, a root-eighths bass, the drummer's hi-hat groove.
 # Main B: the power chords ring open, an overdriven guitar arpeggio on top, a rock organ underneath,
 # a busier kick, the bass climbing to the octave; a crash on its one.
+# Intro: the palm-muted guitar counted in on the hi-hat, then the band hitting with the drummer's snare fill.
+# Fill AB builds to sixteenths; Fill BA lets the chord ring as the hi-hat drops to the floor tom, the bass
+# walking down.
 style Rock
 tempo 120
 
@@ -14,6 +17,30 @@ track ba type=bass program=34 chan=2 lo=E1 hi=G3 hikey=F# vol=108 rev=8
 track c1 type=chord1 program=30 chan=3 lo=E2 hi=G4 hikey=F# vol=78 pan=40 rev=20
 track c2 type=chord1 program=29 chan=4 lo=G4 hi=E6 hikey=F# vol=62 pan=88 rev=40
 track c3 type=chord2 program=18 chan=5 lo=G3 hi=C5 vol=58 pan=64 rev=40 cho=30
+
+[intro]
+bars 2
+beats 4
+track d1
+# the hi-hat counts the guitar in; then the drummer's snare fill
+grid 1.1 q chh XxXx
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=22 at=2 bars=1 scale=kick:130,chh:85
+track ba
+# out for a bar, then the root ringing and the hits with the snare
+2.1.0  C2 680 110
+2.2.240 C2 200 90
+2.3.0  C2 100 100 x3 120
+2.4.240 G1 120 96
+2.4.360 G1 120 104
+track c1
+# palm-muted eighths alone, then the chord rings open and hits with the fill
+grid 1.1 e C3+G3+C4 xgxXgxgx len=140
+2.1.0  C3+G3+C4 680 108
+2.2.240 C3+G3+C4 200 90
+2.3.0  C3+G3+C4 100 104 x3 120
+2.4.240 C3+G3+C4 100 100 x2 120
+track c3
+2.1.0  G3+C4+E4 1440 52
 
 [main a]
 bars 2
@@ -85,7 +112,7 @@ track c3
 1.1.0  G3+C4+E4 1880 64
 2.1.0  G3+C4+E4 1880 60
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -101,6 +128,27 @@ track c1
 1.1.0  C3+G3+C4 440 104
 1.2.240 C3+G3+C4 200 92
 1.3.0  C3+G3+C4 120 96 x8 120
+
+[fill ba]
+bars 1
+beats 4
+track d1
+# the hi-hat drops to the floor tom for beats 3 and 4
+drums from=drums/drummer7-session2-1_rock_120_beat_4-4.mid start=11 bars=1 scale=kick:130,chh:85
+track ba
+# root eighths, then down the chord in eighths with the floor tom
+1.1.0  C2 200 108/78 x4 240
+1.3.0  G2 200 100
+1.3.240 E2 200 86
+1.4.0  D2 200 96
+1.4.240 G1 200 90
+track c1
+# the open chord twice, then left to ring over the toms
+1.1.0  C3+G3+C4 680 104
+1.2.240 C3+G3+C4 200 88
+1.3.0  C3+G3+C4 900 98
+track c3
+1.1.0  G3+C4+E4 1880 56
 
 [ending]
 bars 2

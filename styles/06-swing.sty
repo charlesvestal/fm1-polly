@@ -4,6 +4,8 @@
 # Main A: time on the closed hi-hat (the drummer's open-hat chick played closed), a walking bass in quarters, piano comping the Charleston, a soft organ.
 # Main B: the drummer on the ride, the walk with triplet pickups, busier piano, a vibraphone line, the
 # organ up.
+# Intro: the bass in two under the hi-hat and the Charleston, then a walk up, a vibraphone pickup and a
+# snare-kick setup into the one. Fill AB walks up; Fill BA stays on the ride and walks down from the octave.
 style Swing
 tempo 124
 
@@ -14,6 +16,41 @@ track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=122 rev=24
 track c1 type=chord1 program=0 chan=3 lo=Bb3 hi=E5 hikey=F# vol=100 pan=48 rev=48
 track c2 type=chord1 program=11 chan=4 lo=E4 hi=E6 hikey=F# vol=80 pan=84 rev=56
 track c3 type=chord2 program=16 chan=5 lo=G3 hi=C5 vol=48 pan=64 rev=50 cho=30
+
+[intro]
+bars 2
+beats 4
+track d1
+# the drummer's time on the hi-hat for a bar, then the chick on 2 and 4 and a snare-kick setup into the one
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=8 bars=1 map=ohh:chh scale=kick:70,snare:55,chh:80
+grid 2.2 h phh 54
+2.4.0  snare 160 80
+2.4.320 kick 160 92
+track ba
+# in two (root and fifth), then a walk up into Main A
+1.1.0  C2 900 100
+1.3.0  G1 900 90
+2.1.0  C2 440 102
+2.2.0  E2 440 88
+2.3.0  G2 440 94
+2.4.0  A2 280 90
+2.4.320 G2 160 84
+track c1
+# the Charleston, then short hits with the setup
+1.1.0  E4+G4+B4 200 80
+1.2.320 E4+G4+B4 400 70
+2.1.0  E4+G4+B4 200 82
+2.3.320 E4+G4+B4 160 74
+2.4.320 E4+G4+B4+D5 160 92
+track c2
+# a vibraphone pickup up the chord
+2.3.0  G4 160 66
+2.3.320 B4 160 62
+2.4.0  C5 160 70
+2.4.320 E5 160 76
+track c3
+1.1.0  B3+E4+G4 1880 40
+2.1.0  B3+E4+G4 1880 48
 
 [main a]
 bars 2
@@ -85,7 +122,7 @@ track c3
 1.1.0  B3+E4+G4 1880 70
 2.1.0  B3+E4+G4 1880 66
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -103,6 +140,34 @@ track c1
 1.4.320 E4+G4+B4+D5 160 96
 track c3
 1.1.0  B3+E4+G4 1880 54
+
+[fill ba]
+bars 1
+beats 4
+track d1
+# still on the ride: snare on the and of 1, the and of 3 and 4, a tom on the and of 3
+drums from=drums/drummer10-session1-1_jazz-swing_124_beat_4-4.mid start=19 bars=1 scale=kick:45,ride:72,bell:55,snare:55,hmtom:45,ftom:50,htom:45
+track ba
+# walking down from the octave to the fifth below
+1.1.0  C3 440 104
+1.2.0  G2 440 88
+1.3.0  E2 440 92
+1.4.0  D2 280 86
+1.4.320 G1 160 84
+track c1
+# two hits pushed on the ands, then the 3-5-7 held over beat 4
+1.1.320 E4+G4+B4 160 80
+1.2.320 E4+G4+B4 160 84
+1.4.0  E4+G4+B4 440 70
+track c2
+# vibes: a swung line down to the root
+1.1.0  B5 320 76
+1.1.320 G5 160 64
+1.2.0  E5 320 72
+1.2.320 D5 160 60
+1.3.0  C5 480 70
+track c3
+1.1.0  B3+E4+G4 1880 60
 
 [ending]
 bars 2

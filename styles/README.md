@@ -139,6 +139,26 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 
 (The bar numbers above count from 1; `start=` counts from 0.)
 
+The intros and the second fills (Fill BA, back home to Main A):
+
+| # | Style | Intro | Fill BA |
+|---|---|---|---|
+| 1 | Pop | 2 bars: the piano's 3-3-2 alone over a light hi-hat, then the band, the bass climbing up the chord and the drummer's snare roll (bar 25) | bar 29 (a plain hi-hat bar, snare doubled on 4); the bass back down the chord, the guitar arpeggio falling, piano hits with the snare |
+| 2 | Funk | 2 bars: drums bars 30-31 (groove, then a fill); the clavinet and guitar first, then the bass with a run down into Main A and brass hits with the fill | bar 35, a break: everyone stops after beat 2 (a bass, guitar and brass hit on 2), then a bass pickup |
+| 3 | Rock | 2 bars: palm-muted guitar counted in on hi-hat quarters, then the band in open chords and hits with the drummer's snare fill (bar 23) | bar 12 (the hi-hat drops to the floor tom on 3 and 4); the open chord left ringing, the bass walking down 5-3-2 to the fifth below |
+| 4 | Ballad | 2 bars: the piano alone, the broken chord from the top down; then the bass, a soft kick and hi-hat, a cross-stick pickup and a rolled chord | bar 24 (down the toms on beat 4); the piano chord, then a broken chord falling from the top, a string line, the bass 1-5-3-5 |
+| 5 | Bossa | 2 bars (drums by hand): the nylon guitar alone over the hi-hat foot; the clave, kick and hi-hat join in bar 2, the bass on the half bar | the cross-stick fills the bar in sixteenths (by hand); the flute falls to the root, the comping settles into a held chord, the bass walks down |
+| 6 | Swing | 2 bars: the bass in two under the drummer's hi-hat (bar 9) and the Charleston, then a walk up, a vibraphone pickup and a snare-kick setup on beat 4 | bar 20, still on the ride (snare and tom accents on the swung ands); the bass walks down from the octave, the vibes run down, piano hits pushed |
+| 7 | Shuffle | 2 bars (drums by hand): the piano's triplets alone over the hi-hat, then stop-time hits on 1 and 3 with a crash, a snare triplet and the bass up in triplets into the one | bar 8 (back on the hi-hat, open hats); the bass down the boogie from the octave, the piano running down in triplets to the root |
+| 8 | Reggae | 2 bars: the skank and organ over the drummer's hi-hat alone (bar 2, `only=chh`), then the bass and the drummer rolling in on the toms (bar 21) | bar 25 (a snare roll from the and of 2); a dub drop: the bass plays half the bar, the melodica's last phrase falls to the root |
+| 9 | Hip hop | 2 bars: the Rhodes and pad alone, then the drummer's hats (bar 3) come in, with a snare on 4 and a double-kick pickup | the kick drops out under the drummer's snare and hats (bar 12); the bass and Rhodes held while the vibes fall G-E-C; a kick pickup back in |
+| 10 | House | 4 bars, drums first: the kick alone, then open hats, then the clap and the bass; a rising sixteenth snare roll in bar 4, the pad swelling and organ stabs | a small breakdown: the kick only on the one, with a soft crash; claps on 2, 4 and its and; the bass held; organ stabs on every offbeat |
+| 11 | Disco | 2 bars: the drummer's hi-hats alone under a string sweep up the chord, then the band with octave bass and the drummer's floor-tom pickup (bar 15) | the drummer's tom bar (bar 21); the strings fall down the chord; the bass octaves run down C-B-G-E home |
+| 12 | Country | 2 bars: the train beat on the snare alone under a ringing rolled chord and a fiddle kick-off, then boom-chick with the 5-6-7 walk up (drums bars 2 and 11) | the drummer's tom fill (bar 20); the bass walks down from the octave to the fifth; a big strum held on 3; a piano lick down |
+| 13 | Gospel | 2 bars: the piano triplets alone over the organ, the hi-hat creeping in; then the kick, cross-stick and bass, with a triplet snare pickup | a stop: the band hits beat 3 with a crash and holds; the hi-hat pedals beat 4's triplets; the bass picks back up |
+| 14 | Waltz | 4 bars: the strings and a violin phrase alone, then oom-pah-pah and the drums for two bars, the violin rising into Main A | a hemiola: the bass, accordion and snare in two dotted quarters across the bar; the violin falls from the octave |
+| 15 | Latin | 4 bars (two claves): the piano montuno over the clave and maracas alone, then the congas, bass tumbao and strings join; a timbale pickup | a band break on the clave's 2 side: everyone hits the one, the and of 2 and beat 4 (held), with timbales and a crash; the congas and cowbell out |
+| 16 | Ambient | 4 bars: the warm pad fades in alone (a soft triangle), then the halo pad, then the sub bass, the celesta's first notes climbing into Main A | the arpeggio falls from G6 down the chord; the vibes answer; a soft triangle |
 
 **12/8 and 3/4.** Patterns can be 2 to 7 beats a bar, so the Waltz is plain 3/4 (`beats 3`; a song's bar
 and the Waltz template's bar are three beats while it plays). There is no compound meter: a 12/8 (or 6/8)

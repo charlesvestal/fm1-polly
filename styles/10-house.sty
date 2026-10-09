@@ -4,6 +4,10 @@
 # organ stabs, a soft pad.
 # Main B: sixteenth hats and a shaker, a crash on its one, the piano stabs (the house piano's syncopated
 # chords), the bass jumping octaves, the pad up.
+# Intro (4 bars): drums first, building: the kick alone, the open hats, the clap and the bass, a snare roll
+# rising through bar 4 with the pad swelling and the organ in.
+# Fill BA (1 bar): a little breakdown: the kick drops after the one, claps on 2, 4 and its and, the bass held,
+# organ stabs on every offbeat.
 style House
 tempo 122
 
@@ -14,6 +18,27 @@ track ba type=bass program=38 chan=2 lo=E1 hi=E3 hikey=F# vol=118 rev=6
 track c1 type=chord1 program=17 chan=3 lo=G3 hi=G5 hikey=F# vol=70 pan=40 rev=40
 track c2 type=chord1 program=1 chan=4 lo=G3 hi=C6 hikey=F# vol=80 pan=86 rev=40
 track c3 type=chord2 program=50 chan=5 lo=F3 hi=C5 vol=62 pan=64 rev=70 cho=40
+
+[intro]
+bars 4
+beats 4
+track d1
+grid 1.1 q kick 5555|6666|7676|7676
+grid 1.1 e ohh  ........|.3.3.3.3|.4.4.4.4|.5.5.5.5
+grid 3.2 h clap 66|77
+grid 4.1 s snare 1.2.3.4.55667789
+track ba
+grid 3.1 e C2 .6.6.6.6|.7.7.7.. len=180
+4.4.240 G1 180 92
+track c1
+4.2.240 E4+G4+C5 120 80
+4.3.360 E4+G4+C5 120 84
+4.4.240 E4+G4+C5 120 92
+track c3
+1.1.0  G3+C4+E4 1880 28
+2.1.0  G3+C4+E4 1880 34
+3.1.0  G3+C4+E4 1880 40
+4.1.0  G3+C4+E4 1880 46
 
 [main a]
 bars 2
@@ -71,7 +96,7 @@ track c3
 1.1.0  G3+C4+E4 1880 64
 2.1.0  G3+C4+E4 1880 60
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -88,6 +113,22 @@ track c1
 1.4.240 E4+G4+C5 200 100
 track c3
 1.1.0  G3+C4+E4 1880 50
+
+[fill ba]
+bars 1
+beats 4
+track d1
+1.1.0  kick 480 100
+1.1.0  crash 960 56
+grid 1.1 e clap ..6...67
+grid 1.1 e ohh  .5.5.5.5
+track ba
+1.1.0  C2 960 104
+1.4.240 G1 180 92
+track c1
+grid 1.1 e E4+G4+C5 .x.x.x.X len=120
+track c3
+1.1.0  G3+C4+E4 1880 56
 
 [ending]
 bars 2

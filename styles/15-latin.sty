@@ -4,6 +4,10 @@
 # Main A: claves, the conga tumbao (slap on 2, open tones on 4 and its and), maracas, the bass tumbao
 # (the and of 2 and beat 4, anticipating), the piano montuno in two alternating voicings, soft strings.
 # Main B: the cowbell on the beat, timbale accents, a crash, a trombone mambo riff, the strings up.
+# Intro (4 bars, two claves): the piano montuno over the clave and maracas alone, then the congas, the bass
+# tumbao and the strings join; a timbale pickup into Main A.
+# Fill BA (1 bar): a band break on the clave's 2 side: everyone hits the one, the and of 2 and beat 4 (held)
+# with timbales and a crash, the congas out.
 style Latin
 tempo 190
 
@@ -14,6 +18,32 @@ track ba type=bass program=32 chan=2 lo=E1 hi=G3 hikey=F# vol=114 rev=16
 track c1 type=chord1 program=0 chan=3 lo=G3 hi=G5 hikey=F# vol=92 pan=50 rev=40
 track c2 type=chord1 program=57 chan=4 lo=G3 hi=E5 hikey=F# vol=74 pan=80 rev=40
 track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=46 pan=64 rev=60
+
+[intro]
+bars 4
+beats 4
+track d1
+grid 1.1 e claves ..7.7...|7..7..7.|..7.7...|7..7..7.
+grid 3.1 e mhconga 3363.3..|3363.3..
+grid 3.1 e hconga  ......76|......76
+grid 3.1 e lconga  ....3...|....3...
+4.4.0  htimbale 120 76
+4.4.120 htimbale 120 86
+4.4.240 htimbale 120 96
+4.4.360 ltimbale 120 108
+track pc
+grid 1.1 e maracas 32323232|32323232|43434343|43434343
+track ba
+3.2.240 G1 600 100
+3.4.0  C2 680 108
+4.2.240 G1 600 100
+4.4.0  C2 680 108
+track c1
+grid 1.1 e G4+C5+E5 x..x..x.|..x..x..|x..x..x.|..x..x.. len=200
+grid 1.1 e E4+G4+C5 ..x..x..|x..x..xx|..x..x..|x..x..xx len=200
+track c3
+3.1.0  G3+C4+E4 1920 36
+4.1.0  G3+C4+E4 1920 38
 
 [main a]
 bars 2
@@ -76,7 +106,7 @@ track c3
 1.1.0  G3+C4+E4 1920 58
 2.1.0  G3+C4+E4 1920 54
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -92,6 +122,31 @@ track ba
 track c1
 grid 1.1 e G4+C5+E5 x..x..x. len=200
 1.4.240 E4+G4+C5 200 104
+track c3
+1.1.0  G3+C4+E4 1920 44
+
+[fill ba]
+bars 1
+beats 4
+track d1
+grid 1.1 e claves ..7.7...
+1.1.0  htimbale 240 104
+1.1.0  crash 960 80
+1.2.240 htimbale 240 100
+1.4.0  ltimbale 240 110
+1.4.0  kick 240 90
+track ba
+1.1.0  C2 200 108
+1.2.240 G1 200 104
+1.4.0  C2 480 110
+track c1
+1.1.0  G4+C5+E5 200 104
+1.2.240 G4+C5+E5 200 100
+1.4.0  E4+G4+C5 440 108
+track c2
+1.1.0  E4+G4+C5 200 104
+1.2.240 E4+G4+C5 200 100
+1.4.0  G4+C5+E5 440 108
 track c3
 1.1.0  G3+C4+E4 1920 44
 

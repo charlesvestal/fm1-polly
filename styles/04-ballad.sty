@@ -3,6 +3,8 @@
 # over C M7.
 # Main A: piano arpeggios in eighths, a fretless bass on roots and fifths, soft strings.
 # Main B: the piano in quarter-note chords with a lift, the strings up, a high string line, the bass moving.
+# Intro: the piano alone, the broken chord from the top down, then the bass, a soft kick and hi-hat and a
+# rolled chord. Fill AB climbs the chord; Fill BA comes down the toms, the piano falling from the top.
 style Ballad
 tempo 72
 
@@ -13,6 +15,43 @@ track ba type=bass program=35 chan=2 lo=E1 hi=G3 hikey=F# vol=116 rev=30
 track c1 type=chord1 program=0 chan=3 lo=C3 hi=C6 hikey=off vol=124 pan=54 rev=64
 track c2 type=chord1 program=48 chan=4 lo=G4 hi=G6 hikey=F# vol=86 pan=80 rev=80
 track c3 type=chord2 program=49 chan=5 lo=F3 hi=C5 vol=88 pan=64 rev=80 cho=20
+
+[intro]
+bars 2
+beats 4
+track d1
+# the piano alone for a bar; then a soft kick and hi-hat, a cross-stick pickup
+2.1.0  kick 480 70
+2.3.0  kick 480 56
+grid 2.1 e chh 32323232
+2.4.240 rim 240 54
+track ba
+2.1.0  C2 1200 96
+2.3.240 G1 240 72
+2.4.0  G1 480 82
+track c1
+# the broken chord from the top down, then up to the octave and a rolled chord
+1.1.0  C3 1880 70
+1.1.0  G5 280 84
+1.1.240 E5 280 66
+1.2.0  C5 280 72
+1.2.240 G4 280 64
+1.3.0  E5 280 76
+1.3.240 C5 280 64
+1.4.0  G4 280 70
+1.4.240 E4 280 62
+2.1.0  C4 280 88
+2.1.240 G4 280 68
+2.2.0  C5 280 74
+2.2.240 E5 280 70
+2.3.0  G5 280 78
+2.3.240 C6 280 72
+2.4.0  G4 440 74
+2.4.40  C5 400 70
+2.4.80  E5 360 72
+track c3
+1.1.0  G3+C4+E4 1880 44
+2.1.0  G3+C4+E4 1880 52
 
 [main a]
 bars 2
@@ -86,7 +125,7 @@ track c3
 1.1.0  G3+C4+E4 1880 76
 2.1.0  G3+C4+E4 1880 71
 
-[fill]
+[fill ab]
 bars 1
 beats 4
 track d1
@@ -106,6 +145,32 @@ track c1
 1.4.240 G5 240 87
 track c3
 1.1.0  G3+C4+E4 1880 69
+
+[fill ba]
+bars 1
+beats 4
+track d1
+# down the toms on beat 4, back to the cross-stick
+drums from=drums/drummer7-session2-27_rock_75_beat_4-4.mid start=23 bars=1 scale=kick:150,chh:80,snare:95
+track ba
+# root, the fifth, then down 5-3 to the root
+1.1.0  C2 960 100
+1.3.0  G2 480 88
+1.4.0  E2 240 84
+1.4.240 G1 240 80
+track c1
+# a chord, then the broken chord falling from the top
+1.1.0  C3+C4+E4+G4 680 84
+1.2.240 G5 240 80
+1.3.0  E5 240 74
+1.3.240 C5 240 72
+1.4.0  G4 240 70
+1.4.240 E4 240 66
+track c2
+1.1.0  G5 960 82
+1.3.0  E5 960 74
+track c3
+1.1.0  G3+C4+E4 1880 66
 
 [ending]
 bars 2
