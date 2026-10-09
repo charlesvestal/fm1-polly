@@ -25,5 +25,7 @@ char *chord_name(chord_t c, char *buf);          /* "Bm7/E"; buf >= 12 bytes; re
 const int8_t *chord_degrees(int type);
 uint16_t chord_tones(int type);                  /* bit i: i semitones over the root is a chord tone */
 /* recognise held notes (MIDI numbers, any order); 1 = a chord in *out, 0 = none (fewer than 3 distinct
- * pitch classes, or no type fits) */
+ * pitch classes, or no type fits). The lowest note is the bass: the root, 3rd or 5th of the chord all the
+ * notes make, that chord (inversions: E G C is C; A C E G is Am7); else a slash bass under the chord the notes
+ * above it make (D under C E G: C/D; Bb under C E G: C/Bb) */
 int chord_recognize(const uint8_t *notes, int n, chord_t *out);

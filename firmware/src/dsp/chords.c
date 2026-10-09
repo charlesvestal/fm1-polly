@@ -67,61 +67,81 @@ static int popcount12(uint32_t m)
     return n;
 }
 
-/* the best fit: each root among the held pitch classes, each type. A candidate must explain every held
- * note (no tone outside the type); among those, an exact match (nothing missing) always beats a match
- * that is missing only its 5th (the one degree a chord can be voiced without), and the simpler type (table
- * order) wins a tie. The lowest held note, if it is not a tone of the winner and lies below all the
- * others, is the slash bass, and is left out of the fit. */
+/* the best fit for the pitch classes `set` (each held one as the root). A candidate must
+ * explain every held note (no tone outside the type); among those, an exact match (nothing missing) always beats
+ * a match that is missing only its 5th (the one degree a chord can be voiced without), and the simpler type
+ * (table order) wins a tie; of the same tier, `pref` (the lowest note) as the root wins: A C E G is Am7, C E G A
+ * is C6 (as arrangers read them). 1 = found, in *root, *type */
+static int fit(uint32_t set, int pref, int *root, int *type)
+{
+    int best = -1;
+    for (int r = 0; r < 12; r++) {
+        if (!(set >> r & 1u))
+            continue;
+        uint32_t rel = ((set >> r) | (set << (12 - r))) & 0xFFFu;
+        for (int t = 0; t < CH_NONE; t++) {
+            uint32_t tm = TONES[t], missing = tm & ~rel;
+            int score;
+            if (rel & ~tm)                           /* a held note this type cannot explain */
+                continue;
+            if (missing == 0)
+                score = 2000 - t;                    /* exact: every tone of the type is held */
+            else if (missing == 0x80u)
+                score = 1000 - t;                    /* only the 5th missing */
+            else
+                continue;
+            if (r == pref)
+                score += 100;
+            if (score > best) {
+                best = score;
+                *root = r;
+                *type = t;
+            }
+        }
+    }
+    return best >= 0;
+}
+
+/* pitch class pc is one of chord (r, t)'s core tones: its root, 3rd (the 4th of a sus4) or 5th (flat or sharp) */
+static int core_tone(int r, int t, int pc)
+{
+    int iv = (pc - r + 12) % 12;
+    return iv == 0 || iv == DEG[t][DEG_3] || iv == DEG[t][DEG_5];
+}
+
+/* The lowest held note is the bass. All the notes read as one chord (fit, the lowest preferred as the root):
+ * when the lowest is its root, 3rd or 5th, that chord (an inversion: E G C is C; A C E G is Am7, a chord on
+ * the lowest note). Else (the lowest is its 7th, 6th or a tension, or no chord fits them all) the notes above
+ * the lowest make the chord and the lowest is a slash bass: D under C E G is C/D, Bb under C E G is C/Bb, F under
+ * C E G is C/F; with fewer than 3 pitch classes above it, or none that fit, the one chord stays. */
 int chord_recognize(const uint8_t *notes, int n, chord_t *out)
 {
     uint32_t pcs = 0, upper = 0;
-    int lo = 128, i, r, t, best = -1, br = 0, bt = 0, low_pc;
+    int lo = 128, up_lo = 128, i, r = 0, t = 0, ur, ut, low_pc, all;
     for (i = 0; i < n; i++)
         if (notes[i] < lo)
             lo = notes[i];
     low_pc = lo % 12;
     for (i = 0; i < n; i++) {
         pcs |= 1u << (notes[i] % 12u);
-        if (notes[i] != lo)
+        if (notes[i] != lo) {
             upper |= 1u << (notes[i] % 12u);
+            if (notes[i] < up_lo)
+                up_lo = notes[i];
+        }
     }
     if (popcount12(pcs) < 3)
         return 0;
-    for (int pass = 0; pass < 2; pass++) {          /* 0: all notes; 1: the lowest as a slash bass */
-        uint32_t set = pass ? upper : pcs;
-        if (pass && (popcount12(set) < 3 || (upper >> low_pc & 1u)))
-            break;
-        for (r = 0; r < 12; r++) {
-            if (!(set >> r & 1u))
-                continue;
-            for (t = 0; t < CH_NONE; t++) {
-                uint32_t tm = TONES[t], rel = ((set >> r) | (set << (12 - r))) & 0xFFFu;
-                if (rel & ~tm)                       /* a held note this type cannot explain */
-                    continue;
-                uint32_t missing = tm & ~rel;
-                int score;
-                if (missing == 0)
-                    score = 2000 - t;                /* exact: every tone of the type is held */
-                else if (missing == 0x80u)
-                    score = 1000 - t;                /* only the 5th missing */
-                else
-                    continue;
-                score -= pass ? 500 : 0;             /* root position wins over reading a slash bass */
-                if (!pass && r == low_pc)
-                    score += 100;                    /* of the same tier, the lowest note as the root: A C E G
-                                                      * is Am7, C E G A is C6 (as arrangers read them) */
-                if (score > best) {
-                    best = score;
-                    br = r;
-                    bt = t;
-                    out->bass = pass ? (uint8_t)low_pc : CH_NOBASS;
-                }
-            }
-        }
-    }
-    if (best < 0)
+    all = fit(pcs, low_pc, &r, &t);
+    out->bass = CH_NOBASS;
+    if ((!all || !core_tone(r, t, low_pc)) && popcount12(upper) >= 3 && !(upper >> low_pc & 1u) &&
+        fit(upper, up_lo % 12, &ur, &ut)) {
+        r = ur;                                      /* the chord above, over the lowest */
+        t = ut;
+        out->bass = (uint8_t)low_pc;
+    } else if (!all)
         return 0;
-    out->root = (uint8_t)br;
-    out->type = (uint8_t)bt;
+    out->root = (uint8_t)r;
+    out->type = (uint8_t)t;
     return 1;
 }

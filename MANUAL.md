@@ -192,10 +192,11 @@ notes.
   band follows.
 - The chord stays after you let go (fingered, as on an arranger keyboard). Play the next one whenever
   you like.
-- Inversions work. When the notes could be read two ways, the lowest note is taken as the root: A C E G
-  is Am7, C E G A is C6.
-- A low note that makes no chord with the notes above it becomes a slash bass: F under C E G is C/F.
-  When all the notes make a chord together, that chord wins: B♭ under C E G is C7.
+- Inversions work: E G C and G C E are both C. When the notes could be read two ways, the lowest note
+  is taken as the root: A C E G is Am7, C E G A is C6, D F A C is Dm7.
+- The lowest note is the bass. When it's the root, 3rd or 5th of the chord, you get that chord. Any other
+  note at the bottom becomes a slash bass under the chord the notes above it make: D under C E G is
+  C/D, F under C E G is C/F, B♭ under C E G is C/B♭. (For C7, put B♭ above the C: C E G B♭.)
 - A chord may leave out its 5th: C E B♭ is C7 too.
 - Two notes are not a chord: nothing changes.
 - Playing a chord ends a progression that was playing.
