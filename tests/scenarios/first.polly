@@ -1,4 +1,4 @@
-# GM, first: the keys play the selected channel; programs change; the demo loads the synth.
+# POLLY, first: the keys play the selected track (C1, a piano); MIDI in plays the synth on its channels.
 wait 500
 shot boot.png
 wav first.wav
@@ -10,20 +10,20 @@ expect voices >2
 key 7 up
 key 11 up
 key 14 up
-turn PRESET 24
-wait 200
-expect program1 25
-key 12 down
-wait 500
-key 12 up
-shot program.png
-tap PLAY
-wait 6000
-expect demo 1
-expect voices >8
-expect peak_db_min -24
+wait 1000
+# MIDI in: a program change and a chord on channel 12, as the GM module
+midi BB 07 64
+midi CB 18 00
+midi 9B 3C 64
+midi 9B 40 64
+midi 9B 43 64
+wait 600
+expect program12 25
+expect voices >2
+expect peak_db_min -30
 expect peak_db_max -0.1
-shot demo.png
-tap PLAY
+midi 8B 3C 00
+midi 8B 40 00
+midi 8B 43 00
 wait 1500
 wavstop

@@ -22,6 +22,7 @@ volatile uint8_t arr_playing, arr_sect = SEC_A, arr_next_sect, arr_ext;
 volatile uint16_t arr_bar, arr_beat_tick;
 volatile uint8_t arr_song_bar;
 volatile int8_t arr_template_now = -1;
+volatile uint8_t arr_template_bar;
 volatile uint32_t arr_chord_now;
 volatile uint32_t arr_track_hit[ARR_TRACKS];
 volatile uint32_t arr_ticks;
@@ -781,7 +782,9 @@ static int bar_line(void)
 static chord_t tmpl_chord(void)                    /* the template's chord on the beat now, in the key */
 {
     const template_t *m = &TEMPLATES[tmpl];
-    chord_t c = m->bars[(beat_now - t_origin) / m->beats % m->nbars];
+    uint32_t b = (beat_now - t_origin) / m->beats % m->nbars;
+    chord_t c = m->bars[b];
+    arr_template_bar = (uint8_t)b;
     c.root = (uint8_t)((c.root + key) % 12u);
     return c;
 }
@@ -1133,6 +1136,7 @@ void arr_init(void)                                /* at boot, before the render
     arr_song_bar = 0;
     tmpl = -1;
     arr_template_now = -1;
+    arr_template_bar = 0;
     key = 0;
     first_tick = 0;
     fill_from = SEC_A;

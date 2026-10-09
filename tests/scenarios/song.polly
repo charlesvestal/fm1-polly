@@ -1,0 +1,101 @@
+# POLLY, song: the Song page and the controls. A template (SEL + white key), PLAY, its chords a bar apart;
+# a section on SEL + black key, waiting for the bar; CHORD mode and a chord from the keys; the pages.
+wait 500
+expect page 0
+expect playing 0
+expect chord_mode 0
+shot boot.png
+# SEL + white key 1: the Pop template (I-V-vi-IV), its first chord at once
+press SEL
+key w0 down
+key w0 up
+release SEL
+wait 100
+expect template 0
+expect chord_root 0
+expect chord_type 0
+expect chord_mode 0
+tap PLAY
+expect playing 1
+wait 1000
+expect chord_root 0
+shot pop_c.png
+wait 2000
+expect chord_root 7
+shot pop_g.png
+wait 2000
+expect chord_root 9
+expect chord_type 16
+wait 2000
+expect chord_root 5
+# SEL + black key 2: Main B, from the next bar ("NEXT")
+press SEL
+key b1 down
+key b1 up
+release SEL
+wait 50
+expect sect 1
+expect next_sect 2
+shot next_b.png
+wait 2000
+expect sect 2
+expect next_sect 0
+shot main_b.png
+# REC records into the selected track; its light follows the engine (a section change ends it)
+tap REC
+expect recording 1
+leds
+press SEL
+key b0 down
+key b0 up
+release SEL
+wait 2100
+expect sect 1
+expect recording 0
+# CHORD on (SEL tap), hold A C E: A minor, the template ends
+tap SEL
+expect chord_mode 1
+leds
+key 4 down
+key 7 down
+key 11 down
+wait 100
+expect chord_root 9
+expect chord_type 16
+expect template -1
+shot chord_am.png
+key 4 up
+key 7 up
+key 11 up
+wait 2000
+expect chord_root 9
+tap SEL
+expect chord_mode 0
+# tempo on SELECT, the track on ALGORITHM
+spin SELECT 10
+expect tempo 130
+spin ALGO 1
+expect track 6
+shot tempo_track.png
+# the pages: SEQ twice, FX, ARP, GLO, HOME
+tap SEQ
+expect page 1
+tap SEQ
+expect page 2
+shot coming.png
+tap SEQ
+expect page 1
+tap FX
+expect page 4
+tap ARP
+expect page 8
+tap GLO
+expect page 10
+tap GLO
+expect page 11
+tap HOME
+expect page 0
+tap PLAY
+wait 100
+expect playing 0
+shot stopped.png

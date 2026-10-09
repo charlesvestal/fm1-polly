@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* GM project: one flash object (OBJ_PROJ): the keys' channel and octave, and every channel's program,
- * volume, pan, reverb and chorus. Part of the unity build, after app.h. */
+/* Polly's project: one flash object (OBJ_PROJ): the keys' octave, the track, tempo, key and grid, and the
+ * MIDI-in channels' program, volume, pan, reverb and chorus. Patterns and songs have their own objects.
+ * Part of the unity build, after app.h. */
 project_t proj;
 
 void project_defaults(void)
@@ -10,6 +11,9 @@ void project_defaults(void)
     proj.magic = PROJ_MAGIC;
     proj.format = PROJ_FORMAT;
     proj.leds = 1;
+    proj.trk = 4;                                    /* C1: a piano under the keys */
+    proj.tempo = 120;
+    proj.quant = ARR_Q_16;
     for (c = 0; c < GM_NCH; c++) {
         proj.volume[c] = 100;
         proj.pan[c] = 64;
@@ -22,7 +26,8 @@ static int project_valid(void)
 {
     int c;
     if (proj.magic != PROJ_MAGIC || proj.format != PROJ_FORMAT || proj.ch > 15u || proj.oct < -3 || proj.oct > 3 ||
-        proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS)
+        proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS ||
+        proj.trk >= ARR_TRACKS || proj.tempo < 40u || proj.tempo > 240u || proj.key > 11u || proj.quant >= ARR_NQ)
         return 0;
     for (c = 0; c < GM_NCH; c++)
         if (proj.program[c] > 127u || proj.volume[c] > 127u || proj.pan[c] > 127u || proj.reverb[c] > 127u ||

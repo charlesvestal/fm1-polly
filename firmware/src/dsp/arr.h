@@ -163,6 +163,7 @@ extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
 extern volatile uint8_t arr_song_bar;               /* the song's bar playing (0..63), with a song */
 extern volatile int8_t arr_template_now;            /* the template playing, -1 none */
+extern volatile uint8_t arr_template_bar;           /* its bar sounding now (0..nbars-1): the screen's next chord */
 extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
 static inline uint32_t arr_chord_pack(chord_t c) { return (uint32_t)c.root | (uint32_t)c.type << 8 | (uint32_t)c.bass << 16; }
 static inline chord_t arr_chord_unpack(uint32_t v)

@@ -1,44 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* GM UI: a General MIDI sound module. Part of the unity build (after gfx.c and project.c); the host
+/* Polly's input: the controls (the spec's Controls table), the songs and patterns into the arranger, saving,
+ * the lights. Part of the unity build (after pages.c, which holds the shared state and the drawing); the host
  * simulator includes it too.
  *
- *   keys            play the selected channel          OCT- / OCT+   the keys' octave
- *   PRESETS         the channel's program (SELECT: a family of eight at a time)
- *   ALGORITHM       the channel (1..16; 10 is the drums)
- *   KNOB 1-4        the channel's volume, pan, reverb, chorus
- *   PLAY            a demo song (to hear it, and to load the synth)     HOME   all notes off
- *   GLO             lights           SAVE   saves (it also saves by itself, a few seconds after a change)
- * MIDI in (USB, TRS) plays all 16 channels. */
-#include "gm_names.h"
-
-static const char *const DRUM_NAME = "Drum kit";
-
-#define K_BG RGB(250, 244, 232)
-#define K_PANEL RGB(236, 228, 212)
-#define K_LINE RGB(216, 205, 186)
-#define K_DIM RGB(150, 136, 118)
-#define K_TEXT RGB(72, 58, 48)
-#define K_ACCENT RGB(242, 120, 72)
-#define K_TEAL RGB(38, 166, 154)
-#define K_TEAL_T RGB(196, 230, 222)
-
-static struct {
-    uint32_t btn, keys, btn_used;
-    uint32_t enc_t[NE];
-    uint8_t dirty;
-    uint32_t act_t;
-    char msg[2][24];
-    uint32_t msg_until;
-    int8_t touched;
-    uint32_t touch_until;
-    uint32_t frame;
-    uint8_t key_note[NKEYS], key_ch[NKEYS];
-    uint8_t held[GM_NCH];              /* notes held on each channel (keys, MIDI in, the demo) */
-    uint32_t hit_t[GM_NCH];            /* the last note-on on each channel */
-    uint8_t demo;
-    uint32_t demo_t, demo_step;
-    uint32_t sig[3];
-} ui;
+ *   PLAY            start / stop                 REC       record into the selected track (its light: the engine's)
+ *   SEL tap         CHORD on / off: the keys enter chords, or play the selected track
+ *   SEL + black key 1..4   Main A, Main B, Fill, Ending, from the next bar
+ *   SEL + white key 1..16  a chord template, at once
+ *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x2), LFO Chords, ENV Arrange, ARP Templates (x2), GLO Setup (x2)
+ *   SAVE            saves (held: the jobs)       OCT- / OCT+   the keys' octave
+ *   SELECT          tempo       ALGORITHM   the track       PRESETS   per page (Song: the song)
+ * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 
 static void say(const char *a, const char *b)
 {
@@ -53,134 +25,13 @@ static void say(const char *a, const char *b)
 }
 void ui_say(const char *a, const char *b) { say(a, b); }
 
-static char *itoa_u(uint32_t v, char *b)
-{
-    char t[12];
-    int n = 0;
-    do {
-        t[n++] = (char)('0' + v % 10u);
-        v /= 10u;
-    } while (v);
-    while (n)
-        *b++ = t[--n];
-    *b = 0;
-    return b;
-}
 static void mark_dirty(void)
 {
-    ui.dirty = 1;
+    app.dirty = 1;
     ui.act_t = plat_ms();
 }
-int ui_dirty(void) { return ui.dirty != 0; }
+int ui_dirty(void) { return unsaved(); }
 
-/* everything played goes through here, so the screen knows what each channel is doing */
-static void note(uint32_t ch, uint32_t n, uint32_t vel)
-{
-    ch &= 15u;
-    if (vel) {
-        gm_midi(0x90u | ch, n, vel);
-        if (ui.held[ch] < 255u)
-            ui.held[ch]++;
-        ui.hit_t[ch] = plat_ms();
-    } else {
-        gm_midi(0x80u | ch, n, 0);
-        if (ui.held[ch])
-            ui.held[ch]--;
-    }
-}
-
-/* ------------------------------------------------------------- the demo --- */
-/* a little four-bar song on five channels, to hear the set and to load the synth: drums, bass, piano
- * chords, strings, a lead; up to about 20 voices at once */
-#define DEMO_STEP_MS 125u                       /* sixteenths at 120 */
-static const uint8_t DEMO_PROG[5] = {0, 33, 0, 48, 80};   /* (drums), finger bass, piano, strings, square */
-static const uint8_t DEMO_CH[5] = {9, 1, 2, 3, 4};
-static const int8_t CHORD[4][4] = {{0, 4, 7, 11}, {-3, 0, 4, 7}, {-7, -3, 0, 4}, {-5, -1, 2, 7}};   /* C, Am, F, G */
-static uint8_t demo_on[5][8], demo_n[5];
-
-static void demo_off_ch(int part)
-{
-    for (int i = 0; i < demo_n[part]; i++)
-        note(DEMO_CH[part], demo_on[part][i], 0);
-    demo_n[part] = 0;
-}
-static void demo_on_note(int part, int n, int vel)
-{
-    note(DEMO_CH[part], (uint32_t)n, (uint32_t)vel);
-    if (demo_n[part] < 8u)
-        demo_on[part][demo_n[part]++] = (uint8_t)n;
-}
-static void demo_start(int on)
-{
-    int p;
-    for (p = 0; p < 5; p++)
-        demo_off_ch(p);
-    ui.demo = (uint8_t)on;
-    if (!on)
-        return;
-    for (p = 1; p < 5; p++) {
-        gm_midi(0xC0u | DEMO_CH[p], DEMO_PROG[p], 0);
-        gm_midi(0xB0u | DEMO_CH[p], 7, p == 4 ? 80 : 100);
-    }
-    ui.demo_step = 0;
-    ui.demo_t = plat_ms();
-}
-static void demo_tick(void)
-{
-    uint32_t now = plat_ms();
-    while (ui.demo && now - ui.demo_t >= DEMO_STEP_MS) {
-        uint32_t s = ui.demo_step++, b = (s / 16u) % 4u, st = s % 16u;
-        const int8_t *c = CHORD[b];
-        ui.demo_t += DEMO_STEP_MS;
-        demo_off_ch(0);                          /* drums: one shots */
-        if (st % 4u == 0u)
-            demo_on_note(0, 36, 110);
-        if (st == 4u || st == 12u)
-            demo_on_note(0, 38, 100);
-        demo_on_note(0, st % 2u ? 42 : 44, st % 4u == 2u ? 90 : 60);
-        if (st % 4u == 0u || st == 10u) {        /* bass */
-            demo_off_ch(1);
-            demo_on_note(1, 36 + c[0] + (st == 10u ? 7 : 0), 100);
-        }
-        if (st == 0u || st == 6u || st == 12u) { /* piano: the chord, three times a bar */
-            demo_off_ch(2);
-            for (int i = 0; i < 4; i++)
-                demo_on_note(2, 60 + c[i], 80);
-        }
-        if (st == 0u) {                          /* strings: the bar long */
-            demo_off_ch(3);
-            for (int i = 0; i < 4; i++)
-                demo_on_note(3, 48 + c[i], 70);
-        }
-        if (st % 2u == 0u) {                     /* the lead: an arpeggio */
-            demo_off_ch(4);
-            demo_on_note(4, 72 + c[(st / 2u) % 4u] + (st >= 8u ? 12 : 0), 70);
-        }
-    }
-}
-
-/* ------------------------------------------------------------ controls --- */
-static void set_program(int p)
-{
-    uint32_t c = proj.ch;
-    p &= 127;
-    if (c == 9) {
-        say("CHANNEL 10", "IS THE DRUMS");
-        return;
-    }
-    proj.program[c] = (uint8_t)p;
-    gm_midi(0xC0u | c, (uint32_t)p, 0);
-    mark_dirty();
-}
-static void set_cc(uint8_t *a, uint32_t cc, int v)
-{
-    v = v < 0 ? 0 : v > 127 ? 127 : v;
-    if (a[proj.ch] == (uint8_t)v)
-        return;
-    a[proj.ch] = (uint8_t)v;
-    gm_midi(0xB0u | proj.ch, cc, (uint32_t)v);
-    mark_dirty();
-}
 static uint8_t accel_off;              /* the host simulator's "spin": exact steps */
 static int32_t accel(int role, int32_t s)
 {
@@ -194,32 +45,238 @@ static int32_t accel(int role, int32_t s)
     return s * (int32_t)m;
 }
 
-static void keys_off(void)
+/* the keys: 0 = F3; the white and the black ones in order */
+static const uint8_t WHITE_K[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
+static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
+static int ordinal(const uint8_t *t, int n, int k)
 {
-    for (uint32_t i = 0; i < NKEYS; i++)
-        if (ui.keys >> i & 1u)
-            note(ui.key_ch[i], ui.key_note[i], 0);
-    ui.keys = 0;
+    for (int i = 0; i < n; i++)
+        if (t[i] == k)
+            return i;
+    return -1;
+}
+static int key_note(int k)
+{
+    int n = 53 + k + 12 * proj.oct;
+    return n < 0 ? 0 : n > 127 ? 127 : n;
 }
 
-static void button(int b)
+/* ------------------------------------------------- songs and patterns --- */
+static void slot_cache(int s, const pattern_t *p)
+{
+    for (int t = 0; t < ARR_TRACKS; t++) {
+        app.tprog[s][t] = p->trk[t].program;
+        app.tchan[s][t] = p->trk[t].chan;
+        app.tmute[s][t] = p->trk[t].mute;
+    }
+}
+/* slot s (Main A, Main B, Fill, Ending) gets pattern `style`: a user pattern (0..15), or (factory styles: a
+ * later task) an empty one */
+static void slot_load(int s, int style)
+{
+    if (style >= ARR_USER_PATTERNS || project_pattern_load(style, &scratch) != 0)
+        pattern_empty(&scratch);
+    arr_load_pattern(s, &scratch);
+    slot_cache(s, &scratch);
+    app.saved[s] = arr_dirty[s];
+}
+/* the selected song: its four patterns into the slots, and its tracks when it has any (else free play: the
+ * templates and the keys' chords) */
+static void song_load(void)
+{
+    const song_t *sg = &songs.song[proj.song];
+    for (int s = 0; s < ARR_NSECT; s++)
+        slot_load(s, sg->style[s]);
+    app.song_on = sg->bars > 0;
+    arr_song(app.song_on ? sg : 0, 1);
+}
+/* the project, and each user pattern recorded into since it was loaded (also into the other slots playing the
+ * same pattern, which had it as it was) */
+static int save_all(void)
+{
+    const song_t *sg = &songs.song[proj.song];
+    int rc = project_save();
+    for (int s = 0; s < ARR_NSECT; s++) {
+        int st = sg->style[s];
+        uint16_t d;
+        if (st >= ARR_USER_PATTERNS || arr_dirty[s] == app.saved[s])
+            continue;
+        d = arr_pattern_copy(s, &scratch);
+        if (project_pattern_save(st, &scratch) != 0) {
+            rc = -1;
+            continue;
+        }
+        app.saved[s] = d;
+        for (int j = 0; j < ARR_NSECT; j++)
+            if (j != s && sg->style[j] == st && arr_dirty[j] == app.saved[j]) {
+                arr_load_pattern(j, &scratch);
+                slot_cache(j, &scratch);
+                app.saved[j] = arr_dirty[j];
+            }
+    }
+    if (rc == 0)
+        app.dirty = 0;
+    return rc;
+}
+
+void app_start(void)
+{
+    memset(&app, 0, sizeof app);
+    app.tmpl = -1;
+    project_songs_load(&songs);
+    arr_set_tempo(proj.tempo);
+    arr_set_key(proj.key);
+    arr_set_quant(proj.quant);
+    arr_midi_out_on(1);                          /* the tracks out on their channels */
+    song_load();
+    arr_record(proj.trk, 0);                     /* the keys play the selected track */
+}
+
+/* ------------------------------------------------------------ controls --- */
+static void touch(int k)
+{
+    ui.touched = (int8_t)k;
+    ui.touch_until = plat_ms() + 1200u;
+}
+static void set_tempo(int bpm)
+{
+    bpm = bpm < 40 ? 40 : bpm > 240 ? 240 : bpm;
+    if (bpm == proj.tempo)
+        return;
+    proj.tempo = (uint8_t)bpm;
+    arr_set_tempo(bpm);
+    mark_dirty();
+}
+static void pick_template(int t)
+{
+    if (t < 0 || t >= NTEMPLATES)
+        return;
+    arr_template(t);
+    app.tmpl = (int8_t)t;
+    app.song_on = 0;                             /* a template turns the song off */
+    say("TEMPLATE", TEMPLATES[t].name);
+}
+static void set_track(int t)
+{
+    proj.trk = (uint8_t)(t & 7);
+    arr_record(proj.trk, arr_recording);         /* recording goes on, into this track */
+    {
+        uint32_t s = (uint32_t)(arr_sect - 1) & 3u;
+        say(TRACK_NAME[proj.trk], app.tchan[s][proj.trk] == 9u ? "Drums" : GM_PROGRAM[app.tprog[s][proj.trk] & 127u]);
+    }
+    mark_dirty();
+}
+
+/* the keys held in CHORD mode, to the chord recogniser (every change) */
+static void chord_keys(void)
+{
+    uint8_t n[NKEYS];
+    int c = 0;
+    for (int i = 0; i < NKEYS; i++)
+        if (ui.kmode[i] == KM_CHORD)
+            n[c++] = ui.knote[i];
+    arr_keys_held(n, c);
+}
+static void set_chord_mode(int on)
+{
+    for (int i = 0; i < NKEYS; i++) {
+        if (ui.kmode[i] == KM_PLAY)
+            arr_key(ui.knote[i], 0, 0);          /* the notes the keys played end */
+        ui.kmode[i] = KM_NONE;
+        if (on && (ui.keys >> i & 1u))
+            ui.kmode[i] = KM_CHORD;              /* keys held now count as pressed anew */
+    }
+    ui.chord = (uint8_t)on;
+    if (on) {
+        arr_keys_held(0, 0);
+        chord_keys();
+    }
+}
+/* SEL held + a key: a section (black 1..4) or a template (white 1..16) */
+static void sel_key(int k)
+{
+    int w = ordinal(WHITE_K, 16, k), b = ordinal(BLACK_K, 11, k);
+    if (w >= 0)
+        pick_template(w);
+    else if (b >= 0 && b < 4) {
+        arr_section(b + 1);
+        say(arr_playing ? "NEXT" : "FIRST", SECT_NAME[b + 1]);
+    } else if (b == 4)
+        say("INTRO", "later");
+    else
+        say("MARKERS", "later");
+}
+static void key_down(int k)
+{
+    ui.knote[k] = (uint8_t)key_note(k);
+    if (ui.btn >> B_SEL & 1u) {
+        ui.btn_used |= 1u << B_SEL;
+        ui.kmode[k] = KM_NONE;
+        sel_key(k);
+    } else if (ui.chord) {
+        ui.kmode[k] = KM_CHORD;
+        chord_keys();
+    } else {
+        ui.kmode[k] = KM_PLAY;
+        arr_key(ui.knote[k], 1, 100);            /* the selected track's sound; recorded when recording */
+    }
+}
+static void key_up(int k)
+{
+    uint8_t m = ui.kmode[k];
+    ui.kmode[k] = KM_NONE;
+    if (m == KM_PLAY)
+        arr_key(ui.knote[k], 0, 0);
+    else if (m == KM_CHORD)
+        chord_keys();
+}
+
+/* the page buttons: a button holds up to three pages, pressed again: the next */
+static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
+    {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 1}, {B_FX, P_MIXER, 2},
+    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 1}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
+#define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
+static int page_button(int b)
+{
+    for (uint32_t i = 0; i < NPAGE_BTN; i++)
+        if (PAGE_BTN[i].btn == b) {
+            int f = PAGE_BTN[i].first, n = PAGE_BTN[i].n;
+            ui.page = (uint8_t)(ui.page >= f && ui.page < f + n ? f + (ui.page - f + 1) % n : f);
+            ui.touched = -1;
+            return 1;
+        }
+    return 0;
+}
+
+static void button_down(int b)
+{
+    if (page_button(b))
+        return;
+    switch (b) {
+    case B_PLAY: arr_play(!arr_playing); break;
+    case B_REC:
+        arr_record(proj.trk, !arr_recording);
+        if (!arr_recording)
+            say("RECORD", TRACK_NAME[proj.trk]);
+        break;
+    default: break;
+    }
+}
+static void button_up(int b)                     /* a tap: released before it was used as a hold */
 {
     switch (b) {
-    case B_PLAY:
-        demo_start(!ui.demo);
-        say(ui.demo ? "DEMO" : "DEMO", ui.demo ? "PLAYING" : "STOPPED");
-        break;
-    case B_HOME:
-        demo_start(0);
-        gm_panic();
-        memset(ui.held, 0, sizeof ui.held);
-        say("ALL NOTES OFF", 0);
+    case B_SEL: set_chord_mode(!ui.chord); break;
+    case B_SAVE:
+        if (save_all() == 0)
+            say("SAVED", 0);
+        else
+            say("NOT SAVED", "FLASH ERROR");
         break;
     case B_OCTDN: case B_OCTUP:
         proj.oct = (int8_t)(proj.oct + (b == B_OCTUP ? 1 : -1));
         proj.oct = proj.oct < -3 ? -3 : proj.oct > 3 ? 3 : proj.oct;
         {
-            char t[8];
+            char t[4];
             t[0] = proj.oct < 0 ? '-' : '+';
             t[1] = (char)('0' + (proj.oct < 0 ? -proj.oct : proj.oct));
             t[2] = 0;
@@ -227,19 +284,67 @@ static void button(int b)
         }
         mark_dirty();
         break;
-    case B_GLO:
-        proj.leds = (uint8_t)((proj.leds + 1u) % 3u);
-        say("LIGHTS", proj.leds == 2 ? "NOTES" : proj.leds ? "ON" : "OFF");
+    default: break;
+    }
+}
+#define HOLD_MS 600u
+static void holds(void)
+{
+    uint32_t now = plat_ms();
+    if ((ui.btn >> B_SAVE & 1u) && !(ui.btn_used >> B_SAVE & 1u) && now - ui.btn_t[B_SAVE] > HOLD_MS) {
+        ui.btn_used |= 1u << B_SAVE;
+        say("JOBS", "coming");
+    }
+    if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] > HOLD_MS)
+        ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
+}
+
+/* the four knobs on the page shown */
+static void knob(int k, int32_t e)
+{
+    if (ui.page != P_SONG)
+        return;
+    touch(k);
+    switch (k) {
+    case 0:
+        proj.key = (uint8_t)((proj.key + (e > 0 ? 1 : 11)) % 12u);
+        arr_set_key(proj.key);
         mark_dirty();
         break;
-    case B_SAVE:
-        if (project_save() == 0) {
-            ui.dirty = 0;
-            say("SAVED", 0);
-        } else
-            say("NOT SAVED", "FLASH ERROR");
+    case 1: set_tempo(proj.tempo + accel(EN_K2, e)); break;
+    case 2: {
+        int q = proj.quant + (e > 0 ? -1 : 1);   /* clockwise: finer */
+        if (q >= 0 && q < ARR_NQ) {
+            proj.quant = (uint8_t)q;
+            arr_set_quant(q);
+            mark_dirty();
+        }
         break;
+    }
+    case 3: {
+        int t = arr_template_now >= 0 ? arr_template_now : app.tmpl;
+        t = t < 0 ? 0 : t + (e > 0 ? 1 : -1);
+        if (t >= 0 && t < NTEMPLATES)
+            pick_template(t);
+        break;
+    }
     default: break;
+    }
+}
+static void presets(int32_t e)
+{
+    if (ui.page == P_SONG) {
+        int s = proj.song + (e > 0 ? 1 : -1);
+        char t[4];
+        if (s < 0 || s >= ARR_SONGS)
+            return;
+        if (unsaved())
+            save_all();                          /* the patterns recorded: kept before another song's load */
+        proj.song = (uint8_t)s;
+        song_load();
+        mark_dirty();
+        itoa_u((uint32_t)s + 1u, t);
+        say("SONG", app.song_on ? t : "empty");
     }
 }
 
@@ -248,27 +353,29 @@ static void midi_in(void)
     uint32_t pkt;
     while (plat_midi_in(&pkt)) {
         uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu, t = st & 0xF0u;
+        if (st == 0xF8u)
+            arr_clock(ARR_CLK_TICK);
+        else if (st == 0xFAu)
+            arr_clock(ARR_CLK_START);
+        else if (st == 0xFBu)
+            arr_clock(ARR_CLK_CONTINUE);
+        else if (st == 0xFCu)
+            arr_clock(ARR_CLK_STOP);
         if (st < 0x80u || st >= 0xF0u)
-            continue;                            /* clock, sysex: not for the synth */
-        if (t == 0x90u)
-            note(st, d1, d2);
-        else if (t == 0x80u)
-            note(st, d1, 0);
-        else {
-            gm_midi(st, d1, d2);
-            if (t == 0xC0u && (st & 15u) != 9u)
-                proj.program[st & 15u] = (uint8_t)d1;
-            else if (t == 0xB0u) {
-                uint32_t c = st & 15u;
-                if (d1 == 7)
-                    proj.volume[c] = (uint8_t)d2;
-                else if (d1 == 10)
-                    proj.pan[c] = (uint8_t)d2;
-                else if (d1 == 91)
-                    proj.reverb[c] = (uint8_t)d2;
-                else if (d1 == 93)
-                    proj.chorus[c] = (uint8_t)d2;
-            }
+            continue;                            /* sysex and the rest: not for the synth */
+        gm_midi(st, d1, d2);                     /* all 16 channels, as the GM module */
+        if (t == 0xC0u && (st & 15u) != 9u)
+            proj.program[st & 15u] = (uint8_t)d1;
+        else if (t == 0xB0u) {
+            uint32_t c = st & 15u;
+            if (d1 == 7)
+                proj.volume[c] = (uint8_t)d2;
+            else if (d1 == 10)
+                proj.pan[c] = (uint8_t)d2;
+            else if (d1 == 91)
+                proj.reverb[c] = (uint8_t)d2;
+            else if (d1 == 93)
+                proj.chorus[c] = (uint8_t)d2;
         }
     }
 }
@@ -281,236 +388,86 @@ static void input(void)
     ui.btn = btn;
     for (i = 0; i < NB; i++) {
         uint32_t m = 1u << i;
+        int hold = i == B_SEL || i == B_SAVE || i == B_OCTDN || i == B_OCTUP;
         if (!(ch & m))
             continue;
         if (btn & m) {
             ui.btn_used &= ~m;
-            if (i == B_PLAY)
-                button((int)i);
-        } else if (!(ui.btn_used & m) && i != B_PLAY)
-            button((int)i);
+            ui.btn_t[i] = plat_ms();
+            if (!hold)
+                button_down((int)i);
+        } else if (hold && !(ui.btn_used & m))
+            button_up((int)i);
     }
     if ((btn & (1u << B_OCTDN | 1u << B_OCTUP)) == (1u << B_OCTDN | 1u << B_OCTUP))
         ui.btn_used |= 1u << B_OCTDN | 1u << B_OCTUP;   /* both: update mode (main loop), not ours */
+    holds();
     ch = keys ^ ui.keys;
     ui.keys = keys;
-    for (i = 0; i < NKEYS; i++) {
-        if (!(ch >> i & 1u))
-            continue;
-        if (keys >> i & 1u) {
-            int n = 53 + (int)i + 12 * proj.oct;     /* key 0 is F3 */
-            n = n < 0 ? 0 : n > 127 ? 127 : n;
-            ui.key_note[i] = (uint8_t)n;
-            ui.key_ch[i] = proj.ch;
-            note(proj.ch, (uint32_t)n, 100);
-        } else
-            note(ui.key_ch[i], ui.key_note[i], 0);
-    }
+    for (i = 0; i < NKEYS; i++)
+        if (ch >> i & 1u) {
+            if (keys >> i & 1u)
+                key_down((int)i);
+            else
+                key_up((int)i);
+        }
     midi_in();
+    if ((e = plat_enc(EN_SELECT)) != 0) {
+        set_tempo(proj.tempo + accel(EN_SELECT, e));
+        if (ui.page == P_SONG)
+            touch(1);
+    }
+    if ((e = plat_enc(EN_ALGO)) != 0)
+        set_track(proj.trk + (e > 0 ? 1 : -1));
     if ((e = plat_enc(EN_PRESET)) != 0)
-        set_program(proj.program[proj.ch] + (e > 0 ? 1 : -1));
-    if ((e = plat_enc(EN_SELECT)) != 0)
-        set_program(((proj.program[proj.ch] / 8) + (e > 0 ? 1 : -1)) * 8);
-    if ((e = plat_enc(EN_ALGO)) != 0) {
-        keys_off();
-        proj.ch = (uint8_t)((proj.ch + (e > 0 ? 1 : 15)) & 15u);
-        mark_dirty();
-    }
-    {
-        static uint8_t *const A[4] = {proj.volume, proj.pan, proj.reverb, proj.chorus};
-        static const uint8_t CC[4] = {7, 10, 91, 93};
-        for (i = 0; i < 4; i++)
-            if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
-                set_cc(A[i], CC[i], A[i][proj.ch] + accel(EN_K1 + (int)i, e));
-                ui.touched = (int8_t)i;
-                ui.touch_until = plat_ms() + 1200u;
-            }
-    }
+        presets(e);
+    for (i = 0; i < 4; i++)
+        if ((e = plat_enc(EN_K1 + (int)i)) != 0)
+            knob((int)i, e);
     if (btn || keys || ch)
         ui.act_t = plat_ms();
-    demo_tick();
 }
 
-/* ------------------------------------------------------------- screen --- */
-#define HDR_H 24
-#define MAIN_Y 24
-#define MAIN_H 144
-#define KNB_Y 172
-#define KNB_H 68
-
-static uint32_t hash(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
-static void cv_round(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint16_t c)
-{
-    static const uint8_t IN[7][6] = {{0}, {1}, {1, 0}, {2, 1, 0}, {2, 1, 0, 0}, {3, 2, 1, 0, 0}, {4, 2, 1, 1, 0, 0}};
-    int32_t j;
-    if (r > 6)
-        r = 6;
-    if (r > h / 2)
-        r = h / 2;
-    cv_rect(x, y + r, w, h - 2 * r, c);
-    for (j = 0; j < r; j++) {
-        int32_t d = IN[r][j];
-        cv_rect(x + d, y + j, w - 2 * d, 1, c);
-        cv_rect(x + d, y + h - 1 - j, w - 2 * d, 1, c);
-    }
-}
-static void text_c(int32_t cx, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
-{
-    cv_text(cx - text_w(f, s) / 2, y, f, s, c);
-}
-
-static void draw_header(void)
-{
-    char t[24], *e;
-    int msg = plat_ms() < ui.msg_until;
-    uint32_t h = hash(hash(2166136261u, gm_voices | (uint32_t)msg << 8 | (uint32_t)ui.dirty << 9 | (uint32_t)ui.demo << 10),
-                      plat_cpu_pct());
-    if (msg)
-        h = hash(h, ui.msg_until);
-    if (h == ui.sig[0])
-        return;
-    ui.sig[0] = h;
-    cv_begin(240, HDR_H, K_BG);
-    if (msg) {
-        int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
-        cv_text(x + 8, 4, &FONT_B, ui.msg[1], K_ACCENT);
-    } else {
-        int32_t x = cv_text(8, 4, &FONT_B, "GM", K_TEXT);
-        if (ui.demo)
-            cv_text(x + 8, 6, &FONT_XS, "DEMO", K_ACCENT);
-        if (ui.dirty)
-            cv_round(x + 46, 10, 5, 5, 2, K_DIM);
-        e = itoa_u(gm_voices, t);
-        e[0] = ' ';
-        e[1] = 'v';
-        e[2] = 0;
-        cv_text(150 - text_w(&FONT_S, t), 4, &FONT_S, t, K_TEXT);
-        e = itoa_u(plat_cpu_pct(), t);
-        e[0] = '%';
-        e[1] = 0;
-        cv_text(158, 6, &FONT_XS, "CPU", K_DIM);
-        cv_text(232 - text_w(&FONT_S, t), 4, &FONT_S, t, K_TEXT);
-    }
-    cv_blit(0, 0);
-}
-
-static void draw_main(void)
-{
-    uint32_t c = proj.ch, h = hash(2166136261u, c | (uint32_t)proj.program[c] << 4 | (uint32_t)proj.oct << 12), i,
-             now = plat_ms();
-    for (i = 0; i < GM_NCH; i++)
-        h = hash(h, ui.held[i] | (now - ui.hit_t[i] < 150u) << 8 | (uint32_t)proj.program[i] << 9);
-    if (h == ui.sig[1])
-        return;
-    ui.sig[1] = h;
-    cv_begin(240, MAIN_H, K_BG);
-    {   /* the channel and its program */
-        char t[16], *e;
-        e = itoa_u(c + 1u, t + 3);
-        (void)e;
-        t[0] = 'C';
-        t[1] = 'h';
-        t[2] = ' ';
-        cv_text(10, 4, &FONT_S, t, c == 9 ? K_ACCENT : K_TEAL);
-        if (c == 9) {
-            cv_text(10, 26, &FONT_L, DRUM_NAME, K_TEXT);
-            cv_text(10, 64, &FONT_S, "GM drums: a sound on each key", K_DIM);
-        } else {
-            uint32_t p = proj.program[c];
-            char n[8];
-            n[0] = (char)('0' + (p + 1u) / 100u);
-            n[1] = (char)('0' + (p + 1u) / 10u % 10u);
-            n[2] = (char)('0' + (p + 1u) % 10u);
-            n[3] = 0;
-            cv_text(10, 26, &FONT_L, n, K_ACCENT);
-            if (text_w(&FONT_L, GM_PROGRAM[p]) <= 160)
-                cv_text(70, 26, &FONT_L, GM_PROGRAM[p], K_TEXT);
-            else
-                cv_text(70, 34, &FONT_B, GM_PROGRAM[p], K_TEXT);
-            cv_text(10, 64, &FONT_S, GM_FAMILY[p / 8u], K_DIM);
-        }
-        if (proj.oct) {
-            char o[12] = "keys oct ";
-            o[9] = proj.oct < 0 ? '-' : '+';
-            o[10] = (char)('0' + (proj.oct < 0 ? -proj.oct : proj.oct));
-            o[11] = 0;
-            cv_text(230 - text_w(&FONT_XS, o), 6, &FONT_XS, o, K_DIM);
-        }
-    }
-    for (i = 0; i < GM_NCH; i++) {               /* the sixteen channels: lit while they play */
-        int32_t x = 6 + (int32_t)i * 14, y = 92;
-        int on = ui.held[i] || now - ui.hit_t[i] < 150u, sel = i == c;
-        char n[4];
-        itoa_u(i + 1u, n);
-        if (sel)
-            cv_round(x - 1, y - 1, 14, 46, 4, K_TEXT);
-        cv_round(x, y, 12, 44, 3, on ? (i == 9 ? K_ACCENT : K_TEAL) : (sel ? K_PANEL : K_TEAL_T));
-        text_c(x + 6, y + 28, &FONT_XS, n, on ? K_BG : K_DIM);
-    }
-    cv_blit(0, MAIN_Y);
-}
-
-static void draw_knobs(void)
-{
-    static const char *const NAME[4] = {"Volume", "Pan", "Reverb", "Chorus"};
-    const uint8_t *A[4] = {proj.volume, proj.pan, proj.reverb, proj.chorus};
-    uint32_t h = hash(2166136261u, proj.ch | (uint32_t)ui.touched << 8), i;
-    int now_touch = plat_ms() < ui.touch_until;
-    for (i = 0; i < 4; i++)
-        h = hash(h, A[i][proj.ch]);
-    h = hash(h, (uint32_t)now_touch);
-    if (h == ui.sig[2])
-        return;
-    ui.sig[2] = h;
-    cv_begin(240, KNB_H, K_BG);
-    cv_round(4, 2, 232, KNB_H - 6, 6, K_PANEL);
-    for (i = 0; i < 4; i++) {
-        int32_t x = (int32_t)i * 60, cx = x + 30, v = A[i][proj.ch], bw = 44 * v / 127;
-        int hot = now_touch && ui.touched == (int)i;
-        char t[8];
-        if (i)
-            cv_rect(x, 14, 1, KNB_H - 30, K_LINE);
-        text_c(cx, 6, &FONT_XS, NAME[i], hot ? K_TEXT : K_DIM);
-        if (i == 1 && v != 64) {                 /* pan: L / C / R */
-            t[0] = v < 64 ? 'L' : 'R';
-            itoa_u((uint32_t)(v < 64 ? 64 - v : v - 64), t + 1);
-        } else if (i == 1) {
-            t[0] = 'C';
-            t[1] = 0;
-        } else
-            itoa_u((uint32_t)v, t);
-        text_c(cx, 22, &FONT_M, t, hot ? K_ACCENT : K_TEXT);
-        cv_round(cx - 22, 50, 44, 6, 3, K_LINE);
-        if (bw)
-            cv_round(cx - 22, 50, bw < 6 ? 6 : bw, 6, 3, hot ? K_ACCENT : K_TEAL);
-    }
-    cv_blit(0, KNB_Y);
-}
-
+/* ------------------------------------------------------------- lights --- */
 static void leds(void)
 {
-    uint32_t b = 0, k = 0;
-    if (ui.demo)
+    uint32_t b = 0, k = 0, i;
+    if (arr_playing)
         b |= 1u << B_PLAY;
-    if (proj.leds)
+    if (arr_recording)
+        b |= 1u << B_REC;
+    if (ui.chord)
+        b |= 1u << B_SEL;
+    for (i = 0; i < NPAGE_BTN; i++)
+        if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
+            b |= 1u << PAGE_BTN[i].btn;
+    if (ui.btn >> B_SEL & 1u) {                  /* SEL held: the section and the template playing */
+        int s = arr_next_sect >= SEC_A && arr_next_sect <= SEC_END ? arr_next_sect : arr_sect;
+        if (s >= SEC_A && s <= SEC_END)
+            k |= 1u << BLACK_K[s - 1];
+        if (arr_template_now >= 0 && arr_template_now < 16)
+            k |= 1u << WHITE_K[arr_template_now];
+    } else if (proj.leds)
         k = ui.keys;
     plat_glow(proj.leds == 1);
+    plat_play_red(arr_recording);
     plat_leds(b, k);
 }
 
 #define AUTOSAVE_QUIET 4000u
-static void autosave(void)
+static void autosave(void)                       /* at rest only: a flash write pauses the audio */
 {
-    if (!ui.dirty || ui.demo || ui.btn || ui.keys || gm_voices || plat_ms() - ui.act_t < AUTOSAVE_QUIET)
+    if (arr_playing || ui.btn || ui.keys || gm_voices || plat_ms() - ui.act_t < AUTOSAVE_QUIET || !unsaved())
         return;
-    if (project_save() == 0)
-        ui.dirty = 0;
+    if (save_all() != 0)
+        ui.act_t = plat_ms();                    /* a flash error: not again at once */
 }
 
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
     ui.touched = -1;
+    ui.act_t = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
@@ -519,7 +476,7 @@ void ui_frame(void)
     input();
     autosave();
     draw_header();
-    draw_main();
+    draw_page();
     draw_knobs();
     leds();
     ui.frame++;

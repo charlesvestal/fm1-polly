@@ -300,6 +300,7 @@ static void fm1_main(void)
         panel_setup();                              /* OCT- + OCT+ held at power-on */
     fm1_delay_ms(400);
     ui_init();
+    app_start();                                    /* the songs and patterns into the arranger */
 
     for (;;) {
         fm1_wdt_feed();

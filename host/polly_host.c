@@ -145,6 +145,7 @@ uint32_t plat_xruns(void) { return 0; }
 /* -------------------------------------------------------------- app --- */
 #include "../firmware/src/app/app.h"
 #include "../firmware/src/app/project.c"
+#include "../firmware/src/app/pages.c"
 #include "../firmware/src/app/ui.c"
 
 /* ---------------------------------------------------------- outputs --- */
@@ -286,6 +287,7 @@ static void boot(void)
     project_apply();
     lcd_fill(0, 0, 240, 240, 0);
     ui_init();
+    app_start();
 }
 
 static void run_ms(uint32_t ms)
@@ -343,8 +345,7 @@ static int find_name(const char *const *t, int n, const char *s)
     return -1;
 }
 
-static const uint8_t WHITE_K[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
-static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
+/* WHITE_K, BLACK_K: the app's (ui.c) */
 static int key_of(const char *s)
 {
     if (s[0] == 'w')
@@ -370,10 +371,30 @@ static int expect(const char *what, const char *val)
         got = proj.ch + 1;
     else if (!strncmp(what, "program", 7))        /* programN: channel N's program (1..128) */
         got = proj.program[(atoi(what + 7) - 1) & 15] + 1;
-    else if (!strcmp(what, "demo"))
-        got = ui.demo;
-    else if (!strcmp(what, "dirty"))
-        got = ui.dirty;
+    else if (!strcmp(what, "dirty"))              /* anything not saved */
+        got = unsaved();
+    else if (!strcmp(what, "chord_root"))         /* the chord now: root 0..11 (C = 0), type CH_* */
+        got = (int)(arr_chord_now & 0xFFu);
+    else if (!strcmp(what, "chord_type"))
+        got = (int)(arr_chord_now >> 8 & 0xFFu);
+    else if (!strcmp(what, "sect"))               /* SEC_A 1 .. SEC_END 4 */
+        got = arr_sect;
+    else if (!strcmp(what, "next_sect"))          /* the section waiting for the bar, 0 none */
+        got = arr_next_sect;
+    else if (!strcmp(what, "playing"))
+        got = arr_playing;
+    else if (!strcmp(what, "recording"))
+        got = arr_recording;
+    else if (!strcmp(what, "template"))           /* the template playing, -1 none */
+        got = arr_template_now;
+    else if (!strcmp(what, "page"))               /* P_* (pages.c) */
+        got = ui.page;
+    else if (!strcmp(what, "chord_mode"))
+        got = ui.chord;
+    else if (!strcmp(what, "tempo"))
+        got = proj.tempo;
+    else if (!strcmp(what, "track"))              /* the selected track, 1..8 */
+        got = proj.trk + 1;
     else if (!strcmp(what, "store_writes"))
         got = (int)store_writes;
     else if (!strcmp(what, "pat0_nev")) {          /* user pattern 0's event count */
