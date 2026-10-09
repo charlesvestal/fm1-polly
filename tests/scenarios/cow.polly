@@ -1,0 +1,51 @@
+# POLLY, cow: a new song plays the first factory style (Pop); its sections get user patterns of their own only
+# when they change (copy-on-write). A take into Main A: Main A becomes P01 (Pop's Main A with the note), saved;
+# a mixer change on Main B: P02; the other sections stay Pop's. Across a reboot.
+wait 300
+expect song1_style1 33
+expect slot1_nev 69
+expect dirty 0
+tap PLAY
+wait 2000
+press SEL
+tapkey b1
+release SEL
+wait 2500
+expect sect 2
+tap REC
+expect song1_style1 0
+expect recording 1
+tapkey 7
+wait 600
+tap REC
+tap PLAY
+wait 100
+expect slot1_nev 70
+expect dirty 1
+expect song1_style2 34
+# Main B's volume on the Mixer page, stopped: the section playing is Main A, so Main B first (SEL + b2, PLAY)
+press SEL
+tapkey b2
+release SEL
+tap PLAY
+wait 300
+expect sect 3
+tap PLAY
+wait 100
+tap FX
+spin K1 -10
+wait 100
+expect song1_style2 1
+tap SAVE
+wait 50
+expect dirty 0
+expect pat0_nev 70
+expect pat1_nev >20
+expect song1_style0 32
+expect song1_style5 37
+reboot
+wait 300
+expect song1_style1 0
+expect song1_style2 1
+expect slot1_nev 70
+expect song2_style1 33

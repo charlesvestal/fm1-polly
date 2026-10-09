@@ -1,13 +1,9 @@
 # POLLY, sections: SEL held + the black keys 1..5: Intro, Main A, Main B, Fill (Fill AB from Main A, Fill BA
 # from Main B) and Ending, each from the next bar; SEL held lights the section's key. The Pop style (the Style
-# knob on the Song patterns page: all six sections) over the Pop template; PLAY starts with its Intro.
+# a new song's style) over the Pop template; PLAY starts with its Intro.
 wait 300
-tap ENV
-tap ENV
-spin K4 1
-wait 50
-expect song1_style0 24
-expect song1_style5 29
+expect song1_style0 32
+expect song1_style5 37
 expect slot0_nev >10
 expect slot4_nev >10
 tap HOME

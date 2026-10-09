@@ -32,7 +32,7 @@ PPQ = arr_define("ARR_PPQ")     # ticks a beat (480)
 NEV = arr_define("ARR_NEV")     # notes a pattern
 MAXBARS = 8
 NTRK = 8
-FACTORY0 = arr_define("ARR_USER_PATTERNS")   # factory pattern numbers start here
+MAX_FACTORY = arr_define("ARR_MAX_FACTORY")   # factory styles, at most
 NSECT = arr_define("ARR_NSECT")
 SECTIONS = ["intro", "main a", "main b", "fill ab", "fill ba", "ending"]   # the slots' order (arr.h SEC_*)
 SECTION_ALIAS = {"fill": "fill ab"}
@@ -638,8 +638,8 @@ def main(argv):
         return 1
     errs = [e for s in styles for e in check(s)]
     total = sum(len(e) for s in styles for p in s["pats"] for e in p["ev"])
-    if FACTORY0 + NSECT * len(styles) > 256:
-        errs.append("%d styles: a song's pattern numbers (bytes) reach %d styles at most" % (len(styles), (256 - FACTORY0) // NSECT))
+    if len(styles) > MAX_FACTORY:
+        errs.append("%d styles: a song's pattern numbers hold %d factory styles at most" % (len(styles), MAX_FACTORY))
     if total > 0xFFFF:
         errs.append("%d notes in all, more than the tables' 65535" % total)
     if errs:

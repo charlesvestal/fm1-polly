@@ -1,44 +1,46 @@
-# POLLY, factory: a song picks factory style 1 (Pop) on the Song patterns pages: KNOB 4 (Style) sets all six
-# sections at once; a section's knob sets one (P01..P24, then the styles by name). It plays over the Pop
+# POLLY, factory: a new song plays factory style 1 (Pop); on the Song patterns pages KNOB 4 (Style) sets all six
+# sections at once; a section's knob sets one (P01..P16, then the styles by name). It plays over the Pop
 # template: the Intro, Main A, Main B, the fill (Fill BA, from Main B), Main A, the ending.
 wait 300
+expect song1_style0 32
+expect song1_style5 37
 tap ENV
 tap ENV
 expect page 9
 spin K4 1
 wait 50
-expect song1_style0 24
-expect song1_style1 25
-expect song1_style2 26
-expect song1_style3 27
-expect song1_style4 28
-expect song1_style5 29
-expect slot1_nev >20
+expect song1_style0 38
+expect song1_style1 39
+expect song1_style2 40
+expect song1_style3 41
+expect song1_style4 42
+expect song1_style5 43
 shot patterns.png
 tap ENV
 expect page 10
 shot patterns2.png
-# the Style knob back: the song's own patterns (P01..P06), then Pop again
+# the Style knob back: Pop; below the first style it stays
 spin K4 -1
 wait 50
-expect song1_style0 0
-expect song1_style5 5
-spin K4 1
-expect song1_style1 25
+expect song1_style0 32
+expect song1_style5 37
+expect slot1_nev >20
+spin K4 -1
+expect song1_style1 33
 # Main A's knob (page 1, KNOB 2): the next style (Funk's Main A); past either end it stays at the end (P01, the
 # last style)
 tap ENV
 tap ENV
 expect page 9
 spin K2 1
-expect song1_style1 31
+expect song1_style1 39
 spin K2 -300
 expect song1_style1 0
 spin K2 300
-expect song1_style1 >30
+expect song1_style1 >38
 spin K2 -300
-spin K2 24
-expect song1_style1 25
+spin K2 16
+expect song1_style1 33
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 105
 # the Pop template, PLAY: the Intro (2 bars), then Main A

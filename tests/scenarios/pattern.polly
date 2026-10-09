@@ -1,5 +1,7 @@
 # POLLY, pattern: the Pattern, Track and Mixer pages. Two notes recorded into track 5 (C1), seen on the
 # Pattern page; its program and level changed; muted (silent), unmuted; the length and name; the jobs.
+poke_user_songs
+reboot
 wait 300
 tap SEQ
 expect page 1

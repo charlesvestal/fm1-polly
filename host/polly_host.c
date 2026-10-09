@@ -460,7 +460,12 @@ static int expect(const char *what, const char *val)
         got = songs.song[proj.song].bars;
     else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) % ARR_NSECT];   /* songN_styleI (I: the slot) */
-    else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
+    else if (!strncmp(what, "song", 4) && strstr(what, "_sect") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].sect[atoi(strstr(what, "_sect") + 5) & 63];   /* songN_sectB: bar B's mark */
+    else if (!strncmp(what, "song", 4) && strstr(what, "_chord") && what[4] >= '1' && what[4] <= '4') {
+        const chord_t *c = &songs.song[what[4] - '1'].chord[atoi(strstr(what, "_chord") + 6) & 255];
+        got = c->type < CH_NTYPES ? c->root * 100 + c->type : -1;   /* songN_chordK: beat K, root*100 + type, -1 none */
+    } else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].bars;     /* songN_bars (1..4), as in RAM */
     else if (!strcmp(what, "song_on"))            /* the app gave the arranger the song (not a template) */
         got = app.song_on;
@@ -602,8 +607,16 @@ int main(int argc, char **argv)
             memset(trk_hits, 0, sizeof trk_hits);
         else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);
-        else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays one user pattern as Main A and Main B */
+        else if (!strcmp(cmd, "poke_user_songs")) {   /* host-only: songs 1 and 2 on user patterns P01..P06, P07..P12 */
             songs_defaults(&dbg_songs);
+            for (int n = 0; n < 2; n++)
+                for (int k = 0; k < ARR_NSECT; k++)
+                    dbg_songs.song[n].style[k] = (uint16_t)(n * ARR_NSECT + k);
+            project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays one user pattern as Main A and Main B */
+            songs_defaults(&dbg_songs);
+            for (int k = 0; k < ARR_NSECT; k++)
+                dbg_songs.song[0].style[k] = (uint16_t)k;
             dbg_songs.song[0].style[SEC_B - 1] = dbg_songs.song[0].style[SEC_A - 1];
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "master"))
@@ -663,10 +676,34 @@ int main(int argc, char **argv)
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_bad_style")) {   /* host-only: songs with pattern numbers past the styles */
             songs_defaults(&dbg_songs);
-            dbg_songs.song[0].style[SEC_A - 1] = (uint8_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles());
+            dbg_songs.song[0].style[SEC_A - 1] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles());
             dbg_songs.song[1].style[SEC_FILL_AB - 1] = 250;
-            dbg_songs.song[1].style[SEC_B - 1] = (uint8_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles() - 1);   /* the last: kept */
+            dbg_songs.song[1].style[SEC_B - 1] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles() - 1);   /* the last: kept */
+            dbg_songs.song[1].style[SEC_INTRO - 1] = ARR_USER_PATTERNS;                  /* past the user patterns */
+            dbg_songs.song[1].style[SEC_END - 1] = 0xFFFF;
             project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_songs3")) {     /* host-only: songs of format 3 (byte pattern numbers, 24 user) */
+            static uint8_t old[8 + ARR_SONGS * SONG3_BYTES];
+            uint32_t m = SONGS_MAGIC, f = 3;
+            memset(old, 0, sizeof old);
+            memcpy(old, &m, 4);
+            memcpy(old + 4, &f, 4);
+            for (int n = 0; n < ARR_SONGS; n++) {
+                uint8_t *g = old + 8 + n * SONG3_BYTES;
+                for (int k = 0; k < ARR_NSECT; k++)
+                    g[k] = (uint8_t)(n * ARR_NSECT + k);       /* the old defaults: 6n..6n+5 */
+                g[ARR_NSECT] = (uint8_t)(n + 1);                /* bars */
+                g[ARR_NSECT + 1] = 1;
+                g[ARR_NSECT + 2 + 3] = SEC_B;                   /* bar 4: Main B */
+                for (int b = 0; b < ARR_SONGBARS * 4; b++) {
+                    uint8_t *c = g + ARR_NSECT + 2 + ARR_SONGBARS + 3 * b;
+                    c[0] = (uint8_t)(b % 12);
+                    c[1] = b == 0 ? CH_MIN7 : CH_NTYPES;
+                    c[2] = CH_NOBASS;
+                }
+            }
+            old[8 + 1 * SONG3_BYTES + 2] = 24 + 6 * 2 + 2;       /* song 2's Main B: factory style 3's (Rock B) */
+            plat_store_save(OBJ_SONGS, old, sizeof old);
         } else if (!strcmp(cmd, "poke_bad_pattern")) {   /* host-only debug: an invalid nev, straight into storage */
             pattern_empty(&dbg_pat);
             dbg_pat.nev = ARR_NEV + 1;

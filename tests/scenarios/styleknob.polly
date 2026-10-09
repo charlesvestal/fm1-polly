@@ -1,6 +1,8 @@
 # POLLY, styleknob: the Style knob (KNOB 4 on the Song patterns pages) changes all six sections or none. While
 # playing, a section with unsaved changes refuses the whole change (UNSAVED, SAVE FIRST); stopped, the changes
 # are saved first, then all six switch.
+poke_user_songs
+reboot
 wait 300
 tap PLAY
 wait 200
@@ -24,9 +26,9 @@ tap PLAY
 wait 100
 spin K4 1
 wait 50
-expect song1_style0 24
-expect song1_style1 25
-expect song1_style5 29
+expect song1_style0 32
+expect song1_style1 33
+expect song1_style5 37
 expect pat1_nev 1
 shot switched.png
 # SEL + black key 1 stopped: "FIRST Intro", gone once PLAY starts it

@@ -76,8 +76,9 @@ static void slot_cache(int s, const pattern_t *p)
 }
 /* the slot whose pattern the pages show and edit: the section playing (recording goes there too) */
 static int eslot(void) { return sect_slot(arr_sect); }
-/* changed since loaded or saved. A slot playing a factory style (24..) has nothing to save into: its edits
- * play until another pattern is picked; Copy pattern (the jobs) keeps them in a user pattern */
+/* changed since loaded or saved. A slot playing a style's section has nothing to save into: it gets a user
+ * pattern of its own at its first change (slot_own); with none free, its changes play until another pattern
+ * is picked (Copy pattern, the jobs, keeps them in a user pattern) */
 static int slot_unsaved(int s)
 {
     return songs.song[proj.song].style[s] < ARR_USER_PATTERNS &&
@@ -88,8 +89,10 @@ static int slot_unsaved(int s)
  * the pattern's sounds): copy the slot, put the app's settings in, store; refused when it was recorded into
  * meanwhile: again */
 #define EDIT_MS 50u
+static int slot_own(int s);
 static void edited(int s)
 {
+    slot_own(s);                                 /* a style's section: a user pattern of its own first */
     if (!app.edit_pend)
         app.edit_t = plat_ms();
     app.edit_pend |= (uint8_t)(1u << s);
@@ -128,18 +131,64 @@ static void edits_flush(void)
     }
 }
 
-/* slot s (Intro, Main A, Main B, Fill AB, Fill BA, Ending) gets pattern `style`: a user pattern (0..23), a factory style's
+/* slot s (Intro, Main A, Main B, Fill AB, Fill BA, Ending) gets pattern `style`: a user pattern, a factory style's
  * (ARR_FACTORY0..: copied out of flash), or an empty one when it has none */
 static void slot_load(int s, int style)
 {
-    if (style >= ARR_USER_PATTERNS ? arr_factory_pattern(style, &scratch) != 0
-                                   : project_pattern_load(style, &scratch) != 0)
+    if (style < ARR_USER_PATTERNS ? project_pattern_load(style, &scratch) != 0
+                                  : arr_factory_pattern(style, &scratch) != 0)
         pattern_empty(&scratch);
     arr_load_pattern(s, &scratch);
     slot_cache(s, &scratch);
     app.saved[s] = arr_dirty[s];
     app.edited[s] = 0;
     app.edit_pend &= (uint8_t)~(1u << s);
+}
+/* the user pattern the copy-on-write takes: one no song plays, an empty one (never saved) first; -1 none */
+static int pattern_stored(int p)                 /* a user pattern has been saved */
+{
+    uint8_t h[8];
+    return plat_store_load((uint32_t)(OBJ_PAT0 + p), h, sizeof h) >= 0;
+}
+static int pattern_free(void)
+{
+    uint32_t used = 0;
+    for (int n = 0; n < ARR_SONGS; n++)
+        for (int k = 0; k < ARR_NSECT; k++)
+            if (songs.song[n].style[k] < ARR_USER_PATTERNS)
+                used |= 1u << songs.song[n].style[k];
+    for (int pass = 0; pass < 2; pass++)
+        for (int p = 0; p < ARR_USER_PATTERNS; p++)
+            if (!(used >> p & 1u) && (pass || !pattern_stored(p)))
+                return p;
+    return -1;
+}
+/* copy-on-write: before slot s's pattern is changed (recorded into, edited, erased, cleared), a slot playing a
+ * style's section gets a user pattern of its own: the first free one (pattern_free) takes the section as it
+ * plays now, saved at the next save (or autosave). 0: the slot plays a user pattern; -1: none free (the change
+ * plays, unsaved, until another pattern is picked) */
+static int slot_own(int s)
+{
+    song_t *g = &songs.song[proj.song];
+    int p;
+    char t[8];
+    if (g->style[s] < ARR_USER_PATTERNS)
+        return 0;
+    if ((p = pattern_free()) < 0) {
+        say("NO FREE PATTERN", "not kept");
+        return -1;
+    }
+    g->style[s] = (uint16_t)p;
+    app.edited[s] = 1;                           /* saved, changed or not: the song plays it now */
+    app.songs_dirty = 1;
+    app.chg++;
+    app.gen++;
+    t[0] = 'P';
+    t[1] = (char)('0' + (p + 1) / 10);
+    t[2] = (char)('0' + (p + 1) % 10);
+    t[3] = 0;
+    say("NEW PATTERN", t);
+    return 0;
 }
 /* the selected song: its six patterns into the slots, and its tracks when it has any (else free play: the
  * templates and the keys' chords) */
@@ -429,7 +478,7 @@ static void jobs_open(void)
     int st = songs.song[proj.song].style[eslot()];
     ui.job = 1;
     ui.job_sel = 0;
-    ui.job_to = (uint8_t)((st < ARR_USER_PATTERNS ? st + 1 : 0) % ARR_USER_PATTERNS);
+    ui.job_to = (uint8_t)(st < ARR_USER_PATTERNS ? (st + 1) % ARR_USER_PATTERNS : pattern_free() < 0 ? 0 : pattern_free());
     ui.touched = -1;
 }
 static void pat_name(int st, char *t)            /* "P05" */
@@ -445,6 +494,10 @@ static void job_run(void)
     char t[8];
     ui.job = 0;
     edits_flush();
+    if (ui.job_sel != 1) {                       /* erase, clear: a style's section gets a user pattern first */
+        slot_own(s);
+        st = songs.song[proj.song].style[s];
+    }
     if (ui.job_sel == 0) {                       /* erase the selected track's notes */
         arr_erase_track(proj.trk);
         say("ERASED", TRACK_NAME[proj.trk]);
@@ -521,6 +574,8 @@ static void button_down(int b)
         }
     {
         int on = !arr_recording;                 /* the state asked for (the engine's follows a block later) */
+        if (on)
+            slot_own(eslot());                   /* recording into a style's section: a user pattern first */
         arr_record(proj.trk, on);
         say(on ? "RECORD" : "RECORD OFF", on ? TRACK_NAME[proj.trk] : 0);
     }
@@ -731,15 +786,15 @@ static int song_blank(const song_t *g)
             return 0;
     return 1;
 }
-/* the pattern d steps on from st for slot s: the user patterns P01..P24, then the factory styles by name,
- * each its pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
+/* the pattern d steps on from st for slot s: the user patterns P01..P16, then the styles by name, each its
+ * pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
 static int style_step(int s, int st, int d)
 {
-    int i = st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT;
-    i = clampi(i + d, 0, ARR_USER_PATTERNS + arr_styles() - 1);
-    return i < ARR_USER_PATTERNS ? i : ARR_FACTORY0 + (i - ARR_USER_PATTERNS) * ARR_NSECT + s;
+    int si = style_index(st), i = si >= 0 ? ARR_USER_PATTERNS + si : st < ARR_USER_PATTERNS ? st : 0;
+    i = clampi(i + d, 0, ARR_USER_PATTERNS + styles_n() - 1);
+    return i < ARR_USER_PATTERNS ? i : style_number(i - ARR_USER_PATTERNS, s);
 }
-/* a slot's pattern changed to pattern `to` (a user pattern or a factory style's; the Arrange page's, the
+/* a slot's pattern changed to pattern `to` (a user pattern or a style's section; the Arrange page's, the
  * Pattern page's PRESETS); its changes saved first (stopped), or refused while playing (a save pauses the
  * audio) */
 static void slot_style(int s, int to)
@@ -758,17 +813,17 @@ static void slot_style(int s, int to)
             return;
         }
     }
-    songs.song[proj.song].style[s] = (uint8_t)to;
-    if (s == SEC_A - 1 && to >= ARR_FACTORY0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
-        set_tempo(arr_style_tempo((to - ARR_FACTORY0) / ARR_NSECT));
+    songs.song[proj.song].style[s] = (uint16_t)to;
+    if (s == SEC_A - 1 && style_index(to) >= 0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
+        set_tempo(style_tempo(style_index(to)));
     app.songs_dirty = 1;
     app.chg++;
     slot_load(s, to);
     style_name(to, t);
     say(SECT_NAME[s + 1], t);
 }
-/* the Style knob (the song-patterns pages): all six slots from factory style n (0..), or -1 the song's own user
- * patterns (its defaults, 6n..6n+5); as slot_style, each saved first or refused while playing */
+/* the Style knob (the song-patterns pages): all six slots from style n (0..styles_n()-1); as slot_style, each
+ * saved first or refused while playing */
 static void style_all(int n)
 {
     int unsaved_any = 0;
@@ -785,11 +840,8 @@ static void style_all(int n)
         }
     }
     for (int s = 0; s < ARR_NSECT; s++)
-        slot_style(s, n < 0 ? proj.song * ARR_NSECT + s : ARR_FACTORY0 + n * ARR_NSECT + s);
-    if (n >= 0)
-        say("STYLE", arr_style_name(n));
-    else
-        say("STYLE", "the song's own");
+        slot_style(s, style_number(n, s));
+    say("STYLE", style_label(n));
 }
 static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
 {
@@ -847,8 +899,11 @@ static void song_page_knob(int k, int32_t e)
         int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
         if (k < 3)
             slot_style(first + k, style_step(first + k, g->style[first + k], accel(EN_K1 + k, e)));
-        else                                     /* the style, one step: from the song's own, the first */
-            style_all(clampi((a >= ARR_FACTORY0 ? (a - ARR_FACTORY0) / ARR_NSECT : -1) + d, -1, arr_styles() - 1));
+        else {                                   /* the style, one step (from user patterns: the first) */
+            int n = style_index(a) < 0 ? 0 : clampi(style_index(a) + d, 0, styles_n() - 1);
+            if (n != style_index(a))
+                style_all(n);
+        }
         break;
     }
     case P_TEMPLATES: case P_TCOPY:
@@ -906,33 +961,31 @@ static void template_copy(void)
     itoa_u((uint32_t)bar + 1u, cat_s(cat_s(t, m->name), " > bar "));
     say("COPIED", t);
 }
-/* Copy song: six user patterns for the target, all different and none the source's: its own where they
- * qualify, else its default (6n..), else one no song plays, else one the source does not; -1: none left */
-static int copy_patterns_pick(int to, uint8_t *st)
+/* Copy song: the target plays the same styles' sections; each user pattern of the source is copied into a user
+ * pattern of the target's own: the target's own one in that section when no other song plays it, else one no
+ * song plays (empty first), else one only the target plays; -1: none left */
+static int copy_patterns_pick(int to, uint16_t *st)
 {
     const song_t *g = csong(), *d = &songs.song[to];
-    uint32_t src = 0, any = 0, taken = 0;
-    for (int j = 0; j < ARR_NSECT; j++) {
-        if (g->style[j] < ARR_USER_PATTERNS)
-            src |= 1u << g->style[j];
-        for (int n = 0; n < ARR_SONGS; n++)
-            if (n != to && songs.song[n].style[j] < ARR_USER_PATTERNS)
-                any |= 1u << songs.song[n].style[j];
-    }
+    uint32_t other = 0, taken = 0;
+    for (int n = 0; n < ARR_SONGS; n++)          /* the user patterns the songs but the target play */
+        for (int j = 0; j < ARR_NSECT && n != to; j++)
+            if (songs.song[n].style[j] < ARR_USER_PATTERNS)
+                other |= 1u << songs.song[n].style[j];
     for (int i = 0; i < ARR_NSECT; i++) {
-        int pick = -1, cand[2] = {d->style[i], to * ARR_NSECT + i};
-        for (int k = 0; k < 2 && pick < 0; k++)
-            if (cand[k] < ARR_USER_PATTERNS && !((src | taken) >> cand[k] & 1u))
-                pick = cand[k];
-        for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
-            if (!((src | any | taken) >> p & 1u))
-                pick = p;
-        for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
-            if (!((src | taken) >> p & 1u))
-                pick = p;
+        int pick = -1;
+        st[i] = g->style[i];
+        if (g->style[i] >= ARR_USER_PATTERNS)
+            continue;                            /* a style's section: the same */
+        if (d->style[i] < ARR_USER_PATTERNS && !((other | taken) >> d->style[i] & 1u))
+            pick = d->style[i];
+        for (int pass = 0; pass < 2 && pick < 0; pass++)
+            for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
+                if (!((other | taken) >> p & 1u) && (pass || !pattern_stored(p)))
+                    pick = p;
         if (pick < 0)
             return -1;
-        st[i] = (uint8_t)pick;
+        st[i] = (uint16_t)pick;
         taken |= 1u << pick;
     }
     return 0;
@@ -944,7 +997,7 @@ static void song_job_run(void)
     char t[12];
     ui.job = 0;
     if (ui.job_sel == 0) {
-        uint8_t st[ARR_NSECT];
+        uint16_t st[ARR_NSECT];
         memcpy(st, g->style, sizeof st);
         song_default(g, proj.song);
         memcpy(g->style, st, sizeof st);
@@ -954,7 +1007,7 @@ static void song_job_run(void)
     } else {
         int to = ui.job_to % ARR_SONGS;
         song_t *d = &songs.song[to];
-        uint8_t st[ARR_NSECT];
+        uint16_t st[ARR_NSECT];
         char a[16];
         if (to == proj.song) {
             say("COPY", "SAME SONG");
@@ -970,6 +1023,8 @@ static void song_job_run(void)
             return;
         }
         for (int i = 0; i < ARR_NSECT; i++) {    /* the patterns' contents, as they play now; the song after */
+            if (st[i] >= ARR_USER_PATTERNS)
+                continue;
             arr_pattern_copy(i, &scratch);
             if (project_pattern_save(st[i], &scratch) != 0) {
                 say("FLASH ERROR", "song unchanged");

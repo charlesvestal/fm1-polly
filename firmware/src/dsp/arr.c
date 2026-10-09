@@ -1358,7 +1358,7 @@ void arr_init(void)                                /* at boot, before the render
 
 /* ------------------------------------------------------------ factory styles --- */
 _Static_assert(STY_NSECT == ARR_NSECT, "styles.h: a pattern for each section");
-_Static_assert(ARR_FACTORY0 + STY_COUNT * ARR_NSECT <= 256, "a song's pattern numbers are bytes");
+_Static_assert(STY_COUNT <= ARR_MAX_FACTORY, "the factory styles' pattern numbers end below the bank's");
 int arr_styles(void) { return STY_COUNT; }
 const char *arr_style_name(int s) { return s >= 0 && s < STY_COUNT ? STY_NAME[s] : ""; }
 int arr_style_tempo(int s) { return s >= 0 && s < STY_COUNT ? STY_TEMPO[s] : 120; }

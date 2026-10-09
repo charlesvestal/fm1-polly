@@ -37,7 +37,8 @@ tap PLAY
 wait 500
 expect chord_root 9
 expect chord_type 18
-expect sect 2
+# a new song plays Pop: PLAY starts with its Intro
+expect sect 1
 wait 2000
 expect chord_root 7
 expect chord_type 0
@@ -123,8 +124,8 @@ release SAVE
 spin K1 1
 tap SEL
 expect song2_bars 6
-expect song2_style0 6
-expect song2_style5 11
+expect song2_style0 32
+expect song2_style5 37
 press SAVE
 wait 800
 release SAVE

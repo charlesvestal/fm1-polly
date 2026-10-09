@@ -13,7 +13,8 @@
 #define ARR_CLOCK_TICKS (ARR_PPQ / 24)   /* ticks a MIDI clock (F8, 24 a quarter): 20 */
 #define ARR_MAXBARS 8
 #define ARR_NEV 600                      /* notes per pattern */
-#define ARR_USER_PATTERNS 24                 /* six a song (song n: 6n..6n+5 by default) */
+#define ARR_USER_PATTERNS 16             /* the user's patterns (flash objects); a song's section gets one when it
+                                         * is first recorded into or edited (ui.c: copy-on-write) */
 #define ARR_SONGS 4
 #define ARR_SONGBARS 64
 #define ARR_NSECT 6
@@ -48,8 +49,8 @@ typedef struct {
 #define ARR_PAT_FORMAT 2u                /* 2: 480 ticks a beat (stored patterns of another format are not loaded) */
 
 typedef struct {
-    uint8_t style[ARR_NSECT];            /* the pattern for each section (Intro, Main A, Main B, Fill AB, Fill BA,
-                                          * Ending): 0..23 user, 24.. factory */
+    uint16_t style[ARR_NSECT];           /* the pattern for each section (Intro, Main A, Main B, Fill AB, Fill BA,
+                                          * Ending): a pattern number (below) */
     uint8_t bars;                        /* the song's length, 1..64 (0: no song yet) */
     uint8_t loop;                        /* goes round at its end (the app passes it to arr_song) */
     uint8_t sect[ARR_SONGBARS];          /* SEC_SAME .. SEC_END per bar (SEC_FILL is not stored) */
@@ -61,11 +62,19 @@ typedef struct {
     song_t song[ARR_SONGS];
 } songs_t;
 
-/* ---- the factory styles (the .sty files in styles/, compiled by tools/make_styles.py into styles.h; const in flash). A song's
- * pattern numbers 24.. are theirs: style s (0..arr_styles()-1), section k (0 Intro, 1 Main A, 2 Main B, 3 Fill AB,
- * 4 Fill BA, 5 Ending: a slot) is pattern ARR_FACTORY0 + 6 s + k. A section a style lacks is an empty pattern
- * (no notes: the engine falls back, arr_section). */
-#define ARR_FACTORY0 ARR_USER_PATTERNS
+/* ---- pattern numbers (a song's style[]): 0..ARR_USER_PATTERNS-1 the user patterns; ARR_FACTORY0 + 6 s + k the
+ * factory style s's section k (0 Intro, 1 Main A, 2 Main B, 3 Fill AB, 4 Fill BA, 5 Ending: a slot); ARR_BANK0 +
+ * 6 s + k the QY70 bank's style s (qybank.h; bring your own ROM), section k. Fixed bases: a number keeps its
+ * meaning when the counts change.
+ * The factory styles: the .sty files in styles/, compiled by tools/make_styles.py into styles.h; const in flash.
+ * A section a style lacks is an empty pattern (no notes: the engine falls back, arr_section). */
+#define ARR_FACTORY0 32
+#define ARR_MAX_FACTORY 64
+#define ARR_BANK0 512
+#define ARR_BANK_STYLES 128
+#define ARR_PATTERNS (ARR_BANK0 + ARR_NSECT * ARR_BANK_STYLES)   /* pattern numbers are below this */
+_Static_assert(ARR_USER_PATTERNS <= ARR_FACTORY0 && ARR_FACTORY0 + ARR_NSECT * ARR_MAX_FACTORY <= ARR_BANK0,
+               "the pattern numbers' ranges do not overlap");
 int arr_styles(void);                            /* how many */
 const char *arr_style_name(int s);               /* "Pop"; "" for none */
 int arr_style_tempo(int s);                      /* its tempo, as written */

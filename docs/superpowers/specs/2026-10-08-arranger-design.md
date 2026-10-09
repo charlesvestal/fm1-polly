@@ -18,7 +18,9 @@ screen and seven encoders, so every common value gets a knob.
 ## Scope
 
 **v1:**
-- 24 user patterns (16 until 2026-10-09; six a song), each 1-8 bars, 8 tracks
+- 16 user patterns (24 for a day, 2026-10-09; the rest of their flash holds the QY70 style bank), each 1-8 bars,
+  8 tracks. A new song plays a style; a section gets a user pattern of its own when it is first recorded into
+  or edited (copy-on-write, from the section as it plays)
 - 16 factory styles, well made and our own (written for Polly, not taken from Yamaha's ROM: its styles are
   Yamaha's copyright), each with an Intro, Main A, Main B, Fill AB, Fill BA and an ending
 - the transposition engine: five track types (Bypass, Chord 1, Chord 2, Bass, Parallel) with range limits
@@ -72,7 +74,7 @@ sample-accurate rather than block-quantised.
   or "same"): ~0.6 KB.
 - **Settings**: the mixer is per pattern; tempo, key transpose, MIDI and lights are global.
 - **Flash**: Felucca's data area (0x97000..0xDFFFF) holds ~30 objects of 3.75 KB (two sectors each, torn-
-  write safe): 24 patterns (0x99000..0xC9000) + 1 for the songs + 1 for settings fits, with room. The 16
+  write safe): 16 patterns (0x99000..0xB9000) + 1 for the songs + 1 for settings fits, with room. The 16
   factory styles (96 patterns: the six sections each) live in the firmware image, ~43 KB (a user pattern
   starts as a copy of one, or empty).
 - **Sections**: a pattern *is* a section's music; each song holds six pattern numbers (its "style"): Intro,

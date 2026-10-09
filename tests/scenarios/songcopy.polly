@@ -2,6 +2,8 @@
 # plays P01..P06, its Main A P02 (a note recorded) and, as its Ending, P12 (a copy of P02): song 2's own P12 is
 # the source's, so its Ending gets a free one (P06, no longer song 1's); P12 keeps its note. A flash error
 # leaves the song unchanged.
+poke_user_songs
+reboot
 wait 300
 tap LFO
 spin K1 2

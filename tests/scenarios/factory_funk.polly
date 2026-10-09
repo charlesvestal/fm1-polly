@@ -1,17 +1,16 @@
-# POLLY, factory_funk: factory style 2 (Funk) for a song (KNOB 4, Style, two steps), played over the Vamp
+# POLLY, factory_funk: factory style 2 (Funk) for a song (KNOB 4, Style, a step on from Pop), played over the Vamp
 # template (Dm7 G7): the Intro, Main A, Main B, the fill (Fill BA), Main A, the ending; the audio in funk.wav.
 wait 300
 tap ENV
 tap ENV
 spin K4 1
-spin K4 1
 wait 50
-expect song1_style0 30
-expect song1_style1 31
-expect song1_style2 32
-expect song1_style3 33
-expect song1_style4 34
-expect song1_style5 35
+expect song1_style0 38
+expect song1_style1 39
+expect song1_style2 40
+expect song1_style3 41
+expect song1_style4 42
+expect song1_style5 43
 shot patterns.png
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 100

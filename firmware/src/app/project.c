@@ -144,13 +144,15 @@ int project_pattern_save(int i, const pattern_t *p)
     return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
 }
 
-/* an empty song: no bars yet, every beat "no change", looping, playing user patterns 6n..6n+5 */
+/* an empty song: no bars yet, every beat "no change", looping, on the first factory style (its six sections). A
+ * section gets a user pattern of its own when it is first recorded into or edited (ui.c, slot_own) */
 void song_default(song_t *g, int n)
 {
+    (void)n;
     memset(g, 0, sizeof *g);
     g->loop = 1;
     for (int i = 0; i < ARR_NSECT; i++)
-        g->style[i] = (uint8_t)(n * ARR_NSECT + i);
+        g->style[i] = (uint16_t)(ARR_FACTORY0 + i);
     for (int i = 0; i < ARR_SONGBARS * 4; i++) {
         g->chord[i].type = CH_NTYPES;
         g->chord[i].bass = CH_NOBASS;
@@ -161,22 +163,59 @@ static void songs_defaults(songs_t *s)
     memset(s, 0, sizeof *s);
     s->magic = SONGS_MAGIC;
     s->format = SONGS_FORMAT;
-    for (int n = 0; n < ARR_SONGS; n++)              /* song n: user patterns 6n..6n+5, none shared */
+    for (int n = 0; n < ARR_SONGS; n++)
         song_default(&s->song[n], n);
+}
+
+/* a user pattern, a factory style's section, or a QY70 bank style's (kept when the bank is missing: it plays
+ * nothing until one is installed) */
+int song_style_valid(int st)
+{
+    return (st >= 0 && st < ARR_USER_PATTERNS) || (st >= ARR_FACTORY0 && st < ARR_FACTORY0 + ARR_NSECT * arr_styles()) ||
+           (st >= ARR_BANK0 && st < ARR_PATTERNS);
+}
+
+/* songs of format 3 (pattern numbers as bytes, 24 user patterns, the factory styles from 24): to format 4, in
+ * place (the songs move up, the last first). User patterns 16..23 are gone (their flash is the QY bank's now):
+ * their sections play the first factory style */
+#define SONG3_BYTES (ARR_NSECT + 2 + ARR_SONGBARS + ARR_SONGBARS * 4 * (int)sizeof(chord_t))
+_Static_assert(8 + ARR_SONGS * SONG3_BYTES <= (int)sizeof(songs_t), "format 3 songs load into the format 4 buffer");
+static void songs_from3(songs_t *s)
+{
+    uint8_t *b = (uint8_t *)s;
+    for (int i = ARR_SONGS - 1; i >= 0; i--) {
+        uint8_t h[ARR_NSECT + 2], *o = b + 8 + i * SONG3_BYTES;
+        song_t *g = &s->song[i];
+        uint8_t *n = (uint8_t *)g->sect;
+        for (int k = 0; k < ARR_NSECT + 2; k++)
+            h[k] = o[k];
+        for (int k = SONG3_BYTES - (ARR_NSECT + 2) - 1; k >= 0; k--)   /* sect and chord, backwards (they move up) */
+            n[k] = o[ARR_NSECT + 2 + k];
+        for (int k = 0; k < ARR_NSECT; k++)
+            g->style[k] = (uint16_t)(h[k] < ARR_USER_PATTERNS ? h[k] : h[k] < 24 ? ARR_FACTORY0 + k
+                                                                         : ARR_FACTORY0 + (h[k] - 24));
+        g->bars = h[ARR_NSECT];
+        g->loop = h[ARR_NSECT + 1];
+    }
+    s->format = SONGS_FORMAT;
 }
 
 int project_songs_load(songs_t *s)
 {
     int n = plat_store_load(OBJ_SONGS, s, sizeof *s);
+    if (n == 8 + ARR_SONGS * SONG3_BYTES && s->magic == SONGS_MAGIC && s->format == 3u)
+        songs_from3(s);
+    else if (n != (int)sizeof *s)
+        n = -1;
     if (n >= 8 && s->magic == SONGS_MAGIC && s->format == SONGS_FORMAT) {
         for (int i = 0; i < ARR_SONGS; i++) {        /* every value that indexes something kept in range */
             song_t *g = &s->song[i];
             if (g->bars > ARR_SONGBARS)
                 g->bars = ARR_SONGBARS;
             g->loop = g->loop != 0;
-            for (int k = 0; k < ARR_NSECT; k++)      /* a factory style this firmware lacks: the song's own pattern */
-                if (g->style[k] >= ARR_FACTORY0 + ARR_NSECT * arr_styles())
-                    g->style[k] = (uint8_t)(i * ARR_NSECT + k);
+            for (int k = 0; k < ARR_NSECT; k++)      /* a pattern this firmware lacks: the first factory style's */
+                if (!song_style_valid(g->style[k]))
+                    g->style[k] = (uint16_t)(ARR_FACTORY0 + k);
             for (int k = 0; k < ARR_SONGBARS; k++)
                 if (g->sect[k] > SEC_END)            /* (SEC_FILL is a command, not a mark) */
                     g->sect[k] = SEC_SAME;

@@ -452,19 +452,35 @@ static void view_refresh(int s)
     vw.gen = app.gen;
     vw.ok = 1;
 }
+/* ---- the styles, in the order the knobs step through them: the factory styles (pattern numbers ARR_FACTORY0..)
+ * by name. A style index i (0..styles_n()-1) and a section k make pattern number style_number(i, k) */
+static int styles_n(void) { return arr_styles(); }
+static int style_index(int st)                       /* the style a pattern number is a section of, -1 none */
+{
+    if (st >= ARR_FACTORY0 && st < ARR_FACTORY0 + ARR_NSECT * arr_styles())
+        return (st - ARR_FACTORY0) / ARR_NSECT;
+    return -1;
+}
+static int style_number(int i, int k) { return ARR_FACTORY0 + ARR_NSECT * i + k; }
+static const char *style_label(int i) { return arr_style_name(i); }
+static int style_tempo(int i) { return arr_style_tempo(i); }
+
 /* a song's pattern number by name: "P05" (a user pattern), "Pop Intro", "Pop A", "Pop B", "Pop Fill AB", "Pop
- * Fill BA", "Pop End" (a factory style's; up to 16 characters) */
+ * Fill BA", "Pop End" (a style's; up to 20 characters) */
 static void style_name(int st, char *t)
 {
     static const char *const SEC_SHORT[ARR_NSECT] = {" Intro", " A", " B", " Fill AB", " Fill BA", " End"};
     char *e = t;
-    if (st < ARR_USER_PATTERNS) {
+    int i = style_index(st);
+    if (st >= 0 && st < ARR_USER_PATTERNS) {
         *e++ = 'P';
         *e++ = (char)('0' + (st + 1) / 10);
         *e++ = (char)('0' + (st + 1) % 10);
         *e = 0;
-    } else
-        cat_s(cat_s(t, arr_style_name((st - ARR_FACTORY0) / ARR_NSECT)), SEC_SHORT[(st - ARR_FACTORY0) % ARR_NSECT]);
+    } else if (i >= 0)
+        cat_s(cat_s(t, style_label(i)), SEC_SHORT[(st - ARR_FACTORY0) % ARR_NSECT]);
+    else
+        cat_s(t, "-");
 }
 /* "P05 VERSE", the pattern's number and name; a factory style's: "Pop A" */
 static void pat_title(int s, char *t)
@@ -1168,16 +1184,16 @@ static void song_page_knobs(knob_t *k)
         int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
         for (int i = 0; i < 3; i++) {
             static const char *const N[ARR_NSECT] = {"Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending"};
-            int st = g->style[first + i];
-            style_name(st < ARR_USER_PATTERNS ? st : 0, b);   /* a factory style's knob: its name (the label is the section) */
-            kv(&k[i], N[first + i], st < ARR_USER_PATTERNS ? b : arr_style_name((st - ARR_FACTORY0) / ARR_NSECT), st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT,
-               ARR_USER_PATTERNS + arr_styles() - 1);
+            int st = g->style[first + i], si = style_index(st);
+            style_name(st < ARR_USER_PATTERNS ? st : 0, b);   /* a style's knob: its name (the label is the section) */
+            kv(&k[i], N[first + i], si < 0 ? b : style_label(si), si < 0 ? st : ARR_USER_PATTERNS + si,
+               ARR_USER_PATTERNS + styles_n() - 1);
         }
-        /* the style: all six from one factory style (Main A's), or the song's own user patterns ("own") */
-        if (a >= ARR_FACTORY0)
-            kv(&k[3], "Style", arr_style_name((a - ARR_FACTORY0) / ARR_NSECT), (a - ARR_FACTORY0) / ARR_NSECT + 1, arr_styles());
+        /* the style: all six from one style (Main A's), or "user" (Main A plays a user pattern) */
+        if (style_index(a) >= 0)
+            kv(&k[3], "Style", style_label(style_index(a)), style_index(a) + 1, styles_n());
         else
-            kv(&k[3], "Style", "own", 0, arr_styles());
+            kv(&k[3], "Style", "user", 0, styles_n());
         break;
     }
     case P_TEMPLATES: case P_TCOPY: {

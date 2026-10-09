@@ -107,6 +107,8 @@ shot song_at_stop.png
 tap PLAY
 wait 100
 expect playing 0
+# (once the voices have ended: 2 s at most)
+wait 2000
 expect song 2
 shot stopped.png
 # MIDI clock in drives the arranger: FA starts it, the clocks move it on, FC stops it

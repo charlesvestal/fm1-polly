@@ -13,7 +13,7 @@
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
 #define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 3u
+#define SONGS_FORMAT 4u                  /* 4: 16-bit pattern numbers (3, bytes: migrated at load) */
 
 typedef struct {
     uint32_t magic, format;
@@ -22,7 +22,7 @@ typedef struct {
     uint8_t leds;                        /* lights: 0 off, 1 notes and the buttons' glow, 2 notes only */
     uint8_t rsv0;
     uint8_t program[GM_NCH], volume[GM_NCH], pan[GM_NCH], reverb[GM_NCH], chorus[GM_NCH];
-    uint8_t song, pattern;                /* the selected song (0..ARR_SONGS-1) and user pattern (0..23) */
+    uint8_t song, pattern;                /* the selected song (0..ARR_SONGS-1) and user pattern (0..15) */
     uint8_t trk;                          /* the selected track (0..7): the keys play it, REC records into it */
     uint8_t tempo;                        /* 40..240 bpm */
     uint8_t key;                          /* the templates' key, 0..11 over C */
@@ -46,7 +46,8 @@ int project_pattern_save(int i, const pattern_t *p);
 int project_songs_load(songs_t *s);
 int project_songs_save(const songs_t *s);
 void pattern_empty(pattern_t *p);
-void song_default(song_t *g, int n);                   /* song n, empty */                      /* 2 bars of 4, 8 tracks, the default sounds and types */
+void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */
+int song_style_valid(int st);                          /* a pattern number a song may hold */
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
 void ui_init(void);

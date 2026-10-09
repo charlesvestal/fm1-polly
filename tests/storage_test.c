@@ -102,23 +102,23 @@ int main(void)
                     ok = 0;
         }
         bad += check("objects inside Felucca's data area, no overlaps", (int)ok);
-        /* the 24 user patterns: 0x99000.. 0xC9000, clear of the panel (0xDC000), the update loader's staging
+        /* the 16 user patterns: 0x99000.. 0xB9000, clear of the panel (0xDC000), the update loader's staging
          * area and record (0xE0000..0xE4FFF) and the app area (< 0x93000) */
-        ok = OBJ_NOBJ == OBJ_PAT0 + 24 && st_sector(OBJ_PAT0, 0) == 0x99000u &&
-             st_sector(OBJ_PAT0 + 23, 1) + 4096 == 0xC9000u && st_sector(OBJ_SONGS, 0) >= 0x93000u;
+        ok = OBJ_NOBJ == OBJ_PAT0 + 16 && st_sector(OBJ_PAT0, 0) == 0x99000u &&
+             st_sector(OBJ_PAT0 + 15, 1) + 4096 == 0xB9000u && st_sector(OBJ_SONGS, 0) >= 0x93000u;
         for (o = 0; o < OBJ_NOBJ; o++)
             if (o != OBJ_PROJ && (st_sector(o, 0) < 0x97000u || st_sector(o, 1) + 4096 > 0xE0000u))
                 ok = 0;
-        bad += check("24 patterns at 0x99000..0xC9000, below the panel", (int)ok);
-        for (o = 0; o < 24; o++) {                 /* each one its own: a save into pattern 23 keeps pattern 0 */
+        bad += check("16 patterns at 0x99000..0xB9000, below the panel", (int)ok);
+        for (o = 0; o < 16; o++) {                 /* each one its own: a save into pattern 15 keeps pattern 0 */
             char x[64];
             memset(x, 'a' + (int)o % 26, sizeof x);
             st_save(OBJ_PAT0 + o, x, sizeof x);
         }
         n = st_load(OBJ_PAT0, got, sizeof got);
         ok = n == 64 && got[0] == 'a';
-        n = st_load(OBJ_PAT0 + 23, got, sizeof got);
-        bad += check("each pattern object its own", (int)ok && n == 64 && got[0] == 'x');
+        n = st_load(OBJ_PAT0 + 15, got, sizeof got);
+        bad += check("each pattern object its own", (int)ok && n == 64 && got[0] == 'p');
     }
     printf("%s\n", bad ? "STORAGE TEST FAILED" : "storage test passed");
     return bad != 0;
