@@ -25,7 +25,10 @@ DRUM_GATE = 60                   # drums have no stored gate: they play this lon
 # controllers kept, in a phrase's stream: kind -> (name, the MIDI controller, the smallest step kept)
 KINDS = [("bend", None, 1), ("mod", 1, 2), ("expression", 11, 2), ("pan", 10, 1), ("pressure", None, 2)]
 KIND_OF = {"bend": 0, 1: 1, 11: 2, 10: 3, "pressure": 4}
-# CC 74 and 71 (the XG filter's cutoff and resonance) do nothing on Polly's synth: not stored
+# Polly's synth (Sonivox EAS, eas_voicemgt.c VMControlChange) answers bank select, 1 (vibrato depth), 7, 10, 11,
+# 64, 91, 93, the RPNs (bend range) and 120..127, plus pitch bend and channel pressure (vibrato depth too); the
+# QY70 phrases use 1, 10, 11, bend and pressure of those. CC 74 and 71 (the XG filter's cutoff and resonance,
+# 24,500 events) fall through to its default case: not stored
 END, LONG, CTRL = 0xFF, 0xFE, 0xF0
 
 
@@ -542,6 +545,7 @@ def main(argv=None):
     ap.add_argument("--sizes", action="store_true")
     ap.add_argument("--test", action="store_true")
     ap.add_argument("--out")
+    ap.add_argument("--budget", type=float, default=192.0, help="KB of flash for the bank (--sizes: how many fit)")
     a = ap.parse_args(argv)
     with open(a.rom, "rb") as f:
         rom = q.Rom(f.read())
@@ -564,12 +568,12 @@ def main(argv=None):
                 n, per, st = res[fmt, ctrl]
                 fit, acc = 0, 0
                 for x in sorted(per.values()):
-                    if acc + x > 230 * 1024:
+                    if acc + x > a.budget * 1024 * 0.99:     # 1%: the sector guards (docs)
                         break
                     acc, fit = acc + x, fit + 1
-                print("format %d (%s), %s: %d bytes for %d styles (%d phrases, %d notes%s); %d fit in 230 KB" % (
+                print("format %d (%s), %s: %d bytes for %d styles (%d phrases, %d notes%s); %d fit in %g KB" % (
                     fmt, what, "with controllers" if ctrl else "notes only", n, len(per), st["phrases"], st["notes"],
-                    ", %d controller events" % st["ctrl"] if ctrl else "", fit))
+                    ", %d controller events" % st["ctrl"] if ctrl else "", fit, a.budget))
         return
     if a.out:
         b, _, _, s = build(rom)
