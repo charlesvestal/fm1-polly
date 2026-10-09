@@ -234,7 +234,9 @@ static void songs_from4(songs_t *s)
     uint8_t *b = (uint8_t *)s;
     for (int i = ARR_SONGS - 1; i >= 0; i--) {
         song_t *g = &s->song[i];
-        memmove(g, b + 8 + i * SONG4_BYTES, (size_t)SONG4_BYTES);
+        uint8_t *d = (uint8_t *)g, *o = b + 8 + i * SONG4_BYTES;
+        for (int k = SONG4_BYTES - 1; k >= 0; k--)  /* backwards: it moves up (no libc memmove here) */
+            d[k] = o[k];
         g->sty = ARR_FACTORY0;
         g->mute = g->rsv = 0;
         song_style_derive(g);
