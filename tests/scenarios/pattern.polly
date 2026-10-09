@@ -42,12 +42,18 @@ shot mixer.png
 tap FX
 expect page 6
 spin K1 1
-expect rev_type 2
+expect rev_type 3
 shot master.png
 # muted on the Pattern page (KNOB 4): silent over a pass; back on: it plays
 tap SEQ
 expect page 1
 spin K4 1
+wait 100
+expect trk5_mute 1
+spin K4 1
+wait 100
+expect trk5_mute 0
+spin K4 -1
 wait 100
 expect trk5_mute 1
 hitreset
@@ -75,19 +81,30 @@ wait 800
 release SAVE
 expect job 1
 spin K1 1
+wait 100
 shot jobs.png
+# copy refuses while playing (a flash write), works stopped
 tap SEL
 wait 50
 expect job 0
+expect pat1_nev 0
+tap PLAY
+wait 100
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+tap SEL
+wait 50
 expect pat1_nev 2
+tap PLAY
+wait 100
 press SAVE
 wait 800
 release SAVE
 tap SEL
 wait 100
 expect slot0_nev 0
-tap PLAY
-wait 100
 tap SAVE
 wait 50
 expect dirty 0

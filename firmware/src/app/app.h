@@ -27,8 +27,8 @@ typedef struct {
     uint8_t tempo;                        /* 40..240 bpm */
     uint8_t key;                          /* the templates' key, 0..11 over C */
     uint8_t quant;                        /* the recording grid, ARR_Q_* */
-    uint8_t rev_type, rev_level;          /* the master reverb: preset 0..3 (large hall, hall, chamber, room), 0..127 */
-    uint8_t cho_type, cho_level;          /* the master chorus: preset 0..3, 0..127 */
+    uint8_t rev_type, rev_level;          /* the master reverb: 0 off, 1..4 (large hall, hall, chamber, room); 0..127 */
+    uint8_t cho_type, cho_level;          /* the master chorus: preset 0..3; 0..127 (0 off) */
     uint8_t rsv[6];
 } project_t;
 

@@ -2994,6 +2994,18 @@ match_success:
     return;
 }
 
+#if defined(_CC_REVERB) || defined(_CC_CHORUS)
+/* Polly: a send's 32-bit sum to the effect's 16-bit input, clamped (not static: the host tests call it) */
+void VMSendClamp(const EAS_I32 *sum, EAS_PCM *out);
+void VMSendClamp(const EAS_I32 *sum, EAS_PCM *out)
+{
+    for (EAS_INT i = 0; i < BUFFER_SIZE_IN_MONO_SAMPLES * NUM_OUTPUT_CHANNELS; i++) {
+        EAS_I32 v = sum[i];
+        out[i] = (EAS_PCM)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+    }
+}
+#endif
+
 /*----------------------------------------------------------------------------
  * VMAddSamples()
  *----------------------------------------------------------------------------
@@ -3025,12 +3037,14 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
 
     EAS_U16 sendLevel;
 
+    /* Polly: the sends are summed in 32 bits and clamped to the effects' 16 (summed in 16 they wrapped: loud
+     * notes with full sends burst into noise) */
 #ifdef _CC_CHORUS
-    EAS_HWMemSet(pVoiceMgr->chorusSendBuffer, 0, sizeof(pVoiceMgr->chorusSendBuffer));
+    EAS_HWMemSet(pVoiceMgr->chorusSendSum, 0, sizeof(pVoiceMgr->chorusSendSum));
 #endif
 
 #ifdef _CC_REVERB
-    EAS_HWMemSet(pVoiceMgr->reverbSendBuffer, 0, sizeof(pVoiceMgr->reverbSendBuffer));
+    EAS_HWMemSet(pVoiceMgr->reverbSendSum, 0, sizeof(pVoiceMgr->reverbSendSum));
 #endif
 
     voicesRendered = 0;
@@ -3088,7 +3102,7 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
                     sendLevel = pSynth->reverbSendLevels[channel & 15];
                 }
                 if (pSynth->reverbEnabled && sendLevel != 0) {
-                    pVoiceMgr->reverbSendBuffer[i] += synthBuffer[i] * sendLevel / 128;
+                    pVoiceMgr->reverbSendSum[i] += synthBuffer[i] * sendLevel / 128;
                     reverbProcess = EAS_TRUE;
                 }
 #endif
@@ -3105,7 +3119,7 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
                     sendLevel = pSynth->chorusSendLevels[channel & 15];
                 }
                 if (pSynth->chorusEnabled && sendLevel != 0) {
-                    pVoiceMgr->chorusSendBuffer[i] += synthBuffer[i] * sendLevel / 128;
+                    pVoiceMgr->chorusSendSum[i] += synthBuffer[i] * sendLevel / 128;
                     chorusProcess = EAS_TRUE;
                 }
 #endif
@@ -3138,6 +3152,7 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
 
 #if defined (_CC_CHORUS)
     if (chorusProcess && pVoiceMgr->chorusModule.effectData != NULL) {
+        VMSendClamp(pVoiceMgr->chorusSendSum, pVoiceMgr->chorusSendBuffer);
         pVoiceMgr->chorusModule.effect->pfProcess(pVoiceMgr->chorusModule.effectData, pVoiceMgr->chorusSendBuffer, pVoiceMgr->chorusSendBuffer, numSamples);
         for (EAS_INT i = 0; i < BUFFER_SIZE_IN_MONO_SAMPLES * NUM_OUTPUT_CHANNELS; i++) {
             pMixBuffer[i] = pMixBuffer[i] + pVoiceMgr->chorusSendBuffer[i];
@@ -3148,6 +3163,7 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
     // but where is its CC controller
 #if defined (_CC_REVERB)
     if (reverbProcess && pVoiceMgr->reverbModule.effectData != NULL) {
+        VMSendClamp(pVoiceMgr->reverbSendSum, pVoiceMgr->reverbSendBuffer);
         pVoiceMgr->reverbModule.effect->pfProcess(pVoiceMgr->reverbModule.effectData, pVoiceMgr->reverbSendBuffer, pVoiceMgr->reverbSendBuffer, numSamples);
         for (EAS_INT i = 0; i < BUFFER_SIZE_IN_MONO_SAMPLES * NUM_OUTPUT_CHANNELS; i++) {
             pMixBuffer[i] = pMixBuffer[i] + pVoiceMgr->reverbSendBuffer[i];

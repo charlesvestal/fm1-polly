@@ -246,6 +246,25 @@ static void test_mute(void)
     arr_play(0);
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "offs match with mutes");
+    /* muted in the pattern (stored): its sounding note ends at once, as the live mute */
+    reset();
+    pat_new();
+    add(4, 0, 90, 60);                        /* C4, nearly the whole bar */
+    arr_load_pattern(0, &P);
+    arr_play(1);
+    run_to((uint32_t)(24 * FPT));
+    {
+        uint16_t d = arr_pattern_copy(0, &P);
+        int n0 = stub_n;
+        P.trk[4].mute = 1;
+        CHECK(arr_store_pattern(0, &P, d), "stored");
+        run_blocks(1);
+        i = find(stub_log, stub_n, n0, 0x82, 60);
+        CHECK(i >= 0 || find(stub_log, stub_n, n0, 0x92, 60) >= 0, "the pattern's mute ends the note at once");
+    }
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match with a pattern's mute");
 }
 
 static void test_midi_out(void)
@@ -910,6 +929,32 @@ static void test_song(void)
     arr_play(1);
     run_to((uint32_t)(4 * BAR));
     CHECK(arr_playing == 1 && slot_at(3 * BAR) == 0, "song off: Main A loops");
+    arr_play(0);
+    run_blocks(1);
+}
+
+/* a pattern shortened while it plays, its place past the new end: it wraps within the new length and keeps
+ * the bar's rhythm, so no bar line comes early and the song's bars stay on time */
+static void test_shorten(void)
+{
+    reset();
+    load_slot(0, 2, 4);
+    song_new(4);
+    for (int b = 0; b < 4; b++)
+        S.chord[b * 4] = ch(b + 1, CH_MAJ);   /* bar n: root n */
+    arr_song(&S, 1);
+    arr_play(1);
+    run_to((uint32_t)(BAR + 30 * FPT));         /* bar 2, beat 2 */
+    {
+        uint16_t d = arr_pattern_copy(0, &P);
+        P.bars = 1;
+        CHECK(arr_store_pattern(0, &P, d), "shortened");
+    }
+    run_to((uint32_t)(4 * BAR));
+    CHECK(root_at(BAR + 48 * FPT) == 2 && root_at(BAR + 72 * FPT) == 2, "bar 2 plays on to its end (%d %d)",
+          root_at(BAR + 48 * FPT), root_at(BAR + 72 * FPT));
+    CHECK(root_at(2 * BAR) == 3 && root_at(3 * BAR) == 4, "bars 3 and 4 on time (%d %d)", root_at(2 * BAR),
+          root_at(3 * BAR));
     arr_play(0);
     run_blocks(1);
 }
@@ -1674,6 +1719,7 @@ int main(void)
     test_record_busy();
     test_record_load();
     test_store();
+    test_shorten();
     test_record_section();
     test_live_keys();
     printf("%d checks, %d failed\n", checks, fails);

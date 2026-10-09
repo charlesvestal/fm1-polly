@@ -74,7 +74,13 @@ static void slot_cache(int s, const pattern_t *p)
 }
 /* the slot whose pattern the pages show and edit: the section playing (recording goes there too) */
 static int eslot(void) { return (arr_sect - 1) & 3; }
-static int slot_unsaved(int s) { return arr_dirty[s] != app.saved[s] || app.edited[s] || (app.edit_pend >> s & 1u); }
+/* changed since loaded or saved. A slot playing a factory style (16..) has nothing to save into: its edits
+ * play until another pattern is picked; Copy pattern (the jobs) keeps them in a user pattern */
+static int slot_unsaved(int s)
+{
+    return songs.song[proj.song].style[s] < ARR_USER_PATTERNS &&
+           (arr_dirty[s] != app.saved[s] || app.edited[s] || (app.edit_pend >> s & 1u));
+}
 
 /* edits: into the app's copy at once (the screen), into the arranger at most every EDIT_MS (a store re-sends
  * the pattern's sounds): copy the slot, put the app's settings in, store; refused when it was recorded into
@@ -399,8 +405,20 @@ static void job_run(void)
         say("NOT CLEARED", "RECORDING");
     } else {                                     /* copy it (as it is now) into a user pattern */
         int to = ui.job_to;
-        uint16_t d = arr_pattern_copy(s, &scratch);
+        uint16_t d;
         pat_name(to, t);
+        if (arr_playing) {                       /* a flash write pauses the audio */
+            say("COPY", "STOP FIRST");
+            return;
+        }
+        for (int j = 0; j < ARR_NSECT; j++)      /* another section plays it, changed: those changes first */
+            if (j != s && songs.song[proj.song].style[j] == to && slot_unsaved(j)) {
+                char a[24];
+                cat_s(cat_s(a, t), " UNSAVED IN");
+                say(a, SECT_NAME[j + 1]);
+                return;
+            }
+        d = arr_pattern_copy(s, &scratch);
         if (project_pattern_save(to, &scratch) != 0) {
             say("NOT COPIED", "FLASH ERROR");
             return;
@@ -409,8 +427,8 @@ static void job_run(void)
             app.saved[s] = d;
             app.edited[s] = 0;
         }
-        for (int j = 0; j < ARR_NSECT; j++)      /* the slots playing that pattern, unless changed */
-            if (j != s && songs.song[proj.song].style[j] == to && !slot_unsaved(j)) {
+        for (int j = 0; j < ARR_NSECT; j++)      /* the other slots playing that pattern get the copy */
+            if (j != s && songs.song[proj.song].style[j] == to) {
                 arr_load_pattern(j, &scratch);
                 slot_cache(j, &scratch);
                 app.saved[j] = arr_dirty[j];
@@ -481,7 +499,10 @@ static void holds(void)
     uint32_t now = plat_ms();
     if ((ui.btn >> B_SAVE & 1u) && !(ui.btn_used >> B_SAVE & 1u) && now - ui.btn_t[B_SAVE] > HOLD_MS) {
         ui.btn_used |= 1u << B_SAVE;
-        jobs_open();
+        if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
+            jobs_open();                         /* the pattern's jobs */
+        else
+            say("SONG JOBS", "coming");
     }
     if ((ui.btn >> B_SEL & 1u) && now - ui.btn_t[B_SEL] > HOLD_MS)
         ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
@@ -555,7 +576,7 @@ static void edit_knob(int k, int32_t e)
         if (k == 0)
             song_knob(2, e);                     /* the grid, as on the Song page */
         else if (k == 3)
-            trk_set(&t->mute, e > 0, 0, 1);      /* clockwise: muted, back: playing */
+            trk_set(&t->mute, !t->mute, 0, 1);   /* each turn, either way: muted / plays */
         break;
     case P_PATSET:
         if (k == 0 || k == 1) {
@@ -601,7 +622,7 @@ static void edit_knob(int k, int32_t e)
     }
     case P_MASTER: {
         uint8_t *v = k == 0 ? &proj.rev_type : k == 1 ? &proj.rev_level : k == 2 ? &proj.cho_type : &proj.cho_level;
-        int to = k == 1 || k == 3 ? clampi(*v + accel(EN_K1 + k, e), 0, 127) : clampi(*v + d, 0, 3);
+        int to = k == 1 || k == 3 ? clampi(*v + accel(EN_K1 + k, e), 0, 127) : clampi(*v + d, 0, k == 0 ? 4 : 3);
         if (to != *v) {
             *v = (uint8_t)to;
             fx_apply();
@@ -812,6 +833,7 @@ void ui_init(void)
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
+#define SONG_WAIT_MS 2000u
 void ui_frame(void)
 {
     input();
@@ -821,7 +843,9 @@ void ui_frame(void)
         edits_flush();
     /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the
      * voices ended (a save pauses the audio) */
-    if (app.song_pend && ui.stopped > 1u && !gm_voices) {
+    if (!app.song_pend || ui.stopped <= 1u)
+        ui.wait_t = plat_ms();
+    else if (!gm_voices || plat_ms() - ui.wait_t > SONG_WAIT_MS) {   /* (a long tail: 2 s at most) */
         int s = app.song_pend - 1;
         app.song_pend = 0;
         song_change(s);

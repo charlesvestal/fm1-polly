@@ -95,6 +95,11 @@ tap GLO
 expect page 12
 tap HOME
 expect page 0
+# SAVE held on the Song page: the song's jobs (later), not the pattern's
+press SAVE
+wait 800
+release SAVE
+expect job 0
 # a song picked while playing waits for the stop (a save would pause the audio)
 turn PRESET 1
 expect song 1

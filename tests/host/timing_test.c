@@ -10,6 +10,8 @@
  *              a sounding voice at the next block's start
  *   live:      the arranger's held note-offs go before the live notes of a block (the real gm_render)
  *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2)
+ *   sends:     loud notes with full reverb / chorus sends sum past 16 bits; the effects get them clamped
+ *              (VMSendClamp), not wrapped round (which burst into noise)
  *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only)
  *
  *   timing_test           the checks
@@ -432,6 +434,46 @@ static void test_arranger(void)
     }
 }
 
+void VMSendClamp(const EAS_I32 *sum, EAS_PCM *out);    /* eas_voicemgt.c (Polly) */
+static void test_sends(void)
+{
+    static EAS_I32 sum[2 * GM_BLOCK];
+    static EAS_PCM out[2 * GM_BLOCK];
+    int32_t most = 0, bad = 0;
+    quiet();
+    for (uint32_t c = 0; c < 8; c++) {           /* a loud saw cluster, every send full */
+        gm_midi(0xC0u | c, 81, 0);
+        gm_midi(0xB0u | c, 7, 127);
+        gm_midi(0xB0u | c, 11, 127);
+        gm_midi(0xB0u | c, 91, 127);
+        gm_midi(0xB0u | c, 93, 127);
+        for (uint32_t n = 0; n < 4; n++)
+            gm_midi(0x90u | c, 40 + c * 5 + n * 3, 127);
+    }
+    for (int b = 0; b < 40; b++) {
+        render_blocks(1);
+        for (int i = 0; i < 2 * GM_BLOCK; i++) {
+            int32_t v = vm()->reverbSendSum[i];
+            v = v < 0 ? -v : v;
+            most = v > most ? v : most;
+        }
+    }
+    CHECK(most > 32767, "full sends sum past 16 bits (the case the clamp is for): most %d", (int)most);
+    for (int i = 0; i < 2 * GM_BLOCK; i++)
+        sum[i] = (i - GM_BLOCK) * 700;           /* -89600 .. 88900 */
+    VMSendClamp(sum, out);
+    for (int i = 0; i < 2 * GM_BLOCK; i++) {
+        int32_t w = sum[i] > 32767 ? 32767 : sum[i] < -32768 ? -32768 : sum[i];
+        bad += out[i] != w;
+    }
+    CHECK(bad == 0, "the sends clamped to 16 bits: %d samples not", (int)bad);
+    for (uint32_t c = 0; c < 8; c++) {
+        gm_midi(0xB0u | c, 123, 0);
+        sends_off(c);
+    }
+    quiet();
+}
+
 int main(int argc, char **argv)
 {
     uint32_t h;
@@ -446,8 +488,16 @@ int main(int argc, char **argv)
         return 0;
     }
     if (argc > 1 && !strcmp(argv[1], "bench")) {
-        double s = bench();
-        printf("10 s of a dense pattern (up to %d voices): %.1f ms to render (best of 5)\n", bench_voices, s * 1000.0);
+        static const struct { uint8_t rt, rl, cl; const char *name; } fx[4] = {
+            {2, 90, 80, "reverb and chorus"}, {2, 90, 0, "reverb, chorus off"}, {0, 90, 80, "chorus, reverb off"},
+            {0, 90, 0, "both off"}};
+        for (int i = 0; i < 4; i++) {           /* every track sends to both (40, 20); the master decides */
+            double s;
+            gm_fx(fx[i].rt, fx[i].rl, 0, fx[i].cl);
+            s = bench();
+            printf("10 s of a dense pattern (up to %d voices), %s: %.1f ms to render (best of 5)\n", bench_voices,
+                   fx[i].name, s * 1000.0);
+        }
         return 0;
     }
     test_offsets();
@@ -456,6 +506,7 @@ int main(int argc, char **argv)
     test_steal_sounding();
     test_live_after_held_off();
     test_arranger();
+    test_sends();
     CHECK(h == REF_HASH, "plain MIDI renders as the unmodified engine: hash 0x%08x, want 0x%08x", h, REF_HASH);
     printf("%d checks, %d failed\n", checks, fails);
     return fails != 0;

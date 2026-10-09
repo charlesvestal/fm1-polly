@@ -337,11 +337,13 @@ typedef struct s_voice_mgr_tag
 
 #ifdef _CC_REVERB
     EAS_PCM                 reverbSendBuffer[NUM_OUTPUT_CHANNELS * BUFFER_SIZE_IN_MONO_SAMPLES];
+    EAS_I32                 reverbSendSum[NUM_OUTPUT_CHANNELS * BUFFER_SIZE_IN_MONO_SAMPLES];  /* Polly: the voices summed in 32 bits */
     S_EFFECTS_MODULE        reverbModule;
 #endif
 
 #ifdef _CC_CHORUS
     EAS_PCM                 chorusSendBuffer[NUM_OUTPUT_CHANNELS * BUFFER_SIZE_IN_MONO_SAMPLES];
+    EAS_I32                 chorusSendSum[NUM_OUTPUT_CHANNELS * BUFFER_SIZE_IN_MONO_SAMPLES];  /* Polly: the voices summed in 32 bits */
     S_EFFECTS_MODULE        chorusModule;
 #endif
     S_SYNTH_VOICE           voices[MAX_SYNTH_VOICES];

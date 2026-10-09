@@ -46,18 +46,29 @@ static volatile uint32_t fx_req, fx_done;
 void gm_fx(uint32_t rt, uint32_t rl, uint32_t ct, uint32_t cl)
 {
     uint32_t seq = (fx_req >> 24) + 1u;
-    fx_req = (rt & 3u) | (rl & 127u) << 2 | (ct & 3u) << 9 | (cl & 127u) << 11 | seq << 24;
+    fx_req = (rt > 4u ? 4u : rt) | (rl & 127u) << 3 | (ct & 3u) << 10 | (cl & 127u) << 12 | seq << 24;
 }
-/* a preset sets the module's own wet and dry: the dry goes back to none (the voices mix it: the sends'
- * build, _CC_REVERB / _CC_CHORUS), the level as asked */
+/* a preset sets the module's own wet and dry: the dry goes back to none (the voices mix it: EAS's sends,
+ * _CC_REVERB / _CC_CHORUS), the level as asked. An effect off (reverb type 0, or level 0) is off in the
+ * synth too: the voices no longer feed its send, so it costs nothing (Sonivox runs an effect once any voice
+ * sends to it, whatever its level) */
 static void fx_set(uint32_t v)
 {
-    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_PRESET, (EAS_I32)(v & 3u));
+    uint32_t rt = v & 7u, rl = v >> 3 & 127u, ct = v >> 10 & 3u, cl = v >> 12 & 127u;
+    if (rt)
+        EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_PRESET, (EAS_I32)(rt - 1u));
     EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_DRY, 0);
-    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, (EAS_I32)((v >> 2 & 127u) * 258u));
-    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_PRESET, (EAS_I32)(v >> 9 & 3u));
+    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, (EAS_I32)(rl * 258u));
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_PRESET, (EAS_I32)ct);
     EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_DRY, 0);
-    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, (EAS_I32)((v >> 11 & 127u) * 258u));
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, (EAS_I32)(cl * 258u));
+    for (int i = 0; i < MAX_VIRTUAL_SYNTHESIZERS; i++) {
+        S_SYNTH *s = eas->pVoiceMgr->pSynth[i];
+        if (!s)
+            continue;
+        s->reverbEnabled = (EAS_BOOL)(rt && rl);
+        s->chorusEnabled = (EAS_BOOL)(cl != 0);
+    }
 }
 
 static void synth_write(uint32_t m, uint32_t at)

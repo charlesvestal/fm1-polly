@@ -28,7 +28,8 @@ static const char *const KEY_NAME[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "
 static const char *const GRID_NAME[ARR_NQ] = {"8", "8T", "16", "16T", "32", "off"};
 static const char *const TYPE_NAME[NXT] = {"Bypass", "Parallel", "Chord 1", "Chord 2", "Bass"};
 static const char *const TYPE_SHORT[NXT] = {"Bypass", "Parall.", "Chord1", "Chord2", "Bass"};
-static const char *const REV_NAME[4] = {"Large hall", "Hall", "Chamber", "Room"};
+static const char *const REV_NAME[5] = {"Off", "Large hall", "Hall", "Chamber", "Room"};
+static const char *const REV_SHORT[5] = {"off", "L.hall", "Hall", "Chamb.", "Room"};
 static const char *const JOB_NAME[3] = {"Erase track", "Copy pattern", "Clear pattern"};
 static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 #define NNAME_CHARS ((int)sizeof NAME_CHARS - 1)
@@ -75,6 +76,7 @@ static struct {
     uint8_t stopped;                                 /* frames since the transport stopped */
     uint8_t job, job_sel, job_to;                    /* the jobs open (SAVE held), the one picked, the copy's pattern */
     uint8_t name_cur;                                /* the pattern name's letter edited */
+    uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[3];
 } ui;
@@ -446,13 +448,12 @@ static void pattern_head(int s, uint32_t *h)
     (void)h;
     pat_title(s, t);
     cv_text(x + 8, 2, &FONT_B, t, K_TEXT);
-    t[0] = (char)('0' + app.hdr[s].bars);
-    cat_s(t + 1, app.hdr[s].bars == 1 ? " bar of " : " bars of ");
-    {
+    {                                            /* "2 bars, 4/4, CM7": its length and source chord */
         char *e = t;
-        while (*e)
-            e++;
-        itoa_u(app.hdr[s].beats, e);
+        *e++ = (char)('0' + app.hdr[s].bars);
+        e = cat_s(e, app.hdr[s].bars == 1 ? " bar, " : " bars, ");
+        *e++ = (char)('0' + app.hdr[s].beats);
+        cat_s(e, "/4, CM7");
     }
     cv_text(232 - text_w(&FONT_XS, t), 3, &FONT_XS, t, K_DIM);
 }
@@ -505,7 +506,7 @@ static void draw_pattern(void)
             w = (int32_t)((uint32_t)v->len * (uint32_t)W / len);
             w = w < 2 ? 2 : w > X0 + W - x ? X0 + W - x : w;
             yy = y + 8 - (hi > lo ? (int32_t)((v->note - lo) * 6u / (hi - lo)) : 3);
-            cv_rect(x, yy, w, 3, mute ? K_LINE : i < 3 ? K_ACCENT : K_TEAL);
+            cv_rect(x, yy, w, 3, mute ? K_DIM : i < 3 ? K_ACCENT : K_TEAL);
         }
         if (mute)
             cv_text(X0 + W - text_w(&FONT_XS, "muted") - 4, y - 2, &FONT_XS, "muted", K_DIM);
@@ -565,7 +566,8 @@ static void draw_track(void)
     }
     if ((t->chan & 15u) == 9u) {
         cv_text(10, 28, &FONT_L, "Drum kit", K_TEXT);
-        cv_text(10, 64, &FONT_S, "Channel 10: a sound on each key", K_DIM);
+        if (!k2)
+            cv_text(10, 64, &FONT_S, "Channel 10: a sound on each key", K_DIM);
     } else {
         a[0] = (char)('0' + (t->program + 1) / 100);
         a[1] = (char)('0' + (t->program + 1) / 10 % 10);
@@ -576,7 +578,8 @@ static void draw_track(void)
             cv_text(70, 28, &FONT_L, GM_PROGRAM[t->program & 127u], K_TEXT);
         else
             cv_text(70, 36, &FONT_B, GM_PROGRAM[t->program & 127u], K_TEXT);
-        cv_text(10, 64, &FONT_S, GM_FAMILY[(t->program & 127u) / 8u], K_DIM);
+        if (!k2)
+            cv_text(10, 64, &FONT_S, GM_FAMILY[(t->program & 127u) / 8u], K_DIM);
     }
     {   /* the range over the whole MIDI keyboard */
         int32_t x0 = 10, w = 220, y = 96, lx = x0 + t->x.lo * w / 127, hx = x0 + t->x.hi * w / 127;
@@ -596,10 +599,10 @@ static void draw_track(void)
             note_name(t->x.hikey, e);
             e[(e[1] == '#' || e[1] == 'b') ? 2 : 1] = 0;   /* the pitch class only */
         }
-        cv_text(10, 82, &FONT_XS, a, K_DIM);
+        cv_text(10, 64, &FONT_S, a, K_TEXT);
         e = cat_s(b, "channel ");
         itoa_u((t->chan & 15u) + 1u, e);
-        cv_text(230 - text_w(&FONT_XS, b), 82, &FONT_XS, b, K_DIM);
+        cv_text(230 - text_w(&FONT_S, b), 64, &FONT_S, b, K_TEXT);
     }
     cv_blit(0, MAIN_Y);
 }
@@ -628,8 +631,13 @@ static void draw_mixer(void)
             cv_round(x + 8, 20 + 78 - vh - 1, 11, vh, 4, c);
         cv_rect(x + 3, 106, w - 6, 2, K_LINE);  /* pan */
         cv_round(x + 3 + (w - 10) * t->pan / 127, 103, 4, 8, 2, K_TEXT);
-        cv_round(x + 4, 118, (w - 8) * t->rev / 127 + 1, 5, 2, K_DIM);   /* reverb, chorus */
-        cv_round(x + 4, 128, (w - 8) * t->cho / 127 + 1, 5, 2, K_LINE);
+        {                                        /* the sends: R reverb, C chorus */
+            char r[6];
+            itoa_u(t->rev, cat_s(r, "R"));
+            text_c(x + w / 2, 112, &FONT_XS, r, K_DIM);
+            itoa_u(t->cho, cat_s(r, "C"));
+            text_c(x + w / 2, 126, &FONT_XS, r, K_DIM);
+        }
     }
     cv_blit(0, MAIN_Y);
 }
@@ -644,7 +652,7 @@ static void draw_master(void)
     cv_begin(240, MAIN_H, K_BG);
     cv_round(8, 4, 224, 64, 6, K_PANEL);
     cv_text(18, 8, &FONT_XS, "Reverb", K_DIM);
-    cv_text(18, 24, &FONT_L, REV_NAME[proj.rev_type & 3u], K_TEXT);
+    cv_text(18, 24, &FONT_L, REV_NAME[proj.rev_type <= 4u ? proj.rev_type : 0], K_TEXT);
     cv_round(18, 58, 204, 5, 2, K_LINE);
     cv_round(18, 58, 204 * proj.rev_level / 127 + 2, 5, 2, K_TEAL);
     cv_round(8, 76, 224, 64, 6, K_PANEL);
@@ -743,7 +751,7 @@ static void edit_knobs(knob_t *k)
     switch (ui.page) {
     case P_PATTERN:
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], ARR_NQ - 1 - proj.quant, ARR_NQ - 1);
-        kv(&k[3], "Mute", t->mute ? "muted" : "on", t->mute, 0);
+        kv(&k[3], "Track", t->mute ? "muted" : "plays", t->mute, 0);
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);
@@ -787,7 +795,7 @@ static void edit_knobs(knob_t *k)
         kn(&k[3], "Chorus", t->cho, 127);
         break;
     case P_MASTER:
-        kn(&k[0], "Reverb", proj.rev_type + 1, 4);
+        kv(&k[0], "Reverb", REV_SHORT[proj.rev_type <= 4u ? proj.rev_type : 0], proj.rev_type, 4);
         kn(&k[1], "Rev lvl", proj.rev_level, 127);
         kn(&k[2], "Chorus", proj.cho_type + 1, 4);
         kn(&k[3], "Cho lvl", proj.cho_level, 127);

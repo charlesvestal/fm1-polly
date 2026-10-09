@@ -398,8 +398,11 @@ static void sync(void)                             /* the playing slot reloaded:
     if (busy[cur] || seen[cur] == gen[cur])
         return;
     seen[cur] = gen[cur];
-    if (pos >= pat_len(&pat[cur]))
-        pos = 0;
+    if (pos >= pat_len(&pat[cur]))                 /* shortened past its place: wrapped within the new length, */
+        pos %= pat_len(&pat[cur]);                 /* in step with the bars (a jump to 0 would be a bar line) */
+    for (int t = 0; t < ARR_TRACKS; t++)           /* a track muted in the pattern: its notes end now too */
+        if (pat[cur].trk[t].mute)
+            track_off(&tk[t]);
     seek();
     if (arr_playing)
         setup();

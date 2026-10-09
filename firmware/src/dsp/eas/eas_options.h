@@ -12,8 +12,6 @@
 #define _FILTER_ENABLED
 #define _REVERB_ENABLED
 #define _CHORUS_ENABLED
-#define _CC_REVERB                  /* Polly: the per-channel sends (CC 91, CC 93) feed the reverb and chorus */
-#define _CC_CHORUS
 #define _8_BIT_SAMPLES
 #define _SAMPLE_RATE_22050
 #endif
