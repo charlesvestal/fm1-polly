@@ -117,7 +117,7 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   <div class="knobs">
     <h2>How it plays</h2>
     <p>Polly plays styles: a pattern for each section (Intro, Main A and B, Fills, Ending) on eight tracks, following the chord
-      you play. Press <b>PLAY</b>, then change chords on the keys. The screen shows the page you are on; the four knobs under it
+      you play. Turn <b>KNOB 1</b> on the Song page to pick a style, press <b>PLAY</b>, then tap <b>SEL</b> (CHORD) and play chords on the keys; hold <b>SEL</b> to see the section and template shortcuts. The screen shows the page you are on; the four knobs under it
       act on what the page shows. MIDI in (USB) plays all 16 channels. With QY70 styles loaded above, Setup (<b>GLO</b>) shows
       how many there are.</p>
     <h2>The controls, as the firmware lists them</h2>
@@ -258,7 +258,7 @@ function hit(c, cls) {
 const TIP = { PLAY: "Start / stop", REC: "Record into the selected track", SEL: "Tap: chords on / off. Held: with a key, a section or a chord",
   HOME: "Song page", SEQ: "Pattern pages", EDIT: "Track page", FX: "Mixer pages", LFO: "Chords page", ENV: "Arrange pages",
   ARP: "Templates pages", GLO: "Setup pages", SAVE: "Save (held: the jobs)", "OCT-": "Octave down", "OCT+": "Octave up",
-  SELECT: "Tempo", ALGORITHM: "Track", PRESETS: "Per page (Song page: the song)", MASTER: "Volume",
+  SELECT: "Tempo", ALGORITHM: "Track", PRESETS: "Per page (Song page: the style; hold SEL: the song)", MASTER: "Volume",
   KNOB1: "What the page shows", KNOB2: "What the page shows", KNOB3: "What the page shows", KNOB4: "What the page shows" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
 for (const k of Object.values(knobs)) hit(k, "knob");
