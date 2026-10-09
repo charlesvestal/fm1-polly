@@ -1,0 +1,49 @@
+# POLLY, save: takes into user patterns, saved; slots sharing a pattern keep the newest take; a flash error
+# stops the autosave until something changes.
+poke_share
+reboot
+wait 300
+# Main A: one note into C1
+tap PLAY
+wait 400
+tap REC
+tapkey 7
+wait 600
+expect slot0_nev 1
+# Main B (the same user pattern 1): two notes, the newer take
+press SEL
+key b1 down
+key b1 up
+release SEL
+wait 1200
+expect sect 2
+expect recording 0
+tap REC
+tapkey 7
+wait 200
+tapkey 11
+wait 600
+expect slot1_nev 2
+tap PLAY
+wait 100
+tap SAVE
+wait 50
+shot shared.png
+expect pat0_nev 2
+expect slot0_nev 2
+expect slot1_nev 2
+expect dirty 0
+# a flash error: said once, tried once, again only after a change
+flash_fail 1
+spin K1 1
+wait 5000
+expect dirty 1
+# 3: the shared song (poke), the pattern (SAVE), one autosave that failed
+expect store_tries 3
+shot flash_error.png
+wait 5000
+expect store_tries 3
+flash_fail 0
+spin K1 1
+wait 5000
+expect dirty 0

@@ -95,7 +95,22 @@ tap GLO
 expect page 11
 tap HOME
 expect page 0
+# a song picked while playing waits for the stop (a save would pause the audio)
+turn PRESET 1
+expect song 1
+shot song_at_stop.png
 tap PLAY
 wait 100
 expect playing 0
+expect song 2
 shot stopped.png
+# MIDI clock in drives the arranger: FA starts it, the clocks move it on, FC stops it
+midi FA 00 00
+clock 110
+expect playing 1
+expect ext 1
+expect bar 1
+shot ext_clock.png
+midi FC 00 00
+wait 50
+expect playing 0

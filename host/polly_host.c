@@ -19,6 +19,8 @@
  *   leds                         print the lit buttons and keys
  *   expect WHAT VALUE            check state: exit 1 on mismatch; VALUE "<N" / ">N" is a bound
  *   reboot                       re-run boot from the simulated flash (persistence test)
+ *   clock N [MS]                 N MIDI clocks in (F8), MS apart (default 21: 119 bpm)
+ *   flash_fail 0|1               every flash save fails (1) or works (0)
  */
 #define GM_HOST 1
 #include <stdio.h>
@@ -116,7 +118,8 @@ uint32_t arr_midi_out_link(void) { return plat_midi_out_link(); }
  * a plain {-1, -1} would leave the rest at 0, which reads as "present"). */
 static uint8_t store[OBJ_NOBJ][PLAT_STORE_MAX];
 static int store_len[OBJ_NOBJ] = { [0 ... OBJ_NOBJ - 1] = -1 };
-static uint32_t store_writes;
+static uint32_t store_writes, store_tries;
+static int store_fail;                  /* flash_fail 1: every save fails (a flash error) */
 
 int plat_store_load(uint32_t obj, void *dst, uint32_t max)
 {
@@ -130,7 +133,8 @@ int plat_store_load(uint32_t obj, void *dst, uint32_t max)
 }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len)
 {
-    if (obj >= OBJ_NOBJ || len > PLAT_STORE_MAX)
+    store_tries++;
+    if (obj >= OBJ_NOBJ || len > PLAT_STORE_MAX || store_fail)
         return -1;
     memcpy(store[obj], src, len);
     store_len[obj] = (int)len;
@@ -397,6 +401,18 @@ static int expect(const char *what, const char *val)
         got = proj.trk + 1;
     else if (!strcmp(what, "store_writes"))
         got = (int)store_writes;
+    else if (!strcmp(what, "store_tries"))        /* saves tried, failed ones too */
+        got = (int)store_tries;
+    else if (!strcmp(what, "bar"))                /* the pattern's bar playing, 0.. */
+        got = arr_bar;
+    else if (!strcmp(what, "ext"))                /* following MIDI clock in */
+        got = arr_ext;
+    else if (!strcmp(what, "song"))               /* the selected song, 1..4 */
+        got = proj.song + 1;
+    else if (!strncmp(what, "slot", 4) && strstr(what, "_nev")) {   /* slotN_nev: the arranger's slot N's notes */
+        arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
+        got = dbg_pat.nev;
+    }
     else if (!strcmp(what, "pat0_nev")) {          /* user pattern 0's event count */
         project_pattern_load(0, &dbg_pat);
         got = dbg_pat.nev;
@@ -517,6 +533,18 @@ int main(int argc, char **argv)
             accel_off = 1;
             run_ms(1);
             accel_off = 0;
+        } else if (!strcmp(cmd, "clock")) {        /* clock N [MS]: N MIDI clocks in (F8), MS apart (default 21) */
+            int n = atoi(a), gap = b[0] ? atoi(b) : 21;
+            for (; n > 0; n--) {
+                min_q[mi_w++ % MQ] = 0x0Fu | 0xF8u << 8;
+                run_ms((uint32_t)gap);
+            }
+        } else if (!strcmp(cmd, "flash_fail"))
+            store_fail = atoi(a);
+        else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays user pattern 1 as Main A and Main B */
+            songs_defaults(&dbg_songs);
+            dbg_songs.song[0].style[1] = dbg_songs.song[0].style[0];
+            project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "master"))
             master = (uint32_t)atoi(a);
         else if (!strcmp(cmd, "midi")) {

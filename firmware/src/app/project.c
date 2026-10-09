@@ -139,6 +139,9 @@ static void songs_defaults(songs_t *s)
     memset(s, 0, sizeof *s);
     s->magic = SONGS_MAGIC;
     s->format = SONGS_FORMAT;
+    for (int n = 0; n < ARR_SONGS; n++)              /* song n: user patterns 4n..4n+3, none shared */
+        for (int i = 0; i < ARR_NSECT; i++)
+            s->song[n].style[i] = (uint8_t)(n * ARR_NSECT + i);
 }
 
 int project_songs_load(songs_t *s)

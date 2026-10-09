@@ -38,6 +38,12 @@ static struct {
     /* the four slots' tracks as loaded (Main A, Main B, Fill, Ending): what the screen names */
     uint8_t tprog[ARR_NSECT][ARR_TRACKS], tchan[ARR_NSECT][ARR_TRACKS], tmute[ARR_NSECT][ARR_TRACKS];
     uint16_t saved[ARR_NSECT];                       /* each slot's arr_dirty when it was last loaded or saved */
+    uint16_t seen[ARR_NSECT];                        /* each slot's arr_dirty as last seen, and when it moved: */
+    uint32_t take_t[ARR_NSECT];                      /* the slot's latest take */
+    uint8_t song_pend;                               /* a song picked while playing, + 1: loaded at the stop */
+    uint32_t chg;                                    /* counts changes (the project's, the takes) */
+    uint8_t save_err;                                /* the last save failed at change count err_chg: */
+    uint32_t err_chg;                                /* autosave waits for another change */
 } app;
 
 /* the input's and the screen's state */
@@ -52,6 +58,7 @@ static struct {
     uint32_t frame;
     uint8_t page;
     uint8_t chord;                                   /* CHORD mode: the keys enter chords */
+    uint8_t stopped;                                 /* frames since the transport stopped */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[3];
 } ui;
@@ -141,19 +148,46 @@ static int32_t pill(int32_t x, int32_t y, int32_t w, const char *s, uint16_t bg,
     return x + w;
 }
 
-/* the chord after the one now: the template's next bar, or the song's next change; 0: none known */
-static int next_chord(chord_t *out)
+/* the engine's published place, read as a consistent set (the render may move it between two reads: read
+ * again until two readings agree) */
+typedef struct {
+    int tmpl;                                        /* the template playing, -1 none */
+    uint32_t tbar, bar, beat;                        /* its bar; the bar (the song's, with a song) and beat */
+    uint32_t chord;                                  /* the chord now, packed */
+} place_t;
+static void place_read(place_t *p)
 {
-    int t = arr_template_now;
-    if (t >= 0 && t < NTEMPLATES) {
+    place_t q;
+    do {
+        q.tmpl = arr_template_now;
+        q.tbar = arr_template_bar;
+        q.bar = app.song_on ? arr_song_bar : arr_bar;
+        q.beat = arr_beat_tick / ARR_PPQ;
+        q.chord = arr_chord_now;
+        p->tmpl = arr_template_now;
+        p->tbar = arr_template_bar;
+        p->bar = app.song_on ? arr_song_bar : arr_bar;
+        p->beat = arr_beat_tick / ARR_PPQ;
+        p->chord = arr_chord_now;
+    } while (p->tmpl != q.tmpl || p->tbar != q.tbar || p->bar != q.bar || p->beat != q.beat ||
+             p->chord != q.chord);
+    if (p->tmpl >= NTEMPLATES)
+        p->tmpl = -1;
+}
+
+/* the chord after the one now: the template's next bar, or the song's next change; 0: none known */
+static int next_chord(const place_t *pl, chord_t *out)
+{
+    int t = pl->tmpl;
+    if (t >= 0) {
         const template_t *m = &TEMPLATES[t];
-        *out = m->bars[(arr_template_bar + 1u) % m->nbars];
+        *out = m->bars[(pl->tbar + 1u) % m->nbars];
         out->root = (uint8_t)((out->root + proj.key) % 12u);
         return 1;
     }
     if (app.song_on) {
         const song_t *s = &songs.song[proj.song];
-        uint32_t now = arr_chord_now, b = (uint32_t)arr_song_bar * 4u + arr_beat_tick / ARR_PPQ, n = s->bars * 4u, i;
+        uint32_t now = pl->chord, b = pl->bar * 4u + pl->beat, n = s->bars * 4u, i;
         for (i = 1; i <= n; i++) {
             chord_t c = s->chord[(b + i) % n];
             if (c.type < CH_NTYPES && c.root < 12u && arr_chord_pack(c) != now) {
@@ -175,10 +209,10 @@ static int next_chord(chord_t *out)
 static void draw_header(void)
 {
     char t[24], *e;
-    int msg = plat_ms() < ui.msg_until;
+    int msg = plat_ms() < ui.msg_until, tn = arr_template_now, rec = arr_recording, ext = arr_ext;
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)unsaved() << 9 | (uint32_t)ui.chord << 10 |
-                                       (uint32_t)arr_recording << 11 | (uint32_t)arr_ext << 12 | (uint32_t)proj.tempo << 16);
-    h = hash(h, (uint32_t)(uint8_t)arr_template_now | (uint32_t)app.song_on << 8 | (uint32_t)proj.song << 9);
+                                       (uint32_t)rec << 11 | (uint32_t)ext << 12 | (uint32_t)proj.tempo << 16);
+    h = hash(h, (uint32_t)(uint8_t)tn | (uint32_t)app.song_on << 8 | (uint32_t)proj.song << 9);
     if (msg)
         h = hash(h, ui.msg_until);
     if (h == ui.sig[0])
@@ -194,18 +228,18 @@ static void draw_header(void)
             e = cat_s(t, " ");
             itoa_u(proj.song + 1u, e);
             x = cv_text(x, 4, &FONT_B, t, K_TEXT);
-            if (arr_template_now >= 0)
-                text_fit(x + 8, 6, &FONT_XS, TEMPLATES[arr_template_now].name, 84 - (x - 64), K_DIM);
+            if (tn >= 0 && tn < NTEMPLATES)
+                text_fit(x + 8, 6, &FONT_XS, TEMPLATES[tn].name, 84 - (x - 64), K_DIM);
         }
         if (unsaved())
             cv_round(x + 4, 10, 5, 5, 2, K_DIM);
-        if (arr_ext)
+        if (ext)
             cat_s(t, "ext");
         else
             itoa_u(proj.tempo, t);
         r -= text_w(&FONT_S, t);
         cv_text(r, 4, &FONT_S, t, K_TEXT);
-        if (arr_recording) {
+        if (rec) {
             r -= 14;
             cv_round(r, 8, 9, 9, 4, RGB(214, 64, 52));
         }
@@ -222,18 +256,26 @@ static void draw_header(void)
 /* ---------------------------------------------------------- Song page --- */
 static void draw_song(void)
 {
-    uint32_t h = hash(2166136261u, arr_chord_now), now = arr_ticks, lit = 0, i;
+    uint32_t h, now = arr_ticks, lit = 0, i;
     int sect = arr_sect, next = arr_next_sect, play = arr_playing, blink = (plat_ms() / 300u) & 1u;
-    uint32_t bar = app.song_on ? arr_song_bar : arr_bar, beat = arr_beat_tick / ARR_PPQ, slot = (uint32_t)(sect - 1) & 3u;
+    uint32_t slot = (uint32_t)(sect - 1) & 3u, bar, beat;
+    place_t pl;
     chord_t nc;
-    int has_next = next_chord(&nc);
+    int has_next;
     char t[24];
-    for (i = 0; i < ARR_TRACKS; i++)
-        if (arr_track_hit[i] && now - arr_track_hit[i] < 8u)
+    place_read(&pl);
+    bar = pl.bar;
+    beat = pl.beat;
+    has_next = next_chord(&pl, &nc);
+    h = hash(2166136261u, pl.chord);
+    for (i = 0; i < ARR_TRACKS; i++) {
+        uint32_t hit = arr_track_hit[i];
+        if (hit && now - hit < 8u)
             lit |= 1u << i;
+    }
     h = hash(h, (uint32_t)sect | (uint32_t)next << 4 | (uint32_t)play << 8 | (uint32_t)(next ? blink : 0) << 9 |
                     lit << 10 | (uint32_t)proj.trk << 18 | (uint32_t)ui.chord << 21 | (uint32_t)app.song_on << 22);
-    h = hash(h, bar << 8 | beat | (uint32_t)(uint8_t)arr_template_now << 16 | (uint32_t)arr_template_bar << 24);
+    h = hash(h, bar << 8 | beat | (uint32_t)(uint8_t)pl.tmpl << 16 | pl.tbar << 24);
     h = hash(h, has_next ? arr_chord_pack(nc) : 0xFFFFFFu);
     for (i = 0; i < ARR_TRACKS; i++)
         h = hash(h, app.tprog[slot][i] | (uint32_t)app.tchan[slot][i] << 8 | (uint32_t)app.tmute[slot][i] << 12);
@@ -260,7 +302,7 @@ static void draw_song(void)
         cv_text(232 - text_w(&FONT_M, t), 0, &FONT_M, t, play ? K_TEXT : K_DIM);
     }
     {   /* the chord now, big; the next one */
-        chord_name(arr_chord_unpack(arr_chord_now), t);
+        chord_name(arr_chord_unpack(pl.chord), t);
         cv_text(10, 28, &FONT_L, t, ui.chord ? K_TEAL : K_TEXT);
         cv_text(160, 30, &FONT_XS, "next", K_DIM);
         if (has_next) {
@@ -271,13 +313,13 @@ static void draw_song(void)
     }
     {   /* the progression: the template's bars, or the song's, or a hint */
         int32_t y = 72;
-        int t_now = arr_template_now;
-        if (t_now >= 0 && t_now < NTEMPLATES) {
+        int t_now = pl.tmpl;
+        if (t_now >= 0) {
             const template_t *m = &TEMPLATES[t_now];
             int32_t n = m->nbars, w = 224 / n;
             for (i = 0; i < (uint32_t)n; i++) {
                 chord_t c = m->bars[i];
-                int on = i == arr_template_bar;
+                int on = i == pl.tbar;
                 c.root = (uint8_t)((c.root + proj.key) % 12u);
                 chord_name(c, t);
                 cv_round(8 + (int32_t)i * w, y, w - 2, 18, 4, on ? K_TEAL : K_PANEL);
@@ -342,7 +384,9 @@ typedef struct {
 
 static void song_knobs(knob_t *k)
 {
-    int t = arr_template_now >= 0 ? arr_template_now : app.tmpl;
+    int t = arr_template_now;                        /* the template playing, or none ("-") */
+    if (t >= NTEMPLATES)
+        t = -1;
     k[0].name = "Key";
     cat_s(k[0].val, KEY_NAME[proj.key % 12u]);
     k[0].num = proj.key;

@@ -146,7 +146,7 @@ button. Sections are played with **SEL held + a black key**, which leaves ENV, L
 | ALGORITHM | the track (1..8) |
 | PRESETS | the pattern (Pattern pages), the song (Song, Arrange), the cursor (Chords), the template (Templates) |
 | KNOB 1-4 | the page's four values |
-| keys | play the selected track (through the transposer if it is not Bypass, so you play "in C" and hear it in the current chord), or chords (CHORD on) |
+| keys | play the selected track as played (you hear what you play; recording stores it over C M7 through the inverse transposer, as the QY does, so it follows later chords), or chords (CHORD on) |
 
 ## Screens (240 x 240, the cream / coral / teal family)
 

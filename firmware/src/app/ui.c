@@ -28,6 +28,7 @@ void ui_say(const char *a, const char *b) { say(a, b); }
 static void mark_dirty(void)
 {
     app.dirty = 1;
+    app.chg++;
     ui.act_t = plat_ms();
 }
 int ui_dirty(void) { return unsaved(); }
@@ -90,32 +91,69 @@ static void song_load(void)
     app.song_on = sg->bars > 0;
     arr_song(app.song_on ? sg : 0, 1);
 }
-/* the project, and each user pattern recorded into since it was loaded (also into the other slots playing the
- * same pattern, which had it as it was) */
+/* the takes: when each slot was last recorded into (or erased), so a save knows the newest */
+static void watch_takes(void)
+{
+    for (int s = 0; s < ARR_NSECT; s++) {
+        uint16_t d = arr_dirty[s];
+        if (d != app.seen[s]) {
+            app.seen[s] = d;
+            app.take_t[s] = plat_ms();
+            app.chg++;
+        }
+    }
+}
+/* what changed: the project, and each user pattern recorded into since it was loaded or saved. Slots sharing
+ * a user pattern (a song may choose that) get the saved pattern too, by arr_store_pattern (refused while
+ * they are recorded into: then they stay unsaved); when two of them were recorded into, the newest take is
+ * kept and the screen says so. */
 static int save_all(void)
 {
     const song_t *sg = &songs.song[proj.song];
-    int rc = project_save();
+    uint32_t done = 0;
+    int rc = 0;
+    watch_takes();
+    if (app.dirty) {
+        if (project_save() == 0)
+            app.dirty = 0;
+        else
+            rc = -1;
+    }
     for (int s = 0; s < ARR_NSECT; s++) {
-        int st = sg->style[s];
+        int st = sg->style[s], k = s, lost = -1;
         uint16_t d;
-        if (st >= ARR_USER_PATTERNS || arr_dirty[s] == app.saved[s])
+        if (st >= ARR_USER_PATTERNS || (done >> s & 1u) || arr_dirty[s] == app.saved[s])
             continue;
-        d = arr_pattern_copy(s, &scratch);
+        for (int j = 0; j < ARR_NSECT; j++)     /* the newest take of the slots sharing it */
+            if (sg->style[j] == st) {
+                done |= 1u << j;
+                if (j != k && arr_dirty[j] != app.saved[j] && (int32_t)(app.take_t[j] - app.take_t[k]) >= 0)
+                    k = j;
+            }
+        d = arr_pattern_copy(k, &scratch);
         if (project_pattern_save(st, &scratch) != 0) {
             rc = -1;
             continue;
         }
-        app.saved[s] = d;
-        for (int j = 0; j < ARR_NSECT; j++)
-            if (j != s && sg->style[j] == st && arr_dirty[j] == app.saved[j]) {
-                arr_load_pattern(j, &scratch);
+        app.saved[k] = d;
+        for (int j = 0; j < ARR_NSECT; j++) {
+            uint16_t e;
+            if (j == k || sg->style[j] != st)
+                continue;
+            e = arr_dirty[j];
+            if (e != app.saved[j])
+                lost = j;                        /* its takes give way to the newest */
+            if (arr_store_pattern(j, &scratch, e)) {
                 slot_cache(j, &scratch);
-                app.saved[j] = arr_dirty[j];
+                app.saved[j] = e;
             }
+        }
+        if (lost >= 0) {
+            char b[24];
+            cat_s(cat_s(b, "kept "), SECT_NAME[k + 1]);
+            say("SHARED PATTERN", b);
+        }
     }
-    if (rc == 0)
-        app.dirty = 0;
     return rc;
 }
 
@@ -255,9 +293,11 @@ static void button_down(int b)
     switch (b) {
     case B_PLAY: arr_play(!arr_playing); break;
     case B_REC:
-        arr_record(proj.trk, !arr_recording);
-        if (!arr_recording)
-            say("RECORD", TRACK_NAME[proj.trk]);
+    {
+        int on = !arr_recording;                 /* the state asked for (the engine's follows a block later) */
+        arr_record(proj.trk, on);
+        say(on ? "RECORD" : "RECORD OFF", on ? TRACK_NAME[proj.trk] : 0);
+    }
         break;
     default: break;
     }
@@ -266,12 +306,15 @@ static void button_up(int b)                     /* a tap: released before it wa
 {
     switch (b) {
     case B_SEL: set_chord_mode(!ui.chord); break;
-    case B_SAVE:
-        if (save_all() == 0)
-            say("SAVED", 0);
-        else
+    case B_SAVE: {
+        uint32_t m = ui.msg_until;
+        int rc = save_all();
+        if (rc != 0)
             say("NOT SAVED", "FLASH ERROR");
+        else if (ui.msg_until == m)              /* (else what the save said stays: a shared pattern) */
+            say("SAVED", 0);
         break;
+    }
     case B_OCTDN: case B_OCTUP:
         proj.oct = (int8_t)(proj.oct + (b == B_OCTUP ? 1 : -1));
         proj.oct = proj.oct < -3 ? -3 : proj.oct > 3 ? 3 : proj.oct;
@@ -299,6 +342,23 @@ static void holds(void)
         ui.btn_used |= 1u << B_SEL;              /* SEL held to look at the lights: not a tap */
 }
 
+/* another song: recording off, what changed saved (else nothing changes: the takes would be lost), its
+ * patterns loaded */
+static void song_change(int s)
+{
+    char t[12];
+    arr_record(proj.trk, 0);
+    if (unsaved() && save_all() != 0) {
+        say("NOT SAVED", "SONG KEPT");
+        return;
+    }
+    proj.song = (uint8_t)s;
+    song_load();
+    mark_dirty();
+    itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
+    say(t, app.song_on ? 0 : "empty");
+}
+
 /* the four knobs on the page shown */
 static void knob(int k, int32_t e)
 {
@@ -322,8 +382,8 @@ static void knob(int k, int32_t e)
         break;
     }
     case 3: {
-        int t = arr_template_now >= 0 ? arr_template_now : app.tmpl;
-        t = t < 0 ? 0 : t + (e > 0 ? 1 : -1);
+        int t = arr_template_now;                /* from none: the last one picked, or the first */
+        t = t >= 0 && t < NTEMPLATES ? t + (e > 0 ? 1 : -1) : app.tmpl >= 0 ? app.tmpl : 0;
         if (t >= 0 && t < NTEMPLATES)
             pick_template(t);
         break;
@@ -334,17 +394,16 @@ static void knob(int k, int32_t e)
 static void presets(int32_t e)
 {
     if (ui.page == P_SONG) {
-        int s = proj.song + (e > 0 ? 1 : -1);
-        char t[4];
+        int s = (app.song_pend ? app.song_pend - 1 : proj.song) + (e > 0 ? 1 : -1);
+        char t[12];
         if (s < 0 || s >= ARR_SONGS)
             return;
-        if (unsaved())
-            save_all();                          /* the patterns recorded: kept before another song's load */
-        proj.song = (uint8_t)s;
-        song_load();
-        mark_dirty();
-        itoa_u((uint32_t)s + 1u, t);
-        say("SONG", app.song_on ? t : "empty");
+        if (arr_playing) {                       /* a save (flash) would pause the audio: at the stop */
+            app.song_pend = (uint8_t)(s == proj.song ? 0 : s + 1);
+            itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
+            say(t, s == proj.song ? "stays" : "at stop");
+        } else
+            song_change(s);
     }
 }
 
@@ -432,9 +491,10 @@ static void input(void)
 static void leds(void)
 {
     uint32_t b = 0, k = 0, i;
+    int rec = arr_recording;
     if (arr_playing)
         b |= 1u << B_PLAY;
-    if (arr_recording)
+    if (rec)
         b |= 1u << B_REC;
     if (ui.chord)
         b |= 1u << B_SEL;
@@ -442,15 +502,15 @@ static void leds(void)
         if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
             b |= 1u << PAGE_BTN[i].btn;
     if (ui.btn >> B_SEL & 1u) {                  /* SEL held: the section and the template playing */
-        int s = arr_next_sect >= SEC_A && arr_next_sect <= SEC_END ? arr_next_sect : arr_sect;
+        int n = arr_next_sect, s = n >= SEC_A && n <= SEC_END ? n : arr_sect, t = arr_template_now;
         if (s >= SEC_A && s <= SEC_END)
             k |= 1u << BLACK_K[s - 1];
-        if (arr_template_now >= 0 && arr_template_now < 16)
-            k |= 1u << WHITE_K[arr_template_now];
+        if (t >= 0 && t < 16)
+            k |= 1u << WHITE_K[t];
     } else if (proj.leds)
         k = ui.keys;
     plat_glow(proj.leds == 1);
-    plat_play_red(arr_recording);
+    plat_play_red(rec);
     plat_leds(b, k);
 }
 
@@ -459,8 +519,16 @@ static void autosave(void)                       /* at rest only: a flash write 
 {
     if (arr_playing || ui.btn || ui.keys || gm_voices || plat_ms() - ui.act_t < AUTOSAVE_QUIET || !unsaved())
         return;
-    if (save_all() != 0)
-        ui.act_t = plat_ms();                    /* a flash error: not again at once */
+    if (app.save_err && app.err_chg == app.chg)
+        return;                                  /* it failed: again only after another change */
+    if (save_all() == 0) {
+        app.save_err = 0;
+        return;
+    }
+    if (!app.save_err)
+        say("NOT SAVED", "FLASH ERROR");         /* once, until a save works again */
+    app.save_err = 1;
+    app.err_chg = app.chg;
 }
 
 void ui_init(void)
@@ -474,6 +542,13 @@ void ui_init(void)
 void ui_frame(void)
 {
     input();
+    watch_takes();
+    ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
+    if (app.song_pend && ui.stopped > 1u) {      /* a song picked while playing: now (stopped for a frame, */
+        int s = app.song_pend - 1;               /* not a PLAY the engine has yet to see) */
+        app.song_pend = 0;
+        song_change(s);
+    }
     autosave();
     draw_header();
     draw_page();
