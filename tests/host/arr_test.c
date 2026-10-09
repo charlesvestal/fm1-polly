@@ -959,6 +959,32 @@ static void test_shorten(void)
     run_blocks(1);
 }
 
+/* a song edit's copy in progress (the main loop interrupted midway) as a beat comes: the beat's chord still
+ * plays (the render's own copy of the song is never the one being written) */
+void arr_test_song_busy(int on);
+static void test_song_busy(void)
+{
+    reset();
+    load_slots(4);
+    song_new(2);
+    for (int i = 0; i < 8; i++)
+        S.chord[i] = ch(i + 1, CH_MAJ);       /* beat n: root n + 1 */
+    arr_song(&S, 1);
+    arr_play(1);
+    run_to((uint32_t)(36 * FPT));             /* beat 2, halfway */
+    arr_test_song_busy(1);
+    S.chord[3] = ch(11, CH_MAJ);              /* (what the main loop is writing) */
+    run_to((uint32_t)(60 * FPT));             /* beat 3 passes */
+    arr_test_song_busy(0);
+    arr_song(&S, 1);
+    run_to((uint32_t)(2 * BAR));
+    CHECK(root_at(48 * FPT) == 3, "the beat during the copy plays its chord (%d)", root_at(48 * FPT));
+    CHECK(root_at(72 * FPT) == 11, "the edit, once copied, from its beat (%d)", root_at(72 * FPT));
+    CHECK(root_at(BAR) == 5, "on (%d)", root_at(BAR));
+    arr_play(0);
+    run_blocks(1);
+}
+
 static void test_templates(void)
 {
     static const char *names[NTEMPLATES] = {"Pop", "Sensitive", "Fifties", "ii-V-I", "Blues", "Minor blues", "One-four",
@@ -1720,6 +1746,7 @@ int main(void)
     test_record_load();
     test_store();
     test_shorten();
+    test_song_busy();
     test_record_section();
     test_live_keys();
     printf("%d checks, %d failed\n", checks, fails);

@@ -448,8 +448,14 @@ static int expect(const char *what, const char *val)
         got = songs.song[proj.song].sect[atoi(what + 9) & 63];
     else if (!strcmp(what, "song_bars"))
         got = songs.song[proj.song].bars;
+    else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) & 3];   /* songN_styleI */
     else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].bars;     /* songN_bars (1..4), as in RAM */
+    else if (!strcmp(what, "song_on"))            /* the app gave the arranger the song (not a template) */
+        got = app.song_on;
+    else if (!strcmp(what, "rec_chords"))
+        got = ui.rec_chords;
     else if (!strcmp(what, "cbeat"))              /* the Chords / Arrange cursor, a beat 0.. */
         got = app.cbeat;
     else if (!strcmp(what, "clock"))

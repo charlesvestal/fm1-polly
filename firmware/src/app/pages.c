@@ -88,6 +88,9 @@ static struct {
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint32_t mute_t;                                 /* the mute knob's last detent */
     uint8_t rec_chords;                              /* REC on the Chords page: chords played go into the song */
+    uint8_t chord_forced;                            /* REC turned CHORD on (leaving the page turns it off) */
+    int16_t centry;                                  /* the beat the chord held was written at, -1 none */
+    uint8_t centry_step;                             /* written by step entry: the cursor moves on at release */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[3];
 } ui;
@@ -820,19 +823,28 @@ static void draw_arrange(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    song_head("sections");
+    {
+        char t[12];
+        itoa_u((uint32_t)cb + 1u, cat_s(t, "bar "));
+        song_head(t);
+    }
+    for (b = 0; b < ARR_SONGBARS; b += 8) {      /* row labels: each row's first bar */
+        char t[4];
+        itoa_u((uint32_t)b + 1u, t);
+        cv_text(20 - text_w(&FONT_XS, t), 16 + (b / 8) * 15, &FONT_XS, t, K_DIM);
+    }
     for (b = 0; b < ARR_SONGBARS; b++) {
-        int32_t x = 8 + (b % 8) * 28, y = 18 + (b / 8) * 15;
+        int32_t x = 24 + (b % 8) * 27, y = 18 + (b / 8) * 15;
         int in = b < g->bars, cur = b == cb, se = sect_at(g, b), mark = g->sect[b] >= SEC_A && g->sect[b] <= SEC_END;
         if (cur)
-            cv_round(x - 1, y - 1, 28, 15, 4, K_TEXT);
-        cv_round(x, y, 26, 13, 3, in ? sect_colour(se) : K_PANEL);
+            cv_round(x - 1, y - 1, 27, 15, 4, K_TEXT);
+        cv_round(x, y, 25, 13, 3, in ? sect_colour(se) : K_PANEL);
         if (mark) {
             char c[2] = {SECT_LETTER[g->sect[b]], 0};
-            text_c(x + 13, y - 2, &FONT_XS, c, in ? K_BG : K_DIM);
+            text_c(x + 12, y - 2, &FONT_XS, c, in ? K_BG : K_DIM);
         }
         if (b == pbar)
-            cv_round(x + 20, y + 4, 4, 4, 2, K_BG);
+            cv_round(x + 19, y + 4, 4, 4, 2, K_BG);
     }
     cv_blit(0, MAIN_Y);
 }

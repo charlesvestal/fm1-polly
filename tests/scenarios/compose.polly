@@ -105,8 +105,26 @@ expect job 2
 spin K1 1
 wait 100
 shot song_jobs.png
+tap PLAY
+tap SEL
+expect song2_bars 0
+tap PLAY
+wait 100
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K2 -1
+tap SEL
+expect song2_bars 0
+press SAVE
+wait 800
+release SAVE
+spin K1 1
 tap SEL
 expect song2_bars 6
+expect song2_style0 4
+expect song2_style3 7
 press SAVE
 wait 800
 release SAVE

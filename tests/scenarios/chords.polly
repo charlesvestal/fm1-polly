@@ -1,0 +1,109 @@
+# POLLY, chords: entering chords on the Chords page. A rolled four-note chord is one chord (the cursor moves on
+# when the keys are up); the song comes back after a template audition; one REC at a time, CHORD restored; a
+# chord growing while recorded rewrites its beat; past the end of a song that does not loop, dropped; a song
+# waiting for the bar line takes a chord at its bar 1.
+wait 300
+tap LFO
+tap SEL
+expect chord_mode 1
+key 2 down
+wait 20
+key 6 down
+wait 20
+key 9 down
+wait 20
+key 12 down
+wait 50
+expect song_chord0 706
+expect song_chord4 26
+expect cbeat 0
+key 2 up
+key 6 up
+key 9 up
+key 12 up
+wait 30
+expect cbeat 4
+expect song_chord4 26
+tap SEL
+expect chord_mode 0
+# a template auditioned; leaving the Templates pages gives the song back
+tap ARP
+tap PLAY
+wait 200
+expect template 0
+expect song_on 0
+tap PLAY
+wait 100
+tap LFO
+expect song_on 1
+# REC: the track's recording first, then REC on Chords: it ends the track's, turns CHORD on
+tap SEQ
+tap PLAY
+tap REC
+expect recording 1
+tap LFO
+tap REC
+wait 50
+expect recording 0
+expect rec_chords 1
+expect chord_mode 1
+# G B D then F, held, around beat 3: G7 on that beat, nothing after it
+wait 600
+key 2 down
+key 6 down
+key 9 down
+wait 30
+key 12 down
+wait 30
+expect cbeat 2
+expect cur_chord 706
+expect song_chord3 26
+shot rec_grow.png
+key 2 up
+key 6 up
+key 9 up
+key 12 up
+wait 30
+# leaving the page: chord recording off, CHORD as it was
+tap HOME
+expect rec_chords 0
+expect chord_mode 0
+tap PLAY
+wait 100
+# a song of one bar that does not loop: a chord in the second half of its last beat is dropped
+tap ENV
+spin K3 -1
+tap LFO
+tap PLAY
+tap REC
+wait 1650
+key 9 down
+key 12 down
+key 16 down
+wait 30
+expect song_chord0 706
+key 9 up
+key 12 up
+key 16 up
+tap REC
+wait 300
+expect playing 0
+# a song set while a template plays waits for the bar line: a chord played meanwhile goes to its bar 1
+tap ARP
+tap PLAY
+wait 300
+tap LFO
+tap REC
+wait 30
+key 7 down
+key 11 down
+key 14 down
+wait 30
+expect song_chord0 0
+expect cbeat 0
+key 7 up
+key 11 up
+key 14 up
+tap REC
+tap PLAY
+shot chords_end.png

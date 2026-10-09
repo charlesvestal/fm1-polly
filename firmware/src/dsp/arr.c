@@ -52,9 +52,12 @@ static pattern_t pat[ARR_NSECT];
 static volatile uint8_t busy[ARR_NSECT], gen[ARR_NSECT];
 static volatile uint8_t ident[ARR_NSECT];         /* counts loads of another pattern (not stores of an edit) */
 static uint8_t seen[ARR_NSECT];
-/* the song, copied in the same way: the render leaves it alone while it is busy */
-static song_t song;
-static volatile uint8_t song_busy;
+/* the song: the main loop copies it into a stage (busy meanwhile); the render takes the stage into its own
+ * copy at a block's start when it is complete. So the render's song is never half-written and never
+ * unreadable: a beat or bar line during an edit plays the song as it was, not skipped */
+static song_t song, stage;
+static volatile uint8_t song_busy, stage_ready;
+volatile uint8_t arr_song_wait;
 
 void arr_play(int on) { post(C_PLAY, on != 0, 0); }
 void arr_set_tempo(int bpm) { post(C_TEMPO, (uint32_t)(bpm < 40 ? 40 : bpm > 240 ? 240 : bpm), 0); }
@@ -71,7 +74,8 @@ void arr_song(const song_t *s, int loop)
     }
     song_busy = 1;
     BARRIER();
-    memcpy(&song, s, sizeof song);
+    memcpy(&stage, s, sizeof stage);
+    stage_ready = 1;
     BARRIER();
     song_busy = 0;
     post(C_SONG, 1, (uint32_t)(loop != 0) | (uint32_t)(s->bars < 1 ? 1 : s->bars > ARR_SONGBARS ? ARR_SONGBARS : s->bars) << 8);
@@ -157,6 +161,7 @@ int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect)
 }
 #ifdef ARR_TEST
 void arr_test_busy(int slot, int on) { busy[slot] = (uint8_t)(on != 0); }   /* a load caught midway */
+void arr_test_song_busy(int on) { song_busy = (uint8_t)(on != 0); }           /* a song copy caught midway */
 #endif
 
 /* ------------------------------------------------------------ the state --- */
@@ -670,7 +675,7 @@ static void transport_start(void)
     uint8_t s = arr_next_sect;                     /* the section queued; a song's first; else the Main */
     if (s < SEC_A || s > SEC_END) {                /* playing (after a fill or an ending: Main A) */
         s = cur == SEC_B - 1 ? SEC_B : SEC_A;
-        if (song_on && !song_busy && song.sect[0] >= SEC_A && song.sect[0] <= SEC_END)
+        if (song_on && song.sect[0] >= SEC_A && song.sect[0] <= SEC_END)
             s = song.sect[0];
     }
     if (s == SEC_FILL)
@@ -746,7 +751,7 @@ static int bar_line(void)
     uint8_t next = arr_next_sect, mark = SEC_SAME;
     if (!first_tick)
         sec_bars++;
-    if (song_on && !(song_restart && song_busy)) { /* a new song's start waits for its copy */
+    if (song_on && !(song_restart && stage_ready)) { /* a new song's start waits for its copy */
         int restart = song_restart;
         if (restart)
             sbar = 0;
@@ -760,7 +765,7 @@ static int bar_line(void)
             }
             sbar = 0;
         }
-        if (!song_busy && (!first_tick || restart) && song.sect[sbar] >= SEC_A && song.sect[sbar] <= SEC_END)
+        if ((!first_tick || restart) && song.sect[sbar] >= SEC_A && song.sect[sbar] <= SEC_END)
             mark = song.sect[sbar];
         arr_song_bar = sbar;
     }
@@ -797,7 +802,7 @@ static void beat_chord(int play)
 {
     uint32_t beat = pos % bar_len(&pat[cur]) / ARR_PPQ;
     if (song_on) {
-        if (!song_busy && !song_restart && beat < 4 && sbar < ARR_SONGBARS) {
+        if (!song_restart && beat < 4 && sbar < ARR_SONGBARS) {
             chord_t c = song.chord[sbar * 4u + beat];
             if (c.type < CH_NTYPES && c.root < 12)
                 chord_change(c, play);
@@ -1033,10 +1038,15 @@ void arr_block(uint32_t frames)
     const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
     arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
+    if (stage_ready && !song_busy) {               /* a song set: in, whole */
+        memcpy(&song, &stage, sizeof song);
+        stage_ready = 0;
+    }
     drain();
     erase_apply();                                 /* what waited for a store to finish */
     rec_flush(0);
     arr_template_now = tmpl;
+    arr_song_wait = (uint8_t)(song_on && song_restart);
     sync();
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
         out_link = arr_midi_out_link();
@@ -1120,7 +1130,8 @@ void arr_init(void)                                /* at boot, before the render
     arr_next_sect = SEC_SAME;
     arr_bar = arr_beat_tick = 0;
     arr_ticks = 0;
-    song_busy = 0;
+    song_busy = stage_ready = 0;
+    arr_song_wait = 0;
     song_on = song_loop = song_restart = 0;
     song_len = 1;
     memset(keys_prev, 0, sizeof keys_prev);

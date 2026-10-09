@@ -111,7 +111,8 @@ unspecified; this keeps pads following the changes).
 - **Live (CHORD on):** the keys are a chord zone. Held notes are recognised (FoMni's `kb_chord` best fit,
   extended to the 26 types; the lowest note held below the chord is a slash bass). The chord changes when a
   new shape is recognised, held after release (as the QY's fingered mode). While recording, chord changes
-  land on the beat (to the nearest beat, or an eighth early when played within a 16th before it).
+  land on the nearest beat (v1: rounding only; anticipation, a chord sounding an eighth early when played
+  within a 16th before its beat, is later: the song stores one chord a beat).
 - **Step (the Chords page, LFO):** the cursor on a beat (PRESETS moves it), KNOB 1 root, KNOB 2 type, KNOB 3
   slash bass, KNOB 4 the cursor's step (beat, half bar, bar); or with CHORD on, play a chord: it is written
   at the cursor, which moves on a step.

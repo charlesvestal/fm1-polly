@@ -163,6 +163,8 @@ uint32_t arr_midi_out_link(void);
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
 extern volatile uint8_t arr_song_bar;               /* the song's bar playing (0..63), with a song */
+extern volatile uint8_t arr_song_wait;              /* a song set while playing waits for the next bar line, where
+                                                     * it starts at its bar 1 (arr_song_bar is the old place) */
 extern volatile int8_t arr_template_now;            /* the template playing, -1 none */
 extern volatile uint8_t arr_template_bar;           /* its bar sounding now (0..nbars-1): the screen's next chord */
 extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
