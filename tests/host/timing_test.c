@@ -12,6 +12,9 @@
  *   arranger:  hats from the arranger at 97, 120, 133 BPM start on their exact frame (+-2)
  *   sends:     loud notes with full reverb / chorus sends sum past 16 bits; the effects get them clamped
  *              (VMSendClamp), not wrapped round (which burst into noise)
+ *   tails:     after the last note the reverb rings out (no drop to silence, falling gradually), and a note
+ *              after a long silence renders exactly as one after a different note's long silence (the
+ *              effects start clean: nothing frozen replays)
  *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only)
  *
  *   timing_test           the checks
@@ -189,10 +192,10 @@ static void render_blocks(int n)
         frame_now += BLK;
     }
 }
-static void quiet(void)                            /* until nothing sounds */
+static void quiet(void)                            /* until nothing sounds: the voices, and the effects' tails */
 {
     int n = 0;
-    while (gm_voices && n++ < 2000)
+    while ((gm_voices || vm()->reverbTail || vm()->chorusTail) && n++ < 4000)
         render_blocks(1);
     render_blocks(2);
 }
@@ -474,6 +477,107 @@ static void test_sends(void)
     quiet();
 }
 
+static double rms(const int32_t *b, int n)       /* n stereo frames */
+{
+    double a = 0;
+    for (int i = 0; i < 2 * n; i++)
+        a += (double)b[i] * (double)b[i];
+    return a / (2 * n) > 0 ? __builtin_sqrt(a / (2 * n)) : 0;
+}
+static void test_tails(void)
+{
+    double w[10];
+    int blocks = 0, minblk = -1;
+    double minr = 1e30;
+    quiet();
+    gm_midi(0xC0u, 0, 0);
+    gm_midi(0xB0u, 91, 127);
+    gm_midi(0xB0u, 93, 0);
+    gm_midi(0x90u, 60, 110);
+    render_blocks(52);                           /* 300 ms */
+    gm_midi(0x80u, 60, 0);
+    while (gm_voices && blocks++ < 2000)
+        render_blocks(1);
+    for (int i = 0; i < 10; i++) {               /* 50 ms windows (9 blocks of 256 frames) */
+        double a = 0;
+        for (int b = 0; b < 9; b++) {
+            double r;
+            render_blocks(1);
+            r = rms(buf, BLK);
+            a += r * r;
+            if (i == 0 && r < minr) {
+                minr = r;
+                minblk = b;
+            }
+        }
+        w[i] = __builtin_sqrt(a / 9);
+    }
+    CHECK(minr > 1.0, "the tail sounds through the first 50 ms after the last voice (block %d: rms %.1f)", minblk, minr);
+    for (int i = 0; i < 9; i++)
+        CHECK(w[i + 1] > w[i] * 0.25 && w[i + 1] < w[i] * 1.5, "the tail falls gradually: window %d rms %.1f, then %.1f",
+              i, w[i], w[i + 1]);
+    CHECK(w[9] < w[0], "the tail falls (%.1f to %.1f)", w[0], w[9]);
+    sends_off(0);
+    quiet();
+}
+static uint32_t note_after_silence(int prog_before)
+{
+    uint32_t h = 2166136261u;
+    gm_midi(0xC0u, (uint32_t)prog_before, 0);    /* a different note first, its tail rung out */
+    gm_midi(0xB0u, 91, 127);
+    gm_midi(0xB0u, 93, 127);
+    gm_midi(0x90u, 48 + (uint32_t)prog_before % 24u, 127);
+    render_blocks(40);
+    gm_midi(0x80u, 48 + (uint32_t)prog_before % 24u, 0);
+    quiet();
+    /* Sonivox keeps a free voice's phase fraction, filter state and gains from its last note (upstream; heard
+     * as nothing, but not bit-exact): as fresh, so only the effects' state can differ */
+    for (int v = 0; v < NUM_WT_VOICES; v++) {
+        vm()->wtVoices[v].filter.z1 = vm()->wtVoices[v].filter.z2 = 0;
+        vm()->wtVoices[v].phaseFrac = 0;
+        vm()->wtVoices[v].gainLeft = vm()->wtVoices[v].gainRight = 0;
+    }
+    gm_midi(0xC0u, 0, 0);                        /* then the same note */
+    gm_midi(0x90u, 64, 100);
+    for (int b = 0; b < 60; b++) {
+        render_blocks(1);
+        h = fnv(h, buf, 2 * BLK);
+    }
+    gm_midi(0x80u, 64, 0);
+    sends_off(0);
+    quiet();
+    return h;
+}
+int gm_host_fx_settled(void);                    /* gm.c, GM_HOST */
+/* the reverb switched off while it rings: its level glides down over a few blocks (no click), then it idles */
+static void test_fx_off(void)
+{
+    double r0, r1;
+    quiet();
+    gm_fx(2, 100, 0, 0);
+    gm_midi(0xB0u, 91, 127);
+    gm_midi(0x90u, 60, 110);
+    render_blocks(40);
+    gm_midi(0x80u, 60, 0);
+    while (gm_voices)
+        render_blocks(1);
+    render_blocks(1);
+    r0 = rms(buf, BLK);
+    gm_fx(0, 100, 0, 0);
+    render_blocks(1);
+    r1 = rms(buf, BLK);
+    CHECK(r0 > 1.0 && r1 > r0 * 0.2, "switched off: the tail glides down, not cut (rms %.1f, then %.1f)", r0, r1);
+    render_blocks(4);
+    CHECK(gm_host_fx_settled() && vm()->reverbTail == 0, "then idle (tail %d)", vm()->reverbTail);
+    sends_off(0);
+    quiet();
+}
+static void test_clean_start(void)
+{
+    uint32_t a = note_after_silence(81), b = note_after_silence(48);
+    CHECK(a == b, "a note after a long silence: the same, whatever rang before (0x%08x, 0x%08x)", a, b);
+}
+
 int main(int argc, char **argv)
 {
     uint32_t h;
@@ -491,6 +595,14 @@ int main(int argc, char **argv)
         static const struct { uint8_t rt, rl, cl; const char *name; } fx[4] = {
             {2, 90, 80, "reverb and chorus"}, {2, 90, 0, "reverb, chorus off"}, {0, 90, 80, "chorus, reverb off"},
             {0, 90, 0, "both off"}};
+        {                                       /* silence, the tails rung out: the effects idle */
+            clock_t t0;
+            quiet();
+            t0 = clock();
+            for (int b = 0; b < 44100 * 10 / BLK; b++)
+                gm_render(buf, BLK, 4096);
+            printf("10 s of silence, the effects idle: %.1f ms to render\n", (double)(clock() - t0) * 1000.0 / CLOCKS_PER_SEC);
+        }
         for (int i = 0; i < 4; i++) {           /* every track sends to both (40, 20); the master decides */
             double s;
             gm_fx(fx[i].rt, fx[i].rl, 0, fx[i].cl);
@@ -507,6 +619,9 @@ int main(int argc, char **argv)
     test_live_after_held_off();
     test_arranger();
     test_sends();
+    test_tails();
+    test_clean_start();
+    test_fx_off();                               /* last: it sets the effects (gm_fx) */
     CHECK(h == REF_HASH, "plain MIDI renders as the unmodified engine: hash 0x%08x, want 0x%08x", h, REF_HASH);
     printf("%d checks, %d failed\n", checks, fails);
     return fails != 0;

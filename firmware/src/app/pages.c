@@ -77,6 +77,7 @@ static struct {
     uint8_t job, job_sel, job_to;                    /* the jobs open (SAVE held), the one picked, the copy's pattern */
     uint8_t name_cur;                                /* the pattern name's letter edited */
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
+    uint32_t mute_t;                                 /* the mute knob's last detent */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[3];
 } ui;

@@ -504,6 +504,22 @@ static EAS_RESULT ChorusSetParam (EAS_VOID_PTR pInstData, EAS_I32 param, EAS_I32
  *
  *----------------------------------------------------------------------------
 */
+/* Polly: the chorus's delay lines and LFOs back to as it starts, its settings kept (see ReverbClear) */
+void ChorusClear(EAS_VOID_PTR pInstData);
+void ChorusClear(EAS_VOID_PTR pInstData)
+{
+    S_CHORUS_OBJECT *p = (S_CHORUS_OBJECT *) pInstData;
+    EAS_INT i;
+    for (i = 0; i < CHORUS_L_SIZE; i++)
+        p->chorusDelayL[i] = 0;
+    for (i = 0; i < CHORUS_R_SIZE; i++)
+        p->chorusDelayR[i] = 0;
+    p->chorusIndexL = 0;
+    p->chorusIndexR = 0;
+    p->lfoLPhase = 0;
+    p->lfoRPhase = (CHORUS_SHAPE_SIZE << 16) >> 2;
+}
+
 static EAS_RESULT ChorusReadInPresets(S_CHORUS_OBJECT *pChorusData)
 {
     //now init any remaining presets to defaults

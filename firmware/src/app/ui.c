@@ -567,6 +567,7 @@ static void trk_set(uint8_t *v, int to, int lo, int hi)
     *v = (uint8_t)to;
     edited(eslot());
 }
+#define MUTE_BURST_MS 150u                       /* detents closer than this: one turn */
 static void edit_knob(int k, int32_t e)
 {
     int s = eslot(), d = e > 0 ? 1 : -1;
@@ -576,7 +577,12 @@ static void edit_knob(int k, int32_t e)
         if (k == 0)
             song_knob(2, e);                     /* the grid, as on the Song page */
         else if (k == 3)
-            trk_set(&t->mute, !t->mute, 0, 1);   /* each turn, either way: muted / plays */
+        {                                        /* a turn, either way: muted / plays; once a burst */
+            uint32_t now = plat_ms();
+            if (now - ui.mute_t >= MUTE_BURST_MS)
+                trk_set(&t->mute, !t->mute, 0, 1);
+            ui.mute_t = now;
+        }
         break;
     case P_PATSET:
         if (k == 0 || k == 1) {

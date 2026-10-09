@@ -2995,6 +2995,12 @@ match_success:
 }
 
 #if defined(_CC_REVERB) || defined(_CC_CHORUS)
+/* Polly: the effects' tails, in blocks of BUFFER_SIZE_IN_MONO_SAMPLES (5.8 ms at 22.05 kHz): the reverb's
+ * longest room rings ~3 s, the chorus's delay ~0.1 s */
+#define REVERB_TAIL_BLOCKS 520
+#define CHORUS_TAIL_BLOCKS 18
+void ReverbClear(EAS_VOID_PTR pInstData);
+void ChorusClear(EAS_VOID_PTR pInstData);
 /* Polly: a send's 32-bit sum to the effect's 16-bit input, clamped (not static: the host tests call it) */
 void VMSendClamp(const EAS_I32 *sum, EAS_PCM *out);
 void VMSendClamp(const EAS_I32 *sum, EAS_PCM *out)
@@ -3150,7 +3156,20 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
         }
     }
 
+    /* Polly: an effect runs while a voice sends to it and then for its tail (fed silence), so it rings out
+     * instead of stopping dead when the last voice ends; idle, it costs nothing, and starting again it
+     * starts clean (a frozen tail would replay into the next note) */
 #if defined (_CC_CHORUS)
+    if (pVoiceMgr->chorusModule.effectData != NULL) {
+        if (chorusProcess) {
+            if (!pVoiceMgr->chorusTail)
+                ChorusClear(pVoiceMgr->chorusModule.effectData);
+            pVoiceMgr->chorusTail = CHORUS_TAIL_BLOCKS;
+        }
+        chorusProcess = pVoiceMgr->chorusTail != 0;
+        if (chorusProcess)
+            pVoiceMgr->chorusTail--;
+    }
     if (chorusProcess && pVoiceMgr->chorusModule.effectData != NULL) {
         VMSendClamp(pVoiceMgr->chorusSendSum, pVoiceMgr->chorusSendBuffer);
         pVoiceMgr->chorusModule.effect->pfProcess(pVoiceMgr->chorusModule.effectData, pVoiceMgr->chorusSendBuffer, pVoiceMgr->chorusSendBuffer, numSamples);
@@ -3162,6 +3181,16 @@ EAS_I32 VMAddSamples (S_VOICE_MGR *pVoiceMgr, EAS_I32 *pMixBuffer, EAS_I32 numSa
     // GM2 specification says there is a connection from chorus output to reverb send
     // but where is its CC controller
 #if defined (_CC_REVERB)
+    if (pVoiceMgr->reverbModule.effectData != NULL) {
+        if (reverbProcess) {
+            if (!pVoiceMgr->reverbTail)
+                ReverbClear(pVoiceMgr->reverbModule.effectData);
+            pVoiceMgr->reverbTail = REVERB_TAIL_BLOCKS;
+        }
+        reverbProcess = pVoiceMgr->reverbTail != 0;
+        if (reverbProcess)
+            pVoiceMgr->reverbTail--;
+    }
     if (reverbProcess && pVoiceMgr->reverbModule.effectData != NULL) {
         VMSendClamp(pVoiceMgr->reverbSendSum, pVoiceMgr->reverbSendBuffer);
         pVoiceMgr->reverbModule.effect->pfProcess(pVoiceMgr->reverbModule.effectData, pVoiceMgr->reverbSendBuffer, pVoiceMgr->reverbSendBuffer, numSamples);

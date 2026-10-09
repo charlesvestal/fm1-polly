@@ -209,6 +209,41 @@ static EAS_RESULT ReverbInit(EAS_DATA_HANDLE pEASData, EAS_VOID_PTR *pInstData)
 
 
 
+/* Polly: the reverb's sound state back to as it starts (its delay line, filters, taps, phase), its settings
+ * (room, wet, dry) kept: an idle reverb starting again never replays a frozen tail (eas_voicemgt.c) */
+void ReverbClear(EAS_VOID_PTR pInstData);
+void ReverbClear(EAS_VOID_PTR pInstData)
+{
+    S_REVERB_OBJECT *p = (S_REVERB_OBJECT *) pInstData;
+    EAS_U16 nOffset;
+    EAS_INT i;
+    p->m_nMinSamplesToAdd = REVERB_UPDATE_PERIOD_IN_SAMPLES;
+    p->m_nRevOutFbkR = 0;
+    p->m_nRevOutFbkL = 0;
+    p->m_zLpf0 = 0;
+    p->m_zLpf1 = 0;
+    p->m_nSin = 0;
+    p->m_nCos = 0;
+    p->m_nSinIncrement = 0;
+    p->m_nCosIncrement = 0;
+    p->m_nXfadeCounter = p->m_nXfadeInterval + 1;
+    p->m_nPhase = -32768;
+    p->m_nNoise = (EAS_I16)0xABCD;
+    nOffset = ReverbCalculateNoise(p->m_nMaxExcursion, &p->m_nNoise);
+    p->m_zD1Cross = DELAY1_OUT - p->m_nMaxExcursion + nOffset;
+    nOffset = ReverbCalculateNoise(p->m_nMaxExcursion, &p->m_nNoise);
+    p->m_zD0Cross = DELAY1_OUT - p->m_nMaxExcursion - nOffset;
+    nOffset = ReverbCalculateNoise(p->m_nMaxExcursion, &p->m_nNoise);
+    p->m_zD0Self = DELAY0_OUT - p->m_nMaxExcursion - nOffset;
+    nOffset = ReverbCalculateNoise(p->m_nMaxExcursion, &p->m_nNoise);
+    p->m_zD1Self = DELAY1_OUT - p->m_nMaxExcursion + nOffset;
+    p->m_nBaseIndex = 0;
+    p->m_sEarlyL.m_zLpf = 0;
+    p->m_sEarlyR.m_zLpf = 0;
+    for (i = 0; i < REVERB_BUFFER_SIZE_IN_SAMPLES; i++)
+        p->m_nDelayLine[i] = 0;
+}
+
 /*----------------------------------------------------------------------------
  * ReverbProcess()
  *----------------------------------------------------------------------------

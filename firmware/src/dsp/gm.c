@@ -49,27 +49,63 @@ void gm_fx(uint32_t rt, uint32_t rl, uint32_t ct, uint32_t cl)
     fx_req = (rt > 4u ? 4u : rt) | (rl & 127u) << 3 | (ct & 3u) << 10 | (cl & 127u) << 12 | seq << 24;
 }
 /* a preset sets the module's own wet and dry: the dry goes back to none (the voices mix it: EAS's sends,
- * _CC_REVERB / _CC_CHORUS), the level as asked. An effect off (reverb type 0, or level 0) is off in the
- * synth too: the voices no longer feed its send, so it costs nothing (Sonivox runs an effect once any voice
- * sends to it, whatever its level) */
+ * _CC_REVERB / _CC_CHORUS). The levels glide to what is asked over FX_RAMP blocks (no click). An effect off
+ * (reverb type 0, or a level 0) is off in the synth too: the voices stop feeding it at once, its tail rings
+ * while its level glides down, then it stops (idle, it costs nothing, and starts clean: eas_voicemgt.c) */
+#define FX_RAMP 4
+static int32_t rev_wet = -1, rev_to, rev_step, cho_lvl = -1, cho_to, cho_step;
 static void fx_set(uint32_t v)
 {
     uint32_t rt = v & 7u, rl = v >> 3 & 127u, ct = v >> 10 & 3u, cl = v >> 12 & 127u;
+    rev_to = rt && rl ? (int32_t)(rl * 258u) : 0;
+    cho_to = cl ? (int32_t)(cl * 258u) : 0;
+    if (rev_wet < 0)                              /* the first: at once */
+        rev_wet = rev_to;
+    if (cho_lvl < 0)
+        cho_lvl = cho_to;
+    rev_step = (rev_to > rev_wet ? rev_to - rev_wet : rev_wet - rev_to) / FX_RAMP + 1;
+    cho_step = (cho_to > cho_lvl ? cho_to - cho_lvl : cho_lvl - cho_to) / FX_RAMP + 1;
     if (rt)
         EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_PRESET, (EAS_I32)(rt - 1u));
     EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_DRY, 0);
-    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, (EAS_I32)(rl * 258u));
+    EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, rev_wet);
     EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_PRESET, (EAS_I32)ct);
     EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_DRY, 0);
-    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, (EAS_I32)(cl * 258u));
+    EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, cho_lvl);
+    if (!rev_to && !rev_wet)
+        eas->pVoiceMgr->reverbTail = 0;           /* off already: nothing to ring out */
+    if (!cho_to && !cho_lvl)
+        eas->pVoiceMgr->chorusTail = 0;
     for (int i = 0; i < MAX_VIRTUAL_SYNTHESIZERS; i++) {
         S_SYNTH *s = eas->pVoiceMgr->pSynth[i];
         if (!s)
             continue;
-        s->reverbEnabled = (EAS_BOOL)(rt && rl);
-        s->chorusEnabled = (EAS_BOOL)(cl != 0);
+        s->reverbEnabled = (EAS_BOOL)(rev_to != 0);
+        s->chorusEnabled = (EAS_BOOL)(cho_to != 0);
     }
 }
+static int32_t glide(int32_t v, int32_t to, int32_t step)
+{
+    return v < to ? (v + step > to ? to : v + step) : (v - step < to ? to : v - step);
+}
+static void fx_ramp(void)                         /* each EAS block */
+{
+    if (rev_wet >= 0 && rev_wet != rev_to) {
+        rev_wet = glide(rev_wet, rev_to, rev_step);
+        EAS_SetParameter(eas, EAS_MODULE_REVERB, EAS_PARAM_REVERB_WET, rev_wet);
+        if (!rev_wet)
+            eas->pVoiceMgr->reverbTail = 0;       /* off and silent: idle now */
+    }
+    if (cho_lvl >= 0 && cho_lvl != cho_to) {
+        cho_lvl = glide(cho_lvl, cho_to, cho_step);
+        EAS_SetParameter(eas, EAS_MODULE_CHORUS, EAS_PARAM_CHORUS_LEVEL, cho_lvl);
+        if (!cho_lvl)
+            eas->pVoiceMgr->chorusTail = 0;
+    }
+}
+#ifdef GM_HOST
+int gm_host_fx_settled(void) { return rev_wet == rev_to && cho_lvl == cho_to; }   /* the tests */
+#endif
 
 static void synth_write(uint32_t m, uint32_t at)
 {
@@ -138,6 +174,7 @@ void gm_render(int32_t *out, uint32_t n, uint32_t gain_q12)
          * between whole blocks (EAS_Render renders exactly EAS_FRAMES, its envelopes step once a block), and
          * starts each note-on on its sample within the block (gm_midi_now's at) */
         arr_block(2 * k);
+        fx_ramp();
         EAS_Render(eas, pcm, (EAS_I32)k, &got);
         for (i = 0; i < k; i++) {
             int32_t l = (i < (uint32_t)got) ? pcm[2 * i] : 0, r = (i < (uint32_t)got) ? pcm[2 * i + 1] : 0;

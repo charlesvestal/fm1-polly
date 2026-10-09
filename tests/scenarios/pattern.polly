@@ -48,20 +48,27 @@ shot master.png
 tap SEQ
 expect page 1
 spin K4 1
-wait 100
+wait 200
 expect trk5_mute 1
 spin K4 1
-wait 100
+wait 200
 expect trk5_mute 0
 spin K4 -1
-wait 100
+wait 200
+expect trk5_mute 1
+# a burst of detents: one toggle
+turn K4 3 30
+wait 200
+expect trk5_mute 0
+turn K4 1
+wait 200
 expect trk5_mute 1
 hitreset
 wait 4000
 expect track_hits5 0
 shot muted.png
 spin K4 -1
-wait 100
+wait 200
 hitreset
 wait 4000
 expect track_hits5 2
