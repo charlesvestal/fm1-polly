@@ -1,0 +1,199 @@
+# POLLY, tour: the main flows as a new user walks them, a screenshot at each page and state (docs/ux-pass.md).
+# First boot, hear something (a style, PLAY, chords live, sections), write a song (Chords, Arrange, Song
+# patterns), record a part (Pattern, REC), shape the sound (Track, Mixer, tone, Master FX), save, Setup / Panel
+# (no bank, a bank, a damaged one), templates, the jobs, MIDI clock in, another song.
+wait 500
+expect page 0
+shot 01_boot.png
+# ---- a style from the Song page: KNOB 1, or PRESETS
+spin K1 1
+wait 20
+expect song1_style0 38
+expect song1_style1 39
+expect msg_is_STYLE 1
+shot 01b_style_knob.png
+turn PRESET -1
+wait 20
+expect song1_style1 33
+wait 1400
+expect tempo 105
+shot 01c_style_pop.png
+# ---- hear something: SEL held shows the keys' shortcuts; a template (SEL + white key), PLAY
+press SEL
+wait 300
+expect sel_shown 0
+wait 200
+expect sel_shown 1
+shot 02_sel_held.png
+key w0 down
+key w0 up
+release SEL
+wait 50
+expect sel_shown 0
+expect chord_mode 0
+expect template 0
+shot 03_template_msg.png
+tap PLAY
+wait 2000
+shot 04_playing_intro.png
+wait 2600
+shot 05_playing_main_a.png
+# CHORD mode: hold A C E
+tap SEL
+key 4 down
+key 7 down
+key 11 down
+wait 100
+shot 06_chord_mode.png
+key 4 up
+key 7 up
+key 11 up
+tap SEL
+# a section: Main B waits for the bar (SEL held: its key outlined on screen)
+press SEL
+tapkey b2
+wait 500
+shot 07a_sel_next_b.png
+release SEL
+wait 900
+shot 07_next_b.png
+wait 1500
+expect sect 3
+tap PLAY
+wait 100
+# stopped: the tracks are not lit
+shot 08_stopped.png
+# ---- write a song: Chords, Arrange, Song patterns
+tap LFO
+spin K1 9
+spin K2 18
+wait 1400
+shot 10_chords.png
+tap ENV
+wait 1400
+shot 11_arrange.png
+tap ENV
+wait 1400
+shot 12_song_patterns.png
+spin K4 1
+wait 50
+shot 13_style_msg.png
+wait 1400
+tap ENV
+wait 50
+shot 14_song_patterns2.png
+# ---- record a part: Pattern, REC (into a style's section: a new user pattern, said)
+tap SEQ
+wait 1400
+shot 20_pattern.png
+tap PLAY
+wait 2600
+tap REC
+wait 50
+expect msg_is_RECORD 1
+expect msg2_is_into_new_P01 1
+shot 21_recording_msg.png
+tapkey 7
+wait 2100
+# the Intro ended: so did the take, said
+expect recording 0
+expect msg2_is_section_ended 1
+shot 22_record_ended.png
+tap PLAY
+wait 1400
+tap SEQ
+wait 50
+shot 23_pattern_setup.png
+# ---- shape the sound
+tap EDIT
+wait 50
+shot 30_track.png
+tap EDIT
+wait 50
+shot 31_track_keys.png
+tap FX
+shot 32_mixer.png
+tap FX
+shot 33_mixer_tone.png
+tap FX
+shot 34_master_fx.png
+# ---- save: SAVE's light says there is something to save
+tap HOME
+wait 50
+expect dirty 1
+leds
+expect lit_SAVE 1
+shot 40_song_unsaved.png
+tap SAVE
+wait 50
+expect dirty 0
+leds
+expect lit_SAVE 0
+shot 41_saved_msg.png
+press SAVE
+wait 800
+release SAVE
+wait 50
+expect msg_is_JOBS 1
+shot 42_jobs_on_song.png
+tap SEQ
+press SAVE
+wait 800
+release SAVE
+shot 43_pattern_jobs.png
+tap SAVE
+tap LFO
+press SAVE
+wait 800
+release SAVE
+shot 44_song_jobs.png
+tap SAVE
+wait 1400
+# ---- templates
+tap ARP
+wait 50
+shot 50_templates.png
+tap ARP
+shot 51_copy_template.png
+# ---- Setup and Panel: no bank, then a bank, then a damaged style
+tap GLO
+wait 1400
+shot 60_setup_nobank.png
+tap GLO
+shot 61_panel.png
+bank build/host/synth.qyi
+tap GLO
+wait 1400
+shot 62_setup_bank.png
+tap HOME
+style qy:Pop
+wait 1400
+shot 63_song_qy.png
+bank_damage 2
+style qy:Rock
+shot 64_damaged_msg.png
+wait 1400
+# ---- MIDI clock in
+midi FA 00 00
+clock 110
+shot 70_ext_clock.png
+midi FC 00 00
+wait 50
+# ---- another song: SEL held + PRESETS (while playing: after the stop), or the Arrange page's KNOB 4
+tap PLAY
+wait 200
+press SEL
+turn PRESET 1
+release SEL
+expect chord_mode 0
+expect msg2_is_after_the_stop 1
+shot 71_song_at_stop.png
+tap PLAY
+wait 2200
+expect song 2
+shot 72_song2.png
+tap ENV
+spin K4 -1
+wait 50
+expect song 1
+shot 73_arrange_song.png
