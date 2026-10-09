@@ -1,0 +1,30 @@
+# POLLY, grid: the record grid (the Song page's KNOB 4, the Pattern page's KNOB 1). Clockwise is finer:
+# 1/8, 1/8T, 1/16, 1/16T, 1/32, off; the knob's bar fills clockwise.
+wait 300
+tap HOME
+expect quant 2
+spin K4 1
+expect quant 3
+expect grid_bar 3
+spin K4 1
+expect quant 4
+spin K4 1
+expect quant 5
+expect grid_bar 5
+spin K4 1
+expect quant 5
+spin K4 -1
+spin K4 -1
+spin K4 -1
+spin K4 -1
+spin K4 -1
+expect quant 0
+expect grid_bar 0
+spin K4 -1
+expect quant 0
+# the Pattern page's KNOB 1: the same
+tap SEQ
+spin K1 1
+expect quant 1
+spin K1 1
+expect quant 2

@@ -1179,10 +1179,10 @@ static void song_job_run(void)
     }
 }
 
-/* the record grid (Song page KNOB 4, Pattern page KNOB 1): clockwise finer */
+/* the record grid (Song page KNOB 4, Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
 static void grid_turn(int32_t e)
 {
-    int q = proj.quant + (e > 0 ? -1 : 1);
+    int q = proj.quant + (e > 0 ? 1 : -1);
     if (q >= 0 && q < ARR_NQ) {
         proj.quant = (uint8_t)q;
         arr_set_quant(q);

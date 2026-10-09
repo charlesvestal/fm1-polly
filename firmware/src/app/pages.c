@@ -1215,6 +1215,8 @@ static void style_knob(knob_t *k)
     else
         kv(k, "Style", "user", 0, styles_n());
 }
+/* the Grid knob's bar: fills clockwise, as the grid gets finer (1/8 empty .. off full) */
+static int grid_fill(void) { return proj.quant % ARR_NQ; }
 /* the key (templates are transposed by it; -6..+5): its note, "C", "D", "Bb" */
 static void key_knob(knob_t *k) { kv(k, "Key", KEY_NAME[proj.key % 12u], key_signed() + 6, 11); }
 static void song_knobs(knob_t *k)
@@ -1225,7 +1227,7 @@ static void song_knobs(knob_t *k)
     style_knob(&k[0]);
     kv(&k[1], "Template", t >= 0 ? TEMPLATES[t].name : "-", t + 1, NTEMPLATES);
     key_knob(&k[2]);
-    kv(&k[3], "Grid", GRID_NAME[proj.quant % ARR_NQ], ARR_NQ - 1 - proj.quant, ARR_NQ - 1);
+    kv(&k[3], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
 }
 static void edit_knobs(knob_t *k)
 {
@@ -1234,7 +1236,7 @@ static void edit_knobs(knob_t *k)
     char b[8];
     switch (ui.page) {
     case P_PATTERN:
-        kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], ARR_NQ - 1 - proj.quant, ARR_NQ - 1);
+        kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
         kv(&k[3], "Mute", t->mute ? "on" : "off", t->mute, 0);
         break;
     case P_PATSET:

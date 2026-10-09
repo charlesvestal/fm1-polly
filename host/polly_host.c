@@ -522,6 +522,10 @@ static int expect(const char *what, const char *val)
         got = proj.clock;
     else if (!strcmp(what, "key"))
         got = proj.key;
+    else if (!strcmp(what, "quant"))              /* the record grid: ARR_Q_8 0, 8T 1, 16 2, 16T 3, 32 4, off 5 */
+        got = proj.quant;
+    else if (!strcmp(what, "grid_bar"))           /* the Grid knob's bar, as drawn: its fill */
+        got = grid_fill();
     else if (!strcmp(what, "job"))              /* the jobs open */
         got = ui.job;
     else if (!strcmp(what, "rev_type"))
