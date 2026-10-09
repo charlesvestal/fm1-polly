@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Polly in the browser</title>
-<meta name="description" content="Polly, a General MIDI sound module for the M-VAVE FM-1 playing Sonivox EAS's sound set, in your browser: the same code the FM-1 runs.">
+<title>Polly test build</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Polly, a pocket arranger for the M-VAVE FM-1 playing Sonivox EAS's General MIDI sound set, in your browser: an internal test build.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -61,6 +62,21 @@ a { color: var(--accent); }
 .knobs dl { margin: 0; color: var(--muted); }
 .knobs dt { color: var(--ink); font-weight: 600; }
 .knobs dd { margin: 0 0 .45rem; }
+.note { margin: 0 0 1rem; padding: .5rem .8rem; border-left: 3px solid var(--teal); background: var(--card); color: var(--muted); font-size: .92rem; }
+.qy { margin: 1.2rem 0 0; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.qy h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; }
+.qy p { margin: 0 0 .6rem; color: var(--muted); }
+.qy.drag { border-color: var(--accent); border-style: dashed; }
+.qy .row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.qy label.load, .qy button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 8px; padding: .3em .8em; cursor: pointer; }
+.qy label.load { border-color: var(--accent); }
+.qy label.load:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qy input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.qy [hidden] { display: none; }
+.qy #qyState { color: var(--ink); }
+.qy #qyState.err { color: var(--accent); }
+.help pre.controls { margin: .4rem 0 0; padding: .6rem .8rem; background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+                     overflow-x: auto; font: .82rem/1.5 ui-monospace, Menlo, monospace; color: var(--ink); }
 kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 0 .3em; color: var(--ink); }
 </style>
 </head>
@@ -68,8 +84,9 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <main>
 <header>
   <h1>Polly</h1>
-  <p>a General MIDI sound module for the FM-1 (becoming a pocket arranger), playing Sonivox EAS's sound set: the same code the FM-1 runs</p>
+  <p>a pocket arranger for the FM-1, playing Sonivox EAS's General MIDI sound set: the same code the FM-1 runs</p>
 </header>
+<p class="note">Internal test build: not announced, not linked from anywhere. Things will change between visits.</p>
 
 <p class="turn">Turn your phone sideways for bigger controls.</p>
 <div class="device" id="device">
@@ -84,32 +101,35 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   <button id="reset" type="button" title="Forget your saved settings and start again from the factory settings">Factory reset</button>
 </div>
 
+<section class="qy" id="qy" aria-labelledby="qyTitle">
+  <h2 id="qyTitle">QY70 styles</h2>
+  <p>Your ROM stays on your computer; Polly builds its QY70 styles here, in your browser. Pick or drop the QY70's main ROM
+    (MAME's <kbd>qy70main.bin</kbd>): its 128 preset styles then follow Polly's own 16 on the Style knob, and this browser
+    keeps them for your next visit.</p>
+  <div class="row">
+    <label class="load" title="Your QY70 main ROM file (qy70main.bin); it is read here and never uploaded">Load QY70 ROM<input type="file" id="qyFile"></label>
+    <button id="qyForget" type="button" hidden title="Remove the QY70 styles from this browser; Polly keeps its own 16">Forget QY70 styles</button>
+    <span id="qyState" role="status" aria-live="polite">Checking this browser...</span>
+  </div>
+</section>
+
 <section class="help">
   <div class="knobs">
     <h2>How it plays</h2>
-    <p>Polly is, today, a General MIDI sound module: sixteen channels (10 is the drum kit), each with its own program, volume, pan, reverb and chorus, playing <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a>'s 200&nbsp;KB GM sound set. <b>ALGORITHM</b> picks which channel the keys and knobs act on; the keys then play notes on it. MIDI in (USB) plays all 16 channels at once, whichever is selected on screen. Press <b>PLAY</b> for a demo song, both to hear it and to load the synth.</p>
-    <h2>Knobs</h2>
-    <dl>
-      <dt>PRESETS</dt><dd>The selected channel's program, one at a time.</dd>
-      <dt>SELECT</dt><dd>The same program, by a bank of eight at a time.</dd>
-      <dt>KNOB 1&ndash;4</dt><dd>The selected channel's volume, pan, reverb and chorus.</dd>
-    </dl>
-  </div>
-  <div>
-    <h2>Buttons</h2>
-    <ul>
-      <li><b>Keys</b> play notes on the selected channel.</li>
-      <li><b>PLAY</b> plays a demo song. <b>HOME</b> all notes off.</li>
-      <li><b>OCT&minus;</b> / <b>OCT+</b> the keys' octave.</li>
-      <li><b>GLO</b> lights. <b>SAVE</b> saves (it also saves by itself, a few seconds after a change).</li>
-    </ul>
+    <p>Polly plays styles: a pattern for each section (Intro, Main A and B, Fills, Ending) on eight tracks, following the chord
+      you play. Press <b>PLAY</b>, then change chords on the keys. The screen shows the page you are on; the four knobs under it
+      act on what the page shows. MIDI in (USB) plays all 16 channels. With QY70 styles loaded above, Setup (<b>GLO</b>) shows
+      how many there are.</p>
+    <h2>The controls, as the firmware lists them</h2>
+<!--CONTROLS-->
   </div>
   <div>
     <h2>Mouse and touch</h2>
     <ul>
       <li>Drag a knob up or down, or use the scroll wheel over it.</li>
       <li>Click or touch buttons and keys. Several fingers at once work on a touch screen.</li>
-      <li><kbd>Shift</kbd>-click (or right-click) a button to hold it down, click again to let go.</li>
+      <li><kbd>Shift</kbd>-click (or right-click) a button to hold it down, click again to let go: for <b>SEL</b> + a key.</li>
+      <li>Hover over a control for what it does.</li>
     </ul>
   </div>
   <div>
@@ -117,14 +137,23 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
     <ul>
       <li>White keys 1&ndash;8: <kbd>Q</kbd>&ndash;<kbd>I</kbd>, 9&ndash;16: <kbd>A</kbd>&ndash;<kbd>K</kbd>. Black keys 1&ndash;11: <kbd>1</kbd>&ndash;<kbd>0</kbd>, <kbd>-</kbd>.</li>
       <li><kbd>Space</kbd> PLAY, <kbd>Esc</kbd> HOME, <kbd>Z</kbd> / <kbd>X</kbd> OCT&minus; / OCT+.</li>
-      <li>Up / down arrow keys step PRESETS (the channel's program); left / right step ALGORITHM (the channel).</li>
+      <li>Up / down arrow keys turn PRESETS; left / right turn ALGORITHM.</li>
     </ul>
   </div>
   <div>
-    <h2>Saving and credits</h2>
-    <p>Saving keeps each channel's program, volume, pan, reverb and chorus in this browser, as the FM-1 keeps them in its memory; it also saves by itself, a few seconds after a change, while stopped. Factory reset forgets them.
-      It is the firmware, not a recording: what you hear is Polly running, at the FM-1's 44.1 kHz.</p>
-    <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Running FM-1 firmware in the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
+    <h2>Saving</h2>
+    <p>Saving keeps your songs, patterns and settings in this browser, as the FM-1 keeps them in its memory. Factory reset
+      forgets them (not the QY70 styles: Forget does that). It is the firmware, not a recording: what you hear is Polly
+      running, at the FM-1's 44.1 kHz.</p>
+  </div>
+  <div>
+    <h2>Credits</h2>
+    <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is
+      <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Polly's own drum
+      grooves come from the <a href="https://magenta.tensorflow.org/datasets/groove">Groove MIDI Dataset</a> (CC BY 4.0,
+      &copy; Google LLC). The QY70 styles are built from your own ROM by <a href="https://pyodide.org/">Pyodide</a> (MPL-2.0)
+      running Polly's tools; the styles are &copy; Yamaha, and nothing of Yamaha's is on this site. Running FM-1 firmware in
+      the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
   </div>
 </section>
 </main>
@@ -225,9 +254,12 @@ function hit(c, cls) {
   c.hit = d;
 }
 // what each control does, on hover (the Buttons list below says the same)
-const TIP = { HOME: "All notes off", SAVE: "Save (it also saves itself)", GLO: "Lights",
-  PLAY: "Demo song", "OCT-": "Octave down", "OCT+": "Octave up",
-  SELECT: "Program, by a bank of eight", ALGORITHM: "Channel (1-16, 10 is the drums)", PRESETS: "Program", MASTER: "Volume" };
+// (from the firmware's controls list; the full list is under the device)
+const TIP = { PLAY: "Start / stop", REC: "Record into the selected track", SEL: "Tap: chords on / off. Held: with a key, a section or a chord",
+  HOME: "Song page", SEQ: "Pattern pages", EDIT: "Track page", FX: "Mixer pages", LFO: "Chords page", ENV: "Arrange pages",
+  ARP: "Templates pages", GLO: "Setup pages", SAVE: "Save (held: the jobs)", "OCT-": "Octave down", "OCT+": "Octave up",
+  SELECT: "Tempo", ALGORITHM: "Track", PRESETS: "Per page (Song page: the song)", MASTER: "Volume",
+  KNOB1: "What the page shows", KNOB2: "What the page shows", KNOB3: "What the page shows", KNOB4: "What the page shows" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
 for (const k of Object.values(knobs)) hit(k, "knob");
 for (const b of Object.values(buttons)) hit(b);
@@ -395,6 +427,93 @@ function saveStore(store) {
   } catch { /* storage unavailable: this session only */ }
 }
 
+// ---------------------------------------------------------------- the QY70 bank
+// Built from the tester's ROM in a worker (qybank_worker.js: Pyodide running Polly's own tools), kept in this
+// browser's IndexedDB (the bank image only, never the ROM), given to the emulator at switch-on or at once.
+const IDB = { db: "polly-emu", store: "files", key: "qy70-bank" };
+function idb(mode, fn) {
+  return new Promise((res, rej) => {
+    let rq;
+    try { rq = indexedDB.open(IDB.db, 1); } catch (e) { rej(e); return; }
+    rq.onupgradeneeded = () => rq.result.createObjectStore(IDB.store);
+    rq.onerror = () => rej(rq.error);
+    rq.onsuccess = () => {
+      const tx = rq.result.transaction(IDB.store, mode), r = fn(tx.objectStore(IDB.store));
+      tx.oncomplete = () => { rq.result.close(); res(r && r.result); };
+      tx.onerror = tx.onabort = () => { rq.result.close(); rej(tx.error); };
+    };
+  });
+}
+const bankGet = () => idb("readonly", (s) => s.get(IDB.key)).catch(() => null);
+const bankPut = (v) => idb("readwrite", (s) => s.put(v, IDB.key));
+const bankDel = () => idb("readwrite", (s) => s.delete(IDB.key)).catch(() => {});
+
+const qy = document.getElementById("qy"), qyFile = document.getElementById("qyFile"),
+      qyForget = document.getElementById("qyForget"), qyState = document.getElementById("qyState");
+let bank = null, building = false, worker = null;   // bank: { image: ArrayBuffer, styles, built }
+function qySay(text, err) { qyState.textContent = text; qyState.classList.toggle("err", !!err); }
+function bankShown(n) {                              // n: the emulator's mount (styles, 0 none, -1 damaged, -2 old)
+  qyForget.hidden = !bank;
+  if (!bank) qySay("None loaded: Polly plays its own 16 styles.");
+  else if (n === -2) qySay("The kept QY70 styles are from an older Polly: load your ROM again to rebuild them.", true);
+  else if (n !== undefined && n <= 0) qySay("The kept QY70 styles did not load: load your ROM again.", true);
+  else qySay(`${bank.styles} QY70 styles, kept in this browser${node ? "" : " (they play once Polly is on)"}.`);
+}
+function toEmu(image) {
+  if (!node) return Promise.resolve(undefined);
+  return new Promise((res) => {
+    const prev = node.port.onmessage;
+    node.port.onmessage = (e) => { if (e.data.type === "bank") { node.port.onmessage = prev; res(e.data.bank); } else prev(e); };
+    const copy = image ? image.slice(0) : null;
+    node.port.postMessage({ type: "bank", image: copy }, copy ? [copy] : []);
+  });
+}
+async function buildFrom(file) {
+  if (building || !file) return;
+  building = true;
+  qyFile.disabled = true;
+  const t0 = performance.now();
+  let msg = "Starting...";
+  const show = () => qySay(`${msg} ${Math.round((performance.now() - t0) / 1000)} s`);
+  const tick = setInterval(show, 500);
+  try {
+    if (file.size < 65536 || file.size > 16 << 20) throw new Error(`${file.name} is ${file.size} bytes: the QY70's main ROM (qy70main.bin) is 2 MB.`);
+    const rom = await file.arrayBuffer();
+    worker ??= new Worker("qybank_worker.js", { type: "module" });
+    const r = await new Promise((res) => {
+      worker.onmessage = (e) => { if (e.data.type === "progress") { msg = e.data.text; show(); } else res(e.data); };
+      worker.onerror = (e) => res({ type: "error", text: "The bank builder could not start: " + (e.message || "worker error") });
+      worker.postMessage({ rom }, [rom]);
+    });
+    if (r.type !== "done") throw new Error(r.text);
+    const styles = +(/(\d+) styles/.exec(r.text) || [0, 0])[1];
+    bank = { image: r.image, styles, built: Date.now(), ms: r.ms };
+    try { await bankPut(bank); } catch { /* private window: this visit only */ }
+    clearInterval(tick);
+    const n = await toEmu(bank.image);
+    bankShown(n);
+    if (n === undefined || n > 0) qySay(qyState.textContent + ` Built in ${(r.ms / 1000).toFixed(1)} s.`);
+  } catch (err) {
+    clearInterval(tick);
+    qySay(err && err.message || String(err), true);
+    if (bank) qyForget.hidden = false;
+  } finally {
+    building = false;
+    qyFile.disabled = false;
+    qyFile.value = "";
+  }
+}
+qyFile.addEventListener("change", () => buildFrom(qyFile.files[0]));
+for (const t of ["dragenter", "dragover"]) qy.addEventListener(t, (e) => { e.preventDefault(); qy.classList.add("drag"); });
+for (const t of ["dragleave", "drop"]) qy.addEventListener(t, () => qy.classList.remove("drag"));
+qy.addEventListener("drop", (e) => { e.preventDefault(); buildFrom(e.dataTransfer.files[0]); });
+qyForget.addEventListener("click", async () => {
+  bank = null;
+  await bankDel();
+  bankShown(await toEmu(null));
+});
+const bankLoaded = bankGet().then((b) => { bank = b && b.image ? b : null; bankShown(); });
+
 // ---------------------------------------------------------------- switching on
 const status = document.getElementById("status"), cpu = document.getElementById("cpu");
 async function switchOn() {
@@ -410,7 +529,7 @@ async function switchOn() {
     const ready = new Promise((res) => {
       node.port.onmessage = (e) => {
         const m = e.data;
-        if (m.type === "ready") res();
+        if (m.type === "ready") res(m.bank);
         else if (m.type === "frame") {
           if (m.fb) drawScreen(m.fb);
           drawLights(m.buttons, m.keys);
@@ -420,8 +539,11 @@ async function switchOn() {
         }
       };
     });
-    node.port.postMessage({ type: "load", wasm, store: loadStore(), master }, [wasm]);
-    await ready;
+    await bankLoaded;
+    const image = bank ? bank.image.slice(0) : null;
+    node.port.postMessage({ type: "load", wasm, store: loadStore(), master, bank: image }, image ? [wasm, image] : [wasm]);
+    const mounted = await ready;
+    if (!building) bankShown(bank ? mounted : undefined);
     await ac.resume();
     document.getElementById("start").hidden = true;
     status.textContent = ac.sampleRate === 44100 ? "On." : `On (the browser runs audio at ${ac.sampleRate} Hz).`;

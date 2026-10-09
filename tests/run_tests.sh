@@ -81,6 +81,9 @@ fi
 run host-build sh host/build_host.sh
 if command -v emcc >/dev/null 2>&1; then
     run emu sh -c "sh web/emu/build.sh >/dev/null && node tests/host/emu_test.mjs build/emu/polly.wasm"
+    if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
+        run emu-bank node tests/host/emu_bank_test.mjs build/emu/polly.wasm
+    fi
 fi
 for s in tests/scenarios/*.polly; do
     n=$(basename "$s" .polly)

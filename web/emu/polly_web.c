@@ -27,6 +27,7 @@ static void web_audio(const int32_t *blk, uint32_t n)
     }
 }
 
+static int booted;                     /* web_boot ran: a bank written now is mounted at once */
 static float out_l[1024], out_r[1024];
 __attribute__((used, visibility("default"))) float *web_out_l(void) { return out_l; }
 __attribute__((used, visibility("default"))) float *web_out_r(void) { return out_r; }
@@ -46,7 +47,7 @@ __attribute__((used, visibility("default"))) void web_render(uint32_t n)
     }
 }
 
-__attribute__((used, visibility("default"))) void web_boot(void) { boot(); }
+__attribute__((used, visibility("default"))) void web_boot(void) { boot(); booted = 1; }
 __attribute__((used, visibility("default"))) void web_buttons(uint32_t m) { held_btn = m; }
 __attribute__((used, visibility("default"))) void web_keys(uint32_t m) { held_keys = m; }
 __attribute__((used, visibility("default"))) void web_enc(int role, int32_t n)
@@ -73,3 +74,50 @@ __attribute__((used, visibility("default"))) void web_store_set_len(uint32_t obj
 __attribute__((used, visibility("default"))) uint32_t web_store_writes(void) { return store_writes; }
 __attribute__((used, visibility("default"))) uint32_t web_nobj(void) { return OBJ_NOBJ; }
 __attribute__((used, visibility("default"))) uint32_t web_store_max(void) { return PLAT_STORE_MAX; }
+
+/* the QY70 style bank (bring your own ROM): the page builds the image from the tester's ROM (web/emu/qy_build.py,
+ * the codec's --image) and keeps it in its browser; here it goes into the emulated flash as the host's `bank FILE`
+ * writes it (the directory last). Before web_boot: the UI mounts it at its start; after: mounted again at once.
+ * n = 0 erases the bank (Polly's own styles only). Returns the styles mounted, or qb_status()'s error (<= 0). */
+static uint8_t bank_img[0x50000];
+__attribute__((used, visibility("default"))) uint8_t *web_bank_buf(void) { return bank_img; }
+__attribute__((used, visibility("default"))) uint32_t web_bank_max(void) { return sizeof bank_img; }
+__attribute__((used, visibility("default"))) int web_bank_load(uint32_t n)
+{
+    uint8_t z[1];
+    if (n > sizeof bank_img)
+        n = 0;
+    qb_flash_read(0, z, 0);                          /* (the flash erased first) */
+    memset(sim_flash + QB_DIR, 0xFF, QB_SECTOR);
+    for (uint32_t i = 0; i < QB_NSECT; i++)
+        memset(sim_flash + qb_sector(i), 0xFF, QB_SECTOR);
+    for (uint32_t i = QB_SECTOR; i < n; i++) {
+        uint32_t l = i - QB_SECTOR;
+        if (l >= QB_CAPACITY)
+            break;
+        sim_flash[qb_phys(l)] = bank_img[i];
+    }
+    if (n >= QB_SECTOR)
+        memcpy(sim_flash + QB_DIR, bank_img, QB_SECTOR);
+    if (booted) {
+        app_bank_changed();
+        run_ms(1);
+    } else
+        qb_mount();
+    return qb_status();
+}
+__attribute__((used, visibility("default"))) int web_bank_status(void) { return qb_status(); }
+/* the styles the Style knob reaches: Polly's own, then the bank's */
+__attribute__((used, visibility("default"))) int web_styles_own(void) { return arr_styles(); }
+__attribute__((used, visibility("default"))) int web_styles_bank(void) { return qb_count(); }
+/* the tests' check of a written bank: every style decodes (0), else the first failure's QB_E_* */
+__attribute__((used, visibility("default"))) int web_bank_check(void)
+{
+    static qb_style_t s;
+    for (int i = 0; i < qb_count(); i++) {
+        int r = qb_decode(i, &s);
+        if (r < 0)
+            return r;
+    }
+    return 0;
+}

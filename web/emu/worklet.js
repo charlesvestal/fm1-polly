@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Polly in an AudioWorklet: polly.wasm is the whole FM-1 app (web/emu/polly_web.c). Each render
 // quantum asks it for 128 frames, which runs the device's clock forward; between quanta the page's
-// input goes in and, about 30 times a second, the screen, the lights and any saved objects go out.
+// input goes in and, about 30 times a second, the screen, the lights and any saved objects go out. A QY70 style
+// bank the page built from the tester's ROM goes into the emulated flash (at load, or when built).
 
 const clock = globalThis.performance ? () => globalThis.performance.now() : () => Date.now();
 
@@ -42,9 +43,10 @@ class Polly extends AudioWorkletProcessor {
         this.ex.web_store_set_len(+obj, b.length);
       }
       this.sentWrites = this.ex.web_store_writes();
+      const bank = m.bank ? this.putBank(m.bank) : 0;    // the QY70 bank from the page's storage, before boot
       this.ex.web_master(m.master ?? 2800);
       this.ex.web_boot();
-      this.port.postMessage({ type: "ready" });
+      this.port.postMessage({ type: "ready", bank: m.bank ? this.ex.web_bank_status() : bank });
     } else if (!this.ex) {
       return;
     } else if (m.type === "buttons") {
@@ -55,7 +57,17 @@ class Polly extends AudioWorkletProcessor {
       this.ex.web_enc(m.role, m.n | 0);
     } else if (m.type === "master") {
       this.ex.web_master(m.value | 0);
+    } else if (m.type === "bank") {                    // built (or forgotten, image null) while running
+      this.port.postMessage({ type: "bank", bank: this.putBank(m.image) });
     }
+  }
+
+  // a QY70 bank image into the emulated flash (web_bank_load: mounted at once once booted); the styles, or <= 0
+  putBank(buf) {
+    const b = buf ? new Uint8Array(buf) : new Uint8Array(0);
+    if (b.length > this.ex.web_bank_max()) return -1;
+    new Uint8Array(this.mem.buffer, this.ex.web_bank_buf(), b.length).set(b);
+    return this.ex.web_bank_load(b.length);
   }
 
   publish() {
