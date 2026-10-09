@@ -69,7 +69,21 @@ extern EAS_BOOL WTE_EndFrame (EAS_FRAME_BUFFER_HANDLE pFrameBuffer, EAS_I32 *pMi
 #endif
 
 #ifdef _FILTER_ENABLED
-static void WT_UpdateFilter (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pIntFrame, const S_ARTICULATION *pArt);
+static void WT_UpdateFilter (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pIntFrame, const S_ARTICULATION *pArt, const S_SYNTH_CHANNEL *pChannel);
+
+/* Polly: CC74 (brightness) and CC71 (harmonic content) move the filter, 64 the sound as it is (XG / GS: a
+ * relative +-64). CC74 in steps of 100 cents, so 0 is 6400 cents down: the filter's whole range, from its top
+ * (about 5.4 kHz at -3 dB; a sound without a filter of its own starts there) to its floor (about 100 Hz); up
+ * to +6300 cents, as far as the top. CC71 in eas_filter.c's resonance steps (about 0.7 dB more peak a step),
+ * two CC values a step: the sound's own resonance + (CC71 - 64) / 2, kept in 0..30 (0 to ~21 dB). A voice
+ * glides to its channel's values (at most FILTER_FC_SLEW cents and FILTER_Q_SLEW steps a block of 5.8 ms),
+ * so a jump or a fast sweep does not zipper; a note starts on them */
+#define FILTER_FC_STEP      100
+#define FILTER_FC_SLEW      300
+#define FILTER_Q_SLEW       1
+#define FILTER_Q_MAX        30
+#define FILTER_FC_TARGET(pChannel)  (((EAS_I32) (pChannel)->brightness - DEFAULT_BRIGHTNESS) * FILTER_FC_STEP)
+#define FILTER_Q_TARGET(pChannel)   (((EAS_I32) (pChannel)->harmonic - DEFAULT_HARMONIC) / 2)
 #endif
 
 #ifdef _STATS
@@ -385,6 +399,12 @@ static EAS_RESULT WT_StartVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNT
 #ifdef _FILTER_ENABLED
     /* clear out the filter states */
     memset(&pWTVoice->filter, 0, sizeof(S_FILTER_CONTROL));
+#ifndef _FLOAT_DCF
+    /* Polly: from silence, as EAS starts it (not primed), on the channel's CC74 / CC71 from the start */
+    pWTVoice->filter.run = FILTER_RUN_ON;
+    pWTVoice->fcOffset = (EAS_I16) FILTER_FC_TARGET(&pSynth->channels[pVoice->channel & 15]);
+    pWTVoice->qOffset = (EAS_I8) FILTER_Q_TARGET(&pSynth->channels[pVoice->channel & 15]);
+#endif
 #endif
 
     /* if this wave is to be generated using noise generator */
@@ -590,7 +610,7 @@ static EAS_BOOL WT_UpdateVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, S_SYNTH
     }
 */
     // The LIB_FORMAT_FILTER_ENABLED flag is just bogus. It seems to be 8-bit samples flag.
-    WT_UpdateFilter(pWTVoice, &intFrame, pArt);
+    WT_UpdateFilter(pWTVoice, &intFrame, pArt, pChannel);
 #endif
 
     /* update the gain */
@@ -1096,9 +1116,50 @@ void WT_UpdateLFO (S_LFO_CONTROL *pLFO, EAS_I16 phaseInc)
  * - updates Filter values for the given voice
  *----------------------------------------------------------------------------
 */
-static void WT_UpdateFilter (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pIntFrame, const S_ARTICULATION *pArt)
+static void WT_UpdateFilter (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pIntFrame, const S_ARTICULATION *pArt, const S_SYNTH_CHANNEL *pChannel)
 {
     EAS_I32 cutoff;
+#ifndef _FLOAT_DCF
+    EAS_I32 q;
+
+    /* Polly: the voice's offsets glide towards its channel's CC74 / CC71 */
+    q = FILTER_FC_TARGET(pChannel) - pWTVoice->fcOffset;
+    if (q > FILTER_FC_SLEW)
+        q = FILTER_FC_SLEW;
+    else if (q < -FILTER_FC_SLEW)
+        q = -FILTER_FC_SLEW;
+    pWTVoice->fcOffset = (EAS_I16) (pWTVoice->fcOffset + q);
+    q = FILTER_Q_TARGET(pChannel) - pWTVoice->qOffset;
+    if (q > FILTER_Q_SLEW)
+        q = FILTER_Q_SLEW;
+    else if (q < -FILTER_Q_SLEW)
+        q = -FILTER_Q_SLEW;
+    pWTVoice->qOffset = (EAS_I8) (pWTVoice->qOffset + q);
+
+    /* moved: the sound's own filter, or a sound without one brought in (darker, or resonant at the top) */
+    if (pWTVoice->fcOffset != 0 || pWTVoice->qOffset != 0)
+    {
+        if (pArt->filterCutoff != DEFAULT_EAS_FILTER_CUTOFF_FREQUENCY)
+        {
+            cutoff = MULT_EG1_EG1(pWTVoice->eg2Value, pArt->eg2ToFc);
+            cutoff += pArt->filterCutoff + pWTVoice->fcOffset;
+            q = pArt->filterQ + pWTVoice->qOffset;
+            WT_SetFilterCoeffs(pIntFrame, cutoff, q < 0 ? 0 : q > FILTER_Q_MAX ? FILTER_Q_MAX : q);
+            pWTVoice->filter.run = FILTER_RUN_MOVED;
+            return;
+        }
+        if (pWTVoice->fcOffset < 0 || pWTVoice->qOffset > 0)
+        {
+            q = pWTVoice->qOffset;
+            WT_SetFilterCoeffsOpen(pIntFrame, pWTVoice->fcOffset < 0 ? pWTVoice->fcOffset : 0, q < 0 ? 0 : q > FILTER_Q_MAX ? FILTER_Q_MAX : q);
+            pWTVoice->filter.run = pWTVoice->filter.run == FILTER_RUN_OFF ? FILTER_RUN_PRIME : FILTER_RUN_MOVED;
+            return;
+        }
+    }
+    /* as the sound is: EAS's own, unchanged */
+    if (pWTVoice->filter.run == FILTER_RUN_MOVED)
+        pWTVoice->filter.run = FILTER_RUN_ON;
+#endif
 
     /* no need to calculate filter coefficients if it is bypassed */
     if (pArt->filterCutoff == DEFAULT_EAS_FILTER_CUTOFF_FREQUENCY)
@@ -1107,6 +1168,7 @@ static void WT_UpdateFilter (S_WT_VOICE *pWTVoice, S_WT_INT_FRAME *pIntFrame, co
         pIntFrame->frame.b02 = 0.0f;
 #else
         pIntFrame->frame.k = 0;
+        pWTVoice->filter.run = FILTER_RUN_OFF;      /* Polly */
 #endif
         return;
     }

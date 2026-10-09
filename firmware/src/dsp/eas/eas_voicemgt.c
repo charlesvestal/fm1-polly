@@ -699,6 +699,8 @@ void VMResetControllers (S_SYNTH *pSynth)
         pChannel->pitchBendSensitivity = DEFAULT_PITCH_BEND_SENSITIVITY;
         pChannel->finePitch = DEFAULT_FINE_PITCH;
         pChannel->coarsePitch = DEFAULT_COARSE_PITCH;
+        pChannel->brightness = DEFAULT_BRIGHTNESS;     /* Polly: CC74 / CC71 */
+        pChannel->harmonic = DEFAULT_HARMONIC;
 
         /* update all voices on this channel */
         pChannel->channelFlags |= CHANNEL_FLAG_UPDATE_CHANNEL_PARAMETERS;
@@ -2462,6 +2464,15 @@ void VMControlChange (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, E
         pSynth->chorusSendLevels[channel] = value;
         break;
 #endif
+    /* Polly: brightness and harmonic content move the voices' low-pass filter (eas_wtsynth.c WT_UpdateFilter) */
+    case MIDI_CONTROLLER_BRIGHTNESS:
+        pChannel->brightness = value;
+        break;
+
+    case MIDI_CONTROLLER_HARMONIC:
+        pChannel->harmonic = value;
+        break;
+
     case MIDI_CONTROLLER_RESET_CONTROLLERS:
         /* despite the Midi message name, not ALL controllers are reset */
         pChannel->modWheel = DEFAULT_MOD_WHEEL;
@@ -2479,6 +2490,10 @@ void VMControlChange (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, E
         pChannel->pitchBendSensitivity = DEFAULT_PITCH_BEND_SENSITIVITY;
         pChannel->finePitch = DEFAULT_FINE_PITCH;
         pChannel->coarsePitch = DEFAULT_COARSE_PITCH;
+
+        /* Polly: the filter back to the sound's own (CC74 / CC71) */
+        pChannel->brightness = DEFAULT_BRIGHTNESS;
+        pChannel->harmonic = DEFAULT_HARMONIC;
 
         /*
         program change, bank select, channel volume CC7, pan CC10

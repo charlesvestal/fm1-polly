@@ -32,6 +32,47 @@
 #endif
 
 /*----------------------------------------------------------------------------
+ * WT_VoiceFilterMoved()
+ *----------------------------------------------------------------------------
+ * Polly: WT_VoiceFilter for a filter moved by CC74 / CC71 (S_FILTER_CONTROL run FILTER_RUN_PRIME or
+ * FILTER_RUN_MOVED), the same filter with its output saturated: a resonant filter rings past its input
+ * (a loud sample at Q 30, or a sound without a filter of its own given back its low end,
+ * WT_SetFilterCoeffsOpen), and the 16-bit value wrapped round and fed back burst into noise; clamped, it
+ * only clips. The accumulator stays inside 32 bits (|z1 b1| + |z2 b2| + |k x| < 1.6e9 with eas_filter.c's
+ * coefficients). A filter switched on mid-note (FILTER_RUN_PRIME) starts as if its input had been the
+ * block's first sample all along, so the note goes on without a click. Sounds as they are keep EAS's own
+ * loop, unchanged.
+ *----------------------------------------------------------------------------
+*/
+static void WT_VoiceFilterMoved (S_FILTER_CONTROL *pFilter, S_WT_INT_FRAME *pWTIntFrame, EAS_PCM *pAudioBuffer, EAS_I32 numSamples)
+{
+    EAS_I32 k, b1, b2, z1, z2, acc0;
+
+    if (pFilter->run == FILTER_RUN_PRIME)
+        pFilter->z1 = pFilter->z2 = *pAudioBuffer;
+    pFilter->run = FILTER_RUN_MOVED;
+    z1 = pFilter->z1;
+    z2 = pFilter->z2;
+    b1 = -pWTIntFrame->frame.b1;
+    /*lint -e{702} <avoid divide> */
+    b2 = -pWTIntFrame->frame.b2 >> 1;
+    /*lint -e{702} <avoid divide> */
+    k = pWTIntFrame->frame.k >> 1;
+    while (numSamples--)
+    {
+        acc0 = z1 * b1 + z2 * b2 + k * *pAudioBuffer;
+        z2 = z1;
+        /*lint -e{702} <avoid divide> */
+        z1 = acc0 >> 14;
+        if ((EAS_U32) (z1 + 32768) > 65535u)  /* past 16 bits: one compare */
+            z1 = (z1 >> 31) ^ 32767;          /* 32767, or -32768 below */
+        *pAudioBuffer++ = (EAS_PCM) z1;
+    }
+    pFilter->z1 = (EAS_I16) z1;
+    pFilter->z2 = (EAS_I16) z2;
+}
+
+/*----------------------------------------------------------------------------
  * WT_VoiceFilter
  *----------------------------------------------------------------------------
  * Purpose:
@@ -69,6 +110,13 @@ void WT_VoiceFilter (S_FILTER_CONTROL *pFilter, S_WT_INT_FRAME *pWTIntFrame)
         numSamples = BUFFER_SIZE_IN_MONO_SAMPLES;
     }
     pAudioBuffer = pWTIntFrame->pAudioBuffer;
+
+    /* Polly: moved by CC74 / CC71: saturating */
+    if (pFilter->run >= FILTER_RUN_PRIME)
+    {
+        WT_VoiceFilterMoved(pFilter, pWTIntFrame, pAudioBuffer, numSamples);
+        return;
+    }
 
     z1 = pFilter->z1;
     z2 = pFilter->z2;
@@ -335,6 +383,33 @@ void WT_SetFilterCoeffs (S_WT_INT_FRAME *pIntFrame, EAS_I32 cutoff, EAS_I32 reso
     temp = MULT_AUDIO_COEF(cutoff, temp);
     temp = MULT_AUDIO_COEF(cutoff, temp);
     pIntFrame->frame.k = temp;
+}
+
+/*----------------------------------------------------------------------------
+ * WT_SetFilterCoeffsOpen()
+ *----------------------------------------------------------------------------
+ * Polly: the filter for a sound that has none of its own (its articulation's cutoff is
+ * DEFAULT_EAS_FILTER_CUTOFF_FREQUENCY, so EAS bypasses it), brought in by CC74 / CC71: the cutoff `offset`
+ * cents (<= 0) from the top of the filter's range, the given resonance (0..30). At the top of the range this
+ * filter's low end sits ~4 dB under its passband (its DC gain at Q 0 falls to 0.64); here the gain is raised
+ * by that much again, so a sound brought in at the top keeps its body and its level, and with
+ * FILTER_RUN_PRIME goes on without a step. The resonance keeps EAS's own gain (the low end lower as the peak
+ * rises, the peak at most ~3.7x).
+ *----------------------------------------------------------------------------
+*/
+void WT_SetFilterCoeffsOpen (S_WT_INT_FRAME *pIntFrame, EAS_I32 offset, EAS_I32 resonance)
+{
+    S_WT_INT_FRAME q0;
+    EAS_I32 cutoff, dc;
+
+    cutoff = FILTER_CUTOFF_MAX_PITCH_CENTS + FILTER_CUTOFF_FREQ_ADJUST + A5_PITCH_OFFSET_IN_CENTS + offset;
+    WT_SetFilterCoeffs(pIntFrame, cutoff, resonance);
+
+    /* the DC gain at Q 0: k / (32768 + 2 b1 + b2) (WT_VoiceFilter's scaling); below 1, raise k by its inverse */
+    WT_SetFilterCoeffs(&q0, cutoff, 0);
+    dc = 32768 + 2 * q0.frame.b1 + q0.frame.b2;
+    if (dc > q0.frame.k && q0.frame.k > 0)
+        pIntFrame->frame.k = pIntFrame->frame.k * dc / q0.frame.k;
 }
 
 #endif

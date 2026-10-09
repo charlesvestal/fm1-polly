@@ -119,6 +119,8 @@
 
 #define DEFAULT_EAS_FILTER_CUTOFF_FREQUENCY 0           /* EAS synth uses a different default */
 #define DEFAULT_FILTER_RESONANCE        0
+#define DEFAULT_BRIGHTNESS              64          /* Polly: CC74 / CC71 neutral, the sound's own filter */
+#define DEFAULT_HARMONIC                64
 #define DEFAULT_EXPRESSION              0x7F
 
 #define DEFAULT_CHANNEL_PRESSURE        0
@@ -200,6 +202,8 @@ typedef struct s_synth_channel_tag
 
     EAS_U8      pool;               /* SPMIDI channel voice pool */
     EAS_U8      mip;                /* SPMIDI MIP setting */
+    EAS_U8      brightness;         /* Polly: CC74, the filter cutoff (64 as the sound is) */
+    EAS_U8      harmonic;           /* Polly: CC71, the filter resonance (64 as the sound is) */
 } S_SYNTH_CHANNEL;
 
 /*------------------------------------

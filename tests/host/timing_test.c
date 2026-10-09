@@ -16,7 +16,8 @@
  *   tails:     after the last note the reverb rings out (no drop to silence, falling gradually), and a note
  *              after a long silence renders exactly as one after a different note's long silence (the
  *              effects start clean: nothing frozen replays)
- *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only)
+ *   bench:     10 s of a dense pattern, the render's time (timing_test bench: the numbers only), and with CC74 at 30
+ *              on every channel (every voice's filter moved: the CC74 / CC71 filter's cost)
  *
  *   timing_test           the checks
  *   timing_test print     the reference hash of this build
@@ -614,6 +615,15 @@ int main(int argc, char **argv)
             s = bench();
             printf("10 s of a dense pattern (up to %d voices), %s: %.1f ms to render (best of 5)\n", bench_voices,
                    fx[i].name, s * 1000.0);
+        }
+        for (uint32_t c = 0; c < 16; c++)       /* CC74 30 everywhere: every voice filtered, moved */
+            gm_midi(0xB0u | c, 74, 30);
+        for (int i = 0; i < 4; i += 3) {
+            double s;
+            gm_fx(fx[i].rt, fx[i].rl, 0, fx[i].cl);
+            s = bench();
+            printf("10 s of a dense pattern, CC74 30 on every channel, %s: %.1f ms to render (best of 5)\n", fx[i].name,
+                   s * 1000.0);
         }
         return 0;
     }

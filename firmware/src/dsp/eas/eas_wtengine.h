@@ -152,6 +152,10 @@ typedef struct s_wt_voice_tag
 
     EAS_U16             artIndex;               /* index to articulation params */
     EAS_U8              startDelay;             /* Polly: its first block starts this many samples in (0..BUFFER_SIZE_IN_MONO_SAMPLES-1) */
+#if defined(_FILTER_ENABLED)
+    EAS_I16             fcOffset;               /* Polly: the cutoff offset from CC74 (cents), slewed towards the channel's */
+    EAS_I8              qOffset;                /* Polly: the resonance offset from CC71 (filter Q steps), slewed */
+#endif
 
 } S_WT_VOICE;
 
