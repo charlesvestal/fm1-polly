@@ -113,17 +113,31 @@ void arr_track_mute(int trk, int on);
  * at the pattern's end (the key still sounds). A note is written into the pattern only once its start has
  * been played in the pass it was recorded in, so it sounds from the next pass (the key alone this pass);
  * overdubs add to what is there (the same note on the same tick: replaced). Pattern full (ARR_NEV): the note
- * is dropped and arr_full set, until an erase. Stopping, a section change or recording off end the notes
- * held. */
+ * is dropped and arr_full set, until an erase or a load. Stopping, a section change or recording off end the
+ * notes held. A section change (a fill, an ending, a song's mark, arr_section) also ends recording: the notes
+ * held are written into the pattern that played, and arr_recording goes to 0 (the app shows REC off), so
+ * nothing records into another pattern unasked. With the grid off, a key at the loop's start is its tick 0,
+ * never the last tick of the pass before. A pattern loaded into the slot (arr_load_pattern) while a note is
+ * held or waiting drops that note; a store (arr_store_pattern) keeps it, written after the store. The keys
+ * sound with the selected track's sounds (sent to the synth, and MIDI out, at arr_record and when the track
+ * or pattern changed), and go to MIDI out on its channel when MIDI out is on (as the pattern's notes: a
+ * note-on only with room for its note-off). */
 enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 12 8 6 4 3 1 ticks */
 void arr_record(int trk, int on);                /* the selected track (also arr_key's sound), recording on */
 void arr_key(int note, int on, int vel);
 void arr_set_quant(int q);                       /* ARR_Q_*, ARR_Q_16 at init */
-void arr_erase_track(int trk);                   /* the playing pattern's track: its notes removed */
+/* the playing pattern's track: its notes removed (while that slot is being stored: right after) */
+void arr_erase_track(int trk);
 /* a slot's pattern as it is now, recordings included (main loop); returns its arr_dirty count, which counts
  * up at every recorded note and erase (save it when it moved) */
 uint16_t arr_pattern_copy(int slot, pattern_t *out);
-extern volatile uint8_t arr_full;
+/* an edit of the pattern in a slot (sounds, track types, ...) put back, recording or not: copy, edit, store
+ * with the count the copy returned. 0: the slot was recorded into (or erased) since, nothing stored: copy
+ * again, edit again, store again:
+ *     do { d = arr_pattern_copy(s, &p); edit(&p); } while (!arr_store_pattern(s, &p, d));
+ * (arr_load_pattern is for another pattern: it overwrites whatever was recorded) */
+int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect);
+extern volatile uint8_t arr_full, arr_recording;  /* recording: on, until arr_record(.., 0) or a section change */
 extern volatile uint16_t arr_dirty[ARR_NSECT];
 void arr_midi_out_on(int on);
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };

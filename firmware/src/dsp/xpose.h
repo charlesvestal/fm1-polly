@@ -27,5 +27,7 @@ int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c);
  * over chord c. Bypass: the key as played; Parallel (and any type over "---"): note - root; Chord 1 / 2 and
  * Bass: the source pitch class whose Chord 1 image has the key's pitch class (chord tones first, then
  * tensions, then chromatic notes), in the octave Chord 1 maps back to the key exactly (high key included);
- * a key outside every image (a chromatic passing note): note - root. Kept in 0..127 by octaves. */
+ * a key outside every image (a chromatic passing note): note - root. Kept in 0..127 by octaves.
+ * Keys no pattern note can produce (B over C major, whose 7th is the octave) are stored as note - root and play
+ * back moved to a degree of the later chord: the QY's behaviour, by design. */
 int xpose_inverse(const xtrack_t *t, int note, chord_t c);

@@ -49,6 +49,7 @@ static void post(uint32_t c, uint32_t a, uint32_t b)
  * tracks' places in it before it plays anything (sync). */
 static pattern_t pat[ARR_NSECT];
 static volatile uint8_t busy[ARR_NSECT], gen[ARR_NSECT];
+static volatile uint8_t ident[ARR_NSECT];         /* counts loads of another pattern (not stores of an edit) */
 static uint8_t seen[ARR_NSECT];
 /* the song, copied in the same way: the render leaves it alone while it is busy */
 static song_t song;
@@ -105,7 +106,7 @@ void arr_erase_track(int trk)
     if (trk >= 0 && trk < ARR_TRACKS)
         post(C_ERASE, (uint32_t)trk, 0);
 }
-volatile uint8_t arr_full;
+volatile uint8_t arr_full, arr_recording;
 volatile uint16_t arr_dirty[ARR_NSECT];
 /* the render writes a slot's pattern only between blocks and counts arr_dirty up after: a copy with the same
  * count before and after was not written meanwhile (the render interrupts this loop, never the other way) */
@@ -130,9 +131,32 @@ void arr_load_pattern(int slot, const pattern_t *p)
     BARRIER();
     memcpy(&pat[slot], p, sizeof *p);
     gen[slot]++;
+    ident[slot]++;                                 /* notes being recorded into the one before: dropped */
+    arr_full = 0;
     BARRIER();
     busy[slot] = 0;
 }
+int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect)
+{
+    if (slot < 0 || slot >= ARR_NSECT)
+        return 0;
+    busy[slot] = 1;                                /* from here the render writes nothing into it */
+    BARRIER();
+    if (arr_dirty[slot] != expect) {               /* recorded into since the copy: copy again */
+        BARRIER();
+        busy[slot] = 0;
+        return 0;
+    }
+    memcpy(&pat[slot], p, sizeof *p);
+    gen[slot]++;
+    arr_full = 0;
+    BARRIER();
+    busy[slot] = 0;
+    return 1;
+}
+#ifdef ARR_TEST
+void arr_test_busy(int slot, int on) { busy[slot] = (uint8_t)(on != 0); }   /* a load caught midway */
+#endif
 
 /* ------------------------------------------------------------ the state --- */
 typedef struct {
@@ -389,22 +413,27 @@ static const uint8_t QUANT_TICKS[ARR_NQ] = {12, 8, 6, 4, 3, 1};
 enum { R_FREE, R_HELD, R_DONE };
 typedef struct {
     uint8_t state, key, note, vel, trk, slot;
+    uint8_t ident, rsv;                            /* its slot's pattern (ident) at the key */
     uint16_t qpos, len;                            /* its start in the pattern; its length (R_DONE) */
     uint32_t qabs;                                 /* its start in render ticks */
 } rec_t;
 #define REC_N 8
 static rec_t rec[REC_N];
 #define LIVE_N 16                                  /* keys sounding (arr_key), each with its channel */
-static uint8_t live_key[LIVE_N], live_chan[LIVE_N];
+static uint8_t live_key[LIVE_N], live_chan[LIVE_N], live_mo[LIVE_N];
 static int n_live;
+static uint8_t live_trk = 0xFF, live_cur, live_gen; /* the track whose sounds the keys last had sent */
 static uint8_t rec_on, rec_trk, quant = ARR_Q_16;
+static uint8_t in_tick;                            /* inside tick(): the tick arr_ticks - 1 is playing */
+static uint8_t erase_pend[ARR_NSECT], erase_ident[ARR_NSECT];   /* erases waiting for a load to finish */
+static uint32_t tick_now(void) { return in_tick ? arr_ticks - 1 : arr_ticks; }
 
 /* the key's time: the tick nearest the block's start (the tick before pos when it is nearer than pos), as a
- * render tick; *kpos its place in the pattern */
-static uint32_t key_tick(uint32_t *kpos)
+ * render tick; *kpos its place in the pattern. no_back: never back across the loop's start (to tick 0) */
+static uint32_t key_tick(uint32_t *kpos, int no_back)
 {
     uint32_t plen = pat_len(&pat[cur]), r = 0;
-    if (!first_tick && !arr_ext && !start_wait && ftt > 0 && (uint32_t)ftt > fpt / 2)
+    if (!first_tick && !arr_ext && !start_wait && ftt > 0 && (uint32_t)ftt > fpt / 2 && !(no_back && pos == 0))
         r = 1;
     *kpos = (pos + plen - r) % plen;
     return arr_ticks - r;
@@ -452,7 +481,7 @@ static void rec_write(const rec_t *r)
 {
     const pattern_t *p = &pat[r->slot];
     uint32_t plen = pat_len(p), len = r->len, q = QUANT_TICKS[quant];
-    if (busy[r->slot] || r->qpos >= plen || r->trk >= ARR_TRACKS)
+    if (r->qpos >= plen || r->trk >= ARR_TRACKS)
         return;
     if (len < q)
         len = q;
@@ -469,17 +498,24 @@ static void rec_release(rec_t *r, uint32_t end)
     r->state = R_DONE;
 }
 /* the entries due: released ones whose start has played, and held ones whose pass has ended (their length to
- * the pattern's end). all: every one now, held ones ending here (a stop, a section change: the pass is over) */
+ * the pattern's end). all: every one now, held ones ending at the tick now (a stop, a section change: the pass
+ * is over). Another pattern loaded into the slot since the key: dropped; the slot being stored (busy): later */
 static void rec_flush(int all)
 {
     for (int i = 0; i < REC_N; i++) {
         rec_t *r = &rec[i];
         if (r->state == R_FREE)
             continue;
+        if (ident[r->slot] != r->ident) {
+            r->state = R_FREE;
+            continue;
+        }
+        if (busy[r->slot])
+            continue;
         if (r->state == R_HELD) {
             uint32_t pass_end = r->qabs - r->qpos + pat_len(&pat[r->slot]);
             if (all)
-                rec_release(r, arr_ticks);
+                rec_release(r, tick_now());
             else if (arr_ticks >= pass_end)
                 rec_release(r, pass_end);
             else
@@ -501,7 +537,7 @@ static void rec_press(int key, int vel)
             r = &rec[i];
     if (!r || busy[cur])
         return;                                    /* more than REC_N held: this one only sounds */
-    kabs = key_tick(&kpos);
+    kabs = key_tick(&kpos, quant == ARR_Q_OFF);   /* grid off: a key at the loop's start is its tick 0 */
     m = kpos % q;
     if (2 * m >= q) {                              /* to the nearest grid line */
         kpos += q - m;
@@ -516,11 +552,32 @@ static void rec_press(int key, int vel)
     r->vel = (uint8_t)vel;
     r->trk = rec_trk;
     r->slot = cur;
+    r->ident = ident[cur];
     r->note = (uint8_t)xpose_inverse(&p->trk[rec_trk].x, key, chord);
     r->qpos = (uint16_t)kpos;
     r->qabs = kabs;
     r->len = 0;
     r->state = R_HELD;
+}
+/* the selected track's sounds (program, volume, pan, sends) for the keys: to the synth, and to MIDI out what
+ * it does not have yet, when they were not sent for this track of this pattern */
+static void live_sounds(void)
+{
+    const arr_trk_t *t = &pat[cur].trk[rec_trk];
+    if (busy[cur] || (live_trk == rec_trk && live_cur == cur && live_gen == gen[cur]))
+        return;
+    for (int k = 0; k < 5; k++) {
+        uint8_t v;
+        uint32_t m = sound(t, k, &v), c = m & 15u;
+        gm_midi_now(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu, at);
+        if (mout && out_sent[c][k] != v && out_room(1)) {
+            arr_midi_out(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu);
+            out_sent[c][k] = v;
+        }
+    }
+    live_trk = rec_trk;
+    live_cur = cur;
+    live_gen = gen[cur];
 }
 static void key_event(int key, int vel)            /* arr_key, in the render: sound it, record it */
 {
@@ -530,33 +587,44 @@ static void key_event(int key, int vel)            /* arr_key, in the render: so
         ;
     if (i < n_live) {                              /* released, or struck again: its note-off first */
         gm_midi_now(0x80u | live_chan[i], (uint32_t)key, 0, 0);
+        if (live_mo[i]) {
+            arr_midi_out(0x80u | live_chan[i], (uint32_t)key, 0);
+            out_owed--;
+        }
         n_live--;
         live_key[i] = live_key[n_live];
         live_chan[i] = live_chan[n_live];
+        live_mo[i] = live_mo[n_live];
     }
     for (i = 0; i < REC_N; i++)
         if (rec[i].state == R_HELD && rec[i].key == key)
-            rec_release(&rec[i], key_tick(&kpos));
+            rec_release(&rec[i], key_tick(&kpos, 0));
     rec_flush(0);
     if (!vel)
         return;
-    if (n_live < LIVE_N) {
+    live_sounds();
+    if (n_live < LIVE_N) {                         /* to MIDI out as the pattern's notes: room for its note-off */
         live_key[n_live] = (uint8_t)key;
-        live_chan[n_live++] = (uint8_t)chan;
+        live_chan[n_live] = (uint8_t)chan;
+        live_mo[n_live] = 0;
         synth_on(chan, (uint32_t)key, (uint32_t)vel);
+        if (mout && out_room(1)) {
+            arr_midi_out(0x90u | chan, (uint32_t)key, (uint32_t)vel);
+            live_mo[n_live] = 1;
+            out_owed++;
+        }
+        n_live++;
     }
     if (rec_on && arr_playing)
         rec_press(key, vel);
 }
-static void erase_track(int trk)                   /* the playing pattern's track */
+static void erase_track(int s, int trk)
 {
-    pattern_t *p = &pat[cur];
+    pattern_t *p = &pat[s];
     arr_trk_t *t = &p->trk[trk];
     uint32_t a = t->first, n = t->count;
-    if (busy[cur])
-        return;
     for (int i = 0; i < REC_N; i++)                /* its notes being recorded go too */
-        if (rec[i].trk == trk)
+        if (rec[i].slot == s && rec[i].trk == trk)
             rec[i].state = R_FREE;
     if (n && a + n <= p->nev) {
         for (uint32_t i = a; i + n < p->nev; i++)
@@ -570,10 +638,25 @@ static void erase_track(int trk)                   /* the playing pattern's trac
     }
     t->count = 0;
     t->first = (uint16_t)(a <= p->nev ? a : p->nev);
-    seek();
+    if (s == cur)
+        seek();
     arr_full = 0;
     BARRIER();
-    arr_dirty[cur]++;
+    arr_dirty[s]++;
+}
+/* the erases asked for (arr_erase_track), each into the slot that was playing then, once it is not being
+ * stored; dropped when another pattern was loaded into it meanwhile */
+static void erase_apply(void)
+{
+    for (int s = 0; s < ARR_NSECT; s++) {
+        if (!erase_pend[s] || busy[s])
+            continue;
+        if (erase_ident[s] == ident[s])
+            for (int t = 0; t < ARR_TRACKS; t++)
+                if (erase_pend[s] >> t & 1u)
+                    erase_track(s, t);
+        erase_pend[s] = 0;
+    }
 }
 
 /* ------------------------------------------------------------ the clock --- */
@@ -634,7 +717,8 @@ static int follows_chord(uint8_t type) { return type == XT_CHORD1 || type == XT_
  * Chord 1 / 2 or Bass track end at the next chord change (with more than RESTRIKE_MIN left), not clash */
 static void switch_to(uint8_t sec)
 {
-    rec_flush(1);                                  /* recording: the pass ends here */
+    rec_flush(1);                                  /* recording: the pass ends here, and recording too */
+    rec_on = arr_recording = 0;                    /* (it would go on into the other pattern) */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -722,6 +806,7 @@ static void tick(int play)
     const pattern_t *p = &pat[cur];
     uint32_t len, bar;
     arr_ticks++;
+    in_tick = 1;
     if (clk_out && !arr_ext)
         out_rt(0xF8u);                             /* clock out first, 24 a quarter: a lost F8 is never made up */
     for (int t = 0; t < ARR_TRACKS; t++)           /* notes ending first */
@@ -730,8 +815,10 @@ static void tick(int play)
                 note_end(&tk[t], i);
     if (pos % ARR_PPQ == 0 && !first_tick)
         beat_now++;
-    if (pos % bar_len(p) == 0 && !bar_line())      /* sections change on the bar; an end stops here */
+    if (pos % bar_len(p) == 0 && !bar_line()) {    /* sections change on the bar; an end stops here */
+        in_tick = 0;
         return;
+    }
     first_tick = 0;
     p = &pat[cur];
     if (pos % ARR_PPQ == 0)                        /* the beat's chord before its notes */
@@ -760,6 +847,7 @@ static void tick(int play)
         pos = 0;
         seek();
     }
+    in_tick = 0;
     rec_flush(0);                                  /* recorded notes whose start has played */
 }
 
@@ -908,18 +996,26 @@ static void drain(void)
             break;
         case C_REC:
             rec_trk = (uint8_t)a;
+            live_sounds();                         /* the track's sounds for the keys, now */
+            arr_recording = (uint8_t)b;
             if (rec_on && !b) {                    /* off: the keys held end their notes now */
                 uint32_t kpos;
                 for (int i = 0; i < REC_N; i++)
                     if (rec[i].state == R_HELD)
-                        rec_release(&rec[i], key_tick(&kpos));
+                        rec_release(&rec[i], key_tick(&kpos, 0));
                 rec_flush(!arr_playing);
             }
             rec_on = (uint8_t)b;
             break;
         case C_NOTE: key_event((int)(a & 0x7Fu), (int)(a >> 8 & 0x7Fu)); break;
         case C_QUANT: quant = (uint8_t)a; break;
-        case C_ERASE: erase_track((int)a); break;
+        case C_ERASE:
+            if (erase_pend[cur] && erase_ident[cur] != ident[cur])
+                erase_pend[cur] = 0;
+            erase_pend[cur] |= (uint8_t)(1u << a);
+            erase_ident[cur] = ident[cur];
+            erase_apply();
+            break;
         default: break;
         }
     }
@@ -932,6 +1028,8 @@ void arr_block(uint32_t frames)
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
     arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
     drain();
+    erase_apply();                                 /* what waited for a store to finish */
+    rec_flush(0);
     arr_template_now = tmpl;
     sync();
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
@@ -988,6 +1086,7 @@ void arr_init(void)                                /* at boot, before the render
         pat[i].beats = 4;
         busy[i] = 0;
         gen[i] = seen[i] = 0;
+        ident[i] = 0;
     }
     for (int t = 0; t < ARR_TRACKS; t++) {
         xpose_reset(&tk[t].xs);
@@ -1022,6 +1121,10 @@ void arr_init(void)                                /* at boot, before the render
     memset(rec, 0, sizeof rec);
     n_live = 0;
     rec_on = rec_trk = 0;
+    arr_recording = 0;
+    live_trk = 0xFF;
+    in_tick = 0;
+    memset(erase_pend, 0, sizeof erase_pend);
     quant = ARR_Q_16;
     arr_full = 0;
     for (int i = 0; i < ARR_NSECT; i++)

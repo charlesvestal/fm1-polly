@@ -1440,8 +1440,193 @@ static void test_record_full(void)
     arr_erase_track(5);
     run_blocks(1);
     CHECK(arr_full == 0, "an erase makes room");
+    arr_full = 1;
+    arr_load_pattern(0, &P);
+    CHECK(arr_full == 0, "a load clears it");
     arr_play(0);
     run_blocks(1);
+}
+
+void arr_test_busy(int slot, int on);         /* arr.c with ARR_TEST: a slot caught mid-store */
+static void rec_start(int trk)                /* pattern_one in slot 0, Am7, recording into trk, playing */
+{
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(9, CH_MIN7));
+    arr_record(trk, 1);
+    arr_play(1);
+}
+
+static void test_inverse_types(void)          /* Chord 2, Bass, high key */
+{
+    xtrack_t c2 = {XT_CHORD2, 0, 127, XT_NOKEY}, ba = {XT_BASS, 0, 127, XT_NOKEY}, hk = {XT_CHORD1, 0, 127, 5};
+    xstate_t xs;
+    chord_t am7 = ch(9, CH_MIN7), g7 = ch(7, CH_7);
+    CHECK(xpose_inverse(&c2, 69, am7) == 60 && xpose_inverse(&c2, 72, am7) == 64, "Chord 2: as Chord 1");
+    CHECK(xpose_inverse(&ba, 45, am7) == 36, "Bass: A2 over Am7 -> C2 (%d)", xpose_inverse(&ba, 45, am7));
+    CHECK(xpose_inverse(&ba, 50, g7) == 43, "Bass: D3 (the 5th of G7) -> G2 (%d)", xpose_inverse(&ba, 50, g7));
+    CHECK(xpose_inverse(&hk, 57, am7) == 60, "high key F, over Am7 the line folds down: A3 -> C4 (%d)", xpose_inverse(&hk, 57, am7));
+    xpose_reset(&xs);
+    CHECK(xpose(&hk, &xs, 60, am7) == 57, "and back");
+    CHECK(xpose_inverse(&hk, 67, g7) == 72, "high key F, over G7: G4 -> C5 (%d)", xpose_inverse(&hk, 67, g7));
+    CHECK(xpose_inverse(&c2, 71, ch(0, CH_MAJ)) == 71 - 0, "B over C major (no 7th): note - root");
+}
+
+static void test_record_triplets(void)
+{
+    int i;
+    rec_start(5);
+    arr_set_quant(ARR_Q_8T);
+    key_at(13.f, 69, 1);                      /* 13 -> 16 on the 8-tick grid */
+    key_at(19.f, 69, 0);                      /* 3 ticks: one quantum, 8 */
+    arr_set_quant(ARR_Q_16T);
+    key_at(21.f, 72, 1);                      /* 21 -> 20 on the 4-tick grid */
+    key_at(30.f, 72, 0);                      /* 10 ticks */
+    run_to((uint32_t)(40 * FPT));
+    arr_pattern_copy(0, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 2 && R.ev[i].tick == 16 && R.ev[i].len == 8 && R.ev[i + 1].tick == 20 && R.ev[i + 1].len == 10,
+          "1/8T at 16 (8 ticks), 1/16T at 20 (10): %d %d, %d %d", R.ev[i].tick, R.ev[i].len, R.ev[i + 1].tick, R.ev[i + 1].len);
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_record_off_grid_start(void)  /* grid off: a key at the loop's start is tick 0 */
+{
+    rec_start(5);
+    arr_set_quant(ARR_Q_OFF);
+    key_at(95.01f, 69, 1);                    /* the block after tick 95, nearer it than tick 96 (= 0) */
+    key_at(101.f, 69, 0);
+    run_to((uint32_t)(150 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first].len == 5,
+          "stored at 0, 5 ticks (%d: %d %d)", R.trk[5].count, R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
+    CHECK(ons_in(0x93, 69, 0.f, 150 * FPT) == 1, "the key only, this pass");
+    run_to((uint32_t)(192 * FPT + 512));
+    CHECK(ons_in(0x93, 69, 190 * FPT, 193 * FPT) == 1, "on the next pass's downbeat");
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_record_busy(void)            /* a note due, and an erase, while the slot is being stored */
+{
+    rec_start(5);
+    key_at(25.f, 69, 1);
+    run_to((uint32_t)(30 * FPT));
+    arr_test_busy(0, 1);
+    arr_key(69, 0, 0);
+    arr_erase_track(0);
+    run_to((uint32_t)(40 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].count == 0 && R.trk[0].count == 2, "nothing written while busy");
+    arr_test_busy(0, 0);
+    run_blocks(1);
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 24 && R.ev[R.trk[5].first].note == 60,
+          "the note, kept, written after (%d)", R.trk[5].count);
+    CHECK(R.trk[0].count == 0, "the erase, after");
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_record_load(void)            /* another pattern loaded under a held note: it is dropped */
+{
+    uint16_t d;
+    rec_start(5);
+    key_at(25.f, 69, 1);
+    run_to((uint32_t)(28 * FPT));
+    arr_load_pattern(0, &P);
+    d = arr_pattern_copy(0, &R);
+    key_at(36.f, 69, 0);
+    run_to((uint32_t)(60 * FPT));
+    CHECK(arr_pattern_copy(0, &R) == d && R.trk[5].count == 0, "not written into the new pattern (%d)", R.trk[5].count);
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_store(void)                  /* copy, edit, store: refused when recorded into meanwhile */
+{
+    uint16_t d0, d1;
+    static pattern_t E;
+    rec_start(5);
+    d0 = arr_pattern_copy(0, &E);
+    key_at(25.f, 69, 1);
+    key_at(36.f, 69, 0);
+    run_to((uint32_t)(40 * FPT));
+    E.trk[5].vol = 50;
+    CHECK(arr_store_pattern(0, &E, d0) == 0, "refused: recorded into since the copy");
+    d1 = arr_pattern_copy(0, &E);
+    CHECK(E.trk[5].count == 1, "the note still there");
+    E.trk[5].vol = 50;
+    key_at(50.f, 72, 1);                      /* held over the store */
+    CHECK(arr_store_pattern(0, &E, d1) == 1, "stored with the count of the copy");
+    key_at(60.f, 72, 0);
+    run_to((uint32_t)(70 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].vol == 50 && R.trk[5].count == 2 && R.ev[R.trk[5].first + 1].tick == 48,
+          "the edit, and the note held over the store, kept (%d %d)", R.trk[5].vol, R.trk[5].count);
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_record_section(void)         /* a section change ends recording, at its tick */
+{
+    reset();
+    pattern_one();
+    P.bars = 2;                               /* the switch at bar 2, mid-pattern */
+    arr_load_pattern(0, &P);
+    pat_new();
+    arr_load_pattern(1, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(9, CH_MIN7));
+    arr_record(5, 1);
+    arr_play(1);
+    key_at(50.f, 69, 1);                      /* -> 48, held over the bar line */
+    arr_section(SEC_B);
+    run_to((uint32_t)(100 * FPT));
+    CHECK(arr_recording == 0 && arr_sect == SEC_B, "recording off at the switch");
+    key_at(110.f, 69, 0);
+    key_at(120.f, 72, 1);
+    key_at(130.f, 72, 0);
+    run_to((uint32_t)(140 * FPT));
+    arr_pattern_copy(0, &R);
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 48 && R.ev[R.trk[5].first].len == 48,
+          "the held note ends at the switch: 48 ticks (%d)", R.ev[R.trk[5].first].len);
+    arr_pattern_copy(1, &R);
+    CHECK(R.trk[5].count == 0, "nothing into Main B");
+    arr_play(0);
+    run_blocks(1);
+}
+
+static void test_live_keys(void)              /* the keys: the track's sounds, MIDI out */
+{
+    int i;
+    reset();
+    pattern_one();
+    arr_load_pattern(0, &P);
+    arr_midi_out_on(1);
+    arr_record(5, 0);
+    run_blocks(1);
+    CHECK(find(stub_log, stub_n, 0, 0xC3, 15) >= 0 && find(stub_log, stub_n, 0, 0xB3, 7) >= 0,
+          "track 5's program and volume to the synth at once");
+    CHECK(find(out_log, out_n, 0, 0xC3, 15) >= 0, "and to MIDI out");
+    arr_key(64, 1, 100);
+    run_blocks(1);
+    arr_key(64, 0, 0);
+    run_blocks(1);
+    i = find(stub_log, stub_n, 0, 0x93, 64);
+    CHECK(i >= 0 && find(stub_log, stub_n, i + 1, 0x83, 64) > i, "the key on channel 4, and its end");
+    i = find(out_log, out_n, 0, 0x93, 64);
+    CHECK(i >= 0 && find(out_log, out_n, i + 1, 0x83, 64) > i, "and out on channel 4");
+    ring_cap = ring_used + 4;                 /* no room beyond the reserve */
+    arr_key(65, 1, 100);
+    run_blocks(1);
+    arr_key(65, 0, 0);
+    run_blocks(1);
+    CHECK(find(out_log, out_n, 0, 0x93, 65) < 0 && find(out_log, out_n, 0, 0x83, 65) < 0 &&
+              find(stub_log, stub_n, 0, 0x93, 65) >= 0, "no room: not out (nor its note-off), but heard");
 }
 
 int main(void)
@@ -1483,6 +1668,14 @@ int main(void)
     test_record_bypass_erase();
     test_record_early();
     test_record_full();
+    test_inverse_types();
+    test_record_triplets();
+    test_record_off_grid_start();
+    test_record_busy();
+    test_record_load();
+    test_store();
+    test_record_section();
+    test_live_keys();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;
