@@ -47,10 +47,14 @@ static inline void *fl_far(void *p) { void *volatile q = p; return q; }
                                (uint32_t)(n) <= (hi) - (uint32_t)(off))
 /* Felucca's own store (projects, user samples; settings) */
 #define FL_STORE_OK(off, n) (FL_IN(off, n, FL_DATA_LO, FL_DATA_HI) || FL_IN(off, n, FL_GLOB_LO, FL_GLOB_HI))
+/* Polly's QY70 style bank (src/dsp/qybank.h: the same four regions, main.c checks they agree): the flash the
+ * app, the store, the panel, the update loader's staging area and Felucca's globals leave free */
+#define FL_BANK_OK(off, n) (FL_IN(off, n, 0x00093000u, 0x00097000u) || FL_IN(off, n, 0x000B9000u, 0x000DC000u) || \
+                            FL_IN(off, n, 0x000DE000u, 0x000E0000u) || FL_IN(off, n, 0x000E5000u, 0x000FC000u))
 /* Where the RAM driver may erase / program. The app build allows only its own
- * data regions; the update loader (firmware/loader) defines its own window. */
+ * data regions and the bank's; the update loader (firmware/loader) defines its own window. */
 #ifndef FL_RANGE_OK
-#define FL_RANGE_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, FL_OTA_LO, FL_OTA_HI))
+#define FL_RANGE_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, FL_OTA_LO, FL_OTA_HI) || FL_BANK_OK(off, n))
 #endif
 
 typedef struct { uint32_t sfc_con, spi_con; } fl_saved_t;

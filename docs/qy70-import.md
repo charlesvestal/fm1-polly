@@ -220,10 +220,10 @@ the velocity, a bar repeat a mask test and a copy from the bars before: some 30-
 last four bars of each playing phrase decoded, 5 bytes a note: 8 KB for 8 tracks at 50 notes a bar (99% of
 phrases), 19 KB at the ROM's busiest bar (121 notes); repeats only one or two bars back (95% of them) halve that.
 
-## The runtime-decoded bank (`tools/qy70_codec.py`, `tools/qydec/`)
+## The runtime-decoded bank (`tools/qy70_codec.py`, `firmware/src/dsp/qydec.c`)
 
 The bank the device would use: each style is one range-coded stream, decoded into RAM in one go when the style
-is picked (`qy_decode_style`, `tools/qydec/qydec.c`, pure C99). The same Python function codes and decodes
+is picked (`qy_decode_style`, `firmware/src/dsp/qydec.c`, pure C99). The same Python function codes and decodes
 (`code_phrase`), and the C decoder follows it line for line; `--ctest` checks the two agree on all 4,166 phrases,
 `--test` that the decode gives the importer's events back (times, keys and gates exact; velocity within 4).
 

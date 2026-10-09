@@ -30,6 +30,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 #include "../firmware/src/app/plat.h"     /* POLLY: the object map */
 #include "../firmware/src/storage.c"
+#include "qybank.h"                          /* the QY70 style bank's flash map */
+int qb_flash_read(uint32_t off, void *dst, uint32_t n) { memcpy(dst, nor + off, n); return 0; }
 #define OBJ_PROJECT0 OBJ_PROJ                  /* POLLY has two objects: the project and the panel */
 #define OBJ_SETTINGS OBJ_PANEL
 
@@ -119,6 +121,38 @@ int main(void)
         ok = n == 64 && got[0] == 'a';
         n = st_load(OBJ_PAT0 + 15, got, sizeof got);
         bad += check("each pattern object its own", (int)ok && n == 64 && got[0] == 'p');
+    }
+    {   /* the QY70 bank: its sectors in its four regions, none of the store's, the app's (< 0x93000), the songs',
+         * the patterns', the panel's, the update loader's (0xE0000..0xE4FFF) or Felucca's globals (0xFC000..) */
+        static uint8_t seen[0x100000 / 4096], hit[0x100000];
+        uint32_t i, ok = QB_NSECT == 63 && QB_CAPACITY == 63u * 4088u && QB_FLASH_OK(QB_DIR, 4096);
+        for (i = 0; i < QB_NSECT; i++) {
+            uint32_t a = qb_sector(i);
+            if (!a || a & 0xFFFu || !QB_FLASH_OK(a, 4096) || a == QB_DIR || seen[a >> 12]++)
+                ok = 0;
+            if ((a >= 0x97000u && a < 0xB9000u) || (a >= 0xDC000u && a < 0xDE000u) || (a >= 0xE0000u && a < 0xE5000u) ||
+                a < 0x93000u || a >= 0xFC000u)
+                ok = 0;
+        }
+        for (uint32_t o = 0; o < OBJ_NOBJ; o++)
+            for (uint32_t c = 0; c < 2; c++)
+                if (QB_FLASH_OK(st_sector(o, c), 4096) || (st_sector(o, c) + 4096 > QB_R0_LO && st_sector(o, c) < QB_R0_HI))
+                    ok = 0;
+        bad += check("bank: 63 data sectors + its directory, clear of the rest", (int)ok);
+        /* every logical byte its own flash byte, never one of a sector's guard bytes (0xF00..0xF07) */
+        memset(nor, 0xFF, sizeof nor);
+        ok = qb_phys(QB_CAPACITY) == 0;
+        for (i = 0; i < QB_CAPACITY; i++) {
+            uint32_t a = qb_phys(i);
+            if (!QB_FLASH_OK(a, 1) || ((a & 0xFFFu) >= 0xF00u && (a & 0xFFFu) < 0xF08u) || hit[a]++)
+                ok = 0;
+            nor[a] = 0;
+        }
+        for (i = 0; i < QB_NSECT; i++)               /* written full of zeros: the guard bytes still 0xFF */
+            for (uint32_t g = 0; g < 8; g++)
+                ok &= nor[qb_sector(i) + 0xF00u + g] == 0xFFu && nor[qb_sector(i) + 0xEFFu] == 0 &&
+                      nor[qb_sector(i) + 0xF08u] == 0;
+        bad += check("bank: the logical bytes step over the guard bytes", (int)ok);
     }
     printf("%s\n", bad ? "STORAGE TEST FAILED" : "storage test passed");
     return bad != 0;

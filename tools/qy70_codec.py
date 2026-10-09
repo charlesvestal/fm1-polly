@@ -5,7 +5,10 @@
     python3 tools/qy70_codec.py qy70main.bin --out bank.qyb      # the bank (for your own use: Yamaha's music)
     python3 tools/qy70_codec.py qy70main.bin --sizes             # bytes per style, all, and what fits where
     python3 tools/qy70_codec.py qy70main.bin --test              # Python decode == the importer's events
-    python3 tools/qy70_codec.py qy70main.bin --ctest             # tools/qydec (the device's C decoder) == Python
+    python3 tools/qy70_codec.py qy70main.bin --ctest             # the device's C decoder (firmware/src/dsp/qydec.c)
+                                                                 # == this one
+    python3 tools/qy70_codec.py qy70main.bin --image FILE        # the bank as the FM-1 stores it (qybank.h)
+    python3 tools/qy70_codec.py --synthetic --image FILE         # a test bank from Polly's own styles (no ROM)
 
 The model (docs/qy70-import.md): each style's phrases are coded in order with adaptive binary contexts (LZMA's
 range coder: 12-bit probabilities, shifts and multiplies only, no division) started from priors trained on the
@@ -22,6 +25,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qy70_import as q  # noqa: E402
@@ -36,7 +40,7 @@ NKINDS = len(qb.KINDS)
 MAGIC = b"QYB2"
 
 # ---------------------------------------------------------------- the model's probability layout (the C decoder
-# mirrors it: tools/qydec/qydec.h)
+# mirrors it: firmware/src/dsp/qydec.h)
 UK = 18                          # unary prefix of an unsigned code (up to 2^17 - 2)
 UM = 2                           # mantissa bits with their own probabilities (the rest: fixed 1/2)
 USZ = UK + 1 + 16 * UM           # probabilities an unsigned-code context uses
@@ -499,10 +503,15 @@ def cost_new(melodic):
 
 
 def build(rom, styles=None):
-    """the bank: MAGIC, style count, priors size, the priors, then per style: its header's and stream's sizes,
-    the header, the range-coded stream. Returns (bytes, per-style sizes, stats, the reference decodes)"""
+    """the bank of a ROM's styles (build_from)"""
     styles = styles or rom.styles()
-    sp = [(st,) + style_phrases(rom, st) for st in styles]
+    return build_from([(st,) + style_phrases(rom, st) for st in styles])
+
+
+def build_from(sp):
+    """the bank: MAGIC, style count, priors size, the priors, then per style: its header's and stream's sizes,
+    the header, the range-coded stream. sp: per style (st, tracks, uses, order, seen) as style_phrases makes them
+    (st: name, tempo, num (beats a bar), bars (six sections)). Returns (bytes, per-style sizes, stats)"""
     cnt = Count()
     for st, tracks, uses, order, seen in sp:           # the training pass
         bars = []
@@ -594,10 +603,11 @@ def dump(dec, f):
                 f.write("c %d %d %d\n" % (t, k, v))
 
 
-def ctest(rom):
-    """compile tools/qydec (the device's decoder) for the host, decode the bank, compare with this decoder"""
+def ctest(blob):
+    """compile the device's decoder (firmware/src/dsp/qydec.c) for the host, decode the bank, compare with this
+    decoder"""
     here = os.path.dirname(os.path.abspath(__file__))
-    blob, per, stats = build(rom)
+    dsp = os.path.join(here, "..", "firmware", "src", "dsp")
     with tempfile.TemporaryDirectory() as tmp:
         bank, exe = os.path.join(tmp, "bank.qyb"), os.path.join(tmp, "qydec_test")
         with open(bank, "wb") as f:
@@ -605,7 +615,7 @@ def ctest(rom):
         with open(os.path.join(tmp, "ref.txt"), "w") as f:
             dump(decode_bank(blob), f)
         subprocess.run([os.environ.get("CC", "cc"), "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
-                        "-I" + os.path.join(here, "qydec"), "-o", exe, os.path.join(here, "qydec", "qydec.c"),
+                        "-I" + dsp, "-o", exe, os.path.join(dsp, "qydec.c"),
                         os.path.join(here, "qydec", "qydec_test.c")], check=True)
         r = subprocess.run([exe, bank, os.path.join(tmp, "c.txt")], capture_output=True, text=True)
         print(r.stdout.strip())
@@ -617,21 +627,73 @@ def ctest(rom):
         return 0 if same else 1
 
 
+# ---------------------------------------------------------------- the bank on the FM-1 (firmware/src/dsp/qybank.h)
+
+# the data's logical bytes (qybank.h QB_CAPACITY: 63 sectors of 4088, the guard bytes stepped over; the FM-1 maps
+# them to flash as it writes them)
+QB_SECTOR, QB_GUARD = 4096, 0xF00
+QB_CAPACITY = 63 * (QB_SECTOR - 8)
+QB_MAGIC, QB_VERSION, QB_DIR_HEAD, QB_DIR_ENTRY, QB_MAXSTYLES = b"PQB1", 1, 32, 24, 128
+
+
+def device_image(blob):
+    """the bank as the FM-1 stores it: (image, info). image: the directory sector (4096 bytes) then the logical
+    data (the priors, then each style's record: header, stream); qy70_install.py writes it, the simulator loads it"""
+    assert blob[:4] == MAGIC
+    ns, np_ = struct.unpack_from("<HH", blob, 4)
+    if ns > QB_MAXSTYLES:
+        raise ValueError("%d styles: the directory holds %d" % (ns, QB_MAXSTYLES))
+    priors = blob[8:8 + np_]
+    data = bytearray(priors)
+    ents, p = [], 8 + np_
+    for _ in range(ns):
+        hl, dl = struct.unpack_from("<HH", blob, p)
+        h, st = blob[p + 4:p + 4 + hl], blob[p + 4 + hl:p + 4 + hl + dl]
+        p += 4 + hl + dl
+        ents.append(h[:8] + struct.pack("<IHHIHBB", len(data), hl, dl, zlib.crc32(h + st), struct.unpack_from("<H", h, 8)[0],
+                                        h[10], 0))
+        data += h + st
+    if len(data) > QB_CAPACITY:
+        raise ValueError("the bank is %d bytes: the FM-1 has room for %d" % (len(data), QB_CAPACITY))
+    d = bytearray(QB_MAGIC + struct.pack("<HH", QB_VERSION, ns) + MAGIC + struct.pack("<IIHHII", len(data), 0, np_, 0,
+                                                                                         zlib.crc32(priors), 0))
+    for e in ents:
+        d += e
+    d += struct.pack("<I", zlib.crc32(d))
+    assert len(d) <= QB_GUARD
+    sector = bytes(d) + b"\xFF" * (QB_SECTOR - len(d))
+    return sector + bytes(data), dict(styles=ns, bytes=len(data), capacity=QB_CAPACITY)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("rom")
+    ap.add_argument("rom", nargs="?")
+    ap.add_argument("--synthetic", action="store_true", help="a test bank from Polly's styles/*.sty, no ROM")
     ap.add_argument("--out")
+    ap.add_argument("--image", help="the bank as the FM-1 stores it (for the simulator's bank command)")
     ap.add_argument("--sizes", action="store_true")
     ap.add_argument("--test", action="store_true")
     ap.add_argument("--ctest", action="store_true")
     a = ap.parse_args(argv)
-    with open(a.rom, "rb") as f:
-        rom = q.Rom(f.read())
-    if a.test:
-        raise SystemExit(test(rom))
+    if a.synthetic == bool(a.rom):
+        ap.error("give a ROM or --synthetic")
+    if a.synthetic:
+        import qybank_synth
+        rom = None
+        blob, per, stats = build_from(qybank_synth.styles())
+    else:
+        with open(a.rom, "rb") as f:
+            rom = q.Rom(f.read())
+        if a.test:
+            raise SystemExit(test(rom))
+        blob, per, stats = build(rom)
+    if a.image:
+        img, info = device_image(blob)
+        with open(a.image, "wb") as f:
+            f.write(img)
+        print("%s: %d styles, %d of %d bytes" % (a.image, info["styles"], info["bytes"], info["capacity"]))
     if a.ctest:
-        raise SystemExit(ctest(rom))
-    blob, per, stats = build(rom)
+        raise SystemExit(ctest(blob))
     if a.out:
         with open(a.out, "wb") as f:
             f.write(blob)

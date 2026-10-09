@@ -80,6 +80,17 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 #include "storage.c"
 
+/* the QY70 style bank (dsp/qybank.c, dsp/qydec.c: their own unit) reads the flash here; bank_rx.c writes it */
+#include "dsp/qybank.h"
+_Static_assert(FL_BANK_OK(QB_R0_LO, QB_R0_HI - QB_R0_LO) && FL_BANK_OK(QB_R1_LO, QB_R1_HI - QB_R1_LO) &&
+               FL_BANK_OK(QB_R2_LO, QB_R2_HI - QB_R2_LO) && FL_BANK_OK(QB_R3_LO, QB_R3_HI - QB_R3_LO) &&
+               !FL_BANK_OK(QB_R0_LO - 1u, 1u) && !FL_BANK_OK(QB_R0_HI, 1u) && !FL_BANK_OK(QB_R1_LO - 1u, 1u) &&
+               !FL_BANK_OK(QB_R1_HI, 1u) && !FL_BANK_OK(QB_R2_LO - 1u, 1u) && !FL_BANK_OK(QB_R2_HI, 1u) &&
+               !FL_BANK_OK(QB_R3_LO - 1u, 1u) && !FL_BANK_OK(QB_R3_HI, 1u),
+               "the HAL's bank window (FL_BANK_OK) is the bank's four regions, exactly");
+_Static_assert(QB_R1_LO == 0x99000u + 16u * 0x2000u, "the bank starts where the 16 user patterns end (storage.c)");
+int qb_flash_read(uint32_t off, void *dst, uint32_t n) { return st_read(off, dst, n); }
+
 struct bootguard_s { uint32_t magic, failed, pending; };
 extern struct bootguard_s bootguard;
 #include "ota.c"
