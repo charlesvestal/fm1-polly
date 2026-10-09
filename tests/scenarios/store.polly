@@ -1,13 +1,13 @@
 # POLLY, store: a pattern and a song round-trip through their flash objects, across a reboot.
 wait 200
 poke_pattern
-expect pat0_nev 3
+expect pat1_nev 3
 expect song0_bars 4
 expect song0_chord0 918
 reboot
-expect pat0_nev 3
+expect pat1_nev 3
 expect song0_bars 4
 expect song0_chord0 918
 poke_bad_pattern
 reboot
-expect pat0_nev 0
+expect pat1_nev 0

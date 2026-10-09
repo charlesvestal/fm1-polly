@@ -28,17 +28,17 @@ expect chord_root 9
 expect chord_type 16
 wait 2000
 expect chord_root 5
-# SEL + black key 2: Main B, from the next bar ("NEXT")
+# SEL + black key 3: Main B, from the next bar ("NEXT")
 press SEL
-key b1 down
-key b1 up
+key b2 down
+key b2 up
 release SEL
 wait 50
-expect sect 1
-expect next_sect 2
+expect sect 2
+expect next_sect 3
 shot next_b.png
 wait 2000
-expect sect 2
+expect sect 3
 expect next_sect 0
 shot main_b.png
 # REC records into the selected track; its light follows the engine (a section change ends it)
@@ -46,11 +46,11 @@ tap REC
 expect recording 1
 leds
 press SEL
-key b0 down
-key b0 up
+key b1 down
+key b1 up
 release SEL
 wait 2100
-expect sect 1
+expect sect 2
 expect recording 0
 # CHORD on (SEL tap), hold A C E: A minor, the template ends
 tap SEL
@@ -88,11 +88,11 @@ expect page 1
 tap FX
 expect page 5
 tap ARP
-expect page 10
-tap GLO
-expect page 12
+expect page 11
 tap GLO
 expect page 13
+tap GLO
+expect page 14
 tap HOME
 expect page 0
 # SAVE held on the Song page: the song's jobs (later), not the pattern's

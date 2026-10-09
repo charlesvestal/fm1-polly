@@ -156,7 +156,7 @@ static double bench(void)
         double s;
         arr_init();
         dense_pattern();
-        arr_load_pattern(0, &P);
+        arr_load_pattern(SEC_A - 1, &P);
         arr_set_tempo(133);
         arr_play(1);
         t0 = clock();
@@ -380,7 +380,7 @@ static void test_live_after_held_off(void)
     trk_init(0, 3, 16, XT_BYPASS, 0, 0);
     add(0, 0, 1, 60, 100);
     arr_init();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SEC_A - 1, &P);
     arr_set_tempo(120);
     arr_play(1);
     render_blocks(4);                              /* blocks 0..3: the C4, its off held */
@@ -416,7 +416,7 @@ static void test_arranger(void)
         }
         quiet();
         arr_init();
-        arr_load_pattern(0, &P);
+        arr_load_pattern(SEC_A - 1, &P);
         arr_set_tempo(bpm[b]);
         arr_play(1);
         mark();                                    /* tick 0: the next block's start */

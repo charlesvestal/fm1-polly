@@ -16,14 +16,20 @@
 #define K_TEAL RGB(38, 166, 154)
 #define K_TEAL_T RGB(196, 230, 222)
 #define K_AMBER RGB(226, 166, 60)
+#define K_OCHRE RGB(196, 128, 44)                    /* Fill BA: the fills' family, darker */
+#define K_PLUM RGB(150, 112, 170)                    /* the Intro */
 
 enum { P_SONG, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_MASTER, P_CHORDS, P_ARRANGE, P_ARRANGE2,
-       P_TEMPLATES, P_TCOPY, P_SETUP, P_PANEL, NPAGES };
+       P_ARRANGE3, P_TEMPLATES, P_TCOPY, P_SETUP, P_PANEL, NPAGES };
 static const char *const PAGE_NAME[NPAGES] = {"Song", "Pattern", "Pattern setup", "Track", "Track keys", "Mixer",
-                                              "Master FX", "Chords", "Arrange", "Song patterns", "Templates",
-                                              "Copy template", "Setup", "Panel"};
+                                              "Master FX", "Chords", "Arrange", "Song patterns", "Song patterns",
+                                              "Templates", "Copy template", "Setup", "Panel"};
+/* the Arrange pages (ENV): the section track, then the six patterns, three a page (Intro, Main A, Main B;
+ * Fill AB, Fill BA, Ending) and the style on KNOB 4 */
+static int arrange_page(int p) { return p == P_ARRANGE || p == P_ARRANGE2 || p == P_ARRANGE3; }
 static const char *const TRACK_NAME[ARR_TRACKS] = {"D1", "D2", "PC", "BA", "C1", "C2", "C3", "C4"};
-static const char *const SECT_NAME[5] = {"", "Main A", "Main B", "Fill", "Ending"};
+/* SEC_* (SEC_FILL: the Fill asked for, AB or BA by the Main playing) */
+static const char *const SECT_NAME[SEC_FILL + 1] = {"", "Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending", "Fill"};
 static const char *const KEY_NAME[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 static const char *const GRID_NAME[ARR_NQ] = {"8", "8T", "16", "16T", "32", "off"};
 static const char *const TYPE_NAME[NXT] = {"Bypass", "Parallel", "Chord 1", "Chord 2", "Bass"};
@@ -34,7 +40,7 @@ static const char *const JOB_NAME[3] = {"Erase track", "Copy pattern", "Clear pa
 static const char *const SONG_JOB_NAME[2] = {"Clear song", "Copy song"};
 static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
 static const char *const LIGHTS_NAME[3] = {"off", "on", "notes"};
-static const char SECT_LETTER[5] = {'-', 'A', 'B', 'F', 'E'};
+static const char SECT_LETTER[SEC_FILL + 1] = {'-', 'I', 'A', 'B', 'F', 'f', 'E', 'F'};
 static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 #define NNAME_CHARS ((int)sizeof NAME_CHARS - 1)
 enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
@@ -47,7 +53,7 @@ static struct {
     uint8_t dirty;                                   /* the project changed since it was saved */
     uint8_t song_on;                                 /* the selected song is playing its tracks */
     int8_t tmpl;                                     /* the template last picked, -1 none */
-    /* the four slots' patterns (Main A, Main B, Fill, Ending) as the app knows them: the tracks' settings and
+    /* the six slots' patterns (Intro, Main A, Main B, Fill AB, Fill BA, Ending) as the app knows them: the tracks' settings and
      * the pattern's length and name (not its notes). Edits go here first, then into the arranger (ui.c) */
     arr_trk_t trk[ARR_NSECT][ARR_TRACKS];
     struct { char name[8]; uint8_t bars, beats; } hdr[ARR_NSECT];
@@ -173,8 +179,11 @@ static int upper_only(const char *s)
 }
 static uint16_t sect_colour(int s)
 {
-    return s == SEC_A ? K_TEAL : s == SEC_B ? K_ACCENT : s == SEC_FILL ? K_AMBER : K_DIM;
+    return s == SEC_INTRO ? K_PLUM : s == SEC_A ? K_TEAL : s == SEC_B ? K_ACCENT : s == SEC_FILL_AB || s == SEC_FILL ? K_AMBER
+         : s == SEC_FILL_BA ? K_OCHRE : K_DIM;
 }
+/* the slot of the section playing (the one the pattern pages show and edit) */
+static int sect_slot(int sect) { return sect >= SEC_INTRO && sect <= SEC_END ? sect - 1 : SEC_A - 1; }
 /* a pill with its text, w 0: as wide as the text */
 static int32_t pill(int32_t x, int32_t y, int32_t w, const char *s, uint16_t bg, uint16_t fg)
 {
@@ -309,7 +318,7 @@ static void draw_song(void)
 {
     uint32_t h, now = arr_ticks, lit = 0, i;
     int sect = arr_sect, next = arr_next_sect, play = arr_playing, blink = (plat_ms() / 300u) & 1u;
-    uint32_t slot = (uint32_t)(sect - 1) & 3u, bar, beat;
+    uint32_t slot = (uint32_t)sect_slot(sect), bar, beat;
     place_t pl;
     chord_t nc;
     int has_next;
@@ -336,8 +345,8 @@ static void draw_song(void)
     cv_begin(240, MAIN_H, K_BG);
 
     {   /* the section, the one waiting (NEXT), and where we are */
-        int32_t x = pill(8, 2, 0, SECT_NAME[sect >= SEC_A && sect <= SEC_END ? sect : SEC_A], sect_colour(sect), K_BG);
-        if (next >= SEC_A && next <= SEC_END) {
+        int32_t x = pill(8, 2, 0, SECT_NAME[slot + 1], sect_colour((int)slot + 1), K_BG);
+        if (next >= SEC_INTRO && next <= SEC_FILL) {
             cv_text(x + 8, 5, &FONT_XS, "NEXT", blink ? K_ACCENT : K_DIM);
             x = pill(x + 8 + text_w(&FONT_XS, "NEXT") + 6, 2, 0, SECT_NAME[next], blink ? sect_colour(next) : K_PANEL,
                      blink ? K_BG : K_TEXT);
@@ -381,7 +390,7 @@ static void draw_song(void)
             const song_t *s = &songs.song[proj.song];
             uint32_t b0 = bar / 8u * 8u, sec = SEC_A;
             for (i = 0; i <= b0 + 7u && i < s->bars; i++) {
-                if (s->sect[i] >= SEC_A && s->sect[i] <= SEC_END)
+                if (s->sect[i] >= SEC_INTRO && s->sect[i] <= SEC_END)
                     sec = s->sect[i];
                 if (i >= b0) {
                     int32_t x = 8 + (int32_t)(i - b0) * 28;
@@ -430,7 +439,7 @@ static void draw_coming(void)
 /* ------------------------------------------------- the pattern pages --- */
 static pattern_t view EN_POOL;                       /* the pattern drawn (its notes), copied when it changed */
 static struct { uint8_t slot; uint16_t dirty; uint32_t gen; uint8_t ok; } vw;
-static int pslot(void) { return (arr_sect - 1) & 3; }   /* the slot the pattern pages show: the section playing */
+static int pslot(void) { return sect_slot(arr_sect); }   /* the slot the pattern pages show: the section playing */
 static void view_refresh(int s)
 {
     uint16_t d = arr_dirty[s];
@@ -441,11 +450,11 @@ static void view_refresh(int s)
     vw.gen = app.gen;
     vw.ok = 1;
 }
-/* a song's pattern number by name: "P05" (a user pattern), "Pop A", "Pop B", "Pop Fill", "Pop End" (a factory
- * style's; up to 13 characters) */
+/* a song's pattern number by name: "P05" (a user pattern), "Pop Intro", "Pop A", "Pop B", "Pop Fill AB", "Pop
+ * Fill BA", "Pop End" (a factory style's; up to 16 characters) */
 static void style_name(int st, char *t)
 {
-    static const char *const SEC_SHORT[ARR_NSECT] = {" A", " B", " Fill", " End"};
+    static const char *const SEC_SHORT[ARR_NSECT] = {" Intro", " A", " B", " Fill AB", " Fill BA", " End"};
     char *e = t;
     if (st < ARR_USER_PATTERNS) {
         *e++ = 'P';
@@ -775,7 +784,7 @@ static void song_head(const char *what)
 static int sect_at(const song_t *g, int b)
 {
     for (; b >= 0; b--)
-        if (g->sect[b] >= SEC_A && g->sect[b] <= SEC_END)
+        if (g->sect[b] >= SEC_INTRO && g->sect[b] <= SEC_END)
             return g->sect[b];
     return SEC_A;
 }
@@ -849,7 +858,7 @@ static void draw_arrange(void)
     }
     for (b = 0; b < ARR_SONGBARS; b++) {
         int32_t x = 24 + (b % 8) * 27, y = 18 + (b / 8) * 15;
-        int in = b < g->bars, cur = b == cb, se = sect_at(g, b), mark = g->sect[b] >= SEC_A && g->sect[b] <= SEC_END;
+        int in = b < g->bars, cur = b == cb, se = sect_at(g, b), mark = g->sect[b] >= SEC_INTRO && g->sect[b] <= SEC_END;
         if (cur)
             cv_round(x - 1, y - 1, 27, 15, 4, K_TEXT);
         cv_round(x, y, 25, 13, 3, in ? sect_colour(se) : K_PANEL);
@@ -862,11 +871,14 @@ static void draw_arrange(void)
     }
     cv_blit(0, MAIN_Y);
 }
+/* the song's six patterns, a row each; the three the knobs turn on this page (P_ARRANGE2: Intro, Main A, Main B;
+ * P_ARRANGE3: the fills and the Ending) lit, numbered by their knob */
 static void draw_arrange2(void)
 {
     const song_t *g = csong();
-    uint32_t h = hash(2166136261u, 1024u + proj.song), i;
-    char t[24];
+    uint32_t first = ui.page == P_ARRANGE3 ? 3u : 0u, i;
+    uint32_t h = hash(2166136261u, 1024u + proj.song + (first << 4));
+    char t[28];
     for (i = 0; i < ARR_NSECT; i++)
         h = hash(h, g->style[i]);
     h = hash(h, app.gen);
@@ -874,22 +886,27 @@ static void draw_arrange2(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    song_head("its patterns");
+    song_head(first ? "fills, ending" : "intro, mains");
     for (i = 0; i < ARR_NSECT; i++) {
-        int32_t y = 20 + (int32_t)i * 30;
-        char *e;
-        pill(8, y + 2, 76, SECT_NAME[i + 1], sect_colour((int)i + 1), K_BG);
+        int32_t y = 17 + (int32_t)i * 21;
+        int on = i >= first && i < first + 3u;
+        char *e, k[2] = {(char)('1' + i - first), 0};
+        if (on)
+            cv_round(4, y, 232, 20, 5, K_PANEL);
+        pill(8, y, 76, SECT_NAME[i + 1], on ? sect_colour((int)i + 1) : K_LINE, K_BG);
         style_name(g->style[i], t);
         e = t;
         while (*e)
             e++;
         if (g->style[i] < ARR_USER_PATTERNS) {   /* its name, as loaded */
             *e++ = ' ';
-            for (int k = 0; k < 8 && app.hdr[i].name[k]; k++)
-                *e++ = app.hdr[i].name[k];
+            for (int n = 0; n < 8 && app.hdr[i].name[n]; n++)
+                *e++ = app.hdr[i].name[n];
             *e = 0;
         }
-        cv_text(96, y + 2, &FONT_B, t, K_TEXT);
+        text_fit(92, y + 1, &FONT_S, t, 122, on ? K_TEXT : K_DIM);
+        if (on)
+            cv_text(222, y + 3, &FONT_XS, k, K_DIM);
     }
     cv_blit(0, MAIN_Y);
 }
@@ -1139,20 +1156,30 @@ static void song_page_knobs(knob_t *k)
         }
         kv(&k[3], "Step", STEP_NAME[app.cstep % 3u], app.cstep, 2);
         break;
-    case P_ARRANGE:
-        kv(&k[0], "Section", g->sect[app.cbeat / 4] ? SECT_NAME[g->sect[app.cbeat / 4] % 5u] : "-", g->sect[app.cbeat / 4], 4);
+    case P_ARRANGE: {
+        int se = g->sect[app.cbeat / 4] <= SEC_END ? g->sect[app.cbeat / 4] : SEC_SAME;
+        static const char *const SHORT[SEC_END + 1] = {"-", "Intro", "A", "B", "Fill AB", "Fill BA", "End"};
+        kv(&k[0], "Section", SHORT[se], se, SEC_END);
         kn(&k[1], "Length", g->bars, ARR_SONGBARS);
         kv(&k[2], "Loop", g->loop ? "on" : "off", g->loop, 1);
         break;
-    case P_ARRANGE2:
-        for (int i = 0; i < ARR_NSECT; i++) {
-            static const char *const N[ARR_NSECT] = {"Main A", "Main B", "Fill", "Ending"};
-            int st = g->style[i];
+    }
+    case P_ARRANGE2: case P_ARRANGE3: {
+        int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
+        for (int i = 0; i < 3; i++) {
+            static const char *const N[ARR_NSECT] = {"Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending"};
+            int st = g->style[first + i];
             style_name(st < ARR_USER_PATTERNS ? st : 0, b);   /* a factory style's knob: its name (the label is the section) */
-            kv(&k[i], N[i], st < ARR_USER_PATTERNS ? b : arr_style_name((st - ARR_FACTORY0) / ARR_NSECT), st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT,
+            kv(&k[i], N[first + i], st < ARR_USER_PATTERNS ? b : arr_style_name((st - ARR_FACTORY0) / ARR_NSECT), st < ARR_USER_PATTERNS ? st : ARR_USER_PATTERNS + (st - ARR_FACTORY0) / ARR_NSECT,
                ARR_USER_PATTERNS + arr_styles() - 1);
         }
+        /* the style: all six from one factory style (Main A's), or the song's own user patterns ("own") */
+        if (a >= ARR_FACTORY0)
+            kv(&k[3], "Style", arr_style_name((a - ARR_FACTORY0) / ARR_NSECT), (a - ARR_FACTORY0) / ARR_NSECT + 1, arr_styles());
+        else
+            kv(&k[3], "Style", "own", 0, arr_styles());
         break;
+    }
     case P_TEMPLATES: case P_TCOPY: {
         int cur = app.tmpl < 0 ? 0 : app.tmpl;
         kn(&k[0], "Template", cur + 1, NTEMPLATES);
@@ -1258,7 +1285,7 @@ static void draw_page(void)
         draw_chords();
     else if (ui.page == P_ARRANGE)
         draw_arrange();
-    else if (ui.page == P_ARRANGE2)
+    else if (ui.page == P_ARRANGE2 || ui.page == P_ARRANGE3)
         draw_arrange2();
     else if (ui.page == P_TEMPLATES)
         draw_templates();

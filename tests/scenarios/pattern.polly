@@ -13,7 +13,7 @@ tapkey 11
 wait 1500
 tap REC
 expect recording 0
-expect slot0_nev 2
+expect slot1_nev 2
 wait 300
 shot pattern.png
 hitreset
@@ -80,9 +80,9 @@ spin K4 16
 spin K3 1
 spin K4 15
 wait 100
-expect slot0_bars 1
+expect slot1_bars 1
 shot patset.png
-# the jobs (SAVE held): copy into P02, then erase the track
+# the jobs (SAVE held): copy (Main A's P02) into P03, then erase the track
 press SAVE
 wait 800
 release SAVE
@@ -94,7 +94,7 @@ shot jobs.png
 tap SEL
 wait 50
 expect job 0
-expect pat1_nev 0
+expect pat2_nev 0
 tap PLAY
 wait 100
 press SAVE
@@ -103,7 +103,7 @@ release SAVE
 spin K1 1
 tap SEL
 wait 50
-expect pat1_nev 2
+expect pat2_nev 2
 tap PLAY
 wait 100
 press SAVE
@@ -111,8 +111,8 @@ wait 800
 release SAVE
 tap SEL
 wait 100
-expect slot0_nev 0
+expect slot1_nev 0
 tap SAVE
 wait 50
 expect dirty 0
-expect pat0_nev 0
+expect pat1_nev 0

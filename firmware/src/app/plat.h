@@ -45,9 +45,10 @@ uint32_t plat_midi_out_link(void);     /* changes at each new USB connection */
 int plat_store_load(uint32_t obj, void *dst, uint32_t max);   /* bytes loaded, < 0 = none / bad */
 int plat_store_save(uint32_t obj, const void *src, uint32_t len);   /* 0 = ok */
 #define PLAT_STORE_MAX 3840u           /* bytes per object */
-enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };
+enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 24 };   /* 24: ARR_USER_PATTERNS */
 /* flash: OBJ_PROJ 0xFC000, OBJ_PANEL 0xDC000, OBJ_SONGS 0x97000, OBJ_PAT0+i 0x99000 + i * 0x2000
- * (two sectors each, inside Felucca's data area 0x97000..0xDFFFF; the last pattern ends at 0xB9000) */
+ * (two sectors each, inside Felucca's data area 0x97000..0xDFFFF; the last pattern ends at 0xC9000, below the
+ * panel's 0xDC000; 0xC9000..0xDBFFF and 0xDE000..0xDFFFF are free) */
 
 /* audio load in % of the render budget, and xruns since boot (device: from the ISR) */
 uint32_t plat_cpu_pct(void);

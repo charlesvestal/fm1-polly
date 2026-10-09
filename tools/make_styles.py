@@ -3,7 +3,7 @@
 """Polly's factory styles: .sty text files (styles/README.md) compiled into firmware/src/dsp/styles.h.
 
     python3 tools/make_styles.py styles/*.sty > firmware/src/dsp/styles.h
-    python3 tools/make_styles.py --check styles/*.sty        # "2 styles, 8 patterns ok", or the errors
+    python3 tools/make_styles.py --check styles/*.sty        # "16 styles, 96 patterns ok", or the errors
     python3 tools/make_styles.py --dump styles/01-pop.sty    # the style back as text (drums expanded)
     python3 tools/make_styles.py --roundtrip styles/*.sty    # dump -> parse -> the same tables
     python3 tools/make_styles.py --grid FILE.mid [BARS]      # a MIDI file's drums as a 16th grid (choosing loops)
@@ -32,8 +32,12 @@ PPQ = arr_define("ARR_PPQ")     # ticks a beat (480)
 NEV = arr_define("ARR_NEV")     # notes a pattern
 MAXBARS = 8
 NTRK = 8
-FACTORY0 = 16                   # ARR_USER_PATTERNS: factory pattern numbers start here
-SECTIONS = ["main a", "main b", "fill", "ending"]
+FACTORY0 = arr_define("ARR_USER_PATTERNS")   # factory pattern numbers start here
+NSECT = arr_define("ARR_NSECT")
+SECTIONS = ["intro", "main a", "main b", "fill ab", "fill ba", "ending"]   # the slots' order (arr.h SEC_*)
+SECTION_ALIAS = {"fill": "fill ab"}
+MAIN_A = SECTIONS.index("main a")
+assert len(SECTIONS) == NSECT
 TRACKS = ["d1", "d2", "pc", "ba", "c1", "c2", "c3", "c4"]
 TYPES = ["bypass", "parallel", "chord1", "chord2", "bass"]
 NOKEY = 12
@@ -260,13 +264,15 @@ def grid(path, bars=None):
 
 # ------------------------------------------------------------------- parse ---
 def parse(path, text=None):
-    """a style: {name, tempo, pats: [ {bars, beats, trk: [hdr dict], ev: [[(tick, len, note, vel)] per track]} x4 ]}"""
+    """a style: {name, tempo, hdr, pats: [ {bars, beats, trk: [hdr dict], ev: [[(tick, len, note, vel)] per track]}
+    x6 ]}; a section not written is empty (1 bar of Main A's beats, the style's tracks, no notes: "empty")"""
     if text is None:
         with open(path) as f:
             text = f.read()
     base = os.path.dirname(path)
-    style = {"name": None, "tempo": 0, "pats": [None] * 4, "file": path}
+    style = {"name": None, "tempo": 0, "pats": [None] * NSECT, "file": path}
     hdr = [default_track(i) for i in range(NTRK)]    # the style's tracks, before any section
+    style["hdr"] = hdr
     pat = None
     trk = None
     for lineno, raw in enumerate(text.splitlines(), 1):
@@ -278,9 +284,11 @@ def parse(path, text=None):
             k = w[0].lower()
             if line.startswith("["):
                 m = re.fullmatch(r"\[\s*([a-z ]+?)\s*\]", line.lower())
-                if not m or m.group(1) not in SECTIONS:
-                    raise StyErr("unknown section " + line)
-                si = SECTIONS.index(m.group(1))
+                name = m and re.sub(r"\s+", " ", m.group(1))
+                name = SECTION_ALIAS.get(name, name)
+                if not m or name not in SECTIONS:
+                    raise StyErr("unknown section %s (%s)" % (line, " ".join("[%s]" % x for x in SECTIONS)))
+                si = SECTIONS.index(name)
                 if style["pats"][si]:
                     raise StyErr("section twice: " + line)
                 pat = {"bars": 0, "beats": 4, "trk": [dict(h) for h in hdr], "ev": [[] for _ in range(NTRK)],
@@ -405,9 +413,13 @@ def parse(path, text=None):
             raise StyErr("%s:%d: cannot read %r (%s)" % (path, lineno, raw.strip(), e))
     if not style["name"]:
         raise StyErr(path + ": no style NAME line")
+    if not style["pats"][MAIN_A]:
+        raise StyErr("%s: no [main a] section" % path)
     for i, p in enumerate(style["pats"]):
-        if not p:
-            raise StyErr("%s: no [%s] section" % (path, SECTIONS[i]))
+        if not p:                       # not written: empty (the engine falls back: arr.h arr_section)
+            style["pats"][i] = {"bars": 1, "beats": style["pats"][MAIN_A]["beats"], "trk": [dict(h) for h in hdr],
+                                "ev": [[] for _ in range(NTRK)], "line": 0, "empty": True}
+            continue
         if not p["bars"]:
             raise StyErr("%s: [%s] has no bars" % (path, SECTIONS[i]))
         for t in range(NTRK):           # sorted by tick, then note; the same note on the same tick once
@@ -470,7 +482,11 @@ def dump(style):
     out = ["# dumped by tools/make_styles.py from " + os.path.basename(style["file"]), "style " + style["name"]]
     if style["tempo"]:
         out.append("tempo %d" % style["tempo"])
+    for t in range(NTRK):               # the style's tracks (an empty section's)
+        out.append(fmt_track(t, style["hdr"][t]))
     for i, p in enumerate(style["pats"]):
+        if p.get("empty"):
+            continue
         out += ["", "[%s]" % SECTIONS[i], "bars %d" % p["bars"], "beats %d" % p["beats"]]
         for t in range(NTRK):
             out.append(fmt_track(t, p["trk"][t]))
@@ -528,8 +544,9 @@ def emit(styles, files):
          % c_comment(" ".join(os.path.basename(f) for f in files)),
          "/* The drum performances in these tables are from the Groove MIDI Dataset (c) Google LLC, CC BY 4.0,",
          " * changed (excerpted, quantised); the rest is Polly's, GPL-3.0-only. See LICENSING.md, styles/README.md. */",
-         "/* Included once, by arr.c. Style s's patterns are pattern numbers ARR_FACTORY0 + 4s + section (Main A,",
-         " * Main B, Fill, Ending). An event (%d ticks a beat): tick | note << 15 | the length code's low 10 bits"
+         "/* Included once, by arr.c. Style s's patterns are pattern numbers ARR_FACTORY0 + %ds + section (Intro, Main"
+         % NSECT,
+         " * A, Main B, Fill AB, Fill BA, Ending; a section not written: no notes). An event (%d ticks a beat): tick | note << 15 | the length code's low 10 bits"
          " << 22" % PPQ,
          " * (STY_EV); its velocity | the code's 11th bit << 7 (STY_VEL). The code: lengths 1..%d exact (code"
          " %d..%d)," % (LEN_EXACT, 0, LEN_EXACT - 1),
@@ -547,12 +564,14 @@ def emit(styles, files):
          "static inline uint32_t sty_len(uint32_t c) { return c < %du ? c + 1u : %du + (c - %du) * %du; }"
          % (LEN_EXACT, LEN_EXACT, LEN_EXACT - 1, LEN_STEP), "",
          "#define STY_COUNT %d" % len(styles),
+         "#define STY_NSECT %d" % NSECT,
          "#define STY_NEV %d" % len(ev), ""]
     o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join(c_str(s["name"]) for s in styles))
     o.append("static const uint8_t STY_TEMPO[STY_COUNT] = {%s};" % ", ".join(str(s["tempo"] or 120) for s in styles))
-    o.append("static const sty_pat_t STY_PAT[STY_COUNT * 4] = {")
+    o.append("static const sty_pat_t STY_PAT[STY_COUNT * STY_NSECT] = {")
     for i, (bars, beats, first, trks) in enumerate(pats):
-        o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, c_comment(styles[i // 4]["name"]), SECTIONS[i % 4]))
+        o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, c_comment(styles[i // NSECT]["name"]),
+                                                          SECTIONS[i % NSECT] + (" (empty)" if styles[i // NSECT]["pats"][i % NSECT].get("empty") else "")))
         for t in trks:
             o.append("        {%s, 0, %d}," % (", ".join(str(x) for x in t[:11]), t[11]))
         o.append("    }},")
@@ -570,7 +589,7 @@ def emit(styles, files):
 
 def sizes(style):
     n = sum(len(e) for p in style["pats"] for e in p["ev"])
-    return n, n * EV_BYTES + 4 * PAT_BYTES + 9 + 1
+    return n, n * EV_BYTES + NSECT * PAT_BYTES + 9 + 1
 
 
 def ordered(files):
@@ -614,6 +633,8 @@ def main(argv):
         return 1
     errs = [e for s in styles for e in check(s)]
     total = sum(len(e) for s in styles for p in s["pats"] for e in p["ev"])
+    if FACTORY0 + NSECT * len(styles) > 256:
+        errs.append("%d styles: a song's pattern numbers (bytes) reach %d styles at most" % (len(styles), (256 - FACTORY0) // NSECT))
     if total > 0xFFFF:
         errs.append("%d notes in all, more than the tables' 65535" % total)
     if errs:
@@ -621,7 +642,7 @@ def main(argv):
             print("make_styles: " + e, file=sys.stderr)
         return 1
     if mode == "check":
-        print("%d styles, %d patterns ok" % (len(styles), 4 * len(styles)))
+        print("%d styles, %d patterns ok" % (len(styles), NSECT * len(styles)))
     elif mode == "dump":
         for s in styles:
             sys.stdout.write(dump(s))

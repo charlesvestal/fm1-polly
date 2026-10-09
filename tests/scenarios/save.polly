@@ -9,29 +9,29 @@ wait 400
 tap REC
 tapkey 7
 wait 600
-expect slot0_nev 1
-# Main B (the same user pattern 1): two notes, the newer take
+expect slot1_nev 1
+# Main B (the same user pattern 2): two notes, the newer take
 press SEL
-key b1 down
-key b1 up
+key b2 down
+key b2 up
 release SEL
 wait 1200
-expect sect 2
+expect sect 3
 expect recording 0
 tap REC
 tapkey 7
 wait 200
 tapkey 11
 wait 600
-expect slot1_nev 2
+expect slot2_nev 2
 tap PLAY
 wait 100
 tap SAVE
 wait 50
 shot shared.png
-expect pat0_nev 2
-expect slot0_nev 2
+expect pat1_nev 2
 expect slot1_nev 2
+expect slot2_nev 2
 expect dirty 0
 # a flash error: said once, tried once, again only after a change
 flash_fail 1

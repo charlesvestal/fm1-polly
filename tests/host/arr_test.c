@@ -43,6 +43,9 @@ uint32_t arr_midi_out_room(void) { return ring_cap - ring_used; }
 static uint32_t link_count;                   /* the USB connection: a new one when it counts up */
 uint32_t arr_midi_out_link(void) { return link_count; }
 
+/* the slots (a section's: sec - 1) */
+enum { SI = SEC_INTRO - 1, SA = SEC_A - 1, SB = SEC_B - 1, SFA = SEC_FILL_AB - 1, SFB = SEC_FILL_BA - 1, SE = SEC_END - 1 };
+
 static chord_t ch(int root, int type) { chord_t c = {(uint8_t)root, (uint8_t)type, CH_NOBASS}; return c; }
 
 static pattern_t P;
@@ -164,7 +167,7 @@ static void test_timing(void)
     int i;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_play(1);
@@ -208,7 +211,7 @@ static void test_restrike(void)
     pat_new();
     add(4, 0, 48, 60);                        /* C4 for 48 ticks: cut and restruck at the change */
     add(5, 0, 20, 64);                        /* E4 for 20: 8 left at the change, left to end */
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_chord(ch(9, CH_MIN7));
     arr_play(1);
     run_to(12 * 918 + 300);                    /* past tick 12 (0.25 s) */
@@ -235,7 +238,7 @@ static void test_mute(void)
     int i;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_track_mute(0, 1);
     arr_play(1);
     run_to(22050);
@@ -254,14 +257,14 @@ static void test_mute(void)
     reset();
     pat_new();
     add(4, 0, 90, 60);                        /* C4, nearly the whole bar */
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_play(1);
     run_to((uint32_t)(24 * FPT));
     {
-        uint16_t d = arr_pattern_copy(0, &P);
+        uint16_t d = arr_pattern_copy(SA, &P);
         int n0 = stub_n;
         P.trk[4].mute = 1;
-        CHECK(arr_store_pattern(0, &P, d), "stored");
+        CHECK(arr_store_pattern(SA, &P, d), "stored");
         run_blocks(1);
         i = find(stub_log, stub_n, n0, 0x82, 60);
         CHECK(i >= 0 || find(stub_log, stub_n, n0, 0x92, 60) >= 0, "the pattern's mute ends the note at once");
@@ -276,7 +279,7 @@ static void test_midi_out(void)
     int i, f8 = 0;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_midi_out_on(1);
     arr_set_chord(ch(9, CH_MIN7));
     arr_play(1);
@@ -296,7 +299,7 @@ static void test_midi_out(void)
     CHECK(offs_match(out_log, out_n), "MIDI out: an off for each on");
     /* off: no notes, no clock */
     reset();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_play(1);
     run_to(44100);
     CHECK(out_n == 0, "MIDI out off: nothing out (%d)", out_n);
@@ -307,7 +310,7 @@ static void test_clock_in(void)
     int i, k;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_midi_out_on(1);
     arr_set_chord(ch(9, CH_MIN7));
     arr_clock(ARR_CLK_START);
@@ -335,7 +338,7 @@ static void test_clock_in(void)
     CHECK(offs_match(stub_log, stub_n), "offs match after a clock stop");
     /* the clock gone: back to our own */
     reset();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_clock(ARR_CLK_TICK);
     run_blocks(1);
     CHECK(arr_ext == 1, "a clock: following it");
@@ -360,7 +363,7 @@ static void test_clock_smooth(void)
             P.ev[P.nev - 1].tick = (uint16_t)(t * U + 4 * j);   /* ticks 0, 4, 8, ...: 2 ticks long */
             P.ev[P.nev - 1].len = 2;
         }
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_clock(ARR_CLK_START);
     run_blocks(1);
     while (k < 200) {
@@ -423,7 +426,7 @@ static void test_stop_same_block(void)        /* a clock and a stop in one block
     int n0;
     reset();
     pattern_dense();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_clock(ARR_CLK_START);
     run_blocks(1);
     for (int k = 0; k < 5; k++) {
@@ -458,7 +461,7 @@ static void test_out_ring(void)               /* MIDI out never drops a note-off
     for (int t = 3; t < 8; t++)               /* five tracks, a note every 3 ticks, 30 long: 50 held at once */
         for (int k = 0; k < 96; k += 3)
             add(t, k, 30, 48 + 3 * t + (k / 3) % 7);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     ring_cap = 64;                            /* usb.c's ring */
     ring_drain = 0;                           /* the host not reading for a second */
     arr_midi_out_on(1);
@@ -477,7 +480,7 @@ static void test_out_ring(void)               /* MIDI out never drops a note-off
     /* the sounds out: at a start, only what changed */
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_midi_out_on(1);
     arr_play(1);
     run_blocks(2);
@@ -502,7 +505,7 @@ static void test_reload(void)                 /* a pattern reloaded while it pla
     pat_new();
     for (int t = 0; t < 96; t += 6)
         add(4, t, 3, 60);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_play(1);
     run_to(13000);                            /* past tick 12 */
     pat_new();                                /* track 4's events now after track 0's: a stale place would */
@@ -511,7 +514,7 @@ static void test_reload(void)                 /* a pattern reloaded while it pla
     for (int t = 3; t < 96; t += 6)
         add(4, t, 3, 72);
     n0 = stub_n;
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     run_to(44100);
     for (i = n0; i < stub_n; i++)
         if (is_on(&stub_log[i]) && !(stub_log[i].st == 0x99 && stub_log[i].d1 == 36) &&
@@ -536,7 +539,7 @@ static void test_bounds(void)                 /* the work a block is bounded */
         for (int k = 0; k < 8; k++)
             add(t, 0, 12, 40 + 8 * t + k);
     }
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_play(1);
     run_blocks(1);
     CHECK(count_ons(stub_log, 0, stub_n) == 48, "48 note-ons a block at most, got %d", count_ons(stub_log, 0, stub_n));
@@ -547,7 +550,7 @@ static void test_bounds(void)                 /* the work a block is bounded */
      * and the last clock's (paced) play */
     reset();
     pattern_dense();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_clock(ARR_CLK_START);
     run_blocks(1);
     arr_clock(ARR_CLK_TICK);
@@ -596,7 +599,7 @@ static void test_sounds_first(void)           /* at a start, the sounds before F
     int i, ok = 1;
     reset();
     pattern_busy_downbeat(4, 1);              /* 40 sounds, FA, F8, 4 notes and their offs: fits 64 */
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     ring_cap = 64;
     ring_drain = 64;
     arr_midi_out_on(1);
@@ -619,7 +622,7 @@ static void test_clock_first(void)            /* the clock is never squeezed out
     int i, fa;
     reset();
     pattern_busy_downbeat(8, 2);              /* 40 sounds and 16 notes do not fit 64 at once: */
-    arr_load_pattern(0, &P);                  /* the sounds now, the start a block later */
+    arr_load_pattern(SA, &P);                  /* the sounds now, the start a block later */
     ring_cap = 64;                            /* usb.c's ring, a healthy host reading it every block */
     ring_drain = 64;
     arr_midi_out_on(1);
@@ -645,7 +648,7 @@ static void test_clock_first(void)            /* the clock is never squeezed out
     for (int t = 0; t < ARR_TRACKS; t++)
         P.trk[t].program = (uint8_t)(40 + t);
     P.trk[0].program = 20;                    /* one unchanged: not sent again */
-    arr_load_pattern(1, &P);
+    arr_load_pattern(SB, &P);
     i = out_n;
     arr_section(SEC_B);
     run_to(2 * 44100 + 4 * 256);
@@ -663,7 +666,7 @@ static void test_start_cap(void)              /* a stalled host: the start waits
     int fa;
     reset();
     pattern_busy_downbeat(8, 2);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     ring_cap = 64;
     ring_drain = 0;
     arr_midi_out_on(1);
@@ -683,7 +686,7 @@ static void test_transport_out(void)
     int i, f8 = 0, fc = -1;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_play(1);
     run_to(22050);
     CHECK(out_n == 0, "MIDI out off: nothing");
@@ -707,7 +710,7 @@ static void test_transport_out(void)
     /* an external clock gone: our own clock plays on, but nothing new is sent until the next start */
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_midi_out_on(1);
     arr_clock(ARR_CLK_START);
     for (int k = 0; k < 3; k++) {
@@ -734,7 +737,7 @@ static void test_tempos(void)
         pat_new();
         for (int t = 0; t < 96; t++)
             add(0, t, 1, 35 + t % 8);
-        arr_load_pattern(0, &P);
+        arr_load_pattern(SA, &P);
         arr_set_tempo(bpm[b]);
         arr_play(1);
         run_to((uint32_t)(192.f * fpt) + 256);   /* two bars */
@@ -778,7 +781,7 @@ static void test_lengths(void)
             add(0, t, 1 + t % 5, 35 + t % 8);
         for (int t = 0; t < 96; t += 2)             /* track 1: one note again and again, each ending as the next starts */
             add(1, t, 2, 60);
-        arr_load_pattern(0, &P);
+        arr_load_pattern(SA, &P);
         arr_set_tempo(bpm[b]);
         arr_play(1);
         run_to((uint32_t)(8 * 96 * fpt));          /* eight bars */
@@ -816,10 +819,10 @@ static void test_lengths(void)
 }
 
 /* ---- sections, songs, templates, live chords (Task 5) ---- */
-/* the section slots' patterns: track 0 (drums, channel 10) a note every beat, its own for each slot (A 36,
- * B 38, Fill 40, Ending 42), `bars` bars long; track 3 (Parallel, channel 2) C3 every beat, so its pitch
- * minus 48 is the chord's root on that beat */
-static const int SLOT_NOTE[ARR_NSECT] = {36, 38, 40, 42};
+/* the section slots' patterns: track 0 (drums, channel 10) a note every beat, its own for each slot (Intro 33,
+ * A 36, B 38, Fill AB 40, Fill BA 41, Ending 42), `bars` bars long; track 3 (Parallel, channel 2) C3 every beat,
+ * so its pitch minus 48 is the chord's root on that beat */
+static const int SLOT_NOTE[ARR_NSECT] = {33, 36, 38, 40, 41, 42};
 static void load_slot(int slot, int bars, int beats)
 {
     pat_new();
@@ -832,10 +835,12 @@ static void load_slot(int slot, int bars, int beats)
         add(3, t, 6, 48);
     arr_load_pattern(slot, &P);
 }
+/* every slot but the Intro (empty: PLAY starts with Main A); the Ending two bars */
 static void load_slots(int beats)
 {
     for (int s = 0; s < ARR_NSECT; s++)
-        load_slot(s, s == SEC_END - 1 ? 2 : 1, beats);
+        if (s != SI)
+            load_slot(s, s == SE ? 2 : 1, beats);
 }
 /* the drum note-on nearest `frame` (+-ON_TOL): which slot's, or -1 none */
 static int slot_at(float frame)
@@ -875,9 +880,9 @@ static void test_section_on_bar(void)
     CHECK(arr_next_sect == SEC_B && arr_sect == SEC_A, "B queued, A still playing (%d %d)", arr_next_sect, arr_sect);
     run_to((uint32_t)(BAR - 300));
     CHECK(arr_next_sect == SEC_B && arr_sect == SEC_A, "still A just before the bar line");
-    CHECK(slot_at(3 * 24 * FPT) == 0, "beat 4 of bar 1 still A");
+    CHECK(slot_at(3 * 24 * FPT) == SA, "beat 4 of bar 1 still A");
     run_to((uint32_t)(2 * BAR + 512));
-    CHECK(slot_at(BAR) == 1, "B from the bar line (%d)", slot_at(BAR));
+    CHECK(slot_at(BAR) == SB, "B from the bar line (%d)", slot_at(BAR));
     CHECK(arr_sect == SEC_B && arr_next_sect == SEC_SAME, "B playing, nothing queued");
     arr_play(0);
     run_blocks(1);
@@ -894,10 +899,10 @@ static void test_fill(void)
     run_to((uint32_t)(2.5f * BAR));
     arr_section(SEC_FILL);                    /* bar 4 the fill, bar 5 Main A */
     run_to((uint32_t)(5 * BAR + 512));
-    CHECK(slot_at(0) == 0 && slot_at(BAR) == 2 && slot_at(1.5f * BAR) == 2, "A, then the fill (%d %d)", slot_at(0), slot_at(BAR));
-    CHECK(slot_at(2 * BAR) == 1 && slot_at(2.75f * BAR) == 1, "a fill from A goes to B (%d)", slot_at(2 * BAR));
-    CHECK(slot_at(3 * BAR) == 2, "the second fill (%d)", slot_at(3 * BAR));
-    CHECK(slot_at(4 * BAR) == 0 && slot_at(4.5f * BAR) == 0, "a fill from B goes to A (%d)", slot_at(4 * BAR));
+    CHECK(slot_at(0) == SA && slot_at(BAR) == SFA && slot_at(1.5f * BAR) == SFA, "A, then Fill AB (%d %d)", slot_at(0), slot_at(BAR));
+    CHECK(slot_at(2 * BAR) == SB && slot_at(2.75f * BAR) == SB, "Fill AB goes to B (%d)", slot_at(2 * BAR));
+    CHECK(slot_at(3 * BAR) == SFB, "from B: Fill BA (%d)", slot_at(3 * BAR));
+    CHECK(slot_at(4 * BAR) == SA && slot_at(4.5f * BAR) == SA, "Fill BA goes to A (%d)", slot_at(4 * BAR));
     CHECK(arr_sect == SEC_A, "A playing");
     arr_play(0);
     run_blocks(1);
@@ -913,13 +918,13 @@ static void test_ending(void)
     for (int t = 0; t < 192; t += 24)
         add(0, t, 6, 42);
     add(5, 96, 400, 60);
-    arr_load_pattern(SEC_END - 1, &P);
+    arr_load_pattern(SE, &P);
     arr_play(1);
     run_to((uint32_t)(0.3f * BAR));
     arr_section(SEC_END);
     run_to((uint32_t)(3 * BAR - 512));
     CHECK(arr_playing == 1 && arr_sect == SEC_END, "the ending plays");
-    CHECK(slot_at(BAR) == 3 && slot_at(2.75f * BAR) == 3, "both its bars (%d %d)", slot_at(BAR), slot_at(2.75f * BAR));
+    CHECK(slot_at(BAR) == SE && slot_at(2.75f * BAR) == SE, "both its bars (%d %d)", slot_at(BAR), slot_at(2.75f * BAR));
     run_to((uint32_t)(4 * BAR));
     CHECK(arr_playing == 0, "then it stops");
     CHECK(ons_after(3 * BAR - 4) == 0, "nothing after its end (%d)", ons_after(3 * BAR - 4));
@@ -961,7 +966,7 @@ static void test_song(void)
     CHECK(root_at(48 * FPT) == 5 && root_at(72 * FPT) == 5, "F on beat 3 (%d)", root_at(48 * FPT));
     CHECK(root_at(BAR) == 7 && root_at(2 * BAR) == 7, "G7 from bar 2 on (%d %d)", root_at(BAR), root_at(2 * BAR));
     CHECK(root_at(3 * BAR) == 7 && root_at(3 * BAR + 24 * FPT) == 2, "Dm on bar 4 beat 2 (%d)", root_at(3 * BAR + 24 * FPT));
-    CHECK(slot_at(0) == 0 && slot_at(BAR) == 0 && slot_at(2 * BAR) == 1 && slot_at(3 * BAR) == 1,
+    CHECK(slot_at(0) == SA && slot_at(BAR) == SA && slot_at(2 * BAR) == SB && slot_at(3 * BAR) == SB,
           "the section track: A A B B (%d %d %d %d)", slot_at(0), slot_at(BAR), slot_at(2 * BAR), slot_at(3 * BAR));
     CHECK(arr_playing == 0, "stopped at the end of its last bar");
     CHECK(ons_after(4 * BAR - 4) == 0, "nothing after bar 4");
@@ -973,18 +978,18 @@ static void test_song(void)
     arr_play(1);
     run_to((uint32_t)(5 * BAR + 512));
     CHECK(arr_playing == 1, "looping: still playing");
-    CHECK(slot_at(4 * BAR) == 0 && root_at(4 * BAR) == 9, "bar 1 again: A over Am7 (%d %d)", slot_at(4 * BAR), root_at(4 * BAR));
+    CHECK(slot_at(4 * BAR) == SA && root_at(4 * BAR) == 9, "bar 1 again: A over Am7 (%d %d)", slot_at(4 * BAR), root_at(4 * BAR));
     CHECK(arr_song_bar == 1, "the song's bar for the screen (%d)", arr_song_bar);
     /* a fill in the song: one bar, then the other Main */
     reset();
     load_slots(4);
     song_new(3);
     S.sect[0] = SEC_B;
-    S.sect[1] = SEC_FILL;
+    S.sect[1] = SEC_FILL_BA;
     arr_song(&S, 0);
     arr_play(1);
     run_to((uint32_t)(3 * BAR + 512));
-    CHECK(slot_at(0) == 1 && slot_at(BAR) == 2 && slot_at(2 * BAR) == 0, "B, fill, A (%d %d %d)", slot_at(0), slot_at(BAR), slot_at(2 * BAR));
+    CHECK(slot_at(0) == SB && slot_at(BAR) == SFB && slot_at(2 * BAR) == SA, "B, Fill BA, A (%d %d %d)", slot_at(0), slot_at(BAR), slot_at(2 * BAR));
     CHECK(arr_playing == 0, "stopped");
     /* no song: back to free play */
     reset();
@@ -993,7 +998,7 @@ static void test_song(void)
     arr_song(0, 0);
     arr_play(1);
     run_to((uint32_t)(4 * BAR));
-    CHECK(arr_playing == 1 && slot_at(3 * BAR) == 0, "song off: Main A loops");
+    CHECK(arr_playing == 1 && slot_at(3 * BAR) == SA, "song off: Main A loops");
     arr_play(0);
     run_blocks(1);
 }
@@ -1003,7 +1008,7 @@ static void test_song(void)
 static void test_shorten(void)
 {
     reset();
-    load_slot(0, 2, 4);
+    load_slot(SA, 2, 4);
     song_new(4);
     for (int b = 0; b < 4; b++)
         S.chord[b * 4] = ch(b + 1, CH_MAJ);   /* bar n: root n */
@@ -1011,9 +1016,9 @@ static void test_shorten(void)
     arr_play(1);
     run_to((uint32_t)(BAR + 30 * FPT));         /* bar 2, beat 2 */
     {
-        uint16_t d = arr_pattern_copy(0, &P);
+        uint16_t d = arr_pattern_copy(SA, &P);
         P.bars = 1;
-        CHECK(arr_store_pattern(0, &P, d), "shortened");
+        CHECK(arr_store_pattern(SA, &P, d), "shortened");
     }
     run_to((uint32_t)(4 * BAR));
     CHECK(root_at(BAR + 48 * FPT) == 2 && root_at(BAR + 72 * FPT) == 2, "bar 2 plays on to its end (%d %d)",
@@ -1149,7 +1154,7 @@ static void test_song_marks_continue(void)    /* a mark on every bar of a region
     P.bars = 2;
     for (int t = 0; t < 192; t += 24)
         add(0, t, 6, t < 96 ? 36 : 37);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     song_new(4);
     for (int b = 0; b < 4; b++)
         S.sect[b] = SEC_A;
@@ -1228,9 +1233,9 @@ static void test_switch_keeps_voicing(void)   /* a note held over a section chan
     pat_new();
     P.trk[4].x.type = XT_BYPASS;               /* Main A: track 4 Bypass, C4 held over the bar line */
     add(4, 72, 200, 60);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     pat_new();                                /* Main B: track 4 Chord 1, nothing on it */
-    arr_load_pattern(1, &P);
+    arr_load_pattern(SB, &P);
     arr_play(1);
     run_to((uint32_t)(0.5f * BAR));
     arr_section(SEC_B);
@@ -1249,7 +1254,7 @@ static void test_catchup_no_restrike(void)    /* a song chord on a dropped clock
     reset();
     pat_new();
     add(4, 0, 90, 60);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     song_new(4);
     S.chord[0] = ch(0, CH_MAJ7);
     S.chord[1] = ch(9, CH_MIN7);
@@ -1308,7 +1313,7 @@ static void test_fill_variants(void)
     run_to((uint32_t)(1.5f * BAR));
     arr_section(SEC_FILL);
     run_to((uint32_t)(4 * BAR));
-    CHECK(slot_at(BAR) == 2 && slot_at(2 * BAR) == 2 && slot_at(3 * BAR) == 1, "A, fill, fill, B (%d %d %d)",
+    CHECK(slot_at(BAR) == SFA && slot_at(2 * BAR) == SFA && slot_at(3 * BAR) == SB, "A, fill, fill, B (%d %d %d)",
           slot_at(BAR), slot_at(2 * BAR), slot_at(3 * BAR));
     arr_play(0);
     run_blocks(1);
@@ -1321,8 +1326,176 @@ static void test_fill_variants(void)
     run_to((uint32_t)(1.5f * BAR));
     arr_section(SEC_END);
     run_to((uint32_t)(5 * BAR));
-    CHECK(slot_at(BAR) == 2 && slot_at(2 * BAR) == 3 && slot_at(3 * BAR) == 3, "fill, ending (%d %d)", slot_at(2 * BAR), slot_at(3 * BAR));
+    CHECK(slot_at(BAR) == SFA && slot_at(2 * BAR) == SE && slot_at(3 * BAR) == SE, "fill, ending (%d %d)", slot_at(2 * BAR), slot_at(3 * BAR));
     CHECK(arr_playing == 0 && ons_after(4 * BAR - 4) == 0, "stopped after the ending");
+}
+
+/* ---- six sections: the Intro, Fill AB / BA, and the fallbacks of sections without notes */
+static void empty_slot(int slot)
+{
+    pat_new();
+    arr_load_pattern(slot, &P);
+}
+static void test_intro(void)
+{
+    /* PLAY with an Intro (2 bars): it plays once, then Main A; PLAY again: the Intro again */
+    reset();
+    load_slots(4);
+    load_slot(SI, 2, 4);
+    arr_play(1);
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(slot_at(0) == SI && slot_at(1.75f * BAR) == SI, "the Intro first, both its bars (%d %d)", slot_at(0), slot_at(1.75f * BAR));
+    CHECK(slot_at(2 * BAR) == SA && slot_at(3 * BAR) == SA && arr_sect == SEC_A, "then Main A (%d %d)", slot_at(2 * BAR),
+          slot_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    stub_n = 0;
+    stub_frame = 0;
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_sect == SEC_INTRO, "PLAY again: the Intro again (%d)", arr_sect);
+    arr_play(0);
+    run_blocks(1);
+    /* queued while playing: from the next bar, once, then Main A; a fill from the Intro: Fill AB, then B */
+    reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    arr_section(SEC_A);                       /* PLAY with Main A queued: Main A, not the Intro */
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    CHECK(arr_sect == SEC_A, "Main A queued before PLAY: no Intro (%d)", arr_sect);
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(4.5f * BAR));
+    CHECK(slot_at(BAR) == SI && slot_at(2 * BAR) == SFA && slot_at(3 * BAR) == SB, "Intro, Fill AB, B (%d %d %d)",
+          slot_at(BAR), slot_at(2 * BAR), slot_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* recording: PLAY starts with the pattern recorded into, not the Intro */
+    reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    arr_record(5, 1);
+    run_blocks(1);
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_sect == SEC_A, "recording: Main A, not the Intro (%d)", arr_sect);
+    arr_record(5, 0);
+    arr_play(0);
+    run_blocks(1);
+    /* a song with no mark on its bar 1: the Intro first; one marked Main B: Main B */
+    reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    song_new(4);
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(0) == SI && slot_at(BAR) == SA && arr_song_bar == 2, "a song: the Intro on its bar 1, then A (%d %d, bar %d)",
+          slot_at(0), slot_at(BAR), arr_song_bar);
+    arr_play(0);
+    run_blocks(1);
+    S.sect[0] = SEC_B;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_sect == SEC_B, "a song marked Main B on bar 1: B (%d)", arr_sect);
+    arr_play(0);
+    run_blocks(1);
+    /* no Intro (no notes): PLAY and SEC_INTRO give Main A */
+    reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    CHECK(arr_sect == SEC_A, "no Intro: Main A (%d)", arr_sect);
+    arr_section(SEC_B);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(BAR) == SB && slot_at(2 * BAR) == SA, "SEC_INTRO without one: Main A (%d %d)", slot_at(BAR), slot_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+static void test_fill_fallbacks(void)
+{
+    /* no Fill BA: from B the fill is Fill AB's pattern, and it still goes back to A */
+    reset();
+    load_slots(4);
+    empty_slot(SFB);
+    arr_section(SEC_B);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(0) == SB && slot_at(BAR) == SFA && slot_at(2 * BAR) == SA, "no Fill BA: B, Fill AB's, A (%d %d %d)",
+          slot_at(0), slot_at(BAR), slot_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* no Fill AB: from A, Fill BA's, then B */
+    reset();
+    load_slots(4);
+    empty_slot(SFA);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(BAR) == SFB && slot_at(2 * BAR) == SB, "no Fill AB: Fill BA's, then B (%d %d)", slot_at(BAR), slot_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* neither: no fill, Main A plays on */
+    reset();
+    load_slots(4);
+    empty_slot(SFA);
+    empty_slot(SFB);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_FILL);
+    run_blocks(1);
+    CHECK(arr_next_sect == SEC_FILL, "the Fill asked for is shown (%d)", arr_next_sect);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(BAR) == SA && slot_at(2 * BAR) == SA && arr_sect == SEC_A && arr_next_sect == SEC_SAME,
+          "no fills: A plays on (%d %d)", slot_at(BAR), slot_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* a song's Fill AB mark from Main B: Fill AB, then Main B */
+    reset();
+    load_slots(4);
+    song_new(3);
+    S.sect[0] = SEC_B;
+    S.sect[1] = SEC_FILL_AB;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(3 * BAR + 512));
+    CHECK(slot_at(0) == SB && slot_at(BAR) == SFA && slot_at(2 * BAR) == SB, "B, Fill AB, B (%d %d %d)", slot_at(0),
+          slot_at(BAR), slot_at(2 * BAR));
+    /* a song's Intro mark mid-song: the Intro once, then A */
+    reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    song_new(4);
+    S.sect[0] = SEC_B;
+    S.sect[2] = SEC_INTRO;
+    arr_song(&S, 0);
+    arr_play(1);
+    run_to((uint32_t)(4 * BAR + 512));
+    CHECK(slot_at(BAR) == SB && slot_at(2 * BAR) == SI && slot_at(3 * BAR) == SA, "B, B, Intro, A (%d %d %d)", slot_at(BAR),
+          slot_at(2 * BAR), slot_at(3 * BAR));
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+static void test_no_ending(void)              /* an Ending without notes: stop at the bar line */
+{
+    reset();
+    load_slots(4);
+    empty_slot(SE);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_section(SEC_END);
+    run_to((uint32_t)(2 * BAR));
+    CHECK(arr_playing == 0, "stopped");
+    CHECK(slot_at(0.75f * BAR) == SA && ons_after(BAR - 4) == 0, "at the end of the bar playing (%d)", ons_after(BAR - 4));
+    CHECK(offs_match(stub_log, stub_n), "offs match");
 }
 
 static void test_song_while_playing(void)     /* a song set mid-bar: from its bar 1 at the next bar line */
@@ -1336,8 +1509,8 @@ static void test_song_while_playing(void)     /* a song set mid-bar: from its ba
     S.chord[0] = ch(9, CH_MIN7);
     arr_song(&S, 0);
     run_to((uint32_t)(1.5f * BAR));
-    CHECK(root_at(0.75f * BAR) == 0 && slot_at(0.75f * BAR) == 0, "the bar plays out as it was");
-    CHECK(root_at(BAR) == 9 && slot_at(BAR) == 1, "the song's bar 1 at the bar line (%d %d)", root_at(BAR), slot_at(BAR));
+    CHECK(root_at(0.75f * BAR) == 0 && slot_at(0.75f * BAR) == SA, "the bar plays out as it was");
+    CHECK(root_at(BAR) == 9 && slot_at(BAR) == SB, "the song's bar 1 at the bar line (%d %d)", root_at(BAR), slot_at(BAR));
     CHECK(arr_song_bar == 0, "its bar 1 (%d)", arr_song_bar);
     run_to((uint32_t)(6 * BAR));
     CHECK(arr_playing == 0 && ons_after(5 * BAR - 4) == 0, "four bars, then stopped");
@@ -1363,9 +1536,9 @@ static void test_switch_chord_ends(void)      /* a chord change on a section's b
     load_slots(4);
     pat_new();                                /* Main A: track 4 Chord 1, C4 held over the bar line */
     add(4, 72, 200, 60);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     pat_new();
-    arr_load_pattern(1, &P);
+    arr_load_pattern(SB, &P);
     song_new(4);
     S.sect[0] = SEC_A;
     S.sect[1] = SEC_B;
@@ -1433,18 +1606,18 @@ static void test_record(void)
     uint16_t d0;
     reset();
     pattern_one();                            /* tracks 0 and 4; track 5 (Chord 1, channel 4) empty */
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_record(5, 1);
     arr_play(1);
-    d0 = arr_pattern_copy(0, &R);
+    d0 = arr_pattern_copy(SA, &R);
     key_at(25.f, 69, 1);                      /* A4 at tick 25 -> 24 */
     key_at(36.f, 69, 0);                      /* released at 36: 12 ticks */
     key_at(47.f, 72, 1);                      /* C5 at 47 -> 48 (ahead of the key) */
     key_at(49.f, 72, 0);                      /* 1 tick: one quantum */
     run_to((uint32_t)(60 * FPT));
-    CHECK(arr_pattern_copy(0, &R) == d0 + 2, "dirty counted twice");
+    CHECK(arr_pattern_copy(SA, &R) == d0 + 2, "dirty counted twice");
     CHECK(R.trk[5].count == 2 && R.nev == 7, "two notes in track 5 (%d, nev %d)", R.trk[5].count, R.nev);
     i = R.trk[5].first;
     CHECK(R.ev[i].tick == 24 * U && within(R.ev[i].len, 12 * U, KEY_TOL) && R.ev[i].note == 60 && R.ev[i].vel == 90,
@@ -1459,7 +1632,7 @@ static void test_record(void)
     key_at(89.f, 76, 1);                      /* E5 at 89 -> 90 */
     key_at(96.f + 10.f, 76, 0);
     run_to((uint32_t)(96 * FPT + 20 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     i = R.trk[5].first + 2;
     CHECK(R.trk[5].count == 3 && R.ev[i].tick == 90 * U && R.ev[i].len == 6 * U && R.ev[i].note == 67,
           "E5 held over the wrap: G4 at 90, 6 ticks (%d: %d %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].len, R.ev[i].note);
@@ -1479,7 +1652,7 @@ static void test_record(void)
     key_at(2 * 96.f + 12.f, 74, 1);           /* D5 -> the 11th of Am7: F4 */
     key_at(2 * 96.f + 18.f, 74, 0);
     run_to((uint32_t)(4 * 96 * FPT + 512));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     i = R.trk[5].first;
     CHECK(R.trk[5].count == 4 && R.ev[i].tick == 12 * U && R.ev[i].note == 65 && R.ev[i + 1].tick == 24 * U,
           "overdub: D5 as F4 at 12, before the rest (%d: %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].note);
@@ -1496,7 +1669,7 @@ static void test_record_bypass_erase(void)    /* into a track before others: the
     int i;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_record(0, 1);
@@ -1507,7 +1680,7 @@ static void test_record_bypass_erase(void)    /* into a track before others: the
     key_at(53.f, 36, 1);                      /* 53 -> 48: the kick already there, replaced */
     key_at(54.f, 36, 0);
     run_to((uint32_t)(60 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[0].count == 3 && R.nev == 6, "a snare in track 0, the kick replaced (%d, %d)", R.trk[0].count, R.nev);
     i = R.trk[0].first;
     CHECK(R.ev[i + 1].tick == 24 * U && R.ev[i + 1].note == 38 && R.ev[i + 1].len == 12 * U, "Bypass: as played, at 24 (%d %d %d)",
@@ -1521,7 +1694,7 @@ static void test_record_bypass_erase(void)    /* into a track before others: the
     CHECK(near(stub_log, i, (96 + 48) * FPT), "track 4 plays on (%u)", i >= 0 ? stub_log[i].frame : 0);
     arr_erase_track(0);
     run_to((uint32_t)(2 * 96 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[0].count == 0 && R.nev == 3 && R.trk[4].first == 0 && R.ev[0].note == 60 && R.ev[2].note == 67,
           "erased: track 4 alone (%d %d %d)", R.trk[0].count, R.nev, R.trk[4].first);
     CHECK(ons_in(0x99, 36, 2 * 96 * FPT, 3 * 96 * FPT) == 0 && ons_in(0x92, 69, 2 * 96 * FPT, 3 * 96 * FPT) == 1,
@@ -1536,7 +1709,7 @@ static void test_record_early(void)           /* a short note played just before
 {
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_record(5, 1);
@@ -1548,7 +1721,7 @@ static void test_record_early(void)           /* a short note played just before
     run_blocks(1);
     arr_key(64, 0, 0);
     run_to((uint32_t)(96 * FPT + 512));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].count == 2 && R.ev[R.trk[5].first].tick == 0 && R.ev[R.trk[5].first + 1].tick == 48 * U,
           "stored at 0 and 48 (%d)", R.trk[5].count);
     CHECK(ons_in(0x93, 67, 0.f, 96 * FPT) == 1, "G4 sounds once in the pass it was played (%d)", ons_in(0x93, 67, 0.f, 96 * FPT));
@@ -1567,7 +1740,7 @@ static void test_record_full(void)
     pat_new();
     for (int i = 0; i < ARR_NEV - 1; i++)
         add(1, i * 96 / ARR_NEV, 1, 40);
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_track_mute(1, 1);
     arr_record(5, 1);
     arr_set_quant(ARR_Q_OFF);
@@ -1577,7 +1750,7 @@ static void test_record_full(void)
     key_at(20.f, 62, 1);
     key_at(22.f, 62, 0);
     run_to((uint32_t)(30 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.nev == ARR_NEV && R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == key_tick_at(10.f) &&
               R.ev[R.trk[5].first].len == key_tick_at(12.f) - key_tick_at(10.f),
           "the first fits, quantise off: at its tick %d, %d ticks (%d %d)", key_tick_at(10.f),
@@ -1587,7 +1760,7 @@ static void test_record_full(void)
     run_blocks(1);
     CHECK(arr_full == 0, "an erase makes room");
     arr_full = 1;
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     CHECK(arr_full == 0, "a load clears it");
     arr_play(0);
     run_blocks(1);
@@ -1598,7 +1771,7 @@ static void rec_start(int trk)                /* pattern_one in slot 0, Am7, rec
 {
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_record(trk, 1);
@@ -1631,7 +1804,7 @@ static void test_record_triplets(void)
     key_at(21.f, 72, 1);                      /* 21 -> 20 on the 4-tick grid */
     key_at(30.f, 72, 0);                      /* 10 ticks */
     run_to((uint32_t)(40 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     i = R.trk[5].first;
     CHECK(R.trk[5].count == 2 && R.ev[i].tick == 16 * U && R.ev[i].len == 8 * U && R.ev[i + 1].tick == 20 * U &&
               within(R.ev[i + 1].len, 10 * U, KEY_TOL),
@@ -1653,7 +1826,7 @@ static void test_record_off_grid_start(void)
     run_to(blk + 4096u);
     arr_key(69, 0, 0);
     run_to(blk + 30000u);
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 0 &&
               R.ev[R.trk[5].first].len == (int)((float)(blk + 4096u) * TPF + 0.5f) - (int)pass,
           "stored at 0, to its release (%d: %d %d)", R.trk[5].count, R.ev[R.trk[5].first].tick, R.ev[R.trk[5].first].len);
@@ -1669,15 +1842,15 @@ static void test_record_busy(void)            /* a note due, and an erase, while
     rec_start(5);
     key_at(25.f, 69, 1);
     run_to((uint32_t)(30 * FPT));
-    arr_test_busy(0, 1);
+    arr_test_busy(SA, 1);
     arr_key(69, 0, 0);
     arr_erase_track(0);
     run_to((uint32_t)(40 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].count == 0 && R.trk[0].count == 2, "nothing written while busy");
-    arr_test_busy(0, 0);
+    arr_test_busy(SA, 0);
     run_blocks(1);
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 24 * U && R.ev[R.trk[5].first].note == 60,
           "the note, kept, written after (%d)", R.trk[5].count);
     CHECK(R.trk[0].count == 0, "the erase, after");
@@ -1691,11 +1864,11 @@ static void test_record_load(void)            /* another pattern loaded under a 
     rec_start(5);
     key_at(25.f, 69, 1);
     run_to((uint32_t)(28 * FPT));
-    arr_load_pattern(0, &P);
-    d = arr_pattern_copy(0, &R);
+    arr_load_pattern(SA, &P);
+    d = arr_pattern_copy(SA, &R);
     key_at(36.f, 69, 0);
     run_to((uint32_t)(60 * FPT));
-    CHECK(arr_pattern_copy(0, &R) == d && R.trk[5].count == 0, "not written into the new pattern (%d)", R.trk[5].count);
+    CHECK(arr_pattern_copy(SA, &R) == d && R.trk[5].count == 0, "not written into the new pattern (%d)", R.trk[5].count);
     arr_play(0);
     run_blocks(1);
 }
@@ -1705,20 +1878,20 @@ static void test_store(void)                  /* copy, edit, store: refused when
     uint16_t d0, d1;
     static pattern_t E;
     rec_start(5);
-    d0 = arr_pattern_copy(0, &E);
+    d0 = arr_pattern_copy(SA, &E);
     key_at(25.f, 69, 1);
     key_at(36.f, 69, 0);
     run_to((uint32_t)(40 * FPT));
     E.trk[5].vol = 50;
-    CHECK(arr_store_pattern(0, &E, d0) == 0, "refused: recorded into since the copy");
-    d1 = arr_pattern_copy(0, &E);
+    CHECK(arr_store_pattern(SA, &E, d0) == 0, "refused: recorded into since the copy");
+    d1 = arr_pattern_copy(SA, &E);
     CHECK(E.trk[5].count == 1, "the note still there");
     E.trk[5].vol = 50;
     key_at(50.f, 72, 1);                      /* held over the store */
-    CHECK(arr_store_pattern(0, &E, d1) == 1, "stored with the count of the copy");
+    CHECK(arr_store_pattern(SA, &E, d1) == 1, "stored with the count of the copy");
     key_at(60.f, 72, 0);
     run_to((uint32_t)(70 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].vol == 50 && R.trk[5].count == 2 && R.ev[R.trk[5].first + 1].tick == 48 * U,
           "the edit, and the note held over the store, kept (%d %d)", R.trk[5].vol, R.trk[5].count);
     arr_play(0);
@@ -1730,9 +1903,9 @@ static void test_record_section(void)         /* a section change ends recording
     reset();
     pattern_one();
     P.bars = 2;                               /* the switch at bar 2, mid-pattern */
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     pat_new();
-    arr_load_pattern(1, &P);
+    arr_load_pattern(SB, &P);
     arr_set_tempo(120);
     arr_set_chord(ch(9, CH_MIN7));
     arr_record(5, 1);
@@ -1745,10 +1918,10 @@ static void test_record_section(void)         /* a section change ends recording
     key_at(120.f, 72, 1);
     key_at(130.f, 72, 0);
     run_to((uint32_t)(140 * FPT));
-    arr_pattern_copy(0, &R);
+    arr_pattern_copy(SA, &R);
     CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == 48 * U && R.ev[R.trk[5].first].len == 48 * U,
           "the held note ends at the switch: 48 ticks (%d)", R.ev[R.trk[5].first].len);
-    arr_pattern_copy(1, &R);
+    arr_pattern_copy(SB, &R);
     CHECK(R.trk[5].count == 0, "nothing into Main B");
     arr_play(0);
     run_blocks(1);
@@ -1759,7 +1932,7 @@ static void test_live_keys(void)              /* the keys: the track's sounds, M
     int i;
     reset();
     pattern_one();
-    arr_load_pattern(0, &P);
+    arr_load_pattern(SA, &P);
     arr_midi_out_on(1);
     arr_record(5, 0);
     run_blocks(1);
@@ -1816,6 +1989,9 @@ int main(void)
     test_section_clock_in();
     test_fill_variants();
     test_song_while_playing();
+    test_intro();
+    test_fill_fallbacks();
+    test_no_ending();
     test_template_beats();
     test_switch_chord_ends();
     test_inverse();

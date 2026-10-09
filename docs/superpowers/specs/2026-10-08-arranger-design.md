@@ -18,19 +18,19 @@ screen and seven encoders, so every common value gets a knob.
 ## Scope
 
 **v1:**
-- 16 user patterns, each 1-8 bars, 8 tracks
+- 24 user patterns (16 until 2026-10-09; six a song), each 1-8 bars, 8 tracks
 - 16 factory styles, well made and our own (written for Polly, not taken from Yamaha's ROM: its styles are
-  Yamaha's copyright), each with Main A, Main B, a fill and an ending
+  Yamaha's copyright), each with an Intro, Main A, Main B, Fill AB, Fill BA and an ending
 - the transposition engine: five track types (Bypass, Chord 1, Chord 2, Bass, Parallel) with range limits
 - chords: 26 types plus slash bass; entered live (held chords recognised) or step by step; one per beat
-- 4 sections per song: Main A, Main B, Fill, Ending
+- 6 sections per song (the QY70's, added 2026-10-09): Intro, Main A, Main B, Fill AB, Fill BA, Ending
 - 4 songs: a section track and a chord track per song, 64 bars
 - 16 chord templates (progressions in C) for instant play
 - realtime loop recording into a pattern track (overdub, quantised), track erase
 - mixer per track: GM program, volume, pan, reverb, chorus, mute
 - MIDI: clock in / out, all tracks out on their channels, MIDI in plays the synth (as the GM module)
 
-**Later (not v1):** intro sections, step entry of notes, the 16 free song tracks, groove templates,
+**Later (not v1):** step entry of notes, the 16 free song tracks, groove templates,
 event editing, SMF export, a MIDI-file importer (a multitrack loop in, a pattern out: your own material),
 a QY700 style-file importer (the format undocumented: check what the community has mapped first; for
 styles you made yourself: Yamaha's downloadable converted QY70 styles forbid modification and derivative
@@ -68,16 +68,18 @@ sample-accurate rather than block-quantised.
 - **Pattern**: up to 8 bars x 8 tracks. Per track: GM program, type, source chord (fixed: CM7 in v1, as
   Yamaha's), low / high limit, high key, channel, and its notes as events (start tick, length, note,
   velocity; 6 bytes). Budget 512 notes per pattern (~3.2 KB): one flash object per pattern.
-- **Song**: 64 bars; per bar a section (A, B, Fill, End, or same); per beat a chord (root, type, slash bass,
+- **Song**: 64 bars; per bar a section (Intro, A, B, Fill AB, Fill BA, End, or same); per beat a chord (root, type, slash bass,
   or "same"): ~0.6 KB.
 - **Settings**: the mixer is per pattern; tempo, key transpose, MIDI and lights are global.
 - **Flash**: Felucca's data area (0x97000..0xDFFFF) holds ~30 objects of 3.75 KB (two sectors each, torn-
-  write safe): 16 patterns + 1 for the songs + 1 for settings fits, with room. The 16 factory styles (64
-  patterns: Main A, Main B, Fill, Ending each) live in the firmware image, budget ~64 KB of the ~236 KB the
-  slot has left (a user pattern starts as a copy of one, or empty).
-- **Sections**: a pattern *is* a section's music; a song's section track picks which pattern plays as Main A,
-  Main B, Fill, Ending: each song holds four pattern numbers (its "style"). A fill plays one bar and returns
-  (A -> Fill -> B, B -> Fill -> A, as the QY's FILL AB / BA); Ending plays once and stops.
+  write safe): 24 patterns (0x99000..0xC9000) + 1 for the songs + 1 for settings fits, with room. The 16
+  factory styles (96 patterns: the six sections each) live in the firmware image, ~43 KB (a user pattern
+  starts as a copy of one, or empty).
+- **Sections**: a pattern *is* a section's music; each song holds six pattern numbers (its "style"): Intro,
+  Main A, Main B, Fill AB, Fill BA, Ending; its section track says which section plays. The Intro plays once
+  at PLAY, then Main A; Fill AB plays a bar from A then B, Fill BA from B then A (the Fill command picks by the
+  Main playing); Ending plays once and stops. A section without notes falls back (no Fill BA: Fill AB's, and
+  the other way round; no Intro: Main A; no Ending: stop at the bar line).
 
 ## The transposer (the heart)
 
@@ -133,14 +135,14 @@ button. Sections are played with **SEL held + a black key**, which leaves ENV, L
 | PLAY | start / stop (stops at the bar end when an Ending is queued) |
 | REC | record: into the selected track (Pattern pages: the pattern loops, overdubs); on the Song and Chords pages: the chords and sections played |
 | SEL tap | CHORD on / off: the keys enter chords (lit) or play the selected track |
-| SEL held + black key | the section, from the next bar ("NEXT" on screen): 1 Main A, 2 Main B, 3 Fill (A->B or B->A by where it is), 4 Ending, 5 Intro (later); 6-11 jump to song bar markers (later) |
+| SEL held + black key | the section, from the next bar ("NEXT" on screen): 1 Intro, 2 Main A, 3 Main B, 4 Fill (Fill AB from Main A, Fill BA from Main B), 5 Ending; 6-11 jump to song bar markers (later) |
 | SEL held + white key | the chord template 1-16 (a white key each), playing at once |
 | HOME | Song: the play screen |
 | SEQ | Pattern: the 8 tracks; again: the pattern's length, time, name |
 | EDIT | Track: the selected track's sound (GM program by family), its type and limits |
 | FX | Mixer: volume, pan, reverb, chorus per track; again: the master effects |
 | LFO | Chords: the song's chord track, step by step (a beat at a time) |
-| ENV | Arrange: the song's section track and its four patterns (its style) |
+| ENV | Arrange: the song's section track; again: its six patterns, three a page (Intro, Main A, Main B; Fill AB, Fill BA, Ending), KNOB 4 the whole style |
 | ARP | Templates: the 16 progressions, browse and audition; again: copy one into the song |
 | GLO | Setup: tempo source, MIDI, key, lights; again: Panel (CPU, version) |
 | SAVE | saves; held: jobs (copy / clear a pattern, a track, a song) |

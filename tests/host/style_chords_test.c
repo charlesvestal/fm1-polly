@@ -10,7 +10,7 @@
 #include "arr.h"
 #include "gm_stub.h"
 
-#define FPT 918.75f                           /* frames a tick at 120 BPM: 44100 * 60 / (120 * 24) */
+#define FPT 918.75f                           /* frames a 24th of a beat at 120 BPM: 44100 * 60 / (120 * 24) */
 void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { (void)st, (void)d1, (void)d2; }
 uint32_t arr_midi_out_room(void) { return 64u; }
 uint32_t arr_midi_out_link(void) { return 0u; }
@@ -62,12 +62,12 @@ static int allow_listed(const char *style, int trk, int iv, int type)
     return 0;
 }
 
-static const char *const SECT[4] = {"Main A", "Main B", "Fill", "Ending"};
+static const char *const SECT[ARR_NSECT] = {"Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending"};
 static const char *const TRK[8] = {"d1", "d2", "pc", "ba", "c1", "c2", "c3", "c4"};
 static const char *const NOTE[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 static pattern_t P;
 static song_t S;
-static int verbose, violations, checked, shown;
+static int verbose, violations, checked, shown, patterns;
 
 int main(int argc, char **argv)
 {
@@ -79,6 +79,9 @@ int main(int argc, char **argv)
             int trk_of[16], start[16][128];
             if (arr_factory_pattern(ARR_FACTORY0 + st * ARR_NSECT + k, &P) != 0)
                 return 1;
+            if (!P.nev)
+                continue;                     /* a section the style does not have */
+            patterns++;
             for (int c = 0; c < 16; c++)
                 trk_of[c] = -1;
             for (int t = 0; t < ARR_TRACKS; t++)
@@ -101,7 +104,7 @@ int main(int argc, char **argv)
                 stub_n = 0;
                 stub_frame = 0;
                 arr_set_tempo(120);
-                arr_load_pattern(0, &P);
+                arr_load_pattern(SEC_A - 1, &P);
                 arr_song(&S, 0);
                 arr_play(1);
                 memset(start, 0xFF, sizeof start);
@@ -149,7 +152,7 @@ int main(int argc, char **argv)
                 }
             }
         }
-    printf("%d chord-part notes checked over %d styles, %d not chord tones or allowed tensions\n", checked,
-           arr_styles(), violations);
+    printf("%d chord-part notes checked in %d patterns of %d styles, %d not chord tones or allowed tensions\n", checked,
+           patterns, arr_styles(), violations);
     return violations ? 1 : 0;
 }

@@ -13,11 +13,13 @@
 #define ARR_CLOCK_TICKS (ARR_PPQ / 24)   /* ticks a MIDI clock (F8, 24 a quarter): 20 */
 #define ARR_MAXBARS 8
 #define ARR_NEV 600                      /* notes per pattern */
-#define ARR_USER_PATTERNS 16
+#define ARR_USER_PATTERNS 24                 /* six a song (song n: 6n..6n+5 by default) */
 #define ARR_SONGS 4
 #define ARR_SONGBARS 64
-#define ARR_NSECT 4
-enum { SEC_SAME, SEC_A, SEC_B, SEC_FILL, SEC_END };
+#define ARR_NSECT 6
+/* the sections (the QY70's), each a slot (sec - 1) holding its pattern. SEC_FILL is a command only (arr_section):
+ * Fill AB from Main A (or the Intro), Fill BA from Main B */
+enum { SEC_SAME, SEC_INTRO, SEC_A, SEC_B, SEC_FILL_AB, SEC_FILL_BA, SEC_END, SEC_FILL };
 
 typedef struct {
     uint16_t tick;                       /* from the pattern's start, ARR_PPQ a beat (8 bars of 7: 26880 at most) */
@@ -46,11 +48,11 @@ typedef struct {
 #define ARR_PAT_FORMAT 2u                /* 2: 480 ticks a beat (stored patterns of another format are not loaded) */
 
 typedef struct {
-    uint8_t style[ARR_NSECT];            /* the pattern for Main A, Main B, Fill, Ending: 0..15 user, 16.. factory */
+    uint8_t style[ARR_NSECT];            /* the pattern for each section (Intro, Main A, Main B, Fill AB, Fill BA,
+                                          * Ending): 0..23 user, 24.. factory */
     uint8_t bars;                        /* the song's length, 1..64 (0: no song yet) */
     uint8_t loop;                        /* goes round at its end (the app passes it to arr_song) */
-    uint8_t rsv[2];
-    uint8_t sect[ARR_SONGBARS];          /* SEC_* per bar */
+    uint8_t sect[ARR_SONGBARS];          /* SEC_SAME .. SEC_END per bar (SEC_FILL is not stored) */
     chord_t chord[ARR_SONGBARS * 4];     /* a chord per beat; type CH_NTYPES = no change */
 } song_t;
 
@@ -60,8 +62,9 @@ typedef struct {
 } songs_t;
 
 /* ---- the factory styles (the .sty files in styles/, compiled by tools/make_styles.py into styles.h; const in flash). A song's
- * pattern numbers 16.. are theirs: style s (0..arr_styles()-1), section k (0 Main A, 1 Main B, 2 Fill, 3 Ending)
- * is pattern ARR_FACTORY0 + 4 s + k. */
+ * pattern numbers 24.. are theirs: style s (0..arr_styles()-1), section k (0 Intro, 1 Main A, 2 Main B, 3 Fill AB,
+ * 4 Fill BA, 5 Ending: a slot) is pattern ARR_FACTORY0 + 6 s + k. A section a style lacks is an empty pattern
+ * (no notes: the engine falls back, arr_section). */
 #define ARR_FACTORY0 ARR_USER_PATTERNS
 int arr_styles(void);                            /* how many */
 const char *arr_style_name(int s);               /* "Pop"; "" for none */
@@ -95,19 +98,24 @@ void arr_init(void);
 void arr_play(int on);
 void arr_set_tempo(int bpm);                     /* 40..240 */
 void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
-void arr_load_pattern(int slot, const pattern_t *p);   /* slot 0..3: Main A, Main B, Fill, Ending (copied) */
-/* SEC_A..SEC_END: from the next bar (arr_next_sect shows it meanwhile). A fill plays one bar, then the other
- * Main (from A: B; from B: A); a fill during a fill adds a bar. An ending plays its pattern once, then stops
- * (Ending again during it: it still stops). Notes sounding over a section change keep their voicing to their
- * end, not re-voiced by the new pattern's track types. PLAY starts with the section
- * queued, else Main A or B as it was (after a fill or an ending: Main A). */
+/* slot 0..5 (a section's: sec - 1): Intro, Main A, Main B, Fill AB, Fill BA, Ending (copied) */
+void arr_load_pattern(int slot, const pattern_t *p);
+/* SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
+ * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
+ * is Fill BA from Main B, else Fill AB (from Main A, the Intro, ...); a fill during a fill adds a bar. An ending
+ * plays its pattern once, then stops (Ending again during it: it still stops). A section whose pattern has no
+ * notes falls back: no Fill BA, Fill AB (still back to Main A), and the other way round; neither: no fill (the
+ * section plays on); no Intro: Main A; no Ending: the stop at that bar line. Notes sounding over a section
+ * change keep their voicing to their end, not re-voiced by the new pattern's track types. PLAY starts with the
+ * section queued; else a song's mark on its bar 1; else the Intro when it has notes (not when recording: the
+ * pattern being recorded into plays); else Main A or B as it was (after anything else: Main A). */
 void arr_section(int sec);
 /* a song (copied; 0: none, back to free play): its section track switches sections at its bars, its chord
  * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last). A section mark
  * switches only to a section other than the one playing (marks over a region play it on). It stops at the
  * end of its last bar, or with loop goes round. It starts at bar 1 with PLAY, or at the next bar line when
  * set while playing (a song set again while it plays keeps its place). A section queued by arr_section wins
- * over the section track's mark at that bar. A song turns a template off. The app loads its four patterns
+ * over the section track's mark at that bar. A song turns a template off. The app loads its six patterns
  * (style) into the slots with arr_load_pattern. */
 void arr_song(const song_t *s, int loop);
 /* a chord template (templates.h) as the chord track, looping, transposed by the key; -1: off (the chord

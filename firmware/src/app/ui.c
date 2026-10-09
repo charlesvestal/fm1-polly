@@ -5,9 +5,10 @@
  *
  *   PLAY            start / stop                 REC       record into the selected track (its light: the engine's)
  *   SEL tap         CHORD on / off: the keys enter chords, or play the selected track
- *   SEL + black key 1..4   Main A, Main B, Fill, Ending, from the next bar
+ *   SEL + black key 1..5   Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
  *   SEL + white key 1..16  a chord template, at once
- *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x2), LFO Chords, ENV Arrange, ARP Templates (x2), GLO Setup (x2)
+ *   HOME Song, SEQ Pattern (x2), EDIT Track, FX Mixer (x2), LFO Chords, ENV Arrange (x3), ARP Templates (x2),
+ *   GLO Setup (x2)
  *   SAVE            saves (held: the jobs)       OCT- / OCT+   the keys' octave
  *   SELECT          tempo       ALGORITHM   the track       PRESETS   per page (Song: the song)
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
@@ -73,8 +74,8 @@ static void slot_cache(int s, const pattern_t *p)
     app.gen++;
 }
 /* the slot whose pattern the pages show and edit: the section playing (recording goes there too) */
-static int eslot(void) { return (arr_sect - 1) & 3; }
-/* changed since loaded or saved. A slot playing a factory style (16..) has nothing to save into: its edits
+static int eslot(void) { return sect_slot(arr_sect); }
+/* changed since loaded or saved. A slot playing a factory style (24..) has nothing to save into: its edits
  * play until another pattern is picked; Copy pattern (the jobs) keeps them in a user pattern */
 static int slot_unsaved(int s)
 {
@@ -126,7 +127,7 @@ static void edits_flush(void)
     }
 }
 
-/* slot s (Main A, Main B, Fill, Ending) gets pattern `style`: a user pattern (0..15), a factory style's
+/* slot s (Intro, Main A, Main B, Fill AB, Fill BA, Ending) gets pattern `style`: a user pattern (0..23), a factory style's
  * (ARR_FACTORY0..: copied out of flash), or an empty one when it has none */
 static void slot_load(int s, int style)
 {
@@ -139,7 +140,7 @@ static void slot_load(int s, int style)
     app.edited[s] = 0;
     app.edit_pend &= (uint8_t)~(1u << s);
 }
-/* the selected song: its four patterns into the slots, and its tracks when it has any (else free play: the
+/* the selected song: its six patterns into the slots, and its tracks when it has any (else free play: the
  * templates and the keys' chords) */
 static void song_load(void)
 {
@@ -298,10 +299,7 @@ static void set_track(int t)
 {
     proj.trk = (uint8_t)(t & 7);
     arr_record(proj.trk, arr_recording);         /* recording goes on, into this track */
-    {
-        uint32_t s = (uint32_t)(arr_sect - 1) & 3u;
-        say(TRACK_NAME[proj.trk], trk_sound(&app.trk[s][proj.trk]));
-    }
+    say(TRACK_NAME[proj.trk], trk_sound(&app.trk[eslot()][proj.trk]));
     mark_dirty();
 }
 
@@ -347,18 +345,20 @@ static void set_chord_mode(int on)
         chord_keys();
     }
 }
-/* SEL held + a key: a section (black 1..4) or a template (white 1..16) */
+/* SEL held + a key: a section (black 1..5: Intro, Main A, Main B, Fill, Ending) or a template (white 1..16) */
+static const uint8_t SEL_SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
 static void sel_key(int k)
 {
     int w = ordinal(WHITE_K, 16, k), b = ordinal(BLACK_K, 11, k);
     if (w >= 0)
         pick_template(w);
-    else if (b >= 0 && b < 4) {
-        arr_section(b + 1);
-        say(arr_playing ? "NEXT" : "FIRST", SECT_NAME[b + 1]);
-    } else if (b == 4)
-        say("INTRO", "later");
-    else
+    else if (b >= 0 && b < 5) {
+        int sec = SEL_SECT[b];
+        arr_section(sec);
+        if (sec == SEC_FILL && arr_playing)      /* the Fill it will be, by the Main playing */
+            sec = arr_sect == SEC_B || arr_sect == SEC_FILL_BA ? SEC_FILL_BA : SEC_FILL_AB;
+        say(arr_playing ? "NEXT" : "FIRST", SECT_NAME[sec]);
+    } else
         say("MARKERS", "later");
 }
 static void key_down(int k)
@@ -389,7 +389,7 @@ static void key_up(int k)
 /* the page buttons: a button holds up to three pages, pressed again: the next */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_SONG, 1}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_FX, P_MIXER, 2},
-    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 2}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
+    {B_LFO, P_CHORDS, 1}, {B_ENV, P_ARRANGE, 3}, {B_ARP, P_TEMPLATES, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static void set_chord_mode(int on);
 static void page_leave(int from, int to)
@@ -501,7 +501,7 @@ static void button_down(int b)
     case B_PLAY:
         if (ui.page == P_TEMPLATES && !arr_playing)   /* audition the template under the cursor */
             pick_template(app.tmpl < 0 ? 0 : app.tmpl);
-        else if (ui.page == P_CHORDS || ui.page == P_ARRANGE || ui.page == P_ARRANGE2)
+        else if (ui.page == P_CHORDS || arrange_page(ui.page))
             song_back();
         arr_play(!arr_playing);
         break;
@@ -569,7 +569,7 @@ static void holds(void)
         ui.btn_used |= 1u << B_SAVE;
         if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
             jobs_open();                         /* the pattern's jobs */
-        else if (ui.page == P_CHORDS || ui.page == P_ARRANGE || ui.page == P_ARRANGE2) {
+        else if (ui.page == P_CHORDS || arrange_page(ui.page)) {
             ui.job = 2;                          /* the song's */
             ui.job_sel = 0;
             ui.job_to = (uint8_t)((proj.song + 1u) % ARR_SONGS);
@@ -628,7 +628,7 @@ static const uint8_t STEP_BEATS[3] = {1, 2, 4};
 static void cursor_move(int d)
 {
     app.cbeat = (uint8_t)clampi(app.cbeat + d * STEP_BEATS[app.cstep % 3u], 0, ARR_SONGBARS * 4 - 1);
-    if (ui.page == P_ARRANGE || ui.page == P_ARRANGE2)
+    if (arrange_page(ui.page))
         app.cbeat = (uint8_t)(app.cbeat & ~3u);
 }
 /* REC on the Chords page: chords played while playing are written on the beat. An empty song gets 8 bars,
@@ -722,7 +722,7 @@ static int song_blank(const song_t *g)
             return 0;
     return 1;
 }
-/* the pattern d steps on from st for slot s: the user patterns P01..P16, then the factory styles by name,
+/* the pattern d steps on from st for slot s: the user patterns P01..P24, then the factory styles by name,
  * each its pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
 static int style_step(int s, int st, int d)
 {
@@ -736,7 +736,7 @@ static int style_step(int s, int st, int d)
 static void slot_style(int s, int to)
 {
     int st = songs.song[proj.song].style[s];
-    char t[16];
+    char t[24];
     if (to == st)
         return;
     if (slot_unsaved(s)) {
@@ -750,13 +750,24 @@ static void slot_style(int s, int to)
         }
     }
     songs.song[proj.song].style[s] = (uint8_t)to;
-    if (s == 0 && to >= ARR_FACTORY0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
+    if (s == SEC_A - 1 && to >= ARR_FACTORY0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
         set_tempo(arr_style_tempo((to - ARR_FACTORY0) / ARR_NSECT));
     app.songs_dirty = 1;
     app.chg++;
     slot_load(s, to);
     style_name(to, t);
     say(SECT_NAME[s + 1], t);
+}
+/* the Style knob (the song-patterns pages): all six slots from factory style n (0..), or -1 the song's own user
+ * patterns (its defaults, 6n..6n+5); as slot_style, each saved first or refused while playing */
+static void style_all(int n)
+{
+    for (int s = 0; s < ARR_NSECT; s++)
+        slot_style(s, n < 0 ? proj.song * ARR_NSECT + s : ARR_FACTORY0 + n * ARR_NSECT + s);
+    if (n >= 0)
+        say("STYLE", arr_style_name(n));
+    else
+        say("STYLE", "the song's own");
 }
 static void key_turn(int role, int32_t e)        /* the key, -6..+5 */
 {
@@ -799,7 +810,7 @@ static void song_page_knob(int k, int32_t e)
     case P_ARRANGE:
         if (k == 0) {
             int b = app.cbeat / 4;
-            g->sect[b] = (uint8_t)clampi(g->sect[b] + accel(EN_K1, e), SEC_SAME, SEC_END);
+            g->sect[b] = (uint8_t)clampi((g->sect[b] <= SEC_END ? g->sect[b] : SEC_SAME) + accel(EN_K1, e), SEC_SAME, SEC_END);
             if (g->bars < b + 1)
                 g->bars = (uint8_t)(b + 1);
         } else if (k == 1)
@@ -810,8 +821,12 @@ static void song_page_knob(int k, int32_t e)
             break;
         song_edited();
         break;
-    case P_ARRANGE2: {
-        slot_style(k, style_step(k, g->style[k], accel(EN_K1 + k, e)));
+    case P_ARRANGE2: case P_ARRANGE3: {
+        int first = ui.page == P_ARRANGE3 ? 3 : 0, a = g->style[SEC_A - 1];
+        if (k < 3)
+            slot_style(first + k, style_step(first + k, g->style[first + k], accel(EN_K1 + k, e)));
+        else                                     /* the style, one step: from the song's own, the first */
+            style_all(clampi((a >= ARR_FACTORY0 ? (a - ARR_FACTORY0) / ARR_NSECT : -1) + d, -1, arr_styles() - 1));
         break;
     }
     case P_TEMPLATES: case P_TCOPY:
@@ -1102,7 +1117,7 @@ static void presets(int32_t e)
             song_change(s);
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
         pattern_pick(e);
-    else if (ui.page == P_CHORDS || ui.page == P_ARRANGE || ui.page == P_ARRANGE2 || ui.page == P_TCOPY) {
+    else if (ui.page == P_CHORDS || arrange_page(ui.page) || ui.page == P_TCOPY) {
         if (ui.page == P_CHORDS)
             cursor_move(e > 0 ? 1 : -1);
         else
@@ -1214,10 +1229,11 @@ static void leds(void)
     for (i = 0; i < NPAGE_BTN; i++)
         if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
             b |= 1u << PAGE_BTN[i].btn;
-    if (ui.btn >> B_SEL & 1u) {                  /* SEL held: the section and the template playing */
-        int n = arr_next_sect, s = n >= SEC_A && n <= SEC_END ? n : arr_sect, t = arr_template_now;
-        if (s >= SEC_A && s <= SEC_END)
-            k |= 1u << BLACK_K[s - 1];
+    if (ui.btn >> B_SEL & 1u) {                  /* SEL held: the section (next, else playing) and the template */
+        int n = arr_next_sect, s = n >= SEC_INTRO && n <= SEC_FILL ? n : arr_sect, t = arr_template_now;
+        static const int8_t KEY_OF[SEC_FILL + 1] = {-1, 0, 1, 2, 3, 3, 4, 3};   /* SEC_* -> black key */
+        if (s >= SEC_INTRO && s <= SEC_FILL)
+            k |= 1u << BLACK_K[KEY_OF[s]];
         if (t >= 0 && t < 16)
             k |= 1u << WHITE_K[t];
     } else if (proj.leds)

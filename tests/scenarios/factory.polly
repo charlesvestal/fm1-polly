@@ -1,33 +1,47 @@
-# POLLY, factory: a song picks factory style 1 (Pop) by name on the Arrange patterns page, one knob a
-# section (P01..P16, then the styles); it plays over the Pop template: Main A, Main B, the fill, the ending.
+# POLLY, factory: a song picks factory style 1 (Pop) on the Song patterns pages: KNOB 4 (Style) sets all six
+# sections at once; a section's knob sets one (P01..P24, then the styles by name). It plays over the Pop
+# template: Main A, Main B, the fill (from Main B: Fill BA, none yet: Fill AB's), Main A, the ending.
 wait 300
 tap ENV
 tap ENV
 expect page 9
-spin K1 16
-spin K2 15
-spin K3 14
-spin K4 13
+spin K4 1
 wait 50
-expect song1_style0 16
-expect song1_style1 17
-expect song1_style2 18
-expect song1_style3 19
-expect slot0_nev >20
+expect song1_style0 24
+expect song1_style1 25
+expect song1_style2 26
+expect song1_style3 27
+expect song1_style4 28
+expect song1_style5 29
+expect slot1_nev >20
 shot patterns.png
-# the next style (Funk's Main A); past either end: it stays at the end (P01, the last style)
-spin K1 1
-expect song1_style0 20
-spin K1 -300
+tap ENV
+expect page 10
+shot patterns2.png
+# the Style knob back: the song's own patterns (P01..P06), then Pop again
+spin K4 -1
+wait 50
 expect song1_style0 0
-spin K1 300
-expect song1_style0 >19
-spin K1 -300
-spin K1 16
-expect song1_style0 16
-# the Pop template, PLAY: 4 bars of Main A
+expect song1_style5 5
+spin K4 1
+expect song1_style1 25
+# Main A's knob (page 1, KNOB 2): the next style (Funk's Main A); past either end it stays at the end (P01, the
+# last style)
+tap ENV
+tap ENV
+expect page 9
+spin K2 1
+expect song1_style1 31
+spin K2 -300
+expect song1_style1 0
+spin K2 300
+expect song1_style1 >30
+spin K2 -300
+spin K2 24
+expect song1_style1 25
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 105
+# the Pop template, PLAY: Main A (the style has no Intro yet)
 press SEL
 key w0 down
 key w0 up
@@ -36,7 +50,10 @@ hitreset
 wav pop.wav
 peakreset
 tap PLAY
-wait 9140
+wait 200
+expect sect 2
+wait 8940
+expect sect 2
 expect notes_out >20
 expect track_hits1 >20
 expect track_hits4 >6
@@ -44,21 +61,21 @@ expect track_hits5 >6
 expect track_hits7 >2
 expect peak_db_max -0.1
 expect peak_db_min -24
-# Main B for 4 bars, the fill, Main A, the ending
-press SEL
-tapkey b1
-release SEL
-wait 9140
-expect sect 2
+# Main B for 4 bars, the fill (from B: Fill BA, none yet: Fill AB's), Main A, the ending
 press SEL
 tapkey b2
 release SEL
-wait 2300
+wait 9140
 expect sect 3
-wait 2300
-expect sect 1
 press SEL
 tapkey b3
+release SEL
+wait 2300
+expect sect 4
+wait 2300
+expect sect 2
+press SEL
+tapkey b4
 release SEL
 wait 7000
 expect playing 0

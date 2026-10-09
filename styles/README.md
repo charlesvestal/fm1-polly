@@ -1,6 +1,7 @@
 # Polly's factory styles
 
-Each `.sty` file here is one factory style: four patterns (Main A, Main B, Fill, Ending) of up to 8 tracks,
+Each `.sty` file here is one factory style: six patterns (Intro, Main A, Main B, Fill AB, Fill BA, Ending, the
+QY70's sections) of up to 8 tracks,
 written over the source chord **C M7** and re-voiced live by the chord track. They are compiled into
 `firmware/src/dsp/styles.h` (const tables in flash, copied into the arranger when a song picks them):
 
@@ -30,12 +31,19 @@ tempo 105                  # the tempo it was written at (kept in the tables; th
 
 track ba type=bass program=33 chan=2 lo=E1 hi=G3 hikey=G vol=104 rev=12   # before any section: every section's
 
-[main a]                   # the sections: [main a] [main b] [fill] [ending], all four
+[main a]                   # the sections: [intro] [main a] [main b] [fill ab] [fill ba] [ending]
 bars 2                     # 1..8
 beats 4                    # 2..7 (default 4)
 track ba vol=110           # in a section: this section's changes; and the track the notes below go to
 1.1.0  C2 320 106          # bar.beat.tick note length velocity
 ```
+
+**Sections:** `[main a]` is required; any other may be left out: the style then has no notes there, and the
+engine falls back (no Intro: PLAY starts at Main A; no Fill BA: Fill AB plays instead, and the other way
+round; neither: no fill; no Ending: the stop at the bar line). `[fill]` is another name for `[fill ab]` (the
+fill from Main A into Main B; Fill BA leads from Main B back to Main A). The Intro plays once at PLAY, then
+Main A; a fill plays one bar. A section left out takes the style's tracks (the lines before any section), one
+bar of Main A's beats.
 
 **Tracks:** `d1 d2 pc ba c1 c2 c3 c4` (the QY70's names; or `1`..`8`). A track not mentioned keeps the
 default pattern's settings (`pattern_empty`): d1, d2, pc drums on channel 10; ba a bass; c1, c2, c4 Chord 1;
@@ -110,11 +118,10 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 
 ## The styles
 
-| # | Style | Tempo | Drums | Main A | Main B | Fill | Ending |
+| # | Style | Tempo | Drums | Main A | Main B | Fill AB | Ending |
 |---|---|---|---|---|---|---|---|
 | 1 | Pop | 105 | GMD drummer 3, rock 105: A bars 4-5, B 22-23 (on the ride), fill 17, ending 13 + a crash | kick-locked bass, 3-3-2 piano, strings | eighth bass with a walk, eighth piano, clean guitar arpeggio, tambourine | bass climbs into the toms | a tom fill, everything on the one |
 | 2 | Funk | 100 | GMD drummer 7, funk 100: A bars 37-38, B 13-14 (open hi-hat), fill 23, ending 45 + a crash | bass with octave pops, clavinet 3rd+7th in sixteenths, guitar chank on 2 and 4 | busier bass, guitar scratch, brass stabs, tambourine | a bass run, brass hits | a break on the and of 4, the root on the one |
-
 | 3 | Rock | 120 | GMD drummer 7, rock 120: A bars 27-28, B 10-11 + a crash, fill 16 (snare build), ending 20 + hits | palm-muted power chords in eighths (distortion guitar), root-eighths bass | open power chords, overdriven guitar arpeggio, rock organ pad, bass to the octave | eighths into sixteenths on bass and guitar | a tom fill, everything on the one |
 | 4 | Ballad | 72 | GMD drummer 7, rock 75: A bars 2-3 on the cross-stick (`map=snare:rim`), B 10-11 on the snare + a soft crash, fill 16, ending 8 + hits | piano arpeggios in eighths, fretless bass, soft strings | piano quarter-note chords, a high string line, strings up, the bass moving | the piano climbs the chord | a broken chord, then the whole chord held |
 | 5 | Bossa | 128 | by hand: the bossa clave on the cross-stick, kick 1 / 2& / 3 / 4&, hi-hat eighths; B on the ride + shaker | nylon guitar comping in 3rd-7th-9th voicings, bass root-fifth with pickups, soft strings | a flute line, the ride and shaker, the bass walking to the 3rd | toms down the kit | the chord on the one with a soft crash |
@@ -132,6 +139,7 @@ tensions D 9th, F 11th, A 13th. Chord 1 moves each to the same degree of the cho
 
 (The bar numbers above count from 1; `start=` counts from 0.)
 
+
 **12/8 and 3/4.** Patterns can be 2 to 7 beats a bar, so the Waltz is plain 3/4 (`beats 3`; a song's bar
 and the Waltz template's bar are three beats while it plays). There is no compound meter: a 12/8 (or 6/8)
 style is written as 4/4 with each beat split in three triplet eighths, at ticks 0, 160 and 320 (`grid 1.1 160
@@ -146,7 +154,7 @@ groove, the cross-stick sparse and the kick at ghost level, and a style needs th
 
 ## Checking and listening
 
-- `tests/host/style_chords_test.c` (in `run_tests.sh`) plays every pattern of every style through the real
+- `tests/host/style_chords_test.c` (in `run_tests.sh`) plays every pattern (all six sections) of every style through the real
   engine as a song's Main A over the Pop template, the 12-bar blues, the Andalusian progression and a bar
   each of ten chord types (maj, m, 7, M7, m7, 6, sus4, m7(b5), dim, aug): every note of a Chord 1 / Chord 2
   track sounding an eighth or longer must be a tone of its chord or an allowed tension (9 and 13 over major
@@ -155,9 +163,9 @@ groove, the cross-stick sparse and the kick at ghost level, and a style needs th
 - `sh tools/render_styles.sh [NN ...]` renders `build/styles/NN.wav`: the style at its tempo over the Pop
   template, the blues and the Minor template (Bossa and Swing also over ii-V-I and Jazz; Reggae and House
 over Pop and Minor; Disco, Country and Latin over Pop and Minor; Ambient over Pop and Canon; Hip hop over Minor and Vamp; Gospel over Pop and
-the Gospel template; the Waltz three times over the Waltz template), each pass Main A,
-  Main B, the fill, Main A, the ending; it prints each WAV's level (the styles sit between -25 and -29 dBFS RMS at
-  the default master, with no sample at the synth's limit).
+the Gospel template; the Waltz three times over the Waltz template), each pass the Intro, Main A, Main B,
+  Fill BA, Main A, Fill AB, Main B, the ending (checking each section comes when it should); it prints each WAV's
+  level (the styles sit between -25 and -30 dBFS RMS at the default master, with no sample at the synth's limit).
 
 ## The drums: the Groove MIDI Dataset
 

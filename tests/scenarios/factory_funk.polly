@@ -1,17 +1,17 @@
-# POLLY, factory_funk: factory style 2 (Funk) for a song, played over the Vamp template (Dm7 G7): Main A,
-# Main B, the fill, the ending; the audio in funk.wav.
+# POLLY, factory_funk: factory style 2 (Funk) for a song (KNOB 4, Style, two steps), played over the Vamp
+# template (Dm7 G7): Main A, Main B, the fill (Fill BA: none yet, Fill AB's), Main A, the ending; the audio in funk.wav.
 wait 300
 tap ENV
 tap ENV
-spin K1 17
-spin K2 16
-spin K3 15
-spin K4 14
+spin K4 1
+spin K4 1
 wait 50
-expect song1_style0 20
-expect song1_style1 21
-expect song1_style2 22
-expect song1_style3 23
+expect song1_style0 30
+expect song1_style1 31
+expect song1_style2 32
+expect song1_style3 33
+expect song1_style4 34
+expect song1_style5 35
 shot patterns.png
 # Main A picked for a song with no chords: the style's tempo
 expect tempo 100
@@ -26,20 +26,24 @@ hitreset
 wav funk.wav
 peakreset
 tap PLAY
-wait 9600
-expect notes_out >40
-press SEL
-tapkey b1
-release SEL
-wait 9600
+wait 200
 expect sect 2
+wait 9400
+expect notes_out >40
 press SEL
 tapkey b2
 release SEL
-wait 4800
-expect sect 1
+wait 9600
+expect sect 3
 press SEL
 tapkey b3
+release SEL
+wait 2400
+expect sect 4
+wait 2400
+expect sect 2
+press SEL
+tapkey b4
 release SEL
 wait 7500
 expect playing 0

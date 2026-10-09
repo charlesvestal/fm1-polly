@@ -56,6 +56,37 @@ f="$D/01-sharp.sty"
 printf '%s\n%s\n' "$HEAD" 'track ba hikey=F# vol=90 # a comment' > "$f"
 out=$(python3 tools/make_styles.py --dump "$f" 2>&1 | sed -n '/\[main a\]/,$p' | grep '^track ba')
 case "$out" in *"hikey=F# vol=90 "*) echo "  ok sharp" ;; *) echo "FAIL sharp: $out"; FAIL=1 ;; esac
+# sections: [main a] alone is a style (the rest empty, 6 patterns); [fill] is [fill ab]; an unknown one; no [main a]
+f="$D/01-mainonly.sty"
+printf 'style M\n[main a]\nbars 1\ntrack ba\n1.1.0 C2 120 90\n' > "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1)
+[ "$out" = "1 styles, 6 patterns ok" ] && echo "  ok mainonly" || { echo "FAIL mainonly: $out"; FAIL=1; }
+out=$(python3 tools/make_styles.py --roundtrip "$f" 2>&1)
+[ "$out" = "1 styles round trip ok" ] && echo "  ok mainonly roundtrip" || { echo "FAIL mainonly roundtrip: $out"; FAIL=1; }
+f="$D/01-fill2.sty"
+printf 'style M\n[main a]\nbars 1\n[fill]\nbars 1\n[fill ab]\nbars 1\n' > "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1)
+[ "$out" = "make_styles: $f:6: section twice: [fill ab]" ] && echo "  ok fill alias" || { echo "FAIL fill alias: $out"; FAIL=1; }
+f="$D/01-unknown.sty"
+printf 'style M\n[main c]\n' > "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1)
+[ "$out" = "make_styles: $f:2: unknown section [main c] ([intro] [main a] [main b] [fill ab] [fill ba] [ending])" ] && echo "  ok unknown section" || { echo "FAIL unknown section: $out"; FAIL=1; }
+f="$D/01-nomain.sty"
+printf 'style M\n[intro]\nbars 1\n' > "$f"
+out=$(python3 tools/make_styles.py --check "$f" 2>&1)
+[ "$out" = "make_styles: $f: no [main a] section" ] && echo "  ok no main a" || { echo "FAIL no main a: $out"; FAIL=1; }
+# drums from a MIDI file: on the 24-a-beat grid by default (every tick a multiple of 20); quant=off keeps the
+# drummer's own ticks (some not); quant=s the sixteenths (multiples of 120)
+for q in "" " quant=off" " quant=s"; do
+    printf 'style M\n[main a]\nbars 2\ntrack d1\ndrums from=%s/styles/drums/drummer3-session1-1_rock_105_beat_4-4.mid start=3%s\n' "$(pwd)" "$q" > "$D/01-q.sty"
+    python3 tools/make_styles.py --dump "$D/01-q.sty" | awk '/^\[main a\]/{on=1} on && $1 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ {split($1, p, "."); print p[3]}' > "$D/q$q.txt"
+done
+off20=$(awk '$1 % 20' "$D/q quant=off.txt" | wc -l)
+def20=$(awk '$1 % 20' "$D/q.txt" | wc -l)
+s120=$(awk '$1 % 120' "$D/q quant=s.txt" | wc -l)
+n=$(wc -l < "$D/q.txt")
+[ "$n" -gt 20 ] && [ "$def20" -eq 0 ] && [ "$off20" -gt 0 ] && [ "$s120" -eq 0 ] && echo "  ok drums quant" || \
+    { echo "FAIL drums quant: $n hits, $def20 off the 20 grid by default, $off20 with quant=off, $s120 off the 16ths with quant=s"; FAIL=1; }
 # style numbers: a gap, a twice, no number
 cp "$D/01-velocity.sty" "$D/03-x.sty"
 out=$(python3 tools/make_styles.py --check "$D/01-bars.sty" "$D/03-x.sty" 2>&1)

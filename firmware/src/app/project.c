@@ -144,7 +144,7 @@ int project_pattern_save(int i, const pattern_t *p)
     return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
 }
 
-/* an empty song: no bars yet, every beat "no change", looping, playing user patterns 4n..4n+3 */
+/* an empty song: no bars yet, every beat "no change", looping, playing user patterns 6n..6n+5 */
 void song_default(song_t *g, int n)
 {
     memset(g, 0, sizeof *g);
@@ -161,7 +161,7 @@ static void songs_defaults(songs_t *s)
     memset(s, 0, sizeof *s);
     s->magic = SONGS_MAGIC;
     s->format = SONGS_FORMAT;
-    for (int n = 0; n < ARR_SONGS; n++)              /* song n: user patterns 4n..4n+3, none shared */
+    for (int n = 0; n < ARR_SONGS; n++)              /* song n: user patterns 6n..6n+5, none shared */
         song_default(&s->song[n], n);
 }
 
@@ -178,7 +178,7 @@ int project_songs_load(songs_t *s)
                 if (g->style[k] >= ARR_FACTORY0 + ARR_NSECT * arr_styles())
                     g->style[k] = (uint8_t)(i * ARR_NSECT + k);
             for (int k = 0; k < ARR_SONGBARS; k++)
-                if (g->sect[k] > SEC_END)
+                if (g->sect[k] > SEC_END)            /* (SEC_FILL is a command, not a mark) */
                     g->sect[k] = SEC_SAME;
             for (int k = 0; k < ARR_SONGBARS * 4; k++)
                 if (g->chord[k].type > CH_NTYPES || g->chord[k].root > 11u ||

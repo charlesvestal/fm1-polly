@@ -19,9 +19,9 @@ expect song_bars 2
 shot chords.png
 tap ENV
 expect page 8
-spin K1 2
+spin K1 3
 wait 100
-expect song_sect1 2
+expect song_sect1 3
 shot arrange.png
 tap ENV
 expect page 9
@@ -37,16 +37,16 @@ tap PLAY
 wait 500
 expect chord_root 9
 expect chord_type 18
-expect sect 1
+expect sect 2
 wait 2000
 expect chord_root 7
 expect chord_type 0
-expect sect 2
+expect sect 3
 tap PLAY
 wait 100
 # Templates: PRESETS picks, PLAY auditions
 tap ARP
-expect page 10
+expect page 11
 turn PRESET 1
 tap PLAY
 wait 300
@@ -57,7 +57,7 @@ tap PLAY
 wait 100
 # its second page: copied into the song from bar 3, SEL
 tap ARP
-expect page 11
+expect page 12
 spin K3 2
 tap SEL
 wait 100
@@ -123,8 +123,8 @@ release SAVE
 spin K1 1
 tap SEL
 expect song2_bars 6
-expect song2_style0 4
-expect song2_style3 7
+expect song2_style0 6
+expect song2_style5 11
 press SAVE
 wait 800
 release SAVE
@@ -133,7 +133,7 @@ wait 100
 expect song_bars 0
 # Setup: the clock internal (MIDI clock in ignored), the key -3
 tap GLO
-expect page 12
+expect page 13
 spin K1 -1
 spin K3 -3
 expect clock 0
@@ -144,6 +144,6 @@ midi FA 00 00
 clock 50
 expect playing 0
 tap GLO
-expect page 13
+expect page 14
 shot panel.png
 tap HOME

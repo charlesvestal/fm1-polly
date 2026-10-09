@@ -208,7 +208,7 @@ static uint8_t start_wait;                         /* a start waiting for its so
 
 /* sections, songs, templates */
 static uint8_t first_tick;                         /* the first tick since a start: no bar or beat behind it */
-static uint8_t fill_from = SEC_A;                  /* the Main a fill came from: it goes to the other */
+static uint8_t fill_to = SEC_B;                    /* the Main the fill playing goes to after its bar */
 static uint16_t sec_bars;                          /* bars played of the section playing */
 static uint8_t song_on, song_loop, song_restart;   /* restart: set while playing, from bar 1 at the next bar line */
 static uint8_t song_len;                           /* its bars, from the command: kept outside the copy */
@@ -689,18 +689,52 @@ static void erase_apply(void)
     }
 }
 
+/* ------------------------------------------------------------ sections --- */
+#define SEC_STOP 0xFFu                             /* resolve(): an Ending without notes: stop */
+static int is_fill(uint32_t s) { return s == SEC_FILL_AB || s == SEC_FILL_BA; }
+static int is_sect(uint32_t s) { return s >= SEC_INTRO && s <= SEC_END; }
+/* a section's pattern has no notes (one being loaded counts as having some) */
+static int sect_empty(uint32_t s) { return !busy[s - 1] && pat[s - 1].nev == 0; }
+/* the section a request plays (SEC_INTRO .. SEC_FILL), from the section playing: SEC_FILL is Fill BA from Main B
+ * (back to A), else Fill AB (to B), and during a fill one more bar of it; a fill without notes gives way to the
+ * other (still going to the Main asked for), neither: SEC_SAME (no fill, the section plays on). An Intro without
+ * notes: Main A; an Ending without notes: SEC_STOP (stop at the bar line). *to: the Main a fill goes to */
+static uint8_t resolve(uint32_t s, uint8_t *to)
+{
+    if (s == SEC_FILL) {
+        if (is_fill(arr_sect))
+            return arr_sect;
+        s = arr_sect == SEC_B ? SEC_FILL_BA : SEC_FILL_AB;
+    }
+    if (is_fill(s)) {
+        *to = s == SEC_FILL_AB ? SEC_B : SEC_A;
+        if (sect_empty(s))
+            s = s == SEC_FILL_AB ? SEC_FILL_BA : SEC_FILL_AB;
+        return sect_empty(s) ? SEC_SAME : (uint8_t)s;
+    }
+    if (s == SEC_INTRO && sect_empty(s))
+        return SEC_A;
+    if (s == SEC_END && sect_empty(s))
+        return SEC_STOP;
+    return is_sect(s) ? (uint8_t)s : SEC_SAME;
+}
+
 /* ------------------------------------------------------------ the clock --- */
+/* PLAY: the section queued; else a song's mark on its bar 1; else (not recording) the Intro, when it has notes;
+ * else the Main as it was (after anything else: Main A) */
 static void transport_start(void)
 {
+    uint8_t s = arr_next_sect, to = fill_to;
     rec_flush(1);
-    uint8_t s = arr_next_sect;                     /* the section queued; a song's first; else the Main */
-    if (s < SEC_A || s > SEC_END) {                /* playing (after a fill or an ending: Main A) */
+    if (!s && song_on && is_sect(song.sect[0]))
+        s = song.sect[0];
+    if (!s && !rec_on && !sect_empty(SEC_INTRO))
+        s = SEC_INTRO;
+    if (s)
+        s = resolve(s, &to);
+    if (!is_sect(s))                               /* none, no fill, no Ending */
         s = cur == SEC_B - 1 ? SEC_B : SEC_A;
-        if (song_on && song.sect[0] >= SEC_A && song.sect[0] <= SEC_END)
-            s = song.sect[0];
-    }
-    if (s == SEC_FILL)
-        fill_from = arr_sect == SEC_B ? SEC_B : SEC_A;
+    fill_to = to;
     arr_next_sect = SEC_SAME;
     cur = (uint8_t)(s - 1);
     first_tick = 1;
@@ -753,8 +787,6 @@ static void switch_to(uint8_t sec)
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
-    if (sec == SEC_FILL && (arr_sect == SEC_A || arr_sect == SEC_B))
-        fill_from = arr_sect;
     cur = (uint8_t)(sec - 1);
     arr_sect = sec;
     sec_bars = 0;
@@ -766,8 +798,10 @@ static void switch_to(uint8_t sec)
 /* a bar line: the song's bar, the section next, a song's or an ending's end. 0: stopped here.
  * The section next: one queued (arr_section) switches, and restarts the section playing unless it is at its
  * start; Ending queued during the ending lets it end. Else the song's mark, only when it differs from the
- * section playing (a mark on every bar of a region plays the section on). Else a fill's return after its bar
- * (not under a Fill mark: the fill goes on) or the ending's stop after it played once. */
+ * section playing (a mark on every bar of a region plays the section on). Else a fill's return to its Main
+ * after its bar (not under a Fill mark: the fill goes on), the Intro's to Main A after it played once (not
+ * under an Intro mark), or the ending's stop after it played once. What is asked for goes through resolve()
+ * (SEC_FILL by the Main playing, the fallbacks of sections without notes). */
 static int bar_line(void)
 {
     uint8_t next = arr_next_sect, mark = SEC_SAME;
@@ -787,7 +821,7 @@ static int bar_line(void)
             }
             sbar = 0;
         }
-        if ((!first_tick || restart) && song.sect[sbar] >= SEC_A && song.sect[sbar] <= SEC_END)
+        if ((!first_tick || restart) && is_sect(song.sect[sbar]))
             mark = song.sect[sbar];
         arr_song_bar = sbar;
     }
@@ -796,16 +830,29 @@ static int bar_line(void)
     if (next == SEC_SAME && mark != arr_sect)
         next = mark;
     if (next == SEC_SAME && !first_tick) {
-        if (arr_sect == SEC_FILL && sec_bars >= 1 && mark != SEC_FILL)
-            next = fill_from == SEC_B ? SEC_A : SEC_B;
+        if (is_fill(arr_sect) && sec_bars >= 1 && !is_fill(mark))
+            next = fill_to;
+        else if (arr_sect == SEC_INTRO && pos == 0 && mark != SEC_INTRO)
+            next = SEC_A;                          /* the intro played once */
         else if (arr_sect == SEC_END && pos == 0) {    /* the ending played once */
             stop_ours();
             return 0;
         }
     }
     arr_next_sect = SEC_SAME;
-    if (next >= SEC_A && next <= SEC_END && (next != arr_sect || pos != 0))
-        switch_to(next);
+    if (next) {
+        uint8_t to = fill_to, asked = next;
+        next = resolve(next, &to);
+        if (next == SEC_STOP) {                    /* an Ending without notes: the end is here */
+            stop_ours();
+            return 0;
+        }
+        if (next && (next != arr_sect || (pos != 0 && next == asked))) {   /* (a fallback to the section
+                                                                              * playing: it plays on) */
+            fill_to = to;
+            switch_to(next);
+        }
+    }
     bar_beat0 = beat_now;
     return 1;
 }
@@ -1003,7 +1050,7 @@ static void drain(void)
             break;
         case C_CHORD: chord_change(arr_chord_unpack(a), 1); break;
         case C_SECTION:
-            if (a >= SEC_A && a <= SEC_END)
+            if (a >= SEC_INTRO && a <= SEC_FILL)
                 arr_next_sect = (uint8_t)a;
             break;
         case C_MUTE:
@@ -1202,7 +1249,7 @@ void arr_init(void)                                /* at boot, before the render
     chord.type = CH_MAJ7;                          /* patterns are written over C M7: as written */
     chord.bass = CH_NOBASS;
     arr_chord_now = arr_chord_pack(chord);
-    cur = 0;
+    cur = SEC_A - 1;
     pos = 0;
     mout = clk_out = 0;
     out_owed = 0;
@@ -1248,12 +1295,14 @@ void arr_init(void)                                /* at boot, before the render
     arr_template_bar = 0;
     key = 0;
     first_tick = 0;
-    fill_from = SEC_A;
+    fill_to = SEC_B;
     sec_bars = 0;
     beat_now = bar_beat0 = t_origin = 0;
 }
 
 /* ------------------------------------------------------------ factory styles --- */
+_Static_assert(STY_NSECT == ARR_NSECT, "styles.h: a pattern for each section");
+_Static_assert(ARR_FACTORY0 + STY_COUNT * ARR_NSECT <= 256, "a song's pattern numbers are bytes");
 int arr_styles(void) { return STY_COUNT; }
 const char *arr_style_name(int s) { return s >= 0 && s < STY_COUNT ? STY_NAME[s] : ""; }
 int arr_style_tempo(int s) { return s >= 0 && s < STY_COUNT ? STY_TEMPO[s] : 120; }
@@ -1264,13 +1313,13 @@ int arr_factory_pattern(int n, pattern_t *p)
     uint32_t e;
     int t, i;
     n -= ARR_FACTORY0;
-    if (n < 0 || n >= STY_COUNT * 4)
+    if (n < 0 || n >= STY_COUNT * ARR_NSECT)
         return -1;
     f = &STY_PAT[n];
     memset(p, 0, sizeof *p);
     p->format = ARR_PAT_FORMAT;
-    for (i = 0; i < 8 && STY_NAME[n / 4][i]; i++)
-        p->name[i] = STY_NAME[n / 4][i];
+    for (i = 0; i < 8 && STY_NAME[n / ARR_NSECT][i]; i++)
+        p->name[i] = STY_NAME[n / ARR_NSECT][i];
     p->bars = f->bars;
     p->beats = f->beats;
     e = f->first;

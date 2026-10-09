@@ -391,11 +391,15 @@ static int expect(const char *what, const char *val)
         got = (int)(arr_chord_now & 0xFFu);
     else if (!strcmp(what, "chord_type"))
         got = (int)(arr_chord_now >> 8 & 0xFFu);
-    else if (!strcmp(what, "sect"))               /* SEC_A 1 .. SEC_END 4 */
+    else if (!strcmp(what, "sect"))               /* SEC_INTRO 1, SEC_A 2, SEC_B 3, Fill AB 4, Fill BA 5, SEC_END 6 */
         got = arr_sect;
-    else if (!strcmp(what, "next_sect"))          /* the section waiting for the bar, 0 none */
+    else if (!strcmp(what, "next_sect"))          /* the section waiting for the bar, 0 none (7: Fill, AB or BA) */
         got = arr_next_sect;
-    else if (!strcmp(what, "playing"))
+    else if (!strcmp(what, "black_lit")) {        /* the black keys lit, bit i = black key i (b0..b10) */
+        got = 0;
+        for (int i = 0; i < 11; i++)
+            got |= (int)(lit_keys >> BLACK_K[i] & 1u) << i;
+    } else if (!strcmp(what, "playing"))
         got = arr_playing;
     else if (!strcmp(what, "recording"))
         got = arr_recording;
@@ -419,26 +423,26 @@ static int expect(const char *what, const char *val)
         got = arr_ext;
     else if (!strcmp(what, "song"))               /* the selected song, 1..4 */
         got = proj.song + 1;
-    else if (!strncmp(what, "slot", 4) && strstr(what, "_nev")) {   /* slotN_nev: the arranger's slot N's notes */
-        arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
+    else if (!strncmp(what, "slot", 4) && strstr(what, "_nev")) {   /* slotN_nev: the arranger's slot N's notes (0 Intro, 1 Main A, ..) */
+        arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         got = dbg_pat.nev;
     }
-    else if (!strncmp(what, "pat", 3) && strstr(what, "_nev")) {   /* patN_nev: user pattern N's notes (0..15) */
+    else if (!strncmp(what, "pat", 3) && strstr(what, "_nev")) {   /* patN_nev: user pattern N's notes (0..23) */
         project_pattern_load(atoi(what + 3), &dbg_pat);
         got = dbg_pat.nev;
     } else if (!strncmp(what, "track_hits", 10))  /* track_hitsN (1..8): its note-ons since hitreset */
         got = (int)trk_hits[(atoi(what + 10) - 1) & 7];
     else if (!strncmp(what, "trk", 3) && strstr(what, "_program")) {   /* trkN_program: the playing slot's track N */
-        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].program + 1;
     } else if (!strncmp(what, "trk", 3) && strstr(what, "_mute")) {
-        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].mute;
     } else if (!strncmp(what, "trk", 3) && strstr(what, "_vol")) {
-        arr_pattern_copy((arr_sect - 1) & 3, &dbg_pat);
+        arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].vol;
     } else if (!strncmp(what, "slot", 4) && strstr(what, "_bars")) {
-        arr_pattern_copy(atoi(what + 4) & 3, &dbg_pat);
+        arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         got = dbg_pat.bars;
     } else if (!strncmp(what, "song_chord", 10)) {   /* song_chordN: the selected song's beat N, root*100 + type */
         const chord_t *c = &songs.song[proj.song].chord[atoi(what + 10) & 255];
@@ -451,7 +455,7 @@ static int expect(const char *what, const char *val)
     else if (!strcmp(what, "song_bars"))
         got = songs.song[proj.song].bars;
     else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
-        got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) & 3];   /* songN_styleI */
+        got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) % ARR_NSECT];   /* songN_styleI (I: the slot) */
     else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].bars;     /* songN_bars (1..4), as in RAM */
     else if (!strcmp(what, "song_on"))            /* the app gave the arranger the song (not a template) */
@@ -594,9 +598,9 @@ int main(int argc, char **argv)
             memset(trk_hits, 0, sizeof trk_hits);
         else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);
-        else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays user pattern 1 as Main A and Main B */
+        else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays one user pattern as Main A and Main B */
             songs_defaults(&dbg_songs);
-            dbg_songs.song[0].style[1] = dbg_songs.song[0].style[0];
+            dbg_songs.song[0].style[SEC_B - 1] = dbg_songs.song[0].style[SEC_A - 1];
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "master"))
             master = (uint32_t)atoi(a);
@@ -646,7 +650,7 @@ int main(int argc, char **argv)
             dbg_pat.ev[2].len = ARR_PPQ;
             dbg_pat.ev[2].note = 43;
             dbg_pat.ev[2].vel = 100;
-            project_pattern_save(0, &dbg_pat);
+            project_pattern_save(SEC_A - 1, &dbg_pat);    /* song 1's Main A (user pattern 2) */
             songs_defaults(&dbg_songs);
             dbg_songs.song[0].bars = 4;
             dbg_songs.song[0].chord[0].root = 9;      /* A */
@@ -656,7 +660,7 @@ int main(int argc, char **argv)
         } else if (!strcmp(cmd, "poke_bad_pattern")) {   /* host-only debug: an invalid nev, straight into storage */
             pattern_empty(&dbg_pat);
             dbg_pat.nev = ARR_NEV + 1;
-            project_pattern_save(0, &dbg_pat);
+            project_pattern_save(SEC_A - 1, &dbg_pat);
         } else if (!strcmp(cmd, "reboot")) {
             memset(&proj, 0, sizeof proj);
             boot();

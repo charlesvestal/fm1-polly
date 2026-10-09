@@ -1,6 +1,7 @@
-# POLLY, songcopy: Copy song gives the target four patterns of its own, never one the source plays. Song 1
-# plays P01 (a note recorded), P02, P03 and, as its Ending, P06 (a copy of P01): song 2's own P06 is the
-# source's, so its Main B gets a free one (P04); P06 keeps its note. A flash error leaves the song unchanged.
+# POLLY, songcopy: Copy song gives the target six patterns of its own, never one the source plays. Song 1
+# plays P01..P06, its Main A P02 (a note recorded) and, as its Ending, P12 (a copy of P02): song 2's own P12 is
+# the source's, so its Ending gets a free one (P06, no longer song 1's); P12 keeps its note. A flash error
+# leaves the song unchanged.
 wait 300
 tap LFO
 spin K1 2
@@ -16,23 +17,24 @@ tap PLAY
 wait 100
 tap SAVE
 wait 50
-expect pat0_nev 1
-# P01 copied to P06 (the pattern's jobs), and P06 made song 1's Ending
+expect pat1_nev 1
+# P02 copied to P12 (the pattern's jobs), and P12 made song 1's Ending
 tap SEQ
 press SAVE
 wait 800
 release SAVE
 spin K1 1
-spin K2 4
+spin K2 9
 tap SEL
 wait 50
-expect pat5_nev 1
+expect pat11_nev 1
 tap ENV
 tap ENV
-expect page 9
-spin K4 2
+tap ENV
+expect page 10
+spin K3 6
 wait 50
-expect song1_style3 5
+expect song1_style5 11
 # Copy song 1 to song 2
 press SAVE
 wait 800
@@ -43,13 +45,13 @@ tap SEL
 wait 50
 shot copied.png
 expect song2_bars 1
-expect song2_style0 4
-expect song2_style1 3
-expect song2_style2 6
-expect song2_style3 7
-expect pat5_nev 1
-expect pat4_nev 1
+expect song2_style0 6
+expect song2_style1 7
+expect song2_style4 10
+expect song2_style5 5
+expect pat11_nev 1
 expect pat7_nev 1
+expect pat5_nev 1
 # a flash error while copying to song 3: the song stays as it was
 flash_fail 1
 press SAVE
