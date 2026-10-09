@@ -34,6 +34,6 @@ web/emu/publish.sh                          # the emulator at charles.pizza/fm1-
 Factory styles are text files in `styles/` (the format: `styles/README.md`), compiled by
 `tools/make_styles.py`. Their drums are performances from Google Magenta's
 [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) (Gillick, Roberts, Engel, Eck,
-Bamman; CC BY 4.0), excerpted and quantised.
+Bamman; © Google LLC, CC BY 4.0), excerpted and quantised.
 
 See LICENSING.md.

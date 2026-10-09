@@ -714,6 +714,14 @@ static void chord_played(const uint8_t *n, int c)
     ui.centry_step = 1;
     chord_write(app.cbeat, ch);
 }
+/* no chord written in the song yet */
+static int song_blank(const song_t *g)
+{
+    for (int i = 0; i < ARR_SONGBARS * 4; i++)
+        if (g->chord[i].type < CH_NTYPES)
+            return 0;
+    return 1;
+}
 /* the pattern d steps on from st for slot s: the user patterns P01..P16, then the factory styles by name,
  * each its pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
 static int style_step(int s, int st, int d)
@@ -742,6 +750,8 @@ static void slot_style(int s, int to)
         }
     }
     songs.song[proj.song].style[s] = (uint8_t)to;
+    if (s == 0 && to >= ARR_FACTORY0 && song_blank(&songs.song[proj.song]))   /* a style for a new song: its tempo */
+        set_tempo(arr_style_tempo((to - ARR_FACTORY0) / ARR_NSECT));
     app.songs_dirty = 1;
     app.chg++;
     slot_load(s, to);

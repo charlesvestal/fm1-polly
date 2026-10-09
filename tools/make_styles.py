@@ -16,7 +16,19 @@ import struct
 import sys
 
 PPQ = 24
-NEV = 600                       # ARR_NEV (arr.h)
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def arr_define(name):
+    """a #define of firmware/src/dsp/arr.h, so the tool's limits are the engine's"""
+    with open(os.path.join(HERE, "..", "firmware", "src", "dsp", "arr.h")) as f:
+        m = re.search(r"^#define\s+%s\s+(\d+)" % name, f.read(), re.M)
+    if not m:
+        raise SystemExit("make_styles: no %s in arr.h" % name)
+    return int(m.group(1))
+
+
+NEV = arr_define("ARR_NEV")     # notes a pattern
 MAXBARS = 8
 NTRK = 8
 FACTORY0 = 16                   # ARR_USER_PATTERNS: factory pattern numbers start here
@@ -232,7 +244,7 @@ def parse(path, text=None):
     hdr = [default_track(i) for i in range(NTRK)]    # the style's tracks, before any section
     pat = None
     trk = None
-    for ln, raw in enumerate(text.splitlines(), 1):
+    for lineno, raw in enumerate(text.splitlines(), 1):
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
@@ -246,19 +258,22 @@ def parse(path, text=None):
                 si = SECTIONS.index(m.group(1))
                 if style["pats"][si]:
                     raise StyErr("section twice: " + line)
-                pat = {"bars": 0, "beats": 4, "trk": [dict(h) for h in hdr], "ev": [[] for _ in range(NTRK)]}
+                pat = {"bars": 0, "beats": 4, "trk": [dict(h) for h in hdr], "ev": [[] for _ in range(NTRK)],
+                       "line": lineno}
                 style["pats"][si] = pat
                 trk = None
             elif k == "style":
                 style["name"] = line.split(None, 1)[1].strip()
-                if len(style["name"].encode()) > 8:
-                    raise StyErr("style name longer than 8: " + style["name"])
+                if not re.fullmatch(r"[ -~]{1,8}", style["name"]):
+                    raise StyErr("style name: 1..8 printable ASCII characters, not " + style["name"])
             elif k == "tempo":
                 style["tempo"] = int_in(w[1], 40, 240, "tempo")
             elif k == "bars" and pat:
                 pat["bars"] = int_in(w[1], 1, MAXBARS, "bars")
             elif k == "beats" and pat:
                 pat["beats"] = int_in(w[1], 2, 7, "beats")
+            elif k in ("bars", "beats"):
+                raise StyErr(k + " outside a section")
             elif k == "track":
                 name = w[1].lower()
                 if name in TRACKS:
@@ -316,12 +331,12 @@ def parse(path, text=None):
                                 {note_num(a): int(b) for a, b in (x.split(":") for x in opt["scale"].split(","))}
                                 if opt.get("scale") else {})
                 o = at * pat["beats"] * PPQ
-                pat["ev"][trk] += [(t + o, l, n, v) for t, l, n, v in ev]
+                pat["ev"][trk] += [(t + o, l, n, v, lineno) for t, l, n, v in ev]
             elif k == "grid":
                 # grid POS STEP NOTES CHARS [len=L]: a step sequence, one character a step
-                ln = None
+                glen = None
                 if w[-1].startswith("len="):
-                    ln = length(w[-1][4:])
+                    glen = length(w[-1][4:])
                     w = w[:-1]
                 if len(w) < 5:
                     raise StyErr("grid POS STEP NOTES STEPS [len=L]")
@@ -335,7 +350,7 @@ def parse(path, text=None):
                     if c in GRID_VEL or c.isdigit() and c != "0":
                         v = GRID_VEL[c] if c in GRID_VEL else int(c) * 14
                         for note in notes:
-                            pat["ev"][trk].append((t0 + n * step, ln or step, note, v))
+                            pat["ev"][trk].append((t0 + n * step, glen or step, note, v, lineno))
                     elif c not in ".-":
                         raise StyErr("grid step: . - g x X 1..9, not " + c)
                     n += 1
@@ -345,7 +360,7 @@ def parse(path, text=None):
                     raise StyErr("expected POS NOTES LEN VEL [xN STEP]: " + line)
                 t0 = position(w[0], pat)
                 notes = [note_num(x) for x in w[1].split("+")]
-                ln = length(w[2])
+                nlen = length(w[2])
                 vels = [int_in(x, 1, 127, "velocity") for x in w[3].split("/")]
                 reps, step = 1, 0
                 if len(w) == 6:
@@ -354,11 +369,13 @@ def parse(path, text=None):
                     reps, step = int(w[4][1:]), length(w[5])
                 for r in range(reps):
                     for n in notes:
-                        pat["ev"][trk].append((t0 + r * step, ln, n, vels[r % len(vels)]))
+                        pat["ev"][trk].append((t0 + r * step, nlen, n, vels[r % len(vels)], lineno))
         except StyErr as e:
-            raise StyErr("%s:%d: %s" % (path, ln, e))
-        except (IndexError, ValueError) as e:
-            raise StyErr("%s:%d: cannot read %r (%s)" % (path, ln, raw.strip(), e))
+            raise StyErr("%s:%d: %s" % (path, lineno, e))
+        except OSError as e:
+            raise StyErr("%s:%d: %s: %s" % (path, lineno, e.filename, e.strerror))
+        except (IndexError, ValueError, TypeError, KeyError) as e:
+            raise StyErr("%s:%d: cannot read %r (%s)" % (path, lineno, raw.strip(), e))
     if not style["name"]:
         raise StyErr(path + ": no style NAME line")
     for i, p in enumerate(style["pats"]):
@@ -390,19 +407,19 @@ def check(style):
     for i, p in enumerate(style["pats"]):
         n = p["bars"] * p["beats"] * PPQ
         tot = sum(len(e) for e in p["ev"])
-        where = "%s [%s]" % (style["file"], SECTIONS[i])
+        f = style["file"]
         if tot > NEV:
-            errs.append("%s: %d notes, more than %d" % (where, tot, NEV))
+            errs.append("%s:%d: [%s] has %d notes, more than %d (ARR_NEV)" % (f, p["line"], SECTIONS[i], tot, NEV))
         for t in range(NTRK):
-            for tk, ln, note, vel in p["ev"][t]:
+            for tk, ln, note, vel, at in p["ev"][t]:
                 if not 0 <= note <= 127:
-                    errs.append("%s %s: note %d outside 0..127" % (where, TRACKS[t], note))
+                    errs.append("%s:%d: %s: note %d outside 0..127" % (f, at, TRACKS[t], note))
                 if not 0 <= tk < n:
-                    errs.append("%s %s: tick %d past the pattern's end" % (where, TRACKS[t], tk))
+                    errs.append("%s:%d: %s: tick %d past the pattern's end" % (f, at, TRACKS[t], tk))
                 if not 1 <= ln <= n:
-                    errs.append("%s %s: length %d" % (where, TRACKS[t], ln))
+                    errs.append("%s:%d: %s: length %d outside 1..%d" % (f, at, TRACKS[t], ln, n))
                 if not 1 <= vel <= 127:
-                    errs.append("%s %s: velocity %d" % (where, TRACKS[t], vel))
+                    errs.append("%s:%d: %s: velocity %d outside 1..127" % (f, at, TRACKS[t], vel))
     return errs
 
 
@@ -428,7 +445,7 @@ def dump(style):
         for t in range(NTRK):
             out.append(fmt_track(t, p["trk"][t]))
             drums = p["trk"][t]["type"] == 0 and p["trk"][t]["chan"] == 9
-            for tk, ln, note, vel in p["ev"][t]:
+            for tk, ln, note, vel, _ in p["ev"][t]:
                 out.append("%s %s %d %d" % (fmt_pos(tk, p), note_name(note, drums), ln, vel))
     return "\n".join(out) + "\n"
 
@@ -445,18 +462,28 @@ def tables(styles):
                 h = p["trk"][t]
                 trks.append((h["program"], h["chan"], h["type"], h["lo"], h["hi"], h["hikey"], h["vol"], h["pan"],
                              h["rev"], h["cho"], h["mute"], len(p["ev"][t])))
-                for tk, ln, note, v in p["ev"][t]:
+                for tk, ln, note, v, _ in p["ev"][t]:
                     ev.append(tk | ln << 11 | note << 22)
                     vel.append(v)
             pats.append((p["bars"], p["beats"], first, trks))
     return pats, ev, vel
 
 
+def c_str(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def c_comment(s):
+    return s.replace("*/", "* /")
+
+
 def emit(styles, files):
     pats, ev, vel = tables(styles)
-    o = ["/* SPDX-License-Identifier: GPL-3.0-only */",
+    o = ["/* SPDX-License-Identifier: GPL-3.0-only AND CC-BY-4.0 */",
          "/* Polly's factory styles, generated by tools/make_styles.py from %s: do not edit. */"
-         % " ".join(os.path.basename(f) for f in files),
+         % c_comment(" ".join(os.path.basename(f) for f in files)),
+         "/* The drum performances in these tables are from the Groove MIDI Dataset (c) Google LLC, CC BY 4.0,",
+         " * changed (excerpted, quantised); the rest is Polly's, GPL-3.0-only. See LICENSING.md, styles/README.md. */",
          "/* Included once, by arr.c. Style s's patterns are pattern numbers ARR_FACTORY0 + 4s + section (Main A,",
          " * Main B, Fill, Ending). An event: tick | len << 11 | note << 22 (STY_EV), its velocity in STY_VEL. */",
          "#pragma once", "#include <stdint.h>", "",
@@ -471,11 +498,11 @@ def emit(styles, files):
          "} sty_pat_t;", "",
          "#define STY_COUNT %d" % len(styles),
          "#define STY_NEV %d" % len(ev), ""]
-    o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join('"%s"' % s["name"] for s in styles))
+    o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join(c_str(s["name"]) for s in styles))
     o.append("static const uint8_t STY_TEMPO[STY_COUNT] = {%s};" % ", ".join(str(s["tempo"] or 120) for s in styles))
     o.append("static const sty_pat_t STY_PAT[STY_COUNT * 4] = {")
     for i, (bars, beats, first, trks) in enumerate(pats):
-        o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, styles[i // 4]["name"], SECTIONS[i % 4]))
+        o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, c_comment(styles[i // 4]["name"]), SECTIONS[i % 4]))
         for t in trks:
             o.append("        {%s, 0, %d}," % (", ".join(str(x) for x in t[:11]), t[11]))
         o.append("    }},")
@@ -496,6 +523,24 @@ def sizes(style):
     return n, n * EV_BYTES + 4 * PAT_BYTES + 9 + 1
 
 
+def ordered(files):
+    """the style files in their numbers' order: NN-name.sty is style NN, numbered 1.. with no gaps (a song
+    stores style numbers: new styles go at the end, none is ever renumbered)"""
+    num = {}
+    for f in files:
+        m = re.match(r"(\d+)-", os.path.basename(f))
+        if not m:
+            raise StyErr("%s: the name must start with its style number (NN-name.sty)" % f)
+        n = int(m.group(1))
+        if n in num:
+            raise StyErr("%s: style %d twice (also %s)" % (f, n, num[n]))
+        num[n] = f
+    for i in range(1, len(num) + 1):
+        if i not in num:
+            raise StyErr("no style %d: styles are numbered 1..%d with no gaps" % (i, len(num)))
+    return [num[i] for i in sorted(num)]
+
+
 def main(argv):
     mode = "emit"
     if argv and argv[0] in ("--check", "--dump", "--roundtrip", "--grid", "--sizes"):
@@ -506,12 +551,21 @@ def main(argv):
     if not argv:
         print(__doc__, file=sys.stderr)
         return 2
+    if mode in ("emit", "check"):
+        try:
+            argv = ordered(argv)
+        except StyErr as e:
+            print("make_styles: %s" % e, file=sys.stderr)
+            return 1
     try:
         styles = [parse(f) for f in argv]
     except (StyErr, OSError) as e:
         print("make_styles: %s" % e, file=sys.stderr)
         return 1
     errs = [e for s in styles for e in check(s)]
+    total = sum(len(e) for s in styles for p in s["pats"] for e in p["ev"])
+    if total > 0xFFFF:
+        errs.append("%d notes in all, more than the tables' 65535" % total)
     if errs:
         for e in errs:
             print("make_styles: " + e, file=sys.stderr)

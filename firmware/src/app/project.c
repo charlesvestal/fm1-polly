@@ -171,6 +171,9 @@ int project_songs_load(songs_t *s)
             if (g->bars > ARR_SONGBARS)
                 g->bars = ARR_SONGBARS;
             g->loop = g->loop != 0;
+            for (int k = 0; k < ARR_NSECT; k++)      /* a factory style this firmware lacks: the song's own pattern */
+                if (g->style[k] >= ARR_FACTORY0 + ARR_NSECT * arr_styles())
+                    g->style[k] = (uint8_t)(i * ARR_NSECT + k);
             for (int k = 0; k < ARR_SONGBARS; k++)
                 if (g->sect[k] > SEC_END)
                     g->sect[k] = SEC_SAME;

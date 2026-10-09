@@ -13,8 +13,9 @@ expect song1_style1 21
 expect song1_style2 22
 expect song1_style3 23
 shot patterns.png
-spin SELECT -20
+# Main A picked for a song with no chords: the style's tempo
 expect tempo 100
+wait 100
 press SEL
 key w13 down
 key w13 up

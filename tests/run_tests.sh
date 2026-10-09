@@ -31,7 +31,8 @@ run arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/
 run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/timing_test tests/host/timing_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') && $OUT/timing_test"
 # the factory styles: the .sty files check, dump -> parse gives the same tables, and styles.h is up to date
 run styles sh -c "python3 tools/make_styles.py --check styles/*.sty && python3 tools/make_styles.py --roundtrip styles/*.sty && \
-    python3 tools/make_styles.py styles/*.sty > $OUT/styles.h && cmp $OUT/styles.h firmware/src/dsp/styles.h"
+    python3 tools/make_styles.py styles/*.sty > $OUT/styles.h && cmp $OUT/styles.h firmware/src/dsp/styles.h && \
+    sh tests/host/styles_test.sh $OUT"
 run storage sh -c "$CC -O2 -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then

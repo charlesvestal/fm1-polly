@@ -20,9 +20,10 @@ spin K1 40
 expect song1_style0 20
 spin K1 -1
 expect song1_style0 16
-# Pop's tempo, the Pop template, PLAY: 4 bars of Main A
-spin SELECT -15
+# the Pop template, PLAY: 4 bars of Main A
+# Main A picked for a song with no chords: the style's tempo
 expect tempo 105
+wait 100
 press SEL
 key w0 down
 key w0 up

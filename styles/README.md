@@ -13,8 +13,11 @@ python3 tools/make_styles.py --sizes styles/*.sty      # flash bytes per style
 python3 tools/make_styles.py --grid FILE.mid [BARS]    # a MIDI file's drums as a 16th grid, to choose loops
 ```
 
-The file name's number is the style's place: `01-pop.sty` is style 1. On the device, the Arrange page's
-patterns (ENV, ENV again) picks each section's pattern with its knob: P01..P16, then the styles by name.
+The file name's number is the style's place: `01-pop.sty` is style 1. Songs store these numbers, so they
+never change: a new style goes at the end (the next number), and the tool fails on a gap, a number used
+twice, or a file without one. On the device, the Arrange page's patterns (ENV, ENV again) picks each
+section's pattern with its knob: P01..P16, then the styles by name. Picking a style for Main A of a song
+with no chords written yet also sets the tempo to the style's (`tempo`); otherwise the tempo stays.
 
 ## The format
 
@@ -119,7 +122,7 @@ Commons Attribution 4.0 International License."* (kept here as `drums/LICENSE`).
 styles use are kept, under `drums/` (renamed: `drummerN-sessionM-` + the dataset's file name).
 
 **Credit:** drum performances from the Groove MIDI Dataset by Jon Gillick, Adam Roberts, Jesse Engel, Douglas
-Eck and David Bamman (Google Magenta), CC BY 4.0, <https://magenta.tensorflow.org/datasets/groove>.
+Eck and David Bamman (Google Magenta), © Google LLC, CC BY 4.0, <https://magenta.tensorflow.org/datasets/groove>.
 Changes: excerpts of a few bars, the kit's notes mapped to General MIDI, timing moved to 24 ticks a beat
 and onto the click by the median offset, velocities scaled per instrument. Paper: Gillick, Roberts, Engel,
 Eck, Bamman, "Learning to Groove with Inverse Sequence Transformations", ICML 2019.

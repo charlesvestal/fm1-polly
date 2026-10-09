@@ -21,7 +21,7 @@ your recipients its complete corresponding source under the same licence.
 | --- | --- | --- |
 | Barlow Semi Condensed (The Barlow Project Authors), the UI face | SIL OFL 1.1 | `assets/fonts/BarlowSemiCondensed-*.ttf`, `assets/fonts/Barlow-OFL.txt` |
 | Terminus (Dimitar Toshkov Zhekov), an alternative font set | SIL OFL 1.1 | `assets/fonts/ter-u*.bdf`, `assets/fonts/Terminus-LICENSE.txt` |
-| Drum performances in the factory styles (`styles/drums/*.mid`, compiled into `firmware/src/dsp/styles.h`): from the [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) by Jon Gillick, Adam Roberts, Jesse Engel, Douglas Eck and David Bamman (Google Magenta). Changed: excerpts of a few bars, the kit's notes mapped to General MIDI, quantised to 24 ticks a beat and moved onto the click, velocities scaled (`styles/README.md`) | CC BY 4.0 | `styles/drums/LICENSE`, <https://creativecommons.org/licenses/by/4.0/> |
+| Drum performances in the factory styles (`styles/drums/*.mid`, compiled into `firmware/src/dsp/styles.h`): from the [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) by Jon Gillick, Adam Roberts, Jesse Engel, Douglas Eck and David Bamman (Google Magenta), © Google LLC. Changed: excerpts of a few bars, the kit's notes mapped to General MIDI, quantised to 24 ticks a beat and moved onto the click, velocities scaled (`styles/README.md`) | CC BY 4.0 | `styles/drums/LICENSE`, <https://creativecommons.org/licenses/by/4.0/> |
 | JieLi AC79 SDK: `uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin` are read from your SDK checkout at build time and placed in the package; no SDK files are in this tree | Apache-2.0 | <https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK> |
 
 ## Trademarks
