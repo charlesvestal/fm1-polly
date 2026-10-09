@@ -129,3 +129,53 @@ as the root). `tests/run_tests.sh` runs it when `QY70_ROM` names a ROM.
 
 About 5.7 KB of flash a style at 480 ticks a beat with six sections (2.5 to 12 KB; all 128: about 730 KB), 4.3
 KB with `--legacy` (all 128: about 550 KB). Pick a few: they don't all fit.
+
+## A compact phrase bank (prototype)
+
+`tools/qy70_bank.py` stores the imported styles the way the QY70 does: a style is its tracks' sounds and mixer
+plus 6 x 8 references to phrases, and each phrase is stored once, over C M7, at its own length (the player
+repeats it to fill a section). Nothing is expanded, so there is no per-section note limit.
+
+```sh
+python3 tools/qy70_bank.py qy70main.bin --sizes    # bytes per style, formats 1 and 2, with and without controllers
+python3 tools/qy70_bank.py qy70main.bin --test     # decode(encode(phrase)) against the importer's events
+python3 tools/qy70_bank.py qy70main.bin --out FILE # the bank, for your own use
+```
+
+**A style** (about 175 bytes): name, tempo x 10, beats a bar, bars per section (a nibble each), a mask of the
+tracks that play, 7 bytes a track (channel and drum flag, program, volume, pan, reverb, chorus, the velocity
+scale of a drum track sharing channel 10), then per section a mask and a 3-byte bank offset a phrase (a
+program byte when that use's sound differs from its track's).
+
+**A phrase, format 2** (byte-aligned, decoded front to back; the player needs only the previous four bars of
+the phrase in RAM):
+- header: type / drum / flags, bars, beats a bar, the time unit (an index), the velocity range, the
+  limits and high key (Chord tracks with limits), the phrase's keys (up to 15: notes then name a key by a
+  nibble; more: a byte).
+- each bar: a byte naming a bar 1..4 back that it repeats (0: none), with a flag when the repeat is exact;
+  then a bit mask of the earlier bar's notes it keeps and, unless exact, a byte each (timing -7..+7 ticks,
+  velocity -8..+7 steps); then its other notes: a count, and per note a time byte (0..14 steps of the unit
+  and -8..+7 ticks: the humanised timing is kept exactly; or an escape and the ticks), a key / velocity byte,
+  and for melodic notes a gate byte (10-tick units).
+- the controllers: runs of one kind (bend, modulation, expression, pan, pressure), each event the ticks
+  since the last and a 7-bit value. Bends keep their top 7 bits (3 cents at +-2 semitones); a step smaller
+  than 2 (1 for bends and pan) within a beat of the last is dropped. CC 74 and 71 (XG filter) are dropped:
+  Polly's synth ignores them.
+
+Velocity is 16 steps across each phrase's own range (at most 4 off; under half a dB). Drums keep no gate.
+Format 1 is the same without bar repeats (every event a time byte and a note).
+
+**Sizes for the 128 styles** (ROM v1 as dumped by MAME; the 230 KB budget is the free flash estimate):
+
+| Encoding | Notes only | With bends and controllers | Styles in 230 KB (smallest first) |
+|---|---|---|---|
+| .sty through make_styles.py (expanded sections, 480 PPQ) | ~726 KB | - | ~40 |
+| phrase bank, format 1 | 394 KB | 488 KB | 91 / 83 |
+| phrase bank, format 2 (bar repeats) | 364 KB | 440 KB | 96 / 88 |
+| format 2 phrases + zlib in 16 KB blocks (needs a RAM decode) | ~268 KB | - | - |
+
+All 128 in 230 KB needs more than a byte-aligned stream: the fields' order-0 entropy alone is about 244 KB for
+the notes, and the humanised timing (3 bits a note) and velocities (4 bits) don't repeat exactly. The next
+steps, measured but not built: bars repeating bars of the style's other phrases (Main A / Main B / fills share
+most bars: 41,000 of 68,000 repeated notes become 68,000), a static Huffman code per field (about 15%), or
+decoding each phrase into RAM at a section change (then LZ / zlib apply).

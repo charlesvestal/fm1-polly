@@ -158,7 +158,7 @@ class Rom:
         h = d[p + 12:p + 28]
         ph = dict(name=self.pname[i].rstrip(), bars=h[0] + 1, num=(h[1] >> 3) + 1, msb=h[2], lsb=h[3], prog=h[4],
                   hi=h[5], lo=h[6], hikey=h[7], type=h[8], root=h[9], chord=h[10],
-                  tempo=(h[12] << 8 | h[13]) / 10.0, notes=[], other={})
+                  tempo=(h[12] << 8 | h[13]) / 10.0, notes=[], other={}, ctrl=[])
         q, t, notes, other = p + 28, 0, ph["notes"], ph["other"]
         while True:
             b = d[q]
@@ -185,8 +185,14 @@ class Rom:
                 n = {0xFB: 3, 0xFE: 3, 0xFD: 2, 0xF3: 6, 0xF8: 1, 0xF0: 2}.get(b)
                 if n is None:
                     raise RomError("phrase %d (%s): unknown event %02x" % (i, ph["name"], b))
-                kind = {0xFB: "control change", 0xFE: "pitch bend", 0xFD: "pitch bend (coarse)"}.get(b, "other")
+                kind = {0xFB: "control change", 0xFE: "pitch bend", 0xFD: "pressure"}.get(b, "other")
                 other[kind] = other.get(kind, 0) + 1
+                if b == 0xFB:                     # (time, controller, value)
+                    ph["ctrl"].append((t, d[q + 1], d[q + 2]))
+                elif b == 0xFE:                   # pitch bend, 14 bits: controller "bend"
+                    ph["ctrl"].append((t, "bend", d[q + 2] << 7 | d[q + 1]))
+                elif b == 0xFD:
+                    ph["ctrl"].append((t, "pressure", d[q + 1]))
                 q += n
         return ph
 
@@ -287,6 +293,49 @@ def pos(t, beats, ppq):
     bar, r = divmod(t, beats * ppq)
     beat, tick = divmod(r, ppq)
     return "%d.%d.%d" % (bar + 1, beat + 1, tick)
+
+
+def plan(rom, st):
+    """a style's tracks and phrase uses, as convert() makes them: (tracks, uses), tracks[t] = {chan, drum, prog,
+    vol, pan, rev, cho, vscale} for the tracks that play, uses[s][t] = {i, typ, prog, drum} or None"""
+    ph = {}
+    for s in range(6):
+        for t in range(8):
+            i = st["phrase"][s][t]
+            if i is not None and i not in ph:
+                ph[i] = rom.phrase(i)
+
+    def voice(t, i):
+        v = st["voice"][t]
+        return v if v != (0, 0, 0) else (ph[i]["msb"], ph[i]["lsb"], ph[i]["prog"])
+    first = {}
+    for t in range(8):
+        for s in [1, 2, 3, 4, 0, 5]:
+            if st["phrase"][s][t] is not None:
+                first[t] = st["phrase"][s][t]
+                break
+    drums = [t for t in first if gm_program(*voice(t, first[t]))[1]]
+    dref = drums[0] if drums else 0
+    dvol = max(1, st["vol"][dref])
+    free, tracks = [7, 8, 9, 11, 12], {}
+    for t in sorted(first):
+        prog, drum, _ = gm_program(*voice(t, first[t]))
+        chan = 10 if drum else (t - 1 if t >= 3 else free.pop(0))
+        mix = dref if drum else t
+        tracks[t] = dict(chan=chan, drum=drum, prog=prog, vol=st["vol"][mix], pan=st["pan"][mix],
+                         rev=st["rev"][mix], cho=st["cho"][mix],
+                         vscale=st["vol"][t] / dvol if drum and t != dref else 1.0)
+    uses = [[None] * 8 for _ in range(6)]
+    for s in range(6):
+        for t in range(8):
+            i = st["phrase"][s][t]
+            if i is None:
+                continue
+            prog, _, _ = gm_program(*voice(t, i))
+            drum = tracks[t]["drum"]
+            uses[s][t] = dict(i=i, prog=prog, drum=drum,
+                              typ="bypass" if drum else QTYPE.get(ph[i]["type"], "chord1"))
+    return tracks, uses, ph
 
 
 def convert(rom, st, ppq=QPPQ, legacy=False, max_notes=600):
