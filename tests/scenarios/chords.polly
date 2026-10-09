@@ -24,6 +24,24 @@ key 14 up
 wait 30
 expect cbeat 4
 expect song_chord4 26
+# voice leading: C E G, then G lifted and A added with C E held: C, then Am at the next step
+key 7 down
+key 11 down
+key 14 down
+wait 30
+expect song_chord4 0
+key 14 up
+wait 20
+key 16 down
+wait 30
+expect song_chord4 0
+expect song_chord8 916
+expect cbeat 8
+key 7 up
+key 11 up
+key 16 up
+wait 30
+expect cbeat 12
 tap SEL
 expect chord_mode 0
 # a template auditioned; leaving the Templates pages gives the song back
@@ -72,7 +90,9 @@ tap PLAY
 wait 100
 # a song of one bar that does not loop: a chord in the second half of its last beat is dropped
 tap ENV
+spin K2 -2
 spin K3 -1
+expect song_bars 1
 tap LFO
 tap PLAY
 tap REC

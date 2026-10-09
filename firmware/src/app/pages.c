@@ -91,6 +91,8 @@ static struct {
     uint8_t chord_forced;                            /* REC turned CHORD on (leaving the page turns it off) */
     int16_t centry;                                  /* the beat the chord held was written at, -1 none */
     uint8_t centry_step;                             /* written by step entry: the cursor moves on at release */
+    uint8_t clifted;                                 /* a chord key lifted since that chord was written */
+    uint8_t cheld;                                   /* chord keys held at the last change */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[3];
 } ui;

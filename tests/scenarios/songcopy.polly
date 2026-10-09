@@ -1,0 +1,64 @@
+# POLLY, songcopy: Copy song gives the target four patterns of its own, never one the source plays. Song 1
+# plays P01 (a note recorded), P02, P03 and, as its Ending, P06 (a copy of P01): song 2's own P06 is the
+# source's, so its Main B gets a free one (P04); P06 keeps its note. A flash error leaves the song unchanged.
+wait 300
+tap LFO
+spin K1 2
+wait 100
+expect song_bars 1
+tap HOME
+tap PLAY
+tap REC
+tapkey 7
+wait 600
+tap REC
+tap PLAY
+wait 100
+tap SAVE
+wait 50
+expect pat0_nev 1
+# P01 copied to P06 (the pattern's jobs), and P06 made song 1's Ending
+tap SEQ
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K2 4
+tap SEL
+wait 50
+expect pat5_nev 1
+tap ENV
+tap ENV
+expect page 9
+spin K4 2
+wait 50
+expect song1_style3 5
+# Copy song 1 to song 2
+press SAVE
+wait 800
+release SAVE
+expect job 2
+spin K1 1
+tap SEL
+wait 50
+shot copied.png
+expect song2_bars 1
+expect song2_style0 4
+expect song2_style1 3
+expect song2_style2 6
+expect song2_style3 7
+expect pat5_nev 1
+expect pat4_nev 1
+expect pat7_nev 1
+# a flash error while copying to song 3: the song stays as it was
+flash_fail 1
+press SAVE
+wait 800
+release SAVE
+spin K1 1
+spin K2 1
+tap SEL
+wait 50
+shot flash_error.png
+expect song3_bars 0
+flash_fail 0

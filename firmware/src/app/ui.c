@@ -319,12 +319,16 @@ static void chord_keys(void)
     for (int i = 0; i < NKEYS; i++)
         if (ui.kmode[i] == KM_CHORD)
             n[c++] = ui.knote[i];
+    if (c < ui.cheld && ui.centry >= 0)
+        ui.clifted = 1;                          /* a key up: the chord written is done */
+    ui.cheld = (uint8_t)c;
     if (arr_keys_held(n, c) && ui.page == P_CHORDS)
         chord_played(n, c);
     if (!c && ui.centry >= 0) {                  /* all chord keys up: the step entry moves on */
         if (ui.centry_step)
             cursor_move(1);
         ui.centry = -1;
+        ui.clifted = 0;
     }
 }
 static void set_chord_mode(int on)
@@ -662,15 +666,16 @@ static void rec_chords(int on)
 static void chord_played(const uint8_t *n, int c)
 {
     chord_t ch;
-    int rec = ui.rec_chords && arr_playing && app.song_on;
+    int rec = ui.rec_chords && arr_playing && app.song_on, prev = ui.centry;
     if (!chord_recognize(n, c, &ch))
         return;
-    if (ui.centry >= 0) {
-        chord_write(ui.centry, ch);
+    if (prev >= 0 && !ui.clifted) {              /* the chord still being built: its beat again */
+        chord_write(prev, ch);
         if (rec)
             song_flush();                        /* at once: the beat may be next */
         return;
     }
+    ui.clifted = 0;                              /* a new entry (a key was lifted since the last) */
     if (rec) {
         const song_t *g = csong();
         uint32_t bar, bt, beats = app.hdr[eslot()].beats ? app.hdr[eslot()].beats : 4;
@@ -684,7 +689,10 @@ static void chord_played(const uint8_t *n, int c)
         if (wait) {                              /* the song starts at the next bar line */
             bar = 0;
             b = 0;
-        } else if ((uint32_t)b >= beats) {       /* the next bar's downbeat */
+        }
+        if (prev >= 0 && (int)(bar * 4u) + b == prev)
+            b++;                                 /* a change on the same beat: the next one */
+        if ((uint32_t)b >= beats) {              /* the next bar's downbeat */
             b = 0;
             if (bar + 1u >= g->bars && !g->loop)
                 return;                          /* past the end */
@@ -699,6 +707,8 @@ static void chord_played(const uint8_t *n, int c)
         app.cbeat = (uint8_t)ui.centry;
         return;
     }
+    if (prev >= 0 && ui.centry_step)             /* step entry: a change while keys stay held, the next step */
+        cursor_move(1);
     ui.centry = app.cbeat;
     ui.centry_step = 1;
     chord_write(app.cbeat, ch);
@@ -782,7 +792,7 @@ static void song_page_knob(int k, int32_t e)
         break;
     case P_ARRANGE2: {
         int st = g->style[k];
-        slot_style(k, st >= ARR_USER_PATTERNS ? 0 : clampi(st + d, 0, ARR_USER_PATTERNS - 1));
+        slot_style(k, st >= ARR_USER_PATTERNS ? 0 : clampi(st + accel(EN_K1 + k, e), 0, ARR_USER_PATTERNS - 1));
         break;
     }
     case P_TEMPLATES: case P_TCOPY:
@@ -840,6 +850,37 @@ static void template_copy(void)
     itoa_u((uint32_t)bar + 1u, cat_s(cat_s(t, m->name), " > bar "));
     say("COPIED", t);
 }
+/* Copy song: four user patterns for the target, all different and none the source's: its own where they
+ * qualify, else its default (4n..), else one no song plays, else one the source does not; -1: none left */
+static int copy_patterns_pick(int to, uint8_t *st)
+{
+    const song_t *g = csong(), *d = &songs.song[to];
+    uint32_t src = 0, any = 0, taken = 0;
+    for (int j = 0; j < ARR_NSECT; j++) {
+        if (g->style[j] < ARR_USER_PATTERNS)
+            src |= 1u << g->style[j];
+        for (int n = 0; n < ARR_SONGS; n++)
+            if (n != to && songs.song[n].style[j] < ARR_USER_PATTERNS)
+                any |= 1u << songs.song[n].style[j];
+    }
+    for (int i = 0; i < ARR_NSECT; i++) {
+        int pick = -1, cand[2] = {d->style[i], to * ARR_NSECT + i};
+        for (int k = 0; k < 2 && pick < 0; k++)
+            if (cand[k] < ARR_USER_PATTERNS && !((src | taken) >> cand[k] & 1u))
+                pick = cand[k];
+        for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
+            if (!((src | any | taken) >> p & 1u))
+                pick = p;
+        for (int p = 0; p < ARR_USER_PATTERNS && pick < 0; p++)
+            if (!((src | taken) >> p & 1u))
+                pick = p;
+        if (pick < 0)
+            return -1;
+        st[i] = (uint8_t)pick;
+        taken |= 1u << pick;
+    }
+    return 0;
+}
 /* the song's jobs (SAVE held on Chords / Arrange): clear it (its patterns kept), or copy it to another */
 static void song_job_run(void)
 {
@@ -868,17 +909,14 @@ static void song_job_run(void)
             return;
         }
         edits_flush();
-        for (int i = 0; i < ARR_NSECT; i++) {    /* the target's own user patterns, none shared with this */
-            int own = d->style[i];
-            for (int j = 0; j < ARR_NSECT; j++)
-                if (own >= ARR_USER_PATTERNS || own == g->style[j])
-                    own = to * ARR_NSECT + i;
-            st[i] = (uint8_t)own;
+        if (copy_patterns_pick(to, st) != 0) {
+            say("NOT COPIED", "NO FREE PATTERN");
+            return;
         }
-        for (int i = 0; i < ARR_NSECT; i++) {    /* the patterns' contents, as they play now */
+        for (int i = 0; i < ARR_NSECT; i++) {    /* the patterns' contents, as they play now; the song after */
             arr_pattern_copy(i, &scratch);
             if (project_pattern_save(st[i], &scratch) != 0) {
-                say("NOT COPIED", "FLASH ERROR");
+                say("FLASH ERROR", "song unchanged");
                 return;
             }
         }
@@ -1009,7 +1047,7 @@ static void knob(int k, int32_t e)
         if (k == 0)
             ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, ui.job == 2 ? 1 : 2);
         else if (k == 1)
-            ui.job_to = (uint8_t)((ui.job_to + (e > 0 ? 1 : n - 1)) % n);
+            ui.job_to = (uint8_t)(((ui.job_to + accel(EN_K2, e)) % n + n) % n);
         touch(k);
         return;
     }
