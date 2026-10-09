@@ -468,7 +468,8 @@ static void set_chord_mode(int on)
         chord_keys();
     }
 }
-/* SEL held + a key: a section (black 1..5: Intro, Main A, Main B, Fill, Ending) or a template (white 1..16) */
+/* SEL held + a key: a section (black 1..5: Intro, Main A, Main B, Fill, Ending) or a template (white 1..16); the
+ * other black keys do nothing */
 static const uint8_t SEL_SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
 static void sel_key(int k)
 {
@@ -486,8 +487,7 @@ static void sel_key(int k)
             sec = arr_sect == SEC_B || arr_sect == SEC_FILL_BA ? SEC_FILL_BA : SEC_FILL_AB;
         say(arr_playing ? "NEXT" : "FIRST", SECT_NAME[sec]);
         ui.msg_first = !arr_playing;             /* "FIRST ..." goes when PLAY starts it */
-    } else
-        say("MARKERS", "later");
+    }                                            /* black keys 6..11: nothing */
 }
 static void key_down(int k)
 {

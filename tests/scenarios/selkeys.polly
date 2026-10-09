@@ -1,0 +1,23 @@
+# POLLY, selkeys: SEL held + black keys 6..11 do nothing (no message, no section, no template); 1..5 still pick
+# a section.
+wait 300
+tap HOME
+press SEL
+tapkey b5
+tapkey b6
+tapkey b7
+tapkey b8
+tapkey b9
+tapkey b10
+release SEL
+wait 10
+expect msg 0
+expect next_sect 0
+expect template -1
+expect chord_mode 0
+press SEL
+tapkey b2
+release SEL
+wait 10
+expect msg_is_FIRST 1
+expect next_sect 3
