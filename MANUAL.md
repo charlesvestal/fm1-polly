@@ -127,11 +127,19 @@ them on the Style knob, with "QY" before their names.
 
 On the Song page, turn **KNOB 1** (or PRESETS). The header shows the style. On a song with no chords
 written yet, the tempo changes to the style's own. Once you've written chords, the tempo stays yours.
-
-You can change the style while playing. If you've changed one of its patterns and not saved it, Polly
-says "UNSAVED SAVE FIRST": save, then turn again.
+You can change the style while playing.
 
 Each song has its own style, so each of the four songs can sound different.
+
+**Sections you've recorded into keep your part.** Once you record into a section (or change its
+sound), it plays your own [user pattern](#your-own-patterns-copy-on-write) instead of the style's.
+The header then says so: "Pop, A user" (Main A is yours), "Pop, 3 user", "Pop, all user". Turning
+the Style knob changes only the sections still playing the style; yours stay as they are. So you can
+keep your Main A and try the band around it in Funk, then Rock.
+
+To put a section back to the style, play it (or pick it with SEL + its black key), hold **SAVE** on the
+Pattern page and run the job **Back to style** ([the pattern's jobs](#the-patterns-jobs-hold-save)).
+Your pattern is kept in its P number, so you can pick it again later.
 
 ### Changing sections
 
@@ -302,7 +310,8 @@ Every song chooses a pattern for each of its six sections. Press ENV again for I
 P16, then the styles' patterns for that section by name ("Funk A", "Funk B"). So you can play Funk's
 Main A with Rock's fills.
 
-**KNOB 4** (and PRESETS) sets all six from one style, like the Song page's KNOB 1.
+**KNOB 4** (and PRESETS) is the song's style, like the Song page's KNOB 1: it changes the sections
+playing a style, not the ones on user patterns.
 
 ### Back to the song
 
@@ -327,7 +336,7 @@ Polly records into the selected track of the section playing, as a loop.
 Good to know:
 
 - **The grid** (Pattern page KNOB 1, also Song page KNOB 4) moves notes to the nearest 8th, 8th
-  triplet, 16th, 16th triplet or 32nd, or "off" for none.
+  triplet, 16th, 16th triplet or 32nd, or "off" for none. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
 - **Notes follow the chords.** What you play is stored as if over C major 7, so it follows later
   chords like the style's own parts.
 - **Press REC before PLAY** and, with no song, the section you're recording into plays at once,
@@ -339,8 +348,10 @@ Good to know:
 ### Your own patterns (copy-on-write)
 
 The styles can't be changed. The first time you record into a style's section, or change it (its
-sound, its mixer, its length, even a mute), Polly copies it into a free **user pattern** of the song's own, and
-says so: "RECORD C1 into new P01" or "NEW PATTERN P01". From then on that section plays your copy.
+sound, its mixer, its length), Polly copies it into a free **user pattern** of the song's own, and
+says so: "RECORD C1 into new P01" or "NEW PATTERN P01". From then on that section plays your copy,
+whatever the Style knob says, until the job Back to style. Muting a track doesn't count: mutes are the
+song's, not the pattern's.
 
 ![RECORD C1 into new P01](docs/img/manual/record_msg.png)
 
@@ -372,6 +383,7 @@ cancel.
 | Erase track | Removes the selected track's notes |
 | Copy pattern | Copies the pattern, as it is now, into P01–P16. Only while stopped |
 | Clear pattern | Removes every note, keeps the sounds |
+| Back to style | The section plays the song's style again (shown: "Funk A"). Your user pattern is saved first and kept. Only while stopped, if it has unsaved changes |
 
 Erase and Clear on a style's section first give it a user pattern, as recording does.
 
@@ -409,7 +421,9 @@ The sound pages show and change the section playing, track by track: ALGORITHM p
 Eight strips. For the selected track: **KNOB 1** volume, **KNOB 2** pan, **KNOB 3** reverb send,
 **KNOB 4** chorus send. Tracks on the same channel share these (D1, D2 and PC are all on 10).
 
-**Mute:** the Pattern page's KNOB 4 mutes or unmutes the selected track.
+**Mute:** the Pattern page's KNOB 4 mutes or unmutes the selected track. A mute is the song's: the
+track stays muted in every section (and through fills), it's saved with the song, and each song has
+its own. Muting never takes a user pattern.
 
 ### Mixer tone (FX, FX)
 
@@ -430,7 +444,8 @@ The effects all the tracks share: **KNOB 1** the reverb (Off, Large hall, Hall, 
 
 ### Four songs
 
-Polly keeps four songs. Each has its own chords, sections, length, loop and style (its six patterns).
+Polly keeps four songs. Each has its own chords, sections, length, loop, style (its six patterns) and
+mutes.
 
 To change songs, hold **SEL** and turn **PRESETS**, on any page, or turn **KNOB 4** on the Arrange
 page. While playing, the new song waits until you stop ("SONG 2 after the stop"): loading a song saves
@@ -457,7 +472,7 @@ song a copy goes to, **SEL** does it, **SAVE** cancels.
 
 | Job | What it does |
 | --- | --- |
-| Clear song | Removes its chords and sections. Its patterns stay |
+| Clear song | Removes its chords and sections. Its patterns, style and mutes stay |
 | Copy song | Copies it to another song. Its user patterns are copied into free ones, so the two songs don't share them. Only while stopped |
 
 ## Setup and MIDI

@@ -66,7 +66,7 @@ Priorities: **must** (blocks or misleads a new player), **should** (friction, ch
 11. **Low contrast.** (done) "next -" (stopped, no next chord) and the Track page's "range" were drawn in the
     line colour on cream; now in the dim text colour.
 12. **"Track: plays / muted"** on the Pattern page's KNOB 4 read as a track selector. (done) Now "Mute: off /
-    on".
+    on". (Later: a mute is the song's, see the follow-ups.)
 13. **Recording from STOP on a Pattern page goes into the Intro.** `20_pattern.png` shows Main B (the last
     section played), PLAY starts the Intro (a new song's first section), REC records into the Intro, and the
     take ends when it does. The engine already skips the Intro when REC is armed before PLAY, but nothing
@@ -94,6 +94,29 @@ Priorities: **must** (blocks or misleads a new player), **should** (friction, ch
 23. A template and a style can share a name (the Pop template, the Pop style). The knob labels and the
     header now tell them apart; renaming the templates' "Pop" to "I-V-vi-IV" would end it.
 24. The key is on three pages (Song, Templates, Setup); Setup's could go.
+
+## Follow-ups (after the pass)
+
+Five behaviours a player tripped on, fixed after the pass, each with a scenario:
+
+- **The grid knob ran backwards.** Clockwise went coarser. Now clockwise is finer (8, 8T, 16, 16T, 32, off)
+  and the knob's bar fills clockwise (`grid.polly`).
+- **The Style knob dropped a recorded section.** Once a section played a user pattern, the Song page showed
+  "user" and the knob replaced all six (refused while playing: "UNSAVED SAVE FIRST"). Now the song has a
+  style: the knob always shows it and changes only the sections playing the style; a section on a user
+  pattern keeps it, also while playing. The header says which: "Song 1 Pop, A user", "Pop, 3 user", "Pop,
+  all user" (when it doesn't fit next to CHORD, "unsaved" gives way, then the suffix). The way back is one
+  job: **Back to style** (SAVE held on the Pattern pages), which saves the user pattern first and keeps it
+  (`styleknob.polly`, `qybank.polly`).
+- **A mute used up a user pattern.** Muting a track on a style's section was an edit (copy-on-write: "NEW
+  PATTERN P01") and muted that section only. Now a mute is the song's, per track (the QY70's pattern-play
+  mutes), live in every section, saved with the song (songs format 5; format 4 and a pattern's own stored
+  mute migrate at load) (`mutes.polly`).
+- **"MARKERS later".** SEL + black keys 6 to 11 said it; now they do nothing, and the SEL overlay lists
+  only keys 1 to 5 (`selkeys.polly`).
+- **Chords with a note below.** C E G over D read as Cadd9, over B♭ as C7. The lowest note is the bass now:
+  its root, 3rd or 5th gives the chord (E G C: C; A C E G: Am7); any other note is a slash bass under the
+  chord above (C/D, C/F, C/B♭) (`chords_test`).
 
 ## States checked
 
