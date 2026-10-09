@@ -23,7 +23,10 @@
  *   flash_fail 0|1               every flash save fails (1) or works (0)
  *   hitreset                     restart the tracks' note-on counts (expect track_hitsN) and notes_out
  *   bank FILE                    a QY70 style bank image (tools/qy70_codec.py --image) written into the flash, as
- *                                tools/qy70_install.py writes it on the device; mounted, the song reloaded
+ *                                tools/qy70_install.py writes it on the device; mounted, the song reloaded.
+ *                                FILE "out:NAME": NAME in OUTDIR
+ *   style NAME                   the song's six sections from the style named NAME ("_" for a space; "qy:NAME": the
+ *                                QY70 bank's only), as the Style knob sets them
  */
 #define GM_HOST 1
 #include <stdio.h>
@@ -628,7 +631,12 @@ int main(int argc, char **argv)
             }
         } else if (!strcmp(cmd, "bank")) {          /* bank FILE: an image into the bank's flash, as the device writes it */
             static uint8_t img[0x50000];
-            FILE *bf = fopen(a, "rb");
+            FILE *bf;
+            if (!strncmp(a, "out:", 4)) {
+                snprintf(out, sizeof out, "%s/%s", dir, a + 4);
+                bf = fopen(out, "rb");
+            } else
+                bf = fopen(a, "rb");
             long n;
             uint8_t z[1];
             if (!bf) {
@@ -647,6 +655,21 @@ int main(int argc, char **argv)
                 memcpy(sim_flash + QB_DIR, img, QB_SECTOR);  /* the directory last */
             app_bank_changed();
             run_ms(1);
+        } else if (!strcmp(cmd, "style")) {         /* style NAME: all six sections from it (style_all) */
+            int qy = !strncmp(a, "qy:", 3), i, found = -1;
+            char *nm = a + (qy ? 3 : 0);
+            for (char *c = nm; *c; c++)
+                if (*c == '_')
+                    *c = ' ';
+            for (i = qy ? arr_styles() : 0; i < styles_n() && found < 0; i++)
+                if (!strcmp(style_label(i), nm))
+                    found = i;
+            if (found < 0) {
+                printf("line %d: no style %s\n", lineno, nm);
+                return 2;
+            }
+            style_all(found);
+            run_ms(20);
         } else if (!strcmp(cmd, "hitreset"))
             memset(trk_hits, 0, sizeof trk_hits);
         else if (!strcmp(cmd, "flash_fail"))

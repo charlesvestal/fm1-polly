@@ -54,6 +54,7 @@ if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
     run qy70-codec sh -c "python3 tools/qy70_codec.py '$QY70_ROM' --test && python3 tools/qy70_codec.py '$QY70_ROM' --ctest"
     run qy70-bank sh -c "python3 tools/qy70_codec.py '$QY70_ROM' --image '$QDIR/qy70.qyi' && $OUT/bank_test '$QDIR/qy70.qyi' 128"
     run qy70-bank-arr $OUT/bank_arr_test "$QDIR/qy70.qyi"
+    QY_HOST=1                                      # (after the simulator is built: below)
 else
     echo "  skip qy70-import, qy70-codec, qy70-bank (set QY70_ROM=path/to/qy70main.bin)"
 fi
@@ -86,6 +87,11 @@ for s in tests/scenarios/*.polly; do
     mkdir -p "build/scenarios/$n"
     run "scenario-$n" build/host/polly_host "$s" "build/scenarios/$n"
 done
+# three QY70 styles played whole from the ROM's bank, to WAVs in $QDIR (QY70_OUT keeps them)
+if [ -n "${QY_HOST:-}" ]; then
+    run qy70-styles build/host/polly_host tests/rom/qy70_styles.polly "$QDIR"
+    [ -n "${QY70_OUT:-}" ] && echo "       WAVs: $QDIR/bossa.wav bigband.wav 8btrock1.wav"
+fi
 if [ -n "${QDIR:-}" ] && [ -z "${QY70_OUT:-}" ]; then
     rm -rf "$QDIR"                                 # what was made from the ROM: gone
 fi

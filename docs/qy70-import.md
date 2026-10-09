@@ -24,6 +24,61 @@ The tool finds its tables by their shape (a phrase pointer table, then 128 style
 addresses, so another QY70 ROM version should work if its layout is the same; it stops with a message if
 it finds none.
 
+## The bank on Polly
+
+```sh
+python3 tools/qy70_install.py qy70main.bin [--yes]               # build the bank, write it to the FM-1 (~30 s)
+python3 tools/qy70_install.py qy70main.bin --image-out FILE      # the image only (the simulator's `bank FILE`)
+```
+
+All 128 styles, with their bends, modulation, expression, pan and pressure, as the range-coded bank below
+(234,727 bytes from the ROM we have). After the 16 factory styles, the Style knob (and PRESETS on the Song
+patterns pages) goes on through the bank's styles by name ("QY Bossa A" on the page); Setup shows the bank
+(none, 128 styles, damaged, old format).
+
+**The flash** (`firmware/src/dsp/qybank.h`): 0x93000-0x96FFF, 0xB9000-0xDBFFF (the 8 user-pattern slots given
+up: Polly keeps 16, 0x99000-0xB8FFF), 0xDE000-0xDFFFF and 0xE5000-0xFBFFF, 64 sectors; the app's flash driver may
+write exactly these (`FL_BANK_OK`). 0xDE000 is the directory: magic, version, the codec's magic, per style its
+name, tempo, beats, place, sizes and CRC-32, then a CRC-32 of the directory. The other 63 sectors are one logical
+stream that steps over bytes 0xF00-0xF07 of every sector (kept 0xFF, so no sector looks like an update record to
+the loader): 257,544 bytes, 22.8 KB to spare. The priors first, then each style's record (its header, its stream).
+
+**Writing it** (`firmware/src/bank_rx.c`): the update's SysEx protocol. The host asks (cmd 0x40: the image's size
+and CRC-32); the FM-1 stops playing and asks for the image piece by piece (cmd 0x30, 512 bytes, each frame
+checksummed); it checks the directory before erasing anything, erases the old directory, writes and erases all 63
+data sectors, reads them back (a CRC-32 of the data as received and as read, and of the whole image against the
+host's), and writes the directory last. A cut cable, a changed byte or a failed write leaves no bank, never half
+of one; nothing outside the bank's sectors is touched. The FM-1 tells the host the result (a read of 0xB0000000,
+or 0xBF00xxxx with an error code), mounts the bank and reloads the song. Restoring M-VAVE's firmware wipes it.
+
+**Playing it**: a style is read (the flash driver's 256-byte reads, interrupts off between them: Polly does not
+map the data area as a plain XIP window), its CRC checked and its stream decoded (`qy_decode_style`) into one of
+two RAM buffers when it is picked, in the main loop; the slots switch to it only once it is whole, the other
+buffer playing meanwhile, so a style changes while playing without a gap. Each track plays its phrase from the
+section's start, repeated to fill the section (cut at its end), through the transposer with the phrase's type,
+limits and high key and the program the section gives it; no note limit. The controllers go to the track's
+channel (synth and MIDI out), never through the transposer; the channels they moved are reset (bend centred,
+modulation 0, expression 127, pressure 0, sustain off, pan the track's) at a section change, a stop and a style
+change. A song plays one bank style at a time (a section picked from another moves its other bank sections
+with it). Recording into or editing a bank section first makes it a pattern (its notes, the quietest dropped
+past 600, no controllers) in a user pattern of its own.
+
+**Intros and endings** play over a held chord, the QY70's way (for every style, Polly's own too): the chord on
+the section's first beat stays until it ends; a template's first bar comes with Main A. A chord the player sets
+(the keys) still changes it at once.
+
+**The cost** (`tests/host/bank_test.c` on the ROM's bank): RAM 2 x 32.2 KB (the two style buffers: 2,560
+notes, 4,096 controller events, 64 phrases each; the largest style, Hi-Life, decodes to 20.6 KB), 13.5 KB of
+decoder working memory, 8 KB for a style's record, 3 KB for the directory and 2.3 KB of priors, all in the pool;
+the firmware's code grows by about 16 KB. Decoding all 128 styles takes 16 ms on this Mac (the slowest, Hi-Life,
+0.36 ms); on the FM-1 some 11-17 ms for the largest, once, when it is picked.
+
+**Tests without a ROM** use a synthetic bank of the same format (`tools/qybank_synth.py`: Polly's own styles coded
+as bank styles, with controllers, and a dense style of 800-note sections). With `QY70_ROM=path/to/qy70main.bin`,
+`tests/run_tests.sh` also builds the ROM's bank (into a temporary directory, or `QY70_OUT`), decodes and plays every
+style (no stuck notes, nothing left bent) and renders Bossa, Big Band and 8btRock1 to WAVs
+(`tests/rom/qy70_styles.polly`).
+
 ## The format, as we found it
 
 All numbers big-endian. Ticks are 480 a quarter note.
@@ -101,8 +156,8 @@ Channels: BA 2, C1..C4 3..6 (Polly's defaults), drums 10; a drum track playing a
 
 ## What doesn't carry over
 
-- **Controllers and bends.** Expression swells, pitch bends and the other non-note events are skipped (Polly's
-  patterns hold notes only): in all 128 styles about 44,000 control changes and 17,700 bends. The brass and
+- **Controllers and bends** (in .sty files; the bank on Polly keeps them). Expression swells, pitch bends and the
+  other non-note events are skipped (Polly's patterns hold notes only): in all 128 styles about 44,000 control changes and 17,700 bends. The brass and
   guitar styles lose their swells and slides.
 - **Drum kits.** Polly has one GM kit: the QY70's Brush, Jazz, Room, Analog, ... kits all play it.
 - **XG voices.** Variations (bank LSB) play their GM program; SFX voices (MSB 64) a GM effect.
@@ -110,9 +165,9 @@ Channels: BA 2, C1..C4 3..6 (Polly's defaults), drums 10; a drum track playing a
 - **Quartal m7(11) voicings** (about 400 phrases): their 11th is stored as the 5th, so a plain m7 voicing
   plays: kept as the 11th, Polly's Chord 1 plays it as a 4th over every major and dominant chord.
 - **Intros and endings** are mostly Parallel phrases carrying their own chord progression (a ii-V-i into the
-  last chord), written to sound over one held chord, as the QY70 plays them. Over a template that keeps
-  changing chords (Polly's templates go on during the Intro and the Ending) they are moved to each new root
-  and clash. A minor-key ending (Bossa's is in A minor, over Am7) stays minor over a major chord, as on the QY70.
+  last chord), written to sound over one held chord, as the QY70 plays them; Polly now holds the chord through
+  the Intro and the Ending too (above). A minor-key ending (Bossa's is in A minor, over Am7) stays minor over a
+  major chord, as on the QY70.
 - **Chord 2 voicings**: Polly moves each note near the one before, the QY70 the whole voicing; a wide voicing
   closes up, and two notes can land on one pitch.
 
@@ -180,7 +235,7 @@ steps, measured but not built: bars repeating bars of the style's other phrases 
 most bars: 41,000 of 68,000 repeated notes become 68,000), a static Huffman code per field (about 15%), or
 decoding each phrase into RAM at a section change (then LZ / zlib apply).
 
-## Where a bank could live: the free flash
+## Where a bank could live: the free flash (the survey before the bank; it now lives as above)
 
 The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map (`firmware/src/storage.c`, `firmware/hal/fm1_flash.h`,
 `firmware/loader/ldr_core.c`, `firmware/src/ota.c`):
