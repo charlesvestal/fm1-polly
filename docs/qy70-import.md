@@ -219,3 +219,63 @@ the player reads in place; decoding each phrase into RAM at a section change wit
 the velocity, a bar repeat a mask test and a copy from the bars before: some 30-60 cycles an event. It keeps the
 last four bars of each playing phrase decoded, 5 bytes a note: 8 KB for 8 tracks at 50 notes a bar (99% of
 phrases), 19 KB at the ROM's busiest bar (121 notes); repeats only one or two bars back (95% of them) halve that.
+
+## The runtime-decoded bank (`tools/qy70_codec.py`, `tools/qydec/`)
+
+The bank the device would use: each style is one range-coded stream, decoded into RAM in one go when the style
+is picked (`qy_decode_style`, `tools/qydec/qydec.c`, pure C99). The same Python function codes and decodes
+(`code_phrase`), and the C decoder follows it line for line; `--ctest` checks the two agree on all 4,166 phrases,
+`--test` that the decode gives the importer's events back (times, keys and gates exact; velocity within 4).
+
+```sh
+python3 tools/qy70_codec.py qy70main.bin --out bank.qyb   # the bank
+python3 tools/qy70_codec.py qy70main.bin --sizes          # bytes per style
+python3 tools/qy70_codec.py qy70main.bin --test           # Python decode == the importer's events
+python3 tools/qy70_codec.py qy70main.bin --ctest          # C decoder == Python decoder (and its host speed)
+```
+
+**The coder**: LZMA's binary range coder (12-bit probabilities, adapting by 1/16; a multiply, a compare and
+shifts a bit; no division). Values are binary trees (small fields) or an exp-Golomb code whose length and first
+two mantissa bits have probabilities of their own. The probabilities start from priors trained on the whole bank
+and stored once in it (4,535 of them at 4 bits: 2.3 KB; trained priors save 12 KB of streams).
+
+**The model**, per phrase: the header (type, drum, limits, bars, beats a bar, the time grid, the velocity range,
+the keys as a first key and gaps); then bar by bar: whether it repeats an earlier bar of the style (any phrase of
+the style, same kind and bar length; the encoder picks the cheapest by an estimate) and which, a kept bit per
+note of that bar (in the context of the previous bit), exact or with a timing (-7..+7 ticks) and velocity (steps
+of 2) change each; then the bar's other notes: same time as the last note (a bit), else grid steps (in the
+context of the last step) and the humanised offset in ticks; the key's index (in the context of the last
+key's); velocity in 16 steps of the phrase's range (in the context of the key and of the note's place: on the
+beat, on the half beat, elsewhere); gate (same as the last, or in 10-tick units). Controllers: runs of a kind, each
+event its time step (the same as the last: a bit) and its value change (in the context of the last change's
+sign).
+
+| All 128 styles | Bytes |
+|---|---|
+| phrase bank, format 2, notes only / with controllers | 363,895 / 439,840 |
+| range-coded, notes only | ~197,000 |
+| **range-coded, with bends and controllers** | **235,247** (priors 2,268; styles 611..5,201 bytes, median 1,615) |
+
+**What fits** (192 KB of free flash plus 8 KB for each user pattern slot given up, less 0.2% for the sectors'
+update-record guard):
+
+| User patterns kept | Space | Styles that fit (with controllers) |
+|---|---|---|
+| 24 | 192 KB | 117 |
+| 23 | 200 KB | 120 |
+| 22 | 208 KB | 122 |
+| 21 | 216 KB | 124 |
+| 20 | 224 KB | 126 |
+| 19 | 232 KB | 128 (1.6 KB to spare) |
+| 18 | 240 KB | 128 (9.8 KB to spare) |
+
+Giving up the top slots joins their space to the free 0xC9000-0xDBFFF region. A style's stream must not straddle
+two regions, nor bytes 0xF00-0xF07 of a sector (the writer pads; or the decoder's byte fetch steps over them).
+
+**On the device**: the decoder is 2.4 KB of code (pi32v2 -Os: three hardware divides, no library calls but
+memcpy). Working memory 13.5 KB while decoding (the probabilities, 11.1 KB, and a table of the style's bars,
+2.4 KB): it can share RAM with anything not needed during a style change. The decoded style stays in RAM: notes 6
+bytes, controller events 4, phrases 16; the largest style is 20.6 KB (Hi-Life), the median about 6 KB. Speed: 17.4
+binary decisions an event on average, 61,500 for the largest style; at some 25 cycles a decision plus the stores
+and the per-bar sort, about 1.7 M cycles: 11-17 ms at 100-160 MHz for the largest style, once, when it is picked
+(section changes then cost nothing). On this Mac the 128 styles decode in 12 ms (82 ns an event).

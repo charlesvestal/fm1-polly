@@ -39,6 +39,7 @@ run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/ds
 # the QY70 importer's chord mapping against xpose.c: needs a QY70 main ROM (yours; never in the repo)
 if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
     run qy70-import python3 tools/qy70_import.py "$QY70_ROM" --selftest
+    run qy70-codec sh -c "python3 tools/qy70_codec.py '$QY70_ROM' --test && python3 tools/qy70_codec.py '$QY70_ROM' --ctest"
 else
     echo "  skip qy70-import (set QY70_ROM=path/to/qy70main.bin)"
 fi
