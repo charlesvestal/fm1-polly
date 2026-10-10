@@ -40,12 +40,16 @@ change; SELECT turns pages; REC writes what the keys play, and REC on HOME in FR
 
 ### Songs
 
-- 4 songs, S1–S4. A song: up to 32 **rows**; a row is a loop, a section (Main A or Main B), REPEAT ×1–×8,
-  and an optional **fill** at its end.
+- 4 songs, S1–S4. A song: up to 32 **rows**; a row is a loop, a SECTION (Main A, Main A + fill, Main B,
+  Main B + fill), REPEAT ×1–×8, and its **mutes** (8 bits, D1 … C4; 1 byte a row).
+- Row mutes: the same loop and pattern with tracks silent (a verse with drums and bass only, then the full
+  band). In SONG they replace the song-wide mutes; in FREE and LOOP, SEQ's MUTE works as today, across
+  every section. A mute changed by hand while a song plays lasts until the next row; with REC on, it is
+  written into the row (as X0X records mutes into song bars).
 - Fills: when the section changes between rows, the matching fill (AB or BA) plays in the row's last bar by
-  itself; a row's fill flag forces one even without a change.
+  itself; a "+ fill" section forces one even without a change.
 - Per song: **INTRO** on/off, **ENDING** on/off, **AT END** stop / again; its style and section patterns
-  and mutes, as today.
+  (the song-wide mutes go: rows carry them).
 - Songs format 5. Polly is unreleased: no migration from format 4 (the old songs are dropped and the
   factory songs written).
 
@@ -94,7 +98,8 @@ A button always opens the same screen; pressing it again, or turning **SELECT**,
   - HOME in FREE: starts a new loop in the first empty slot. Play chords with the band; REC again ends it,
     rounded up to whole bars (max 16). The new loop plays, MODE becomes LOOP ("NEW LOOP L9").
   - SEQ, EDIT: records the selected track (as today).
-  - SONG: with PLAY, writes rows from what you play with HOME + keys (loop, section), from the selected row.
+  - SONG: with PLAY, writes rows from what you play with HOME + keys (loop, section) and the mutes you change, from the
+    selected row.
   - LFO, FX, ENV, GLO: "REC: not here".
 
 ## Keys and footer
@@ -102,7 +107,7 @@ A button always opens the same screen; pressing it again, or turning **SELECT**,
 | Screen | Keys | Footer |
 |---|---|---|
 | HOME, LOOP | chords | `KEYS: CHORDS · REC: WRITE` (LOOP adds `OCT: ◀ ▶`) |
-| SONG | white: the row's loop, then the next row (adding rows at the end); black: 2 Main A, 3 Main B, 4 fill, 1 Intro on/off, 5 Ending on/off | `WHITE: ROW'S LOOP · BLACK: SECTION` |
+| SONG | white: the row's loop, then the next row (adding rows at the end); black 1–8: the row's mutes, D1 D2 PC BA C1 C2 C3 C4 (a muted track's key glows dim) | `WHITE: ROW'S LOOP · BLACK: MUTES` |
 | SEQ, EDIT | the selected track's sound | `KEYS: C1 PIANO · REC: RECORD` |
 | LFO | black keys pick the track | `BLACK: TRACK` |
 | FX, ENV, GLO | nothing | (the screen's hint) |
@@ -147,16 +152,18 @@ KEYS: CHORDS · REC: WRITE · OCT: ◀ ▶
 
 ```
 SONG  S1                ● 120
- #  LOOP        SECTION   REPEAT
- 1  L1 Verse    Main A    ×2
- 2  L2 Chorus   Main B    ×1  fill
-▶3  L1 Verse    Main A    ×2
+ #  LOOP        SECTION       REPEAT  MUTES
+ 1  L1 Verse    Main A        ×2      ■■□■□□□□
+ 2  L2 Chorus   Main B +fill  ×1      ■■■■■■■■
+▶3  L1 Verse    Main A        ×2      ■■■■■■■□
  4  END
  Intro on · Ending on · at end: stop
 ────────────────────── ROW 3  ● ○
  ROW     LOOP    SECTION  REPEAT
-WHITE: ROW'S LOOP · BLACK: SECTION
+WHITE: ROW'S LOOP · BLACK: MUTES
 ```
+
+(■ plays, □ muted.)
 
 In FREE, HOME's strip shows "FREE: play chords" in place of the loop. In SONG, it shows the row, its loop
 and REPEAT count (row 2 of 4, ×1 of 2).
@@ -173,7 +180,8 @@ and REPEAT count (row 2 of 4, ×1 of 2).
 ## Testing
 
 - Host tests (`tests/host/arr_test.c`): loop playback and wrap, 3/4 and 7-beat loops, transpose, override
-  cleared at the next change, song rows with REPEAT, automatic and forced fills, intro / ending, AT END,
+  cleared at the next change, song rows with REPEAT, row mutes (and a hand mute
+  lasting to the next row), automatic and forced fills, intro / ending, AT END,
   step and live chord writing, FREE → new loop length rounding.
 - Scenarios (`tests/scenarios/`): rewrite `chords.polly`, `compose.polly`, `tour.polly`, `manual.polly` for
   the new buttons; new `loops.polly` and `song.polly`; screenshots of HOME, LOOP, SONG, the HOME-held
