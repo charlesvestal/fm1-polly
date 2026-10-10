@@ -490,11 +490,29 @@ static int expect(const char *what, const char *val)
         got = arr_mutes;
     else if (!strncmp(what, "loop_bars", 9))      /* loop_barsN: loop N's bars (0: empty) */
         got = songs.loop[(atoi(what + 9) - 1) & 15].bars;
+    else if (!strncmp(what, "loop_beats", 10))    /* loop_beatsN: loop N's beats a bar */
+        got = songs.loop[(atoi(what + 10) - 1) & 15].beats;
     else if (!strncmp(what, "loop_ch", 7)) {      /* loop_chN_B: loop N's beat B, root*100 + type, -1 "." */
         int l = (atoi(what + 7) - 1) & 15, b = strrchr(what, '_') ? atoi(strrchr(what, '_') + 1) : 0;
         uint16_t v = songs.loop[l].ch[b % ARR_LOOP_BEATS];
         got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
-    } else if (!strcmp(what, "rows"))             /* the song's rows */
+    } else if (!strncmp(what, "loop_name_i", 11))   /* loop_name_iN: loop N's name, the NAME list index (8: "Loop N" / custom) */
+        got = loop_name_index(&songs.loop[(atoi(what + 11) - 1) & 15]);
+    else if (!strncmp(what, "loop_name", 9) && (what[9] >= '0' && what[9] <= '9')) {
+        /* loop_nameN VAL: loop N's name, exactly (its own string, not "_is_"'s 0/1: "Loop 10" has a space) */
+        const loop_t *l = &songs.loop[(atoi(what + 9) - 1) & 15];
+        char nm[9];
+        int i, ok;
+        for (i = 0; i < 8 && l->name[i]; i++)
+            nm[i] = l->name[i];
+        nm[i] = 0;
+        ok = !strcmp(nm, val);
+        printf("%s loop_name%d == \"%s\" (got \"%s\")\n", ok ? "  ok" : "FAIL", atoi(what + 9), val, nm);
+        return !ok;
+    }
+    else if (!strcmp(what, "cstep"))              /* the cursor's step: 0 beat, 1 half, 2 bar */
+        got = app.cstep;
+    else if (!strcmp(what, "rows"))             /* the song's rows */
         got = csong()->nrows;
     else if (!strncmp(what, "row_loop", 8))       /* row_loopN: row N's loop, 1..16 */
         got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].loop + 1;

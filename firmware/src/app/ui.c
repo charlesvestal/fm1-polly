@@ -1020,6 +1020,10 @@ static void button_up(int b)                     /* a tap: released before it wa
         break;
     }
     case B_OCTDN: case B_OCTUP:
+        if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* the cursor: OCT+ skips a step on, OCT- steps back */
+            cursor_move(b == B_OCTUP ? 1 : -1);
+            break;
+        }
         proj.oct = (int8_t)(proj.oct + (b == B_OCTUP ? 1 : -1));
         proj.oct = proj.oct < -3 ? -3 : proj.oct > 3 ? 3 : proj.oct;
         {
@@ -1209,6 +1213,71 @@ static void song_page_knob(int k, int32_t e)
             break;
         mark_dirty();
         break;
+    case P_LOOP: {                               /* ROOT, TYPE ("·" one below maj: loop_unwrite), BASS, STEP */
+        int l = app.loop % ARR_LOOPS, has, b = app.cbeat;
+        chord_t c = chord_shift(cursor_chord(&songs.loop[l], b, &has), xpose_now());
+        if (k == 3) {                             /* STEP: beat, half, bar (no write) */
+            app.cstep = (uint8_t)(((int)app.cstep + d) % 3 + 3) % 3;
+            break;
+        }
+        if (k == 0)
+            c.root = (uint8_t)((c.root + 12 + d) % 12);
+        else if (k == 1) {
+            int t = (has ? (int)c.type : -1) + d;
+            if (t < -1)
+                t = CH_DIM;
+            else if (t > CH_DIM)
+                t = -1;
+            if (t < 0) {
+                songs_write(1);
+                loop_unwrite(&songs.loop[l], b);
+                songs_write(0);
+                break;
+            }
+            c.type = (uint8_t)t;
+        } else {
+            int cur = c.bass == CH_NOBASS ? -1 : (int)c.bass;
+            cur += d;
+            if (cur < -1)
+                cur = 11;
+            else if (cur > 11)
+                cur = -1;
+            c.bass = cur < 0 ? CH_NOBASS : (uint8_t)cur;
+        }
+        chord_write(l, b, c);
+        break;
+    }
+    case P_LOOP2: {                              /* LENGTH, BEATS ("LENGTH 9: 64 BEATS MAX" when it shrank), NAME */
+        loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        int bpb = l->beats ? l->beats : 4, step = accel(EN_K1 + k, e);
+        if (k == 0) {
+            int m = loop_max_bars(bpb), to = clampi((l->bars ? l->bars : 1) + step, 1, m);
+            if (to == l->bars)
+                break;
+            songs_write(1);
+            loop_set_bars(l, to);
+            songs_write(0);
+        } else if (k == 1) {
+            int to = clampi(bpb + step, 2, 7), before = l->bars;
+            if (to == bpb)
+                break;
+            songs_write(1);
+            loop_set_beats(l, to);
+            songs_write(0);
+            if (l->bars < before) {
+                char a[16];
+                itoa_u((uint32_t)l->bars, cat_s(a, "LENGTH "));
+                cat_s(a, ":");
+                say(a, "64 BEATS MAX");
+            }
+        } else if (k == 2) {
+            int idx = ((loop_name_index(l) + step) % (NLOOP_NAMES + 1) + NLOOP_NAMES + 1) % (NLOOP_NAMES + 1);
+            songs_write(1);
+            loop_set_name_preset(l, app.loop % ARR_LOOPS, idx);
+            songs_write(0);
+        }
+        break;
+    }
     default: break;
     }
 }

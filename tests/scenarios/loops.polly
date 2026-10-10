@@ -296,3 +296,52 @@ tapkey w2
 release HOME
 tap PLAY
 wait 300
+# ---- the LOOP screen: step writing on L10 (empty), stopped; OCT+ skips a step; the grid, the cursor
+tap PLAY
+wait 100
+press HOME
+tapkey w9
+release HOME
+tap ARP
+expect page 2
+tap REC
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+tap OCT+
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+tap REC
+expect loop_bars10 3
+expect loop_ch10_0 0
+expect loop_ch10_4 -1
+expect loop_ch10_8 700
+shot loop.png
+# page 2: LENGTH, BEATS, NAME (Verse, Chorus, ... then "Loop N")
+turn SELECT 1
+expect page 3
+shot loop2.png
+# a loop of 7-beat bars: the grid wraps to two lines a bar
+spin K2 3
+expect loop_beats10 7
+turn SELECT -1
+expect page 2
+shot loop7.png
+turn SELECT 1
+expect page 3
+spin K2 -3
+expect loop_beats10 4
+# name it
+spin K3 -8
+expect loop_name10 Verse

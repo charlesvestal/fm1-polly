@@ -55,6 +55,11 @@ static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 /* a loop's name (mixed case: "Verse", as the factory's "Pop") */
 static const char LOOP_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-#";
 #define NLOOP_CHARS ((int)sizeof LOOP_CHARS - 1)
+/* the cursor's step (app.cstep): a beat, half a bar, a bar */
+static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
+/* NAME (LOOP page 2): the presets the knob turns through, then "Loop N" (its own number) */
+static const char *const LOOP_NAME_LIST[] = {"Verse", "Chorus", "Bridge", "Pre", "Intro", "Outro", "Solo", "Break"};
+#define NLOOP_NAMES ((int)(sizeof LOOP_NAME_LIST / sizeof LOOP_NAME_LIST[0]))
 enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
 
 static songs_t songs EN_POOL;                        /* the four songs (the selected one plays) */
@@ -352,11 +357,12 @@ static int home_shown(void)
     return (ui.btn >> B_HOME & 1u) && !ui.ask && plat_ms() - ui.btn_t[B_HOME] >= HOME_HOLD_MS;
 }
 static void song_style_text(char *t);
+static char *loop_label(int i, char *t);
 /* the header: the page's name; on HOME the song and its style. Right: the song's tempo (or "ext"), REC's dot,
  * "unsaved". A message replaces it all, a question (SEL: yes, HOME: no) the message */
 static void draw_header(void)
 {
-    char t[24];
+    char t[40];
     int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords || ui.take, ext = arr_ext, sel = home_shown();
     int un = unsaved(), ask = ui.ask;
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)rec << 11 |
@@ -365,6 +371,12 @@ static void draw_header(void)
     h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].sty << 8);
     for (int k = 0; k < ARR_NSECT; k++)              /* the sections on user patterns ("Pop, A user") */
         h = hash(h, songs.song[proj.song].style[k] < ARR_USER_PATTERNS);
+    if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* "L3 Verse   in 3 rows" */
+        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        h = hash(h, (uint32_t)app.loop | (uint32_t)loop_rows_using(csong(), app.loop % ARR_LOOPS) << 8);
+        for (int i = 0; i < 8; i++)
+            h = hash(h, (uint8_t)l->name[i]);
+    }
     if (msg)
         h = hash(h, ui.msg_until);
     for (const char *c = ui.ask_q; ask && *c; c++)
@@ -400,8 +412,17 @@ static void draw_header(void)
         }
         if (ui.page == P_HOME)                       /* the style ("Pop, A user") */
             song_style_text(t);
-        if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8 &&   /* (HOME: the style first; SAVE's lit) */
-            (ui.page != P_HOME || r - 6 - text_w(&FONT_XS, "unsaved") - 8 >= x + 8 + text_w(&FONT_B, t))) {
+        else if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* "L3 Verse   in 3 rows" */
+            char *e = loop_label(app.loop, t);
+            int rows = loop_rows_using(csong(), app.loop % ARR_LOOPS);
+            if (rows) {
+                e = itoa_u((uint32_t)rows, cat_s(e, "  in "));
+                cat_s(e, rows == 1 ? " row" : " rows");
+            }
+        }
+        if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8 &&   /* (HOME, LOOP: the extra text first; SAVE's lit) */
+            ((ui.page != P_HOME && ui.page != P_LOOP && ui.page != P_LOOP2) ||
+             r - 6 - text_w(&FONT_XS, "unsaved") - 8 >= x + 8 + text_w(&FONT_B, t))) {
             r -= 6 + text_w(&FONT_XS, "unsaved");
             cv_text(r, 5, &FONT_XS, "unsaved", K_DIM);
         }
@@ -413,7 +434,8 @@ static void draw_header(void)
                         break;
                     }
             text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
-        }
+        } else if (ui.page == P_LOOP || ui.page == P_LOOP2)
+            text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
     }
     cv_blit(0, 0);
 }
@@ -430,6 +452,54 @@ static char *loop_label(int i, char *t)
         e--;
     *e = 0;
     return e;
+}
+
+/* the chord at beat b of loop l, for the knobs and the grid: the beat's own chord if it has one (*has = 1),
+ * else the chord sounding there (loop_chord_at); a loop with nothing at all yet (CH_NONE): C maj, so the
+ * first turn of a knob has somewhere real to start from */
+static chord_t cursor_chord(const loop_t *l, int b, int *has)
+{
+    chord_t c = loop_chord_at(l, b);
+    *has = b >= 0 && b < loop_len(l) && b < ARR_LOOP_BEATS && l->ch[b] != LC_SAME;
+    if (c.type == CH_NONE) {
+        c.root = 0;
+        c.type = CH_MAJ;
+        c.bass = CH_NOBASS;
+    }
+    return c;
+}
+/* the loop's name, as one of LOOP_NAME_LIST (0..NLOOP_NAMES-1), else NLOOP_NAMES ("Loop N", or a custom name) */
+static int loop_name_index(const loop_t *l)
+{
+    for (int i = 0; i < NLOOP_NAMES; i++) {
+        const char *s = LOOP_NAME_LIST[i];
+        int j = 0;
+        for (; s[j] && l->name[j] == s[j]; j++)
+            ;
+        if (!s[j] && (j >= 8 || !l->name[j]))
+            return i;
+    }
+    return NLOOP_NAMES;
+}
+/* the loop's name set to preset idx (0..NLOOP_NAMES-1), or NLOOP_NAMES: "Loop N" (its own number, as loop_clear) */
+static void loop_set_name_preset(loop_t *l, int li, int idx)
+{
+    char n[8] = {0};
+    const char *s = n;
+    if (idx < NLOOP_NAMES)
+        s = LOOP_NAME_LIST[idx];
+    else if (li >= 9) {
+        n[0] = 'L'; n[1] = 'o'; n[2] = 'o'; n[3] = 'p'; n[4] = ' ';
+        n[5] = '1';
+        n[6] = (char)('0' + (li + 1) % 10);
+    } else {
+        n[0] = 'L'; n[1] = 'o'; n[2] = 'o'; n[3] = 'p'; n[4] = ' ';
+        n[5] = (char)('1' + li);
+    }
+    for (int i = 0; i < 8; i++)
+        l->name[i] = 0;
+    for (int i = 0; i < 8 && s[i]; i++)
+        l->name[i] = s[i];
 }
 
 /* ---------------------------------------------------------- HOME page --- */
@@ -610,6 +680,65 @@ static void draw_home(void)
             cv_round(x, y, 112, 11, 3, K_PANEL);
         cv_text(x + 4, y - 2, &FONT_XS, TRACK_NAME[i], on ? K_BG : K_DIM);
         text_fit(x + 26, y - 2, &FONT_XS, mute ? "muted" : name, 84, fg);
+    }
+    cv_blit(0, MAIN_Y);
+}
+
+/* ---------------------------------------------------------- LOOP page --- */
+/* the loop as a grid, a row a bar (a bar of 5-7 beats wraps to two lines): the chord's name, "·" (a dot) for no
+ * change, the cursor boxed, the beat playing tinted (arr_loop_now == app.loop). Scrolled so the cursor's bar
+ * shows */
+static void draw_loop(void)
+{
+    const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    int bpb = l->beats ? l->beats : 4, bars = l->bars ? l->bars : 1, wrap = bpb >= 5;
+    int32_t rh = wrap ? 36 : 18, visible = MAIN_H / rh, top = app.cbeat / bpb;
+    int xp = xpose_now(), playing, i;
+    place_t pl;
+    uint32_t pbeat;
+    uint32_t h;
+    char t[12];
+    place_read(&pl);
+    playing = pl.loop == (int)(app.loop % ARR_LOOPS);
+    pbeat = playing ? pl.lbeat : 0xFFFFFFFFu;
+    if (top + visible > bars)
+        top = bars > visible ? bars - visible : 0;
+    h = hash(2166136261u, (uint32_t)app.loop | (uint32_t)app.cbeat << 8 | (uint32_t)app.cstep << 16 |
+                               (uint32_t)playing << 20);
+    h = hash(h, (uint32_t)bars | (uint32_t)bpb << 8 | pbeat << 16);
+    for (i = 0; i < bars && i < ARR_LOOP_BARS; i++)
+        for (int k = 0; k < bpb; k++) {
+            int idx = i * bpb + k;
+            h = hash(h, idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME);
+        }
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    for (i = top; i < bars && i < top + visible; i++) {
+        int32_t y = (i - top) * rh + 2, n1 = wrap ? (bpb + 1) / 2 : bpb, n2 = wrap ? bpb - n1 : 0;
+        int32_t labw = 16, cols = n1 > n2 ? n1 : (n2 ? n2 : 1), cw = (232 - labw) / cols;
+        int k;
+        itoa_u((uint32_t)(i + 1), t);
+        cv_text(4, y + (wrap ? 9 : 1), &FONT_XS, t, K_DIM);
+        for (k = 0; k < bpb; k++) {
+            int idx = i * bpb + k, line = wrap && k >= n1, col = line ? k - n1 : k;
+            int32_t x = 8 + labw + col * cw, yy = y + (line ? 18 : 0);
+            uint16_t v = idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME;
+            int cur = idx == app.cbeat, plays = (uint32_t)idx == pbeat;
+            if (plays)
+                cv_round(x, yy, cw - 2, 16, 3, K_TEAL_T);
+            if (cur) {
+                cv_round(x - 1, yy, cw, 16, 3, K_ACCENT);
+                if (!plays)
+                    cv_round(x, yy + 1, cw - 2, 14, 2, K_BG);
+            }
+            if (v != LC_SAME) {
+                chord_name(chord_shift(lc_unpack(v), xp), t);
+                text_fit(x + 2, yy + 2, &FONT_XS, t, cw - 5, plays ? K_TEAL : K_TEXT);
+            } else
+                cv_round(x + cw / 2 - 1, yy + 7, 2, 2, 1, K_DIM);
+        }
     }
     cv_blit(0, MAIN_Y);
 }
@@ -1254,17 +1383,34 @@ static void song_page_knobs(knob_t *k)
         kv(&k[2], "Section", "-", 0, 0);
         kv(&k[3], "Repeat", "-", 0, 0);
         break;
-    case P_LOOP:
-        kv(&k[0], "Root", "-", 0, 0);
-        kv(&k[1], "Type", "-", 0, 0);
-        kv(&k[2], "Bass", "-", 0, 0);
-        kv(&k[3], "Step", "-", 0, 0);
+    case P_LOOP: {
+        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        int has, b = app.cbeat;
+        chord_t c = chord_shift(cursor_chord(l, b, &has), xpose_now());
+        kv(&k[0], "Root", KEY_NAME[c.root % 12u], c.root, 11);
+        kv(&k[1], "Type", !has ? "-" : c.type == CH_MAJ ? "maj" : chord_type_name(c.type), has ? c.type : 0, CH_DIM);
+        if (c.bass == CH_NOBASS)
+            kv(&k[2], "Bass", "-", 0, 11);
+        else
+            kv(&k[2], "Bass", KEY_NAME[c.bass % 12u], c.bass, 11);
+        kv(&k[3], "Step", STEP_NAME[app.cstep % 3u], app.cstep, 2);
         break;
-    case P_LOOP2:
-        kv(&k[0], "Length", "-", 0, 0);
-        kv(&k[1], "Beats", "-", 0, 0);
-        kv(&k[2], "Name", "-", 0, 0);
+    }
+    case P_LOOP2: {
+        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        int bpb = l->beats ? l->beats : 4;
+        char v[9];
+        kn(&k[0], "Length", l->bars ? l->bars : 1, loop_max_bars(bpb));
+        kn(&k[1], "Beats", bpb, 7);
+        {
+            int n = 0;
+            for (int i = 0; i < 8 && l->name[i]; i++)
+                v[n++] = l->name[i];
+            v[n] = 0;
+        }
+        kv(&k[2], "Name", v, loop_name_index(l), NLOOP_NAMES);
         break;
+    }
     case P_STYLE: case P_STYLE2: {
         int first = ui.page == P_STYLE2 ? 3 : 0;
         for (int i = 0; i < 3; i++) {
@@ -1795,6 +1941,8 @@ static void draw_page(void)
         draw_list();
     else if (ui.page == P_HOME)
         draw_home();
+    else if (ui.page == P_LOOP || ui.page == P_LOOP2)
+        draw_loop();
     else if (ui.page == P_PATTERN)
         draw_pattern();
     else if (ui.page == P_PATSET)
@@ -1814,5 +1962,5 @@ static void draw_page(void)
     else if (ui.page == P_PANEL)
         draw_panel();
     else
-        draw_coming();                               /* SONG, LOOP: their screens come later */
+        draw_coming();                               /* SONG: its screen comes later */
 }
