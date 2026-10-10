@@ -25,28 +25,29 @@ run encoder sh -c "$CC -O2 -w -Ifirmware/hal -o $OUT/encoder_test tests/host/enc
 run uac sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/uac_test tests/host/uac_test.c -lm && $OUT/uac_test"
 run trs sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/trs_test tests/host/trs_test.c && $OUT/trs_test"
 run chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/chords_test tests/host/chords_test.c firmware/src/dsp/chords.c && $OUT/chords_test"
+run loops sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/loops_test tests/host/loops_test.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/chords.c && $OUT/loops_test"
 run xpose sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/xpose_test tests/host/xpose_test.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/xpose_test"
-run arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/arr_test tests/host/arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/arr_test"
+run arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/arr_test tests/host/arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/arr_test"
 # the real synth (gm.c + Sonivox) under the arranger: note-ons on their exact sample, plain MIDI bit-identical
-run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/timing_test tests/host/timing_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') && $OUT/timing_test"
+run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/timing_test tests/host/timing_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') && $OUT/timing_test"
 # CC74 / CC71 move Sonivox's filter: darker, resonant, bit-identical at 64, reset by CC121, no zipper, no blow-ups
 # the GM synth's gain staging and releases: no chord reaches EAS's rail, no released note is cut off
-run gm sh -c "$CC -std=gnu99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/gm_test tests/host/gm_test.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\\|wt_200k_samples') -lm && $OUT/gm_test"
-run filter sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/filter_test tests/host/filter_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') -lm && $OUT/filter_test"
+run gm sh -c "$CC -std=gnu99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/gm_test tests/host/gm_test.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\\|wt_200k_samples') -lm && $OUT/gm_test"
+run filter sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/filter_test tests/host/filter_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') -lm && $OUT/filter_test"
 # the factory styles: the .sty files check, dump -> parse gives the same tables, and styles.h is up to date
 run styles sh -c "python3 tools/make_styles.py --check styles/*.sty && python3 tools/make_styles.py --roundtrip styles/*.sty && \
     python3 tools/make_styles.py styles/*.sty > $OUT/styles.h && cmp $OUT/styles.h firmware/src/dsp/styles.h && \
     sh tests/host/styles_test.sh $OUT"
 # the styles' chord parts: every Chord 1 / 2 note held an eighth or more is a chord tone or an allowed tension,
 # over the Pop template, the blues, the Andalusian progression and ten chord types (the real engine)
-run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -Itests/host -o $OUT/style_chords_test tests/host/style_chords_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/style_chords_test"
+run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -Itests/host -o $OUT/style_chords_test tests/host/style_chords_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/style_chords_test"
 # the QY70 style bank, without Yamaha's data: Polly's own styles coded as a bank (tools/qybank_synth.py); the C
 # decoder against the Python one; the bank written to a simulated flash, mounted, decoded, damaged
 run bank-codec python3 tools/qy70_codec.py --synthetic --ctest --image $OUT/synth.qyi
 run bank sh -c "$CC -std=c99 -Wall -Wextra -Werror -O2 -Ifirmware/src/dsp -o $OUT/bank_test tests/host/bank_test.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c && $OUT/bank_test $OUT/synth.qyi 17"
 # the arranger playing bank styles: hand-made ones (phrases repeated, controllers sent and reset, the Intro's held
 # chord, a switch while playing, a section of 800 notes), then every style of the synthetic bank
-run bank-arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/bank_arr_test tests/host/bank_arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/bank_arr_test $OUT/synth.qyi"
+run bank-arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/bank_arr_test tests/host/bank_arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/bank_arr_test $OUT/synth.qyi"
 # the QY70 importer's chord mapping against xpose.c, the codec, the bank: need a QY70 main ROM (yours; never in the
 # repo). What is made from it goes to a temporary directory, removed after (QY70_OUT: keep it there instead)
 if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then

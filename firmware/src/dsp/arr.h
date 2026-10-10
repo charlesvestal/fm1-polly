@@ -17,7 +17,9 @@
 #define ARR_USER_PATTERNS 16             /* the user's patterns (flash objects); a song's section gets one when it
                                          * is first recorded into or edited (ui.c: copy-on-write) */
 #define ARR_SONGS 4
-#define ARR_SONGBARS 64
+#define ARR_LOOPS 16                      /* L1..L16 */
+#define ARR_LOOP_BEATS 64                 /* a loop's beats at most (bars x beats) */
+#define ARR_ROWS 32                       /* a song's rows at most */
 #define ARR_NSECT 6
 /* the sections (the QY70's), each a slot (sec - 1) holding its pattern. SEC_FILL is a command only (arr_section):
  * Fill AB from Main A (or the Intro), Fill BA from Main B */
@@ -54,25 +56,50 @@ typedef struct {
 } pattern_t;
 #define ARR_PAT_FORMAT 2u                /* 2: 480 ticks a beat (stored patterns of another format are not loaded) */
 
+#define LC_SAME 0xFFFFu                   /* a loop's beat with no chord change ("·") */
+/* a chord in 16 bits: root 0..11 (bits 0-3), type CH_* (4-8), bass 0..11 or 15 none (9-12) */
+static inline uint16_t lc_pack(chord_t c)
+{
+    return (uint16_t)((c.root & 15u) | (uint32_t)(c.type & 31u) << 4 | (uint32_t)(c.bass < 12u ? c.bass : 15u) << 9);
+}
+static inline chord_t lc_unpack(uint16_t v)
+{
+    chord_t c = {(uint8_t)(v & 15u), (uint8_t)(v >> 4 & 31u), (uint8_t)((v >> 9 & 15u) < 12u ? (v >> 9 & 15u) : CH_NOBASS)};
+    return c;
+}
 typedef struct {
-    uint16_t style[ARR_NSECT];           /* the pattern for each section (Intro, Main A, Main B, Fill AB, Fill BA,
-                                          * Ending): a pattern number (below) */
-    uint8_t bars;                        /* the song's length, 1..64 (0: no song yet) */
-    uint8_t loop;                        /* goes round at its end (the app passes it to arr_song) */
-    uint8_t sect[ARR_SONGBARS];          /* SEC_SAME .. SEC_END per bar (SEC_FILL is not stored) */
-    chord_t chord[ARR_SONGBARS * 4];     /* a chord per beat; type CH_NTYPES = no change */
-    uint16_t sty;                        /* the song's style: its Intro's pattern number (ARR_FACTORY0 + 6 s, ARR_BANK0 +
-                                          * 6 b), what the Style knob shows and sets; its sections that play a style
-                                          * play this one's (the app's rule; a section on a user pattern keeps it) */
-    uint8_t mute;                        /* the tracks muted, bit t track t, in every section (not in the patterns): the
-                                          * app gives them to the engine (arr_track_mute) */
+    char name[8];
+    uint8_t bars, beats;                 /* 0 bars: empty; 2..7 beats a bar; bars * beats <= ARR_LOOP_BEATS */
+    uint8_t rsv[2];
+    uint16_t ch[ARR_LOOP_BEATS];          /* beat i of the loop: lc_pack, or LC_SAME */
+} loop_t;
+enum { ROW_A, ROW_A_FILL, ROW_B, ROW_B_FILL, ROW_NSECT };   /* a row's section (+ a fill in its last bar) */
+typedef struct {
+    uint8_t loop;                        /* 0..ARR_LOOPS-1 */
+    uint8_t sect;                        /* ROW_* */
+    uint8_t rep;                         /* plays 1..8 times */
+    uint8_t mute;                        /* tracks muted, bit t track t */
+    int8_t key;                          /* -6..+5 semitones over the song's transpose */
     uint8_t rsv;
+} row_t;
+typedef struct {
+    uint16_t style[ARR_NSECT];           /* the pattern for each section (as before) */
+    uint16_t sty;                        /* the song's style (as before) */
+    uint8_t nrows;                       /* 0..ARR_ROWS */
+    uint8_t intro, ending, at_end;       /* Intro first; Ending last; at the end 0 stop, 1 again */
+    uint8_t tempo;                       /* 40..240 */
+    int8_t transpose;                    /* -6..+5 */
+    uint8_t mute;                        /* the tracks muted in FREE and LOOP */
+    uint8_t rsv;
+    row_t row[ARR_ROWS];
 } song_t;
-
 typedef struct {
     uint32_t magic, format;
+    loop_t loop[ARR_LOOPS];
     song_t song[ARR_SONGS];
 } songs_t;
+static inline int row_main(const row_t *r) { return r->sect >= ROW_B ? SEC_B : SEC_A; }
+static inline int row_fill(const row_t *r) { return r->sect == ROW_A_FILL || r->sect == ROW_B_FILL; }
 
 /* ---- pattern numbers (a song's style[]): 0..ARR_USER_PATTERNS-1 the user patterns; ARR_FACTORY0 + 6 s + k the
  * factory style s's section k (0 Intro, 1 Main A, 2 Main B, 3 Fill AB, 4 Fill BA, 5 Ending: a slot); ARR_BANK0 +
