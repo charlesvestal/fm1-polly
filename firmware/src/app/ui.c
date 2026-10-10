@@ -833,7 +833,7 @@ static void loop_pick(int i)
     char t[16];
     if (i < 0 || i >= ARR_LOOPS)
         return;
-    if (arr_mode == ARR_LOOP && arr_loop_now == i) {
+    if (arr_mode == ARR_LOOP && (arr_playing ? arr_loop_now == i : app.loop == i)) {   /* stopped: the one picked */
         mode_set(ARR_FREE);
         say("FREE", "no loop");
         return;
