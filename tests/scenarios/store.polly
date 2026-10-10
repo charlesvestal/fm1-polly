@@ -1,13 +1,18 @@
-# POLLY, store: a pattern and a song round-trip through their flash objects, across a reboot.
+# POLLY, store: a pattern, a song and a loop round-trip through their flash objects, across a reboot.
 wait 200
 poke_pattern
 expect pat1_nev 3
-expect song0_bars 4
-expect song0_chord0 918
+expect song0_tempo 100
+expect song0_rows 2
+expect loop9_ch0 918
 reboot
 expect pat1_nev 3
-expect song0_bars 4
-expect song0_chord0 918
+expect song0_tempo 100
+expect song0_rows 2
+expect loop9_ch0 918
+expect tempo 100
+expect loop_bars9 1
+expect loop_ch9_0 918
 poke_bad_pattern
 reboot
 expect pat1_nev 0
@@ -20,22 +25,3 @@ expect song2_style3 35
 expect song2_style2 127
 expect song2_style0 32
 expect song2_style5 37
-# songs of format 3 (byte pattern numbers, 24 user patterns): user patterns 1..16 kept, 17..24 (their flash is
-# the QY bank's now) the first factory style's section, factory styles from 24 moved to 32
-poke_songs3
-reboot
-expect song1_style0 0
-expect song1_style5 5
-expect song2_style0 6
-expect song2_style1 7
-expect song2_style2 46
-expect song3_style3 15
-expect song3_style4 36
-expect song4_style0 32
-expect song4_style5 37
-expect song2_bars 2
-expect song4_bars 4
-expect song2_sect3 3
-expect song2_chord0 18
-expect song2_chord1 -1
-expect song4_chord0 18

@@ -9,6 +9,10 @@ const { instance } = await WebAssembly.instantiate(wasm, { wasi_snapshot_preview
 const ex = instance.exports; mem = ex.memory;
 if (ex._initialize) ex._initialize();
 ex.web_master(2800); ex.web_boot();
+// SEQ: the keys play the selected track there (on HOME they play chords, heard with the band)
+const B_SEQ = 9;
+ex.web_buttons(1 << B_SEQ); for (let i = 0; i < 8; i++) ex.web_render(128);
+ex.web_buttons(0); for (let i = 0; i < 8; i++) ex.web_render(128);
 let peak = 0;
 const WHITE = [0,2,4,6,7,9,11,12,14,16,18,19,21,23,24,26];
 for (let i = 0; i < 400; i++) {

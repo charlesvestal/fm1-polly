@@ -92,16 +92,3 @@ spin K4 -1
 wait 100
 expect song1_mute 0
 expect trk5_mute 0
-# songs of format 4: loaded, no mutes, the style from the sections (Main A on P01: the others' Rock)
-poke_songs4
-reboot
-wait 300
-expect song1_bars 3
-expect song2_bars 5
-expect song4_chord255 716
-expect song1_style1 0
-expect song1_style0 44
-expect song1_sty 44
-expect song2_sty 32
-expect song1_mute 0
-expect song2_mute 0

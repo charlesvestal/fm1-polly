@@ -433,8 +433,8 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (song text: \"%s\")\n", t);
-    } else if (!strcmp(what, "sel_shown"))        /* SEL held long enough: the keys' shortcuts on screen */
-        got = sel_shown();
+    } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
+        got = home_shown();
     else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
         int b = find_name(BTN_N, NB, what + 4);
         got = b >= 0 && (lit_btn >> b & 1u);
@@ -450,14 +450,42 @@ static int expect(const char *what, const char *val)
         got = arr_playing;
     else if (!strcmp(what, "recording"))
         got = arr_recording;
-    else if (!strcmp(what, "template"))           /* the template playing, -1 none */
-        got = arr_template_now;
     else if (!strcmp(what, "page"))               /* P_* (pages.c) */
         got = ui.page;
-    else if (!strcmp(what, "chord_mode"))
-        got = ui.chord;
-    else if (!strcmp(what, "tempo"))
-        got = proj.tempo;
+    else if (!strcmp(what, "tempo"))              /* the song's */
+        got = csong()->tempo;
+    else if (!strcmp(what, "mode"))               /* 0 FREE, 1 LOOP, 2 SONG */
+        got = arr_mode;
+    else if (!strcmp(what, "loop_now"))           /* 1..16, 0 none */
+        got = arr_loop_now + 1;
+    else if (!strcmp(what, "loop_beat"))
+        got = arr_loop_beat;
+    else if (!strcmp(what, "override"))           /* a chord from the keys holds until the source's next change */
+        got = arr_override;
+    else if (!strcmp(what, "row"))                /* the song's row playing, 1.. */
+        got = arr_row + 1;
+    else if (!strcmp(what, "mutes"))              /* the engine's muted tracks now, bit t track t + 1 */
+        got = arr_mutes;
+    else if (!strncmp(what, "loop_bars", 9))      /* loop_barsN: loop N's bars (0: empty) */
+        got = songs.loop[(atoi(what + 9) - 1) & 15].bars;
+    else if (!strncmp(what, "loop_ch", 7)) {      /* loop_chN_B: loop N's beat B, root*100 + type, -1 "." */
+        int l = (atoi(what + 7) - 1) & 15, b = strchr(what, '_') ? atoi(strchr(what, '_') + 1) : 0;
+        uint16_t v = songs.loop[l].ch[b % ARR_LOOP_BEATS];
+        got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
+    } else if (!strcmp(what, "rows"))             /* the song's rows */
+        got = csong()->nrows;
+    else if (!strncmp(what, "row_loop", 8))       /* row_loopN: row N's loop, 1..16 */
+        got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].loop + 1;
+    else if (!strncmp(what, "row_rep", 7))
+        got = csong()->row[(atoi(what + 7) - 1) % ARR_ROWS].rep;
+    else if (!strncmp(what, "row_sect", 8))       /* ROW_A 0, ROW_A_FILL 1, ROW_B 2, ROW_B_FILL 3 */
+        got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].sect;
+    else if (!strncmp(what, "row_mute", 8))
+        got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].mute;
+    else if (!strncmp(what, "row_key", 7))
+        got = csong()->row[(atoi(what + 7) - 1) % ARR_ROWS].key;
+    else if (!strcmp(what, "transpose"))          /* the song's, -6..+5 */
+        got = csong()->transpose;
     else if (!strcmp(what, "track"))              /* the selected track, 1..8 */
         got = proj.trk + 1;
     else if (!strcmp(what, "store_writes"))
@@ -505,40 +533,17 @@ static int expect(const char *what, const char *val)
     } else if (!strncmp(what, "slot", 4) && strstr(what, "_bars")) {
         arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         got = dbg_pat.bars;
-    } else if (!strncmp(what, "song_chord", 10)) {   /* song_chordN: the selected song's beat N, root*100 + type */
-        const chord_t *c = &songs.song[proj.song].chord[atoi(what + 10) & 255];
-        got = c->root * 100 + c->type;
-    } else if (!strcmp(what, "cur_chord")) {      /* the chord at the Chords cursor */
-        const chord_t *c = &songs.song[proj.song].chord[app.cbeat];
-        got = c->root * 100 + c->type;
-    } else if (!strncmp(what, "song_sect", 9))    /* song_sectN: bar N's section mark */
-        got = songs.song[proj.song].sect[atoi(what + 9) & 63];
-    else if (!strcmp(what, "song_bars"))
-        got = songs.song[proj.song].bars;
-    else if (!strncmp(what, "song", 4) && strstr(what, "_mute") && what[4] >= '1' && what[4] <= '4')
+    } else if (!strncmp(what, "song", 4) && strstr(what, "_mute") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].mute;     /* songN_mute: its muted tracks, bit t track t + 1 */
     else if (!strncmp(what, "song", 4) && strstr(what, "_sty") && !strstr(what, "_style") && what[4] >= '1' &&
              what[4] <= '4')
         got = songs.song[what[4] - '1'].sty;      /* songN_sty: its style, the Intro's pattern number (32: Pop) */
     else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) % ARR_NSECT];   /* songN_styleI (I: the slot) */
-    else if (!strncmp(what, "song", 4) && strstr(what, "_sect") && what[4] >= '1' && what[4] <= '4')
-        got = songs.song[what[4] - '1'].sect[atoi(strstr(what, "_sect") + 5) & 63];   /* songN_sectB: bar B's mark */
-    else if (!strncmp(what, "song", 4) && strstr(what, "_chord") && what[4] >= '1' && what[4] <= '4') {
-        const chord_t *c = &songs.song[what[4] - '1'].chord[atoi(strstr(what, "_chord") + 6) & 255];
-        got = c->type < CH_NTYPES ? c->root * 100 + c->type : -1;   /* songN_chordK: beat K, root*100 + type, -1 none */
-    } else if (!strncmp(what, "song", 4) && strstr(what, "_bars") && what[4] >= '1' && what[4] <= '4')
-        got = songs.song[what[4] - '1'].bars;     /* songN_bars (1..4), as in RAM */
-    else if (!strcmp(what, "song_on"))            /* the app gave the arranger the song (not a template) */
-        got = app.song_on;
-    else if (!strcmp(what, "rec_chords"))
-        got = ui.rec_chords;
-    else if (!strcmp(what, "cbeat"))              /* the Chords / Arrange cursor, a beat 0.. */
-        got = app.cbeat;
+    else if (!strncmp(what, "song", 4) && strstr(what, "_tempo") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].tempo;    /* songN_tempo (1..4), as in RAM */
     else if (!strcmp(what, "clock"))
         got = proj.clock;
-    else if (!strcmp(what, "key"))
-        got = proj.key;
     else if (!strcmp(what, "quant"))              /* the record grid: ARR_Q_8 0, 8T 1, 16 2, 16T 3, 32 4, off 5 */
         got = proj.quant;
     else if (!strcmp(what, "grid_bar"))           /* the Grid knob's bar, as drawn: its fill */
@@ -547,12 +552,16 @@ static int expect(const char *what, const char *val)
         got = ui.job;
     else if (!strcmp(what, "rev_type"))
         got = proj.rev_type;
-    else if (!strcmp(what, "song0_bars")) {       /* song 0's length in bars, as saved */
+    else if (!strcmp(what, "song0_tempo")) {      /* song 0's tempo, as saved */
         project_songs_load(&dbg_songs);
-        got = dbg_songs.song[0].bars;
-    } else if (!strcmp(what, "song0_chord0")) {    /* song 0, bar 0 beat 0's chord: root*100 + type */
+        got = dbg_songs.song[0].tempo;
+    } else if (!strcmp(what, "song0_rows")) {      /* song 0's rows, as saved */
         project_songs_load(&dbg_songs);
-        got = dbg_songs.song[0].chord[0].root * 100 + dbg_songs.song[0].chord[0].type;
+        got = dbg_songs.song[0].nrows;
+    } else if (!strcmp(what, "loop9_ch0")) {       /* loop 9's beat 0, as saved: root*100 + type, -1 "." */
+        project_songs_load(&dbg_songs);
+        got = dbg_songs.loop[8].ch[0] == LC_SAME ? -1 : lc_unpack(dbg_songs.loop[8].ch[0]).root * 100 +
+                                                            lc_unpack(dbg_songs.loop[8].ch[0]).type;
     } else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);
@@ -791,10 +800,12 @@ int main(int argc, char **argv)
             dbg_pat.ev[2].vel = 100;
             project_pattern_save(SEC_A - 1, &dbg_pat);    /* song 1's Main A (user pattern 2) */
             songs_defaults(&dbg_songs);
-            dbg_songs.song[0].bars = 4;
-            dbg_songs.song[0].chord[0].root = 9;      /* A */
-            dbg_songs.song[0].chord[0].type = CH_MIN7;
-            dbg_songs.song[0].chord[0].bass = CH_NOBASS;
+            dbg_songs.song[0].tempo = 100;
+            dbg_songs.song[0].nrows = 2;
+            {
+                chord_t am7 = {9, CH_MIN7, CH_NOBASS};          /* L9's first beat: A m7 */
+                loop_write(&dbg_songs.loop[8], 0, am7);
+            }
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_bad_style")) {   /* host-only: songs with pattern numbers past the styles */
             songs_defaults(&dbg_songs);
@@ -804,45 +815,6 @@ int main(int argc, char **argv)
             dbg_songs.song[1].style[SEC_INTRO - 1] = ARR_USER_PATTERNS;                  /* past the user patterns */
             dbg_songs.song[1].style[SEC_END - 1] = 0xFFFF;
             project_songs_save(&dbg_songs);
-        } else if (!strcmp(cmd, "poke_songs3")) {     /* host-only: songs of format 3 (byte pattern numbers, 24 user) */
-            static uint8_t old[8 + ARR_SONGS * SONG3_BYTES];
-            uint32_t m = SONGS_MAGIC, f = 3;
-            memset(old, 0, sizeof old);
-            memcpy(old, &m, 4);
-            memcpy(old + 4, &f, 4);
-            for (int n = 0; n < ARR_SONGS; n++) {
-                uint8_t *g = old + 8 + n * SONG3_BYTES;
-                for (int k = 0; k < ARR_NSECT; k++)
-                    g[k] = (uint8_t)(n * ARR_NSECT + k);       /* the old defaults: 6n..6n+5 */
-                g[ARR_NSECT] = (uint8_t)(n + 1);                /* bars */
-                g[ARR_NSECT + 1] = 1;
-                g[ARR_NSECT + 2 + 3] = SEC_B;                   /* bar 4: Main B */
-                for (int b = 0; b < ARR_SONGBARS * 4; b++) {
-                    uint8_t *c = g + ARR_NSECT + 2 + ARR_SONGBARS + 3 * b;
-                    c[0] = (uint8_t)(b % 12);
-                    c[1] = b == 0 ? CH_MIN7 : CH_NTYPES;
-                    c[2] = CH_NOBASS;
-                }
-            }
-            old[8 + 1 * SONG3_BYTES + 2] = 24 + 6 * 2 + 2;       /* song 2's Main B: factory style 3's (Rock B) */
-            plat_store_save(OBJ_SONGS, old, sizeof old);
-        } else if (!strcmp(cmd, "poke_songs4")) {     /* host-only: songs of format 4 (no style, no mutes): song 1 on
-                                                       * P01 for Main A, the Rock style's other sections (style 2) */
-            static uint8_t old[8 + ARR_SONGS * SONG4_BYTES];
-            uint32_t m = SONGS_MAGIC, f = 4;
-            songs_defaults(&dbg_songs);
-            for (int k = 0; k < ARR_NSECT; k++)
-                dbg_songs.song[0].style[k] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * 2 + k);
-            dbg_songs.song[0].style[SEC_A - 1] = 0;
-            dbg_songs.song[0].bars = 3;
-            dbg_songs.song[1].bars = 5;
-            dbg_songs.song[3].chord[255].root = 7;
-            dbg_songs.song[3].chord[255].type = CH_MIN;
-            memcpy(old, &m, 4);
-            memcpy(old + 4, &f, 4);
-            for (int n = 0; n < ARR_SONGS; n++)
-                memcpy(old + 8 + n * SONG4_BYTES, &dbg_songs.song[n], SONG4_BYTES);
-            plat_store_save(OBJ_SONGS, old, sizeof old);
         } else if (!strcmp(cmd, "poke_muted_pattern")) {   /* host-only: P01 saved with C1 muted (patterns held their
                                                              * mutes before they were the song's), song 1's Main A */
             pattern_empty(&dbg_pat);

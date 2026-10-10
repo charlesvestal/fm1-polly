@@ -1,0 +1,133 @@
+# POLLY, pages: the X0X page map (a button opens its first page, again its next; SELECT turns them), the keys by
+# screen, HOME held + a key / SELECT / PRESETS, MODE, the song's tempo and transpose.
+# Pages: 0 HOME, 1 SONG, 2-3 LOOP, 4 Pattern, 5 Pattern setup, 6 Track, 7 Track keys, 8 Mixer, 9 Tone,
+# 10 Master FX, 11-12 Style, 13 Setup, 14 Panel
+wait 300
+expect page 0
+tap HOME
+expect page 1
+tap HOME
+expect page 0
+tap ARP
+expect page 2
+tap ARP
+expect page 3
+turn SELECT 1
+expect page 2
+tap SEQ
+expect page 4
+turn SELECT 1
+expect page 5
+turn SELECT 1
+expect page 4
+turn SELECT -1
+expect page 5
+tap EDIT
+expect page 6
+tap EDIT
+expect page 7
+tap LFO
+expect page 8
+tap LFO
+expect page 9
+tap FX
+expect page 10
+tap FX
+expect page 10
+turn SELECT 1
+expect page 10
+tap ENV
+expect page 11
+tap ENV
+expect page 12
+shot style2.png
+tap GLO
+expect page 13
+shot setup.png
+tap GLO
+expect page 14
+# the keys: the selected track on SEQ, nothing on FX, the track on LFO's black keys
+tap SEQ
+key 7 down
+wait 200
+expect voices >0
+key 7 up
+wait 1500
+tap FX
+key 7 down
+wait 200
+expect voices 0
+key 7 up
+tap LFO
+tapkey b2
+expect track 3
+tapkey w2
+expect track 3
+tapkey b6
+expect track 7
+# HOME held + SELECT: the tempo (the song's); HOME's release then turns no page
+tap HOME
+expect page 0
+expect tempo 105
+press HOME
+spin SELECT 5
+release HOME
+expect tempo 110
+expect song1_tempo 110
+expect page 0
+# HOME held + PRESETS: the song (stopped: at once), with its own tempo
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+expect tempo 105
+expect page 0
+press HOME
+turn PRESET -1
+release HOME
+expect song 1
+expect tempo 110
+# HOME held + black key 2: Main B first
+press HOME
+tapkey b2
+release HOME
+expect msg_is_FIRST 1
+expect next_sect 3
+# HOME's knobs: TRANSPOSE, MODE
+spin K3 2
+expect transpose 2
+spin K3 -9
+expect transpose -6
+spin K3 6
+expect transpose 0
+spin K4 2
+wait 50
+expect mode 2
+spin K4 -1
+wait 50
+expect mode 1
+spin K4 -1
+wait 50
+expect mode 0
+# HOME held + white key 3: L3 (LOOP); playing, the loop goes round; HOME + white 3 again: FREE
+press HOME
+tapkey w2
+release HOME
+wait 50
+expect mode 1
+tap PLAY
+wait 3000
+expect loop_now 3
+shot home_loop.png
+press HOME
+tapkey w2
+release HOME
+wait 50
+expect mode 0
+expect loop_now 0
+tap PLAY
+wait 500
+# the Setup's lights on KNOB 3 (no Key knob)
+tap GLO
+spin K3 1
+expect lit_GLO 1

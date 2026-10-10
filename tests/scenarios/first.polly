@@ -1,15 +1,45 @@
-# POLLY, first: the keys play the selected track (C1, a piano); MIDI in plays the synth on its channels.
+# POLLY, first: HOME at start-up (MODE FREE); the keys play chords there, PLAY starts the band on the chord played;
+# HOME + a white key picks a loop (MODE LOOP); SELECT turns HOME's pages; MIDI in plays the synth on its channels.
 wait 500
 shot boot.png
+expect page 0
+expect mode 0
+expect loop_now 0
 wav first.wav
+# A minor on the keys (A3 C4 E4), held: the band's chord
+key 4 down
 key 7 down
 key 11 down
-key 14 down
-wait 600
-expect voices >2
+wait 100
+key 4 up
 key 7 up
 key 11 up
-key 14 up
+tap PLAY
+wait 600
+expect playing 1
+expect chord_root 9
+expect chord_type 16
+expect voices >2
+shot playing.png
+# HOME held + white key 1: L1, from the next bar line; the overlay while HOME is held
+press HOME
+wait 450
+expect home_shown 1
+shot home_held.png
+tapkey w0
+release HOME
+expect page 0
+expect mode 1
+wait 2200
+expect loop_now 1
+shot loop.png
+# SELECT: HOME's next page (SONG), and back
+turn SELECT 1
+expect page 1
+shot song.png
+turn SELECT -1
+expect page 0
+tap PLAY
 wait 1000
 # MIDI in: a program change and a chord on channel 12, as the GM module
 midi BB 07 64
