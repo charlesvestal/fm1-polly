@@ -24,7 +24,7 @@ speaker and the headphone jack, and MIDI coming in plays them too.
 ## Quick start
 
 1. Switch on. You're on the Song page. Turn **KNOB 1** to pick a style.
-2. Press **PLAY**. The Intro plays, then Main A.
+2. Press **PLAY**. Main A plays (the Intro plays in a song, or when you ask for it first).
 3. Tap **SEL**: CHORD lights. Hold three or more keys and the band plays that chord. It keeps the
    chord after you let go.
 4. Hold **SEL** and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill, 5 Ending. The section
@@ -125,8 +125,8 @@ them on the Style knob, with "QY" before their names.
 
 ### Picking a style
 
-On the Song page, turn **KNOB 1** (or PRESETS). The header shows the style. On a song with no chords
-written yet, the tempo changes to the style's own. Once you've written chords, the tempo stays yours.
+On the Song page, turn **KNOB 1** (or PRESETS). The header shows the style. Until you set the song's
+tempo yourself, the tempo changes to the style's own. Once you've turned the tempo, it stays yours.
 You can change the style while playing.
 
 Each song has its own style, so each of the four songs can sound different.
@@ -168,8 +168,8 @@ While stopped, you choose the section PLAY starts with ("FIRST Main B").
 
 **Starting and ending:**
 
-- PLAY starts with the Intro when the style has one, and goes on to Main A. In a song, the mark on
-  its first bar decides.
+- PLAY starts on Main A. The Intro plays first in a song with INTRO on, or when you pick it (HOME +
+  black key 1) before PLAY.
 - The Ending plays once and stops. Without an Ending, Polly stops at the bar line.
 
 ### Intros and endings hold a chord
@@ -234,8 +234,8 @@ you play a chord, pick another, or write a song.
 | | | | |
 | --- | --- | --- | --- |
 | 1 Pop (I–V–vi–IV) | 5 Blues (12 bars) | 9 Canon | 13 Jazz (I–VI7–ii–V) |
-| 2 Sensitive (vi–IV–I–V) | 6 Minor blues | 10 Andalusian | 14 Vamp (ii–V) |
-| 3 Fifties (I–vi–ii–V) | 7 One-four | 11 Mixolydian (I–♭VII–IV) | 15 Gospel (IV–I) |
+| 2 Ballad (vi–IV–I–V) | 6 MinBlues (minor blues) | 10 Flamenco (Andalusian) | 14 Vamp (ii–V) |
+| 3 Fifties (I–vi–ii–V) | 7 One-four | 11 Mixo (I–♭VII–IV) | 15 Gospel (IV–I) |
 | 4 ii–V–I | 8 Minor (i–VI–III–VII) | 12 Doo-wop | 16 Waltz (3/4) |
 
 They are written in C. **Key** (Song page KNOB 3, also on Templates and Setup) moves them to another
