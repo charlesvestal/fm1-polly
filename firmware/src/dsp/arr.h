@@ -169,9 +169,13 @@ void arr_load_bank(int slot, const qb_style_t *s, int k, const pattern_t *p);
  * quietest are dropped (their count returned) */
 int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
 /* The Intro and the Ending play over a held chord (the QY70's way: their phrases carry their own lead-in and
- * cadence): the chord on the section's first beat (the source's on that beat, else the one before) stays until
- * the section ends; the source changes it again from the next section. Chords the player sets (the keys,
- * arr_set_chord, the transpose moved) change it at once, also in the Intro and the Ending.
+ * cadence). The Intro's: in LOOP the loop's beat-0 chord (an empty beat 0: the chord sounding there, the loop's
+ * last), the loop starting at its beat 0 when the Intro ends (from PLAY or by hand); in SONG its first row's first
+ * chord; in FREE the chord as it is. The Ending's: the chord on its first beat (the source's on that beat, else
+ * the one before). Either stays until the section ends; the source changes it again from the next section. A
+ * chord on the loop's beat 0 is a change there (the Intro's first beat, Main A's first beat after it): it ends a
+ * chord from the keys, as any change of the loop does. Chords the player sets (the keys, arr_set_chord, the
+ * transpose moved) change the held chord at once, also in the Intro and the Ending.
  * SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
  * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
  * is Fill BA from Main B, else Fill AB (from Main A); a fill during a fill adds a bar; SEC_FILL during the Intro
@@ -192,7 +196,8 @@ void arr_loops(const loop_t *table);             /* at init: the app's ARR_LOOPS
 void arr_edit(int on);
 void arr_mode_free(void);
 /* loop i (0..ARR_LOOPS-1, another ignored): stopped, from PLAY (MIDI Continue: from the bar it continues in);
- * playing, from the next bar line (its bars count from there). FREE: at once, the chord staying */
+ * playing, from the next bar line (its bars count from there). Under an Intro (PLAY's or by hand) its bars count
+ * from the Intro's end, the Intro holding its beat-0 chord (arr_section). FREE: at once, the chord staying */
 void arr_mode_loop(int i);
 /* SONG: song *s (the app's; it stays put) plays its rows from row r: stopped, from PLAY (with its Intro when
  * r is 0 and Intro is on; MIDI Continue: from the bar it continues in, the row's section from the next bar line);

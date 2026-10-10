@@ -1720,12 +1720,13 @@ static void test_loop_intro(void)
     arr_mode_loop(0);
     arr_play(1);
     run_to((uint32_t)(3.5f * BAR));
-    CHECK(slot_at(0) == SI && root_at(0) == 0 && root_at(BAR) == 0 && root_at(1.75f * BAR) == 0, "the Intro holds C (%d %d)",
-          root_at(BAR), root_at(1.75f * BAR));
-    CHECK(slot_at(2 * BAR) == SA && root_at(2 * BAR) == 0 && root_at(3 * BAR) == 7, "Main A from the loop's beat 0: C, then G (%d %d)",
-          root_at(2 * BAR), root_at(3 * BAR));
+    CHECK(slot_at(0) == SI && root_at(0) == 0 && root_at(BAR) == 0 && root_at(1.75f * BAR) == 0, "the Intro holds C (%d %d %d %d)",
+          slot_at(0), root_at(0), root_at(BAR), root_at(1.75f * BAR));
+    CHECK(slot_at(2 * BAR) == SA && root_at(2 * BAR) == 0 && root_at(3 * BAR) == 7, "Main A from the loop's beat 0: C, then G (%d %d %d)",
+          slot_at(2 * BAR), root_at(2 * BAR), root_at(3 * BAR));
     arr_play(0);
     run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "loop intro: offs match");
     /* an Intro by hand while the loop plays (on its G): it holds C, then the loop from its beat 0 */
     reset();
     loops_reset();
@@ -1739,12 +1740,109 @@ static void test_loop_intro(void)
     arr_section(SEC_INTRO);
     run_to((uint32_t)(4.5f * BAR));
     CHECK(root_at(BAR) == 7 && slot_at(2 * BAR) == SI && root_at(2 * BAR) == 0 && root_at(2.75f * BAR) == 0,
-          "G, then the Intro over the loop's C (%d %d)", root_at(BAR), root_at(2 * BAR));
-    CHECK(slot_at(3 * BAR) == SA && root_at(3 * BAR) == 0 && root_at(4 * BAR) == 7, "Main A from the loop's beat 0: C, G (%d %d)",
-          root_at(3 * BAR), root_at(4 * BAR));
+          "G, then the Intro over the loop's C (%d %d %d %d)", root_at(BAR), slot_at(2 * BAR), root_at(2 * BAR), root_at(2.75f * BAR));
+    CHECK(slot_at(3 * BAR) == SA && root_at(3 * BAR) == 0 && root_at(4 * BAR) == 7, "Main A from the loop's beat 0: C, G (%d %d %d)",
+          slot_at(3 * BAR), root_at(3 * BAR), root_at(4 * BAR));
     arr_play(0);
     run_blocks(1);
-    CHECK(offs_match(stub_log, stub_n), "loop intro: offs match");
+    CHECK(offs_match(stub_log, stub_n), "hand intro: offs match");
+    /* beat 0 empty: the Intro holds the loop's chord sounding there (its last, searched from the end) */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    loop_clear(&LT[0], 0);
+    loop_write(&LT[0], 4, ch(7, CH_MAJ));          /* . | G | . | F */
+    loop_write(&LT[0], 12, ch(5, CH_MAJ));
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(slot_at(0) == SI && root_at(0) == 5 && root_at(0.75f * BAR) == 5, "the Intro holds F, the loop's last (%d %d %d)",
+          slot_at(0), root_at(0), root_at(0.75f * BAR));
+    CHECK(slot_at(BAR) == SA && root_at(BAR) == 5 && root_at(2 * BAR) == 7, "Main A: F (beat 0's), then G (%d %d %d)", slot_at(BAR),
+          root_at(BAR), root_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "empty beat 0: offs match");
+}
+/* the keys' chord and the Intro in LOOP: a loop with a chord on its beat 0 changes there (the Intro's first beat,
+ * Main A's first beat), ending the keys' chord as any loop change does; with beat 0 empty the keys' chord holds */
+static void test_loop_intro_keys(void)
+{
+    static const chord_t c2[2] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}};
+    static const uint8_t f[] = {53, 57, 60}, d[] = {50, 54, 57};
+    /* held into a hand Intro: C at its first beat */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    loop_bars(0, 4, 2, c2);                        /* C | G */
+    arr_section(SEC_A);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(1.3f * BAR));
+    arr_keys_held(f, 3);
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(1.8f * BAR));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 5 && arr_override == 1, "F from the keys (%d %d)", arr_chord_unpack(arr_chord_now).root,
+          arr_override);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(arr_sect == SEC_INTRO && arr_chord_unpack(arr_chord_now).root == 0 && arr_override == 0, "the Intro: C, the keys' F over (%d %d %d)",
+          arr_sect, arr_chord_unpack(arr_chord_now).root, arr_override);
+    /* played in the Intro: held to its end; Main A's first beat (C, a change) ends it */
+    arr_keys_held(0, 0);
+    arr_keys_held(d, 3);
+    run_to((uint32_t)(2.9f * BAR));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 2 && arr_override == 1, "D from the keys in the Intro (%d %d)",
+          arr_chord_unpack(arr_chord_now).root, arr_override);
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 0 && arr_override == 0, "Main A: C (%d %d %d)", arr_sect,
+          arr_chord_unpack(arr_chord_now).root, arr_override);
+    arr_play(0);
+    run_blocks(1);
+    /* beat 0 empty: the keys' chord holds through the Intro and into Main A, to the loop's first entry */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    loop_clear(&LT[0], 0);
+    loop_write(&LT[0], 4, ch(7, CH_MAJ));          /* . | G */
+    arr_section(SEC_A);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(0.3f * BAR));
+    arr_keys_held(f, 3);
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 5 && arr_override == 1, "F through the Intro, into Main A (%d %d %d)",
+          arr_sect, arr_chord_unpack(arr_chord_now).root, arr_override);
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 7 && arr_override == 0, "the loop's G ends it (%d %d)", arr_chord_unpack(arr_chord_now).root,
+          arr_override);
+    arr_play(0);
+    run_blocks(1);
+    /* a write across the Intro's first beat: a mid-loop chord it never plays does not end the keys' chord */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    loop_clear(&LT[0], 0);
+    loop_write(&LT[0], 2, ch(9, CH_MIN));          /* . . Am . */
+    arr_section(SEC_A);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(0.6f * BAR));
+    arr_keys_held(f, 3);
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(BAR - 300));
+    arr_edit(1);
+    run_to((uint32_t)(1.75f * BAR));               /* the loop's clock passes its Am beat (2) */
+    arr_edit(0);
+    run_blocks(1);
+    CHECK(arr_sect == SEC_INTRO && arr_chord_unpack(arr_chord_now).root == 5 && arr_override == 1, "F still (%d %d %d)", arr_sect,
+          arr_chord_unpack(arr_chord_now).root, arr_override);
+    arr_play(0);
+    run_blocks(1);
 }
 static void test_loop_busy_override(void)       /* a change missed while busy ends the keys' chord at release */
 {
@@ -3176,6 +3274,7 @@ int main(void)
     test_transpose_held();
     test_loop_busy_override();
     test_loop_intro();
+    test_loop_intro_keys();
     test_loop_edges();
     test_song_marks_continue();
     test_keys_release();

@@ -955,9 +955,9 @@ static uint8_t row_start(uint32_t b0)
     override = 0;
     return (uint8_t)row_main(&sn.cur);
 }
-/* the source asked for (mode_next) starts: its beat 0 at beat `origin`; the chord sounding there owed (a beat
- * with no entry of its own still takes the loop's), a played chord's hold over. A song: its row_from, the
- * rows' clock started by the caller (row_start) */
+/* the source asked for (mode_next) starts: its beat 0 at beat `origin` (an Intro playing: from its end,
+ * switch_to); the chord sounding there owed (a beat with no entry of its own still takes the loop's), a played
+ * chord's hold over. A song: its row_from, the rows' clock started by the caller (row_start) */
 static void mode_apply(uint32_t origin)
 {
     mode = mode_next;
@@ -976,7 +976,7 @@ static void mode_apply(uint32_t origin)
 }
 /* PLAY: the section queued; else a song's Intro (on, from row 1) or its row's section; else (not recording)
  * the Intro, when it has notes; else the Main as it was (after anything else: Main A). A source asked for
- * starts here, its beat 0 PLAY's; a song from row_from */
+ * starts here, its beat 0 PLAY's (an Intro: from its end, switch_to); a song from row_from */
 static void transport_start(void)
 {
     uint8_t s = arr_next_sect, to = fill_to;
@@ -1628,7 +1628,9 @@ static void block(uint32_t frames)
         xp_pend = 0;
     }
     if (chord_wait && !edit_busy && arr_playing) {
-        if ((mode == ARR_LOOP && missed_change(&loops[lp], lp_origin)) ||
+        if ((mode == ARR_LOOP && arr_sect == SEC_INTRO && loops[lp].ch[0] != LC_SAME) ||   /* (the Intro plays only
+                                                                                            * the loop's beat 0) */
+            (mode == ARR_LOOP && arr_sect != SEC_INTRO && missed_change(&loops[lp], lp_origin)) ||
             (mode == ARR_SONG && rows_live && missed_change(row_loop(&sn.cur), row_b0)))
             override = 0;                          /* the change missed ends a played chord's hold */
         chord_owed = 1;                            /* the chord sounding now */
