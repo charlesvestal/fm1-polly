@@ -11,7 +11,10 @@ and live (playing); each song row picks its section, its mutes and its key; a ch
 until the loop's next change; SELECT turns pages; REC writes what the keys play, and REC on HOME in FREE
 starts a new loop. Then a songwriting and UX pass (below, folded in), and a simplification: page buttons always
 open their first page (SELECT alone turns pages; SONG is HOME's next pages), HOME's KNOB 4 is LOOP (no MODE
-knob), and on SONG a white key always writes a row (REPEAT only by its knob; no SAVE + white key there).
+knob), and on SONG a white key always writes a row (REPEAT only by its knob; no SAVE + white key there). Then
+three more: ARP opens the first empty loop until one is picked (never a factory progression by accident), a loop
+is named right after it is written (ARP, SELECT, NAME), and PLAY on SONG always starts the song from row 1 (from a
+loop playing: at the next bar line; another row: SEL's PLAY FROM ROW).
 
 ## Principles
 
@@ -83,10 +86,12 @@ The engine keeps three modes; the UI has no MODE knob. HOME's KNOB 4 is **LOOP**
   - in SONG, a mute (SEQ's MUTE) or a section (HOME + black key) lasts until the next row.
 - HOME + a white key picks that loop (queued to the next bar while playing); in SONG it leaves the song (with REC
   on, it writes the row instead). HOME + the lit white key stops the loop: FREE.
-- **PLAY** on a SONG page starts the song at the selected row (the Intro only from row 1); anywhere else, while
-  in the song, it starts at row 1. While anything plays PLAY stops it; the song then starts with the next PLAY. While the song
-  plays, SONG's cursor follows it until you turn ROW; when the song stops by itself (its Ending, its end) the
-  cursor goes back to row 1.
+- **PLAY** on a SONG page: the song not playing, it starts from row 1, whatever the cursor: stopped, at once
+  (with its Intro when on); while a loop or FREE plays, from row 1 at the next bar line (no stop needed, no
+  Intro; "NEXT ROW 1"). The song playing, PLAY stops it. Another row: SEL's **PLAY FROM ROW n ↵** (the cursor's
+  row; playing, from the next bar line). Anywhere else, PLAY starts and stops (in the song: from row 1). While the
+  song plays, SONG's cursor follows it until you turn ROW; when the song stops by itself (its Ending, its end)
+  the cursor goes back to row 1.
 - **PLAY in FREE and in a loop starts on Main A**, never the Intro by itself: the Intro plays in SONG with INTRO on,
   or when picked first (HOME + black 1).
 - Stopped, HOME's big chord is the one PLAY starts on (the loop's first; in SONG row 1's), and a chord held on
@@ -101,7 +106,7 @@ back to HOME. The tag's dots show the button's pages (HOME: four, HOME and SONG'
 | Button | Screen (pages) | KNOB 1–4 | PRESETS (the next one of what the screen shows) |
 |---|---|---|---|
 | HOME | **HOME**; SELECT: **SONG** (3 pages) | STYLE · TEMPO · TRANSPOSE (the song's) · LOOP | loop |
-| ARP | **LOOP** (the loop playing, or the last picked); page 2 | ROOT · TYPE · BASS · STEP; LENGTH · BEATS · NAME · – | loop (queued: you edit what you hear) |
+| ARP | **LOOP** (the loop playing, or the last picked; none picked yet since start-up: the first empty loop, so the grid never overwrites a factory progression by accident); page 2 | ROOT · TYPE · BASS · STEP; LENGTH · BEATS · NAME · – | loop (queued: you edit what you hear) |
 | SEQ | Pattern (8 tracks of the section playing); page 2 Pattern setup | GRID · – · – · MUTE; BARS · BEATS · LETTER · CHARACTER | the section's pattern |
 | EDIT | Track; page 2 Track keys | PROGRAM · TYPE · LOW · HIGH; HIGH KEY · CHANNEL | instrument family |
 | LFO | Mixer; page 2 Tone | VOLUME · PAN · REVERB · CHORUS; BRIGHT · RESO | – |
@@ -116,7 +121,7 @@ back to HOME. The tag's dots show the button's pages (HOME: four, HOME and SONG'
 - **SELECT**: the previous / next page; in a list, up and down.
 - **ALGORITHM**: the track (D1 … C4) on any screen; in a list, changes the value.
 - **SEL**: the screen as a list of everything on it, then **MORE** (settings on no page), and actions (↵):
-  LOAD PROGRESSION, CLEAR LOOP, INSERT ROW, DELETE ROW, CLEAR SONG, COPY SONG TO, ERASE TRACK, CLEAR PATTERN,
+  LOAD PROGRESSION, CLEAR LOOP, PLAY FROM ROW n, INSERT ROW, DELETE ROW, CLEAR SONG, COPY SONG TO, ERASE TRACK, CLEAR PATTERN,
   BACK TO STYLE. Today's SAVE-held jobs move here. In a question SEL is yes, HOME is no (HOME's press, held or
   not; held, its key shortcuts then work); the footer says SEL: YES · HOME: NO as the question appears.
   INSERT ROW copies the cursor's row.
@@ -141,7 +146,8 @@ back to HOME. The tag's dots show the button's pages (HOME: four, HOME and SONG'
   - HOME, LOOP in the song: the row's loop plays as a loop first ("SONG PAUSED: EDITING L9"); PLAY on SONG
     goes back to the song.
   - SEQ, EDIT: records the selected track (as today).
-  - SONG: with PLAY, writes rows from the selected row: the loops and sections you pick with HOME + keys, and
+  - SONG: with PLAY, writes rows (from row 1; PLAY FROM ROW: the cursor's; REC pressed while a loop plays: the
+    cursor's, from the next bar line): the loops and sections you pick with HOME + keys, and
     the mutes you change.
   - LFO, FX, ENV, GLO: "REC: not here".
 
@@ -225,15 +231,15 @@ WHITE: ROW'S LOOP · BLACK: MUTES
 MANUAL.md's "Writing a song", run as `tests/scenarios/walkthrough.polly`:
 
 1. Groove: KNOB 1 Funk, PLAY, a chord.
-2. Verse: REC, Am F C G a bar each, REC: L9 plays.
-3. Chorus: LOOP to "–", REC, C G Am F, REC: L10.
-4. Names: ARP, SELECT, NAME Chorus; PRESETS to L9, NAME Verse.
-5. Song: HOME, SELECT; white 9, 10, 9, 10: four rows.
-6. Row 2 SECTION Main B (row 4 follows), REPEAT ×2; row 4 page 2 KEY +2; row 3 black 1, 2 (no drums).
-7. PLAY (stops the loop), ROW to 1, PLAY: Intro, rows with fills, Ending.
-8. Stopped: saved by itself (or SAVE).
+2. Verse: REC, Am F C G a bar each, REC: L9 plays; named: ARP, SELECT, NAME Verse.
+3. Chorus: HOME, LOOP to "–", REC, C G Am F, REC: L10; named: ARP, SELECT, NAME Chorus.
+4. Song: HOME, SELECT; white 9, 10, 9, 10: four rows.
+5. Row 2 SECTION Main B (row 4 follows), REPEAT ×2; row 4 page 2 KEY +2; row 3 black 1, 2 (no drums).
+6. PLAY on SONG: the song takes over from the loop at the next bar line, row 1: rows with fills, Ending.
+7. Stopped: saved by itself (or SAVE).
 
-40 actions (a knob turn or a chord counted once), against ~64 bars of cursor and knob work before loops.
+40 actions (a knob turn, a key or a chord counted once; SAVE included), against ~64 bars of cursor and knob work
+before loops.
 
 ## Engine
 

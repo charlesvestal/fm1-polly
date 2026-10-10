@@ -28,22 +28,22 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 1. **Find a groove.** Turn **KNOB 1** for a style (Pop, Funk, Bossa…). Press **PLAY**. Play a chord:
    three keys or more. The band follows whatever you play.
 2. **Write your verse.** Press **REC**, play Am, F, C, G, one per bar, then press **REC** again. Your
-   chords are now loop L9 and the band plays them round. (Or, stopped: hold HOME and press white key 9,
-   press **ARP**, and write them on its grid one chord at a time: REC, then a chord a bar.)
-3. **Write your chorus.** Turn **KNOB 4** to "–" and the band is free again. Press **REC**, play C, G,
-   Am, F, then press **REC**. That's L10.
-4. **Name them** (optional). Press **ARP**, then **SELECT** to page 2, and turn **NAME**: "Chorus" for
-   L10, the loop playing. Turn **PRESETS** back to L9 and turn NAME to "Verse".
-5. **Build the song.** Press **HOME**, then **SELECT** to the SONG page. Tap white keys in order: 9,
+   chords are now loop L9 and the band plays them round. Name it: press **ARP**, **SELECT** to page 2,
+   and turn **NAME** to "Verse". (Or, stopped: press **ARP**, which opens the first empty loop, and
+   write on its grid: **REC**, then a chord a bar.)
+3. **Write your chorus.** Press **HOME** and turn **KNOB 4** to "–": the band is free again. Press
+   **REC**, play C, G, Am, F, then press **REC**. That's L10. Name it: **ARP**, **SELECT**, **NAME**
+   to "Chorus".
+4. **Build the song.** Press **HOME**, then **SELECT** to the SONG page. Tap white keys in order: 9,
    10, 9, 10. Each tap adds a row: verse, chorus, verse, chorus.
-6. **Shape it.** On a chorus row (**ROW**, KNOB 1, moves between rows), turn **SECTION** to Main B for
+5. **Shape it.** On a chorus row (**ROW**, KNOB 1, moves between rows), turn **SECTION** to Main B for
    the busier groove (the other chorus rows follow). Turn **REPEAT** for ×2. On the last row, **SELECT**
    to the next page and turn **KEY** to +2 for the last chorus a tone up. For a breakdown, tap black
    keys to mute tracks on a row (black keys 1 and 2 are the drums).
-7. **Play it.** If the band is still playing, press **PLAY** to stop it. Turn ROW back to row 1 and
-   press **PLAY** on the SONG page. Polly plays an Intro, your rows with fills between sections, then
-   an Ending.
-8. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
+6. **Play it.** Press **PLAY** on the SONG page. The band is still playing your chorus, so the song
+   takes over at the next bar, from row 1: your rows with fills between sections, then an Ending.
+   (From a stop it opens with an Intro. To start on another row: **SEL**, **PLAY FROM ROW**.)
+7. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
 
 ## Getting around
 
@@ -51,9 +51,9 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 
 | Control | What it does |
 | --- | --- |
-| PLAY | Start and stop. On a SONG page: the song, from the row the cursor is on |
+| PLAY | Start and stop. On a SONG page: the song from row 1 (while a loop plays, from the next bar); playing, it stops it |
 | REC | Write what the keys play here: chords into the loop (HOME, LOOP; in FREE on HOME a new loop), the selected track (SEQ, EDIT), rows (SONG) |
-| SEL | This page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, INSERT ROW…) |
+| SEL | This page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, PLAY FROM ROW…) |
 | HOME | HOME; SELECT for the SONG pages. Held: the shortcuts, on screen: + white key 1–16 a loop, + black key 1–5 a section, + SELECT the tempo, + PRESETS the song |
 | ARP | LOOP: the loop's chords; page 2 its length, beats, name |
 | SEQ | Pattern, page 2 Pattern setup |
@@ -177,8 +177,8 @@ While stopped, you choose the section PLAY starts with ("FIRST Main B").
 
 **Starting and ending:**
 
-- PLAY starts on Main A. The Intro plays first in a song with INTRO on, or when you pick it (HOME +
-  black key 1) before PLAY.
+- PLAY starts on Main A. The Intro plays first in a song with INTRO on started from a stop, or when
+  you pick it (HOME + black key 1) before PLAY.
 - The Ending plays once and stops. Without an Ending, Polly stops at the bar line.
 
 ### Intros and endings hold a chord
@@ -251,7 +251,8 @@ The chords you play on the keys aren't moved.
 See [Writing a song](#writing-a-song) for the whole path.
 
 - **LOOP** (ARP): the loop's bars, a chord a beat; KNOB 1–4 ROOT, TYPE, BASS, STEP at the cursor
-  (OCT− / OCT+ move it). Page 2: LENGTH, BEATS, NAME.
+  (OCT− / OCT+ move it). Page 2: LENGTH, BEATS, NAME. It shows the loop playing, or the last one
+  picked; before you've picked one, the first empty loop, so you never write over a factory one.
 - **HOME's KNOB 4, LOOP**: "–" (FREE: the band follows your chords) or L1–L16 (that loop plays; while
   playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
 - **SONG** (HOME, SELECT): the rows. A white key writes a row: on END it adds one, on a row it sets
@@ -404,7 +405,8 @@ and Polly says "SHARED PATTERN kept Main B".
 
 ### The song's actions (SEL)
 
-On the SONG pages, **SEL**'s list has **INSERT ROW**, **DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**.
+On the SONG pages, **SEL**'s list has **PLAY FROM ROW** (the row the cursor is on), **INSERT ROW**,
+**DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**.
 
 ## Setup and MIDI
 

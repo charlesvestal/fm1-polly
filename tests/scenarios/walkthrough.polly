@@ -22,7 +22,8 @@ expect chord_root 9
 expect chord_type 16
 wait 100
 shot 1_groove.png
-# ---- 2. Write your verse: REC, Am F C G a bar each, REC: loop L9, the band plays it round
+# ---- 2. Write your verse: REC, Am F C G a bar each, REC: loop L9, the band plays it round; name it: ARP, SELECT to
+# page 2, NAME: Verse
 tap REC
 expect take 2
 wait 2128
@@ -75,14 +76,25 @@ expect msg_is_NEW 1
 wait 1470
 expect loop_now 9
 shot 2_verse.png
-# ---- 3. Write your chorus: KNOB 4 to "-" (FREE), REC, C G Am F, REC: L10
+tap ARP
+expect page 4
+expect app_loop 9
+turn SELECT 1
+expect page 5
+turn K3 1
+expect loop_name9 Verse
+wait 50
+shot 2_named.png
+# ---- 3. Write your chorus: HOME, KNOB 4 to "-" (FREE), REC, C G Am F, REC: L10; name it: ARP, SELECT, NAME: Chorus
+tap HOME
+expect page 0
 turn K4 -9
 wait 50
 expect mode 0
 shot 3_free.png
 tap REC
 expect take 2
-wait 1350
+wait 980
 key 7 down
 key 11 down
 key 14 down
@@ -127,20 +139,16 @@ expect loop_ch10_8 916
 expect loop_ch10_12 500
 wait 1470
 expect loop_now 10
-# ---- 4. Name them: ARP, SELECT to page 2, NAME: Chorus (L10, the loop playing); PRESETS back to L9: Verse
 tap ARP
 expect page 4
+expect app_loop 10
 turn SELECT 1
 expect page 5
 turn K3 2
 expect loop_name10 Chorus
-turn PRESET -1
-expect app_loop 9
-turn K3 1
-expect loop_name9 Verse
 wait 50
-shot 4_names.png
-# ---- 5. Build the song: HOME, SELECT to SONG; white keys 9, 10, 9, 10: a row each
+shot 3_named.png
+# ---- 4. Build the song: HOME, SELECT to SONG; white keys 9, 10, 9, 10: a row each
 tap HOME
 expect page 0
 turn SELECT 1
@@ -156,8 +164,8 @@ expect row_loop3 9
 expect row_loop4 10
 expect cursor 5
 wait 50
-shot 5_rows.png
-# ---- 6. Shape it: row 2 (a chorus) SECTION Main B (row 4 follows), REPEAT x2; row 4: page 2, KEY +2; a
+shot 4_rows.png
+# ---- 5. Shape it: row 2 (a chorus) SECTION Main B (row 4 follows), REPEAT x2; row 4: page 2, KEY +2; a
 # breakdown: row 3's drums muted (black 1, 2: D1, D2)
 turn K1 -3
 expect cursor 2
@@ -175,71 +183,67 @@ expect page 2
 turn K2 2
 expect row_key4 2
 wait 50
-shot 6_key.png
+shot 5_key.png
 turn K1 -1
 expect cursor 3
 tapkey b0
 tapkey b1
 expect row_mute3 3
 wait 50
-shot 6_shaped.png
-# ---- 7. Play it: the band still plays L9, so PLAY stops it; ROW back to row 1, PLAY on the SONG page: the Intro,
-# the rows with fills between sections, the Ending, the stop
+shot 5_shaped.png
+# ---- 6. Play it: PLAY on the SONG page; the band is playing L10, so the song comes in from row 1 at the next bar
+# line (no Intro: that's from a stop); the rows with fills between sections, the Ending, the stop
 tap PLAY
-wait 300
-expect playing 0
-turn K1 -2
-expect cursor 1
-tap PLAY
-wait 200
+wait 50
+expect playing 1
+expect msg_is_NEXT 1
+expect loop_now 10
+# row 1 (Main A) from the bar line (about 2.4 s); its last bar the Fill AB, Main B next
+wait 3550
 expect mode 2
-expect sect 1
-wait 1720
-expect sect 1
 expect row 1
-shot 7_intro.png
-# row 1 (Main A) from bar 3; its last bar the Fill AB, Main B next
-wait 4000
 expect sect 2
-expect row 1
 expect loop_now 9
-wait 7000
+wait 50
+shot 6_song.png
+wait 7150
 expect sect 4
 expect row 1
 # row 2, the chorus, x2 on Main B; the Fill BA in its last bar
-wait 3000
+wait 2400
 expect sect 3
 expect row 2
 expect loop_now 10
-shot 7_chorus.png
-wait 14000
+wait 50
+shot 6_chorus.png
+wait 14350
 expect sect 3
 expect row 2
-wait 2000
+wait 2400
 expect sect 5
 expect row 2
 # row 3, the verse without drums (the breakdown); the Fill AB before row 4
-wait 3000
+wait 2400
 expect sect 2
 expect row 3
 expect mutes 3
-wait 7000
+wait 7200
 expect sect 4
 expect row 3
 # row 4, the last chorus a tone up: its C plays as D
-wait 2500
+wait 2400
 expect sect 3
 expect row 4
 expect mutes 0
 expect chord_root 2
 # the Ending, then the stop
 # (not saved yet: Polly saves only at rest, a flash write pauses the audio)
-wait 9500
+wait 9600
 expect sect 6
 expect dirty 1
-# ---- 8. Save: just stop (here the song stops by itself): Polly saves by itself once the sound has died away
+# ---- 7. Save: just stop (here the song stops by itself): Polly saves by itself once the sound has died away
 # (and 4 s after your last touch); SAVE saves at once. After a restart: all there
-wait 5000
+wait 6000
 expect playing 0
 expect dirty 0
 tap SAVE
