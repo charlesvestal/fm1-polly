@@ -27,7 +27,7 @@ enum { P_HOME, P_SONG, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, 
 static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Loop", "Loop", "Pattern", "Pattern setup", "Track",
                                               "Track keys", "Mixer", "Mixer tone", "Master FX", "Style", "Style",
                                               "Setup", "Panel"};
-/* the page buttons: a button holds up to two pages, pressed again (or SELECT): the next (the header's dots: which) */
+/* the page buttons: a button holds up to two pages, pressed again (or SELECT): the next (the tag's dots: which) */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_HOME, 2}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
     {B_FX, P_MASTER, 1}, {B_ENV, P_STYLE, 2}, {B_GLO, P_SETUP, 2}};
@@ -109,6 +109,8 @@ static struct {
     char ask_q[32];                                  /* the question */
     void (*ask_yes)(void);                           /* what SEL does */
     uint8_t copy_to, copy_src;                       /* SAVE + white key: the loop / pattern asked about, the loop copied */
+    /* what an action acts on, taken when it is asked for (a question's yes acts on what it asked about) */
+    struct { uint8_t loop, prog, song, trk, slot; } tgt;
     uint8_t pick_prog, pick_song;                    /* the lists' choices: LOAD PROGRESSION, COPY SONG TO */
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint32_t mute_t;                                 /* the mute knob's last detent */
@@ -1373,8 +1375,12 @@ static void draw_tag(void)
 static void page_footer(char *t)
 {
     *t = 0;
-    if (ui.ask) {
-        cat_s(t, "SEL: YES|HOME: NO");
+    if (ui.ask) {                                    /* (a message meanwhile: here, the question stays up) */
+        if (plat_ms() < ui.msg_until) {
+            cat_s(cat_s(cat_s(t, ui.msg[0]), " "), ui.msg[1]);
+            upcase(t);
+        } else
+            cat_s(t, "SEL: YES|HOME: NO");
         return;
     }
     if (home_shown()) {
@@ -1664,7 +1670,10 @@ static void draw_list(void)
         } else {
             cv_text(14, y, &FONT_B, lst.row[i].name, fg);
             if (k == LK_PICK) {
-                text_fit(206 - text_w(&FONT_S, v), y, &FONT_S, v, 80, fg);
+            {
+                int32_t room = 206 - (14 + text_w(&FONT_B, lst.row[i].name) + 6), w = text_w(&FONT_S, v);
+                text_fit(206 - (w < room ? w : room), y, &FONT_S, v, room, fg);
+            }
                 glyph_pick(213, y + 4, fg);
             } else
                 glyph_enter(208, y + 5, fg);

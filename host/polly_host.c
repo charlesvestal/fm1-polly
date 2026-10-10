@@ -433,6 +433,20 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (song text: \"%s\")\n", t);
+    } else if (!strncmp(what, "tag_is_", 7) || !strncmp(what, "footer_is_", 10)) {
+        /* tag_is_WORDS / footer_is_WORDS: the tag over the knobs, the footer, exactly ("_": a space, "|": a dot) */
+        char w[64], t[64];
+        int i, f = what[0] == 'f', o = f ? 10 : 7;
+        for (i = 0; i < 63 && what[o + i]; i++)
+            w[i] = what[o + i] == '_' ? ' ' : what[o + i];
+        w[i] = 0;
+        if (f)
+            page_footer(t);
+        else
+            page_tag(t);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (%s: \"%s\")\n", f ? "footer" : "tag", t);
     } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
         got = home_shown();
     else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
@@ -540,6 +554,8 @@ static int expect(const char *what, const char *val)
         got = songs.song[what[4] - '1'].sty;      /* songN_sty: its style, the Intro's pattern number (32: Pop) */
     else if (!strncmp(what, "song", 4) && strstr(what, "_style") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].style[atoi(strstr(what, "_style") + 6) % ARR_NSECT];   /* songN_styleI (I: the slot) */
+    else if (!strncmp(what, "song", 4) && strstr(what, "_rows") && what[4] >= '1' && what[4] <= '4')
+        got = songs.song[what[4] - '1'].nrows;    /* songN_rows (1..4), as in RAM */
     else if (!strncmp(what, "song", 4) && strstr(what, "_tempo") && what[4] >= '1' && what[4] <= '4')
         got = songs.song[what[4] - '1'].tempo;    /* songN_tempo (1..4), as in RAM */
     else if (!strcmp(what, "clock"))

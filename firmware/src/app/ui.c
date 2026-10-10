@@ -15,7 +15,7 @@
  *     + PRESETS           the song (while playing: after the stop)
  *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE, 4 MODE (FREE / LOOP / SONG): the song's; again: SONG
  *   ARP LOOP (x2), SEQ Pattern (x2), EDIT Track (x2), LFO Mixer (x2), FX Master FX, ENV Style (x2), GLO Setup (x2);
- *   the header's dots: which of a button's pages
+ *   the tag's dots: which of a button's pages
  *   the keys        by the page (key_role): chords (HOME, LOOP), the selected track (SEQ, EDIT), the track (LFO's
  *                   black keys), nothing (FX, ENV, GLO)
  *   SAVE            saves (lit: something to save); held + white key n: copy here (HOME, LOOP: the loop to Ln; SEQ:
@@ -96,7 +96,7 @@ static void slot_cache(int s, const pattern_t *p)
 static int eslot(void) { return sect_slot(arr_sect); }
 /* changed since loaded or saved. A slot playing a style's section has nothing to save into: it gets a user
  * pattern of its own at its first change (slot_own); with none free, its changes play until another pattern
- * is picked (Copy pattern, the jobs, keeps them in a user pattern) */
+ * is picked (SAVE + a white key on SEQ keeps them in a user pattern) */
 static int slot_unsaved(int s)
 {
     return songs.song[proj.song].style[s] < ARR_USER_PATTERNS &&
@@ -549,6 +549,10 @@ static void key_down(int k)
     int r = key_role(), b = ordinal(BLACK_K, 11, k);
     ui.knote[k] = (uint8_t)key_note(k);
     ui.kmode[k] = KM_NONE;
+    if (ui.ask && (ui.btn >> B_HOME & 1u || ui.btn >> B_SAVE & 1u)) {
+        ui.btn_used |= ui.btn;                   /* a question: no shortcut, no copy (SEL yes, HOME no) */
+        return;
+    }
     if (ui.btn >> B_HOME & 1u) {                 /* HOME held: a shortcut (its release is no page press) */
         ui.btn_used |= 1u << B_HOME;
         home_key(k);
@@ -643,6 +647,11 @@ static void button_down(int b)                   /* PLAY, REC: at once */
 }
 static void button_up(int b)                     /* a tap: released before it was used (a key, a knob, its card) */
 {
+    if (lst.open && b == PAGE_BTN[page_group(ui.page)].btn && b != B_HOME) {
+        ui.ask = 0;                              /* the list's own button: the list goes, the page stays */
+        lst.open = 0;
+        return;
+    }
     if (b != B_HOME && b != B_SEL && b != B_SAVE && page_button(b)) {   /* another page: the list, a question go */
         ui.ask = 0;
         lst.open = 0;
@@ -805,7 +814,7 @@ static void style_turn(int d)
         style_all(n);
 }
 /* the song's style becomes style n (0..styles_n()-1): the sections playing a style's pattern play n's now; a
- * section on a user pattern (recorded into, edited) keeps it (the jobs' Back to style puts it back). Never a
+ * section on a user pattern (recorded into, edited) keeps it (the lists' BACK TO STYLE puts it back). Never a
  * save: a style's section has nothing unsaved (its first change gives it a user pattern) */
 static void style_all(int n)
 {
@@ -929,43 +938,44 @@ static void ask_loop(const char *what, int i, void (*yes)(void))
 /* LOAD PROGRESSION: one of the 16 factory progressions into the loop (its name too) */
 static void do_load_prog(void)
 {
-    int t = ui.pick_prog % NTEMPLATES;
+    int t = ui.tgt.prog % NTEMPLATES, l = ui.tgt.loop % ARR_LOOPS;
     char a[16], b[16];
     songs_write(1);
-    loop_from_template(&songs.loop[app.loop], t);
+    loop_from_template(&songs.loop[l], t);
     songs_write(0);
-    loop_name_l(app.loop, cat_s(b, "INTO "));
+    loop_name_l(l, cat_s(b, "INTO "));
     cat_s(a, TEMPLATES[t].name);
     say(upcase(a), b);
 }
 static void act_load_progression(void)
 {
     char q[32];
-    if (!songs.loop[app.loop].bars) {
+    if (!songs.loop[ui.tgt.loop].bars) {
         do_load_prog();
         return;
     }
-    cat_s(cat_s(cat_s(q, "LOAD "), TEMPLATES[ui.pick_prog % NTEMPLATES].name), " INTO ");
+    cat_s(cat_s(cat_s(q, "LOAD "), TEMPLATES[ui.tgt.prog % NTEMPLATES].name), " INTO ");
     upcase(q);
-    ask_loop(q, app.loop, do_load_prog);
+    ask_loop(q, ui.tgt.loop, do_load_prog);
 }
 static void do_clear_loop(void)
 {
     char t[8];
+    int l = ui.tgt.loop % ARR_LOOPS;
     songs_write(1);
-    loop_clear(&songs.loop[app.loop], app.loop);
+    loop_clear(&songs.loop[l], l);
     songs_write(0);
-    loop_name_l(app.loop, t);
+    loop_name_l(l, t);
     say("CLEARED", t);
 }
 static void act_clear_loop(void)
 {
     char t[8];
-    if (!songs.loop[app.loop].bars) {
-        loop_name_l(app.loop, t);
+    if (!songs.loop[ui.tgt.loop].bars) {
+        loop_name_l(ui.tgt.loop, t);
         say(t, "IS EMPTY");
     } else
-        ask_loop("CLEAR ", app.loop, do_clear_loop);
+        ask_loop("CLEAR ", ui.tgt.loop, do_clear_loop);
 }
 /* INSERT ROW, DELETE ROW: at the SONG screen's row; stopped only (the rows after the one playing would move) */
 static void act_row(int ins)
@@ -1024,10 +1034,14 @@ static void act_clear_song(void)
 static void do_copy_song(void)
 {
     song_t *g = csong();
-    int to = ui.pick_song % ARR_SONGS;
+    int to = ui.tgt.song % ARR_SONGS;
     song_t *d = &songs.song[to];
     uint16_t st[ARR_NSECT];
     char a[16];
+    if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
+        say("COPY", "STOP FIRST");
+        return;
+    }
     edits_flush();
     if (copy_patterns_pick(to, st) != 0) {
         say("NOT COPIED", "NO FREE PATTERN");
@@ -1051,7 +1065,7 @@ static void do_copy_song(void)
 }
 static void act_copy_song(void)
 {
-    int to = ui.pick_song % ARR_SONGS;
+    int to = ui.tgt.song % ARR_SONGS;
     char q[20];
     if (to == proj.song) {
         say("COPY", "SAME SONG");
@@ -1071,26 +1085,32 @@ static void act_copy_song(void)
 /* ERASE TRACK: the selected track's notes in the pattern playing (a style's section: a user pattern first) */
 static void do_erase_track(void)
 {
+    int t = ui.tgt.trk & 7;
+    if (eslot() != ui.tgt.slot) {                /* the engine erases in the section playing: another now */
+        say("NOT ERASED", "SECTION CHANGED");
+        return;
+    }
     edits_flush();
-    slot_own(eslot());
-    arr_erase_track(proj.trk);
-    say("ERASED", TRACK_NAME[proj.trk]);
+    slot_own(ui.tgt.slot);
+    arr_erase_track(t);
+    say("ERASED", TRACK_NAME[t]);
 }
 static void act_erase_track(void)
 {
     char q[16];
-    arr_pattern_copy(eslot(), &scratch);
-    if (!scratch.trk[proj.trk].count) {
-        say(TRACK_NAME[proj.trk], "HAS NO NOTES");
+    int t = ui.tgt.trk & 7;
+    arr_pattern_copy(ui.tgt.slot, &scratch);
+    if (!scratch.trk[t].count) {
+        say(TRACK_NAME[t], "HAS NO NOTES");
         return;
     }
-    cat_s(cat_s(cat_s(q, "ERASE "), TRACK_NAME[proj.trk]), "?");
+    cat_s(cat_s(cat_s(q, "ERASE "), TRACK_NAME[t]), "?");
     ask(q, do_erase_track);
 }
 /* CLEAR PATTERN: every note gone, its sounds kept */
 static void do_clear_pattern(void)
 {
-    int s = eslot();
+    int s = ui.tgt.slot % ARR_NSECT;
     edits_flush();
     slot_own(s);
     for (int tries = 0; tries < 8; tries++) {
@@ -1111,7 +1131,7 @@ static void do_clear_pattern(void)
 static void act_clear_pattern(void)
 {
     char q[24];
-    int s = eslot();
+    int s = ui.tgt.slot % ARR_NSECT;
     arr_pattern_copy(s, &scratch);
     if (!scratch.nev) {
         say(SECT_NAME[s + 1], "HAS NO NOTES");
@@ -1124,7 +1144,7 @@ static void act_clear_pattern(void)
 /* BACK TO STYLE: the section plays the song's style again (its user pattern kept, saved first) */
 static void act_back_to_style(void)
 {
-    int s = eslot(), st = songs.song[proj.song].style[s], i = style_index(songs.song[proj.song].sty);
+    int s = ui.tgt.slot % ARR_NSECT, st = songs.song[proj.song].style[s], i = style_index(songs.song[proj.song].sty);
     edits_flush();
     if (st >= ARR_USER_PATTERNS)
         say(SECT_NAME[s + 1], "plays the style");
@@ -1139,6 +1159,11 @@ static void act_back_to_style(void)
 }
 static void action_run(int a)
 {
+    ui.tgt.loop = app.loop;                      /* what it acts on: now (a question's yes: still this) */
+    ui.tgt.prog = ui.pick_prog;
+    ui.tgt.song = ui.pick_song;
+    ui.tgt.trk = proj.trk;
+    ui.tgt.slot = (uint8_t)eslot();
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
     case A_CLEAR_LOOP: act_clear_loop(); break;
@@ -1169,9 +1194,13 @@ static void do_copy_loop(void)
 }
 static void do_copy_pattern(void)
 {
-    int s = eslot(), st = songs.song[proj.song].style[s], to = ui.copy_to % ARR_USER_PATTERNS;
+    int s = ui.tgt.slot % ARR_NSECT, st = songs.song[proj.song].style[s], to = ui.copy_to % ARR_USER_PATTERNS;
     uint16_t d;
     char a[24], t[20];
+    if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
+        say("COPY", "STOP FIRST");
+        return;
+    }
     pat_name(to, cat_s(t, "COPIED TO "));
     edits_flush();
     for (int j = 0; j < ARR_NSECT; j++)          /* another section plays it, changed: those changes first */
@@ -1203,7 +1232,10 @@ static void copy_to(int n)
 {
     char q[16];
     ui.copy_to = (uint8_t)n;
+    ui.tgt.slot = (uint8_t)eslot();
     if (list_loops()) {
+        /* the loop playing: in SONG the row's; else app.loop, the loop the LOOP screen shows (in FREE too: the
+         * one last picked) */
         int src = app.mode == ARR_SONG && arr_loop_now >= 0 && arr_loop_now < ARR_LOOPS ? arr_loop_now : app.loop;
         ui.copy_src = (uint8_t)src;
         if (n == src) {
@@ -1218,7 +1250,7 @@ static void copy_to(int n)
             say("COPY", "STOP FIRST");
             return;
         }
-        if (n != songs.song[proj.song].style[eslot()] && !pattern_blank(n)) {
+        if (n != songs.song[proj.song].style[ui.tgt.slot] && !pattern_blank(n)) {
             pat_name(n, cat_s(q, "REPLACE "));
             cat_s(q + 11, "?");
             ask(q, do_copy_pattern);
@@ -1479,12 +1511,13 @@ static void list_change(int32_t e)
         break;
     case LK_PICK:
         if (lst.row[lst.sel].id == A_LOAD_PROG)
-            ui.pick_prog = (uint8_t)((ui.pick_prog + d + NTEMPLATES) % NTEMPLATES);
-        else {                                   /* COPY SONG TO: another song */
+            ui.pick_prog = (uint8_t)(((ui.pick_prog + e) % NTEMPLATES + NTEMPLATES) % NTEMPLATES);
+        else {                                   /* COPY SONG TO: another song, a step a detent */
             int to = ui.pick_song;
-            do
-                to = (to + d + ARR_SONGS) % ARR_SONGS;
-            while (to == proj.song);
+            for (int32_t i = e < 0 ? -e : e; i > 0; i--)
+                do
+                    to = (to + d + ARR_SONGS) % ARR_SONGS;
+                while (to == proj.song);
             ui.pick_song = (uint8_t)to;
         }
         break;
@@ -1584,18 +1617,20 @@ static void input(void)
             ui.card = 0;
             ui.btn_used |= btn;
         }
+    if (btn || keys || ch)
+        ui.act_t = plat_ms();
+    if (ui.ask)                                  /* a question: SEL yes, HOME no; the knobs change nothing */
+        return;
     if ((e = ev[EN_SELECT]) != 0) {
         if (ui.btn >> B_HOME & 1u)               /* HOME held: the tempo */
             set_tempo(csong()->tempo + accel(EN_SELECT, e));
-        else if (ui.ask)
-            ;                                    /* a question: SEL or HOME */
         else if (lst.open)
             list_move(e);                        /* a list: up and down */
         else
             page_turn(e > 0 ? 1 : -1);
     }
     if ((e = ev[EN_ALGO]) != 0) {
-        if (lst.open && !ui.ask)
+        if (lst.open)
             list_change(e);                      /* a list: the value */
         else
             set_track(proj.trk + (e > 0 ? 1 : -1));
@@ -1605,8 +1640,6 @@ static void input(void)
     for (i = 0; i < 4; i++)
         if ((e = ev[EN_K1 + i]) != 0)
             knob((int)i, e);                     /* (HOME held: used, its release turns no page) */
-    if (btn || keys || ch)
-        ui.act_t = plat_ms();
 }
 
 /* ------------------------------------------------------------- lights --- */
@@ -1685,6 +1718,7 @@ void ui_frame(void)
     else if (!gm_voices || plat_ms() - ui.wait_t > SONG_WAIT_MS) {   /* (a long tail: 2 s at most) */
         int s = app.song_pend - 1;
         app.song_pend = 0;
+        ui.ask = 0;                              /* (a question was about the song before) */
         song_change(s);
     }
     autosave();

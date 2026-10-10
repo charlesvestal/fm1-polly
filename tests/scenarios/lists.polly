@@ -2,6 +2,9 @@
 # its help card; an action that loses chords asks first (SEL yes, HOME no); SAVE + a white key copies here.
 # Pages: 0 HOME, 1 SONG, 2-3 LOOP, 4 Pattern, 5 Pattern setup. Cards: the button + 1 (ARP 9, SAVE 8)
 wait 300
+# the tag and the footer before any button: FREE, the hint
+expect tag_is_FREE 1
+expect footer_is_HOLD_ANY_BUTTON:_WHAT_IT_DOES 1
 # HOME's list: SELECT moves (not the page), ALGORITHM changes the row's value, HOME backs out
 expect list_open 0
 tap SEL
@@ -37,6 +40,8 @@ expect page 0
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
 tap ARP
 expect page 2
+expect tag_is_L1|BAR_1.1 1
+expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT+:_SKIP 1
 tap SEL
 expect list_open 1
 spin SELECT 20
@@ -138,6 +143,114 @@ tap HOME
 expect asking 0
 tap HOME
 expect list_open 0
+# a question acts on what it asked about: ALGORITHM (the track) and PRESETS (the pattern) change nothing meanwhile
+tap SEL
+spin SELECT 20
+turn SELECT -2
+tap SEL
+expect asking 1
+spin ALGO 1
+turn PRESET 1
+spin K1 1
+expect track 5
+expect quant 2
+tap SEL
+expect asking 0
+expect msg2_is_C1 1
+# CLEAR PATTERN (asks), then BACK TO STYLE (the section plays Pop's again, the user pattern kept)
+tap SEL
+spin SELECT 20
+turn SELECT -1
+tap SEL
+expect asking 1
+tap SEL
+expect msg_is_CLEARED 1
+expect dirty 1
+tap SEL
+spin SELECT 20
+tap SEL
+expect msg_is_BACK 1
+expect msg2_is_Pop 1
+# SAVE + white key 7 on SEQ, stopped: the pattern into the empty P07
+expect pat6_nev 0
+press SAVE
+tapkey w6
+release SAVE
+expect asking 0
+expect msg2_is_COPIED_TO_P07 1
+expect pat6_nev >0
+# again: P07 has notes now, a question; yes copies it again
+press SAVE
+tapkey w6
+release SAVE
+expect asking 1
+tap SEL
+expect msg2_is_COPIED_TO_P07 1
+# a loop question: PRESETS and HOME + PRESETS / a white key change nothing; SEL clears the loop asked about (L2)
+tap ARP
+expect page 2
+tap SEL
+spin SELECT 20
+tap SEL
+expect asking 1
+turn PRESET 1
+press HOME
+tapkey w4
+turn PRESET 1
+release HOME
+expect asking 1
+expect song 1
+tap SEL
+expect asking 0
+expect loop_bars2 0
+expect loop_bars3 4
+expect loop_bars5 12
+# SONG (rows: Row, Loop, Section, Repeat, INSERT ROW 4, DELETE ROW 5, CLEAR SONG 6, COPY SONG TO 7): a row; COPY
+# SONG TO Song 3 (empty: no question); again: Song 3 has a row now, a question; PLAY meanwhile, then SEL: STOP FIRST
+tap HOME
+tap HOME
+expect page 1
+tap SEL
+spin SELECT 4
+tap SEL
+expect rows 1
+tap SEL
+spin SELECT 20
+expect list_sel 7
+spin ALGO 1
+tap SEL
+expect asking 0
+expect msg2_is_copied 1
+expect song3_rows 1
+tap SEL
+spin SELECT 20
+tap SEL
+expect asking 1
+tap PLAY
+wait 200
+tap SEL
+expect msg2_is_STOP_FIRST 1
+expect asking 0
+tap PLAY
+wait 200
+# CLEAR SONG: it has a row, a question; yes
+tap SEL
+spin SELECT 6
+tap SEL
+expect asking 1
+tap SEL
+expect rows 0
+expect msg_is_CLEARED 1
+# the list's own button let go: the list goes, the page stays
+tap SEL
+expect list_open 1
+tap HOME
+expect list_open 0
+tap SEQ
+tap SEL
+tap SEQ
+expect list_open 0
+expect page 4
 # SAVE tapped alone: save
 tap SAVE
 expect dirty 0
