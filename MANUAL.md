@@ -7,11 +7,11 @@ the strings follow. Write a few bars of chords and a whole song plays.
 Its sounds are the 128 General MIDI instruments and a drum kit, from Sonivox EAS. They play through the
 speaker and the headphone jack, and MIDI coming in plays them too.
 
-- [Quick start](#quick-start)
+- [Writing a song](#writing-a-song)
 - [Getting around](#getting-around)
 - [Styles and sections](#styles-and-sections)
 - [Chords](#chords)
-- [Writing a song](#writing-a-song)
+- [Loops and songs](#loops-and-songs)
 - [Recording a part](#recording-a-part)
 - [Sound](#sound)
 - [Songs and saving](#songs-and-saving)
@@ -21,17 +21,29 @@ speaker and the headphone jack, and MIDI coming in plays them too.
 - [Credits](#credits)
 - [Page by page](#page-by-page)
 
-## Quick start
+## Writing a song
 
-1. Switch on. You're on the Song page. Turn **KNOB 1** to pick a style.
-2. Press **PLAY**. Main A plays (the Intro plays in a song, or when you ask for it first).
-3. Tap **SEL**: CHORD lights. Hold three or more keys and the band plays that chord. It keeps the
-   chord after you let go.
-4. Hold **SEL** and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill, 5 Ending. The section
-   changes at the next bar.
-5. Hold **SEL** and press a white key: one of 16 chord progressions plays at once, round and round.
-6. Turn **SELECT** for the tempo.
-7. Press **SAVE**. It's lit while something isn't saved. Polly also saves by itself once you stop.
+The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
+
+1. **Find a groove.** Turn **KNOB 1** for a style (Pop, Funk, Bossa…). Press **PLAY**. Play a chord:
+   three keys or more. The band follows whatever you play.
+2. **Write your verse.** Press **REC**, play Am, F, C, G, one per bar, then press **REC** again. Your
+   chords are now loop L9 and the band plays them round. (Or, stopped: hold HOME and press white key 9,
+   press **ARP**, and write them on its grid one chord at a time: REC, then a chord a bar.)
+3. **Write your chorus.** Turn **KNOB 4** to "–" and the band is free again. Press **REC**, play C, G,
+   Am, F, then press **REC**. That's L10.
+4. **Name them** (optional). Press **ARP**, then **SELECT** to page 2, and turn **NAME**: "Chorus" for
+   L10, the loop playing. Turn **PRESETS** back to L9 and turn NAME to "Verse".
+5. **Build the song.** Press **HOME**, then **SELECT** to the SONG page. Tap white keys in order: 9,
+   10, 9, 10. Each tap adds a row: verse, chorus, verse, chorus.
+6. **Shape it.** On a chorus row (**ROW**, KNOB 1, moves between rows), turn **SECTION** to Main B for
+   the busier groove (the other chorus rows follow). Turn **REPEAT** for ×2. On the last row, **SELECT**
+   to the next page and turn **KEY** to +2 for the last chorus a tone up. For a breakdown, tap black
+   keys to mute tracks on a row (black keys 1 and 2 are the drums).
+7. **Play it.** If the band is still playing, press **PLAY** to stop it. Turn ROW back to row 1 and
+   press **PLAY** on the SONG page. Polly plays an Intro, your rows with fills between sections, then
+   an Ending.
+8. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
 
 ## Getting around
 
@@ -39,38 +51,37 @@ speaker and the headphone jack, and MIDI coming in plays them too.
 
 | Control | What it does |
 | --- | --- |
-| PLAY | Start and stop |
-| REC | Record into the selected track. On the Chords page: record chords |
-| SEL tap | CHORD on or off: the keys enter chords, or play the selected track |
-| SEL held | The shortcuts, on screen: + black key 1–5 a section, + white key 1–16 a progression, + PRESETS the song |
-| HOME | Song page |
-| SEQ | Pattern, then Pattern setup |
-| EDIT | Track, then Track keys |
-| FX | Mixer, then Mixer tone, then Master FX |
-| LFO | Chords |
-| ENV | Arrange, then the song's patterns (two pages) |
-| ARP | Templates, then Copy template |
-| GLO | Setup, then Panel |
-| SAVE | Save. Held: the jobs |
-| SELECT | Tempo, 40 to 240 BPM |
+| PLAY | Start and stop. On a SONG page: the song, from the row the cursor is on |
+| REC | Write what the keys play here: chords into the loop (HOME, LOOP; in FREE on HOME a new loop), the selected track (SEQ, EDIT), rows (SONG) |
+| SEL | This page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, INSERT ROW…) |
+| HOME | HOME; SELECT for the SONG pages. Held: the shortcuts, on screen: + white key 1–16 a loop, + black key 1–5 a section, + SELECT the tempo, + PRESETS the song |
+| ARP | LOOP: the loop's chords; page 2 its length, beats, name |
+| SEQ | Pattern, page 2 Pattern setup |
+| EDIT | Track, page 2 Track keys |
+| LFO | Mixer, page 2 Mixer tone |
+| FX | Master FX |
+| ENV | Style: the six sections' patterns (two pages) |
+| GLO | Setup, page 2 Panel |
+| SAVE | Save. Held + a white key: copy the loop (HOME, LOOP) or the pattern (SEQ) there |
+| SELECT | The button's next or previous page; in a list, up and down |
 | ALGORITHM | The track, on any page: D1, D2, PC, BA, C1, C2, C3, C4 |
-| PRESETS | Depends on the page (Song page: the style). With SEL held: the song |
+| PRESETS | Depends on the page (HOME, LOOP: the next loop). With HOME held: the song |
 | KNOB 1–4 | The four values at the bottom of the screen |
-| OCT− / OCT+ | Move the keys down or up an octave, −3 to +3 |
-| Keys | Play the selected track, or enter chords (CHORD on) |
+| OCT− / OCT+ | Move the keys down or up an octave, −3 to +3. On LOOP: the cursor |
+| Keys | Chords on HOME and LOOP, the selected track on SEQ and EDIT, the rows on SONG |
+| Any button held a second | A card says what it does on this page |
 
 ### Pages and dots
 
-Each page button lights while you're on one of its pages. Some buttons have two or three pages: press
-the button again for the next one. The dots after the page's name show which one you're on.
-
-![The Song page](docs/img/manual/song.png)
+Each page button lights while you're on one of its pages, and always opens its first page. Some buttons
+have two pages (HOME four: HOME and SONG's three): turn **SELECT** for the next one. The dots over the
+knobs show which one you're on.
 
 The screen has three bands:
 
-- **The header**: the page's name and dots, the tempo on the right ("ext" when MIDI clock drives it),
-  a red dot while recording, CHORD while the keys enter chords, and "unsaved" when there's something
-  to save. On the Song page it also shows the song and its style.
+- **The header**: the page's name, the tempo on the right ("ext" when MIDI clock drives it), a red dot
+  while recording, and "unsaved" when there's something to save. On HOME it also shows the song and its
+  style.
 - **The middle**: what the page is about.
 - **The knobs**: what KNOB 1–4 do here, with their values. The knob you turned last shows in coral.
 
@@ -98,11 +109,11 @@ fixed velocity, because the FM-1's keys don't sense how hard you press.
 ### The lights
 
 - **PLAY** is green while playing, and red while recording.
-- **REC** lights while recording, **SEL** while CHORD is on, and **SAVE** while something isn't saved.
+- **REC** lights while recording, and **SAVE** while something isn't saved.
 - The button of the page you're on is lit.
 - Keys light while you hold them.
-- While you hold SEL, the black key of the section playing (or coming next) lights, and the white key
-  of the progression playing.
+- While you hold HOME, the black key of the section playing (or coming next) lights, and the white key
+  of the loop playing.
 - With Lights "on" (Setup), the other buttons glow dimly, so you can read them in the dark.
 
 ## Styles and sections
@@ -125,7 +136,7 @@ them on the Style knob, with "QY" before their names.
 
 ### Picking a style
 
-On the Song page, turn **KNOB 1** (or PRESETS). The header shows the style. Until you set the song's
+On HOME, turn **KNOB 1**. The header shows the style. Until you set the song's
 tempo yourself, the tempo changes to the style's own. Once you've turned the tempo, it stays yours.
 You can change the style while playing.
 
@@ -137,13 +148,13 @@ The header then says so: "Pop, A user" (Main A is yours), "Pop, 3 user", "Pop, a
 the Style knob changes only the sections still playing the style; yours stay as they are. So you can
 keep your Main A and try the band around it in Funk, then Rock.
 
-To put a section back to the style, play it (or pick it with SEL + its black key), hold **SAVE** on the
-Pattern page and run the job **Back to style** ([the pattern's jobs](#the-patterns-jobs-hold-save)).
+To put a section back to the style, play it (or pick it with HOME + its black key), press **SEL** on the
+Pattern page and run **BACK TO STYLE** ([the pattern's actions](#the-patterns-actions-sel)).
 Your pattern is kept in its P number, so you can pick it again later.
 
 ### Changing sections
 
-Hold **SEL** and press a black key:
+Hold **HOME** and press a black key:
 
 | Black key | Section |
 | --- | --- |
@@ -153,9 +164,7 @@ Hold **SEL** and press a black key:
 | 4 | Fill |
 | 5 | Ending |
 
-![SEL held: the shortcuts](docs/img/manual/sel_held.png)
-
-While playing, the change waits for the next bar. The Song page shows NEXT and the section until then.
+While playing, the change waits for the next bar. HOME shows NEXT and the section until then.
 While stopped, you choose the section PLAY starts with ("FIRST Main B").
 
 **The fill rules:**
@@ -180,24 +189,21 @@ changes it at once.
 
 ### Tempo
 
-Turn **SELECT**: 40 to 240 BPM. The tempo is shown at the top right. When Polly follows MIDI clock, it
+Turn **KNOB 2** on HOME, or hold **HOME** and turn **SELECT**: 40 to 240 BPM. The tempo is shown at the top right. When Polly follows MIDI clock, it
 shows "ext" instead.
 
 ## Chords
 
 Polly's patterns are written as if the chord were C major 7. As it plays, it moves every note of every
-track to fit the chord of the moment. There are three ways to give it chords: play them, pick a
-progression, or write a song.
+track to fit the chord of the moment. There are three ways to give it chords: play them, play a loop,
+or play a song.
 
-### Playing chords (CHORD)
+### Playing chords
 
-Tap **SEL**. It lights, and CHORD shows in the header. Now the keys enter chords instead of playing
-notes.
+On HOME and LOOP the keys play chords.
 
-![CHORD on: A C E G held, Am7](docs/img/manual/chord_mode.png)
-
-- Hold three or more different notes. Polly names the chord, shows it big on the Song page, and the
-  band follows.
+- Hold three or more different notes. Polly names the chord, shows it big on HOME, and the band
+  follows.
 - The chord stays after you let go (fingered, as on an arranger keyboard). Play the next one whenever
   you like.
 - Inversions work: E G C and G C E are both C. When the notes could be read two ways, the lowest note
@@ -207,9 +213,7 @@ notes.
   C/D, F under C E G is C/F, B♭ under C E G is C/B♭. (For C7, put B♭ above the C: C E G B♭.)
 - A chord may leave out its 5th: C E B♭ is C7 too.
 - Two notes are not a chord: nothing changes.
-- Playing a chord ends a progression that was playing.
-
-Tap SEL again for the keys to play the selected track.
+- Over a loop, a chord you play lasts until the loop's next chord change.
 
 **The chord types** (25, plus "---", no chord):
 
@@ -224,12 +228,13 @@ Tap SEL again for the keys to play the selected track.
 | | 7(#11) | mM7 | |
 | | 7(#5) | m7(b5) | |
 
-"---" is no chord: every track just moves with the root. You can pick it on the Chords page.
+"---" is no chord: every track just moves with the root.
 
-### Progressions (templates)
+### Progressions
 
-Polly has 16 chord progressions. Hold **SEL** and press a white key to play one at once. It loops until
-you play a chord, pick another, or write a song.
+L1–L8 start as eight factory progressions (Pop, Ballad, Fifties, ii–V–I, Blues, Minor, Flamenco,
+Canon); L9–L16 start empty, for your own. Hold **HOME** and press a white key to play a loop. On HOME or
+LOOP, **SEL**'s list has **LOAD PROGRESSION**: any of Polly's 16 progressions into the current loop.
 
 | | | | |
 | --- | --- | --- | --- |
@@ -238,86 +243,32 @@ you play a chord, pick another, or write a song.
 | 3 Fifties (I–vi–ii–V) | 7 One-four | 11 Mixo (I–♭VII–IV) | 15 Gospel (IV–I) |
 | 4 ii–V–I | 8 Minor (i–VI–III–VII) | 12 Doo-wop | 16 Waltz (3/4) |
 
-They are written in C. **Key** (Song page KNOB 3, also on Templates and Setup) moves them to another
-key, from −6 to +5 semitones (F♯ below C to F above it). Key moves the progressions only: songs are
-written at real pitch.
+**TRANSPOSE** (HOME's KNOB 3) moves the loops and the song to another key, from −6 to +5 semitones.
+The chords you play on the keys aren't moved.
 
-![The Templates page](docs/img/manual/templates.png)
+## Loops and songs
 
-The Song page's KNOB 2 picks a progression too. The ARP button's Templates page lists them all: turn
-KNOB 1 to browse. While playing you hear each one as you turn. While stopped, PLAY starts the one under
-the cursor.
+See [Writing a song](#writing-a-song) for the whole path.
 
-## Writing a song
+- **LOOP** (ARP): the loop's bars, a chord a beat; KNOB 1–4 ROOT, TYPE, BASS, STEP at the cursor
+  (OCT− / OCT+ move it). Page 2: LENGTH, BEATS, NAME.
+- **HOME's KNOB 4, LOOP**: "–" (FREE: the band follows your chords) or L1–L16 (that loop plays; while
+  playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
+- **SONG** (HOME, SELECT): the rows. A white key writes a row: on END it adds one, on a row it sets
+  that row's loop. Black keys 1–8 mute the row's tracks. KNOB 1–4 ROW, LOOP, SECTION, REPEAT; page 2
+  KEY; page 3 INTRO, ENDING, AT END, SONG.
 
-A song is up to 64 bars. Each bar can mark a section, and each beat can hold a chord. A song with
-bars plays its own chords and sections. Polly has four songs.
-
-### The Chords page (LFO)
-
-![The Chords page](docs/img/manual/chords.png)
-
-The song's bars, one row each, four beats a row. A dot means "no change": the chord before goes on.
-The coloured stripe on the left is the section in effect.
-
-- **PRESETS** moves the cursor.
-- **KNOB 1** root, **KNOB 2** type, **KNOB 3** slash bass. Turn KNOB 2 below "maj" for "same" (no
-  change).
-- **KNOB 4** the step the cursor moves by: a beat, half a bar or a bar.
-- **With CHORD on**, play a chord: it's written at the cursor, and the cursor moves on a step when you
-  let go of all the keys. Add a note while still holding and the same beat is rewritten.
-
-Writing past the song's end makes the song longer.
-
-**Recording chords.** On the Chords page, press **REC**. CHORD turns on by itself. Press PLAY and play
-chords along: each lands on the song's nearest beat. An empty song gets eight bars, looping, so there's
-room to play into. Press REC again, or leave the page, to stop. While stopped, chords you play go in at
-the cursor instead.
-
-### Copying a progression into the song (ARP, ARP)
-
-![Copy template](docs/img/manual/copy_template.png)
-
-The quickest start. Press ARP twice for Copy template.
-
-- **KNOB 1** the progression, **KNOB 2** how many times (1 to 8), **KNOB 3** (or PRESETS) the bar it
-  starts at.
-- Tap **SEL** to copy it in. Each of its chords goes on the first beat of a bar, in the current Key.
-
-### The Arrange page (ENV)
-
-![The Arrange page](docs/img/manual/arrange.png)
-
-The song's 64 bars, eight to a row, coloured by section. A letter marks a bar where a section starts
-(I, A, B, AB, BA, E).
-
-- **PRESETS** moves the cursor a bar.
-- **KNOB 1** the section mark at the cursor's bar ("-": none, the section before goes on).
-- **KNOB 2** the song's length, in bars. 0 means no song: Polly plays freely, following your chords and
-  progressions.
-- **KNOB 3** Loop: on, the song goes round; off, it stops at its end.
-- **KNOB 4** the song, 1 to 4.
-
-PLAY starts the song at bar 1. A section asked for with SEL + a black key wins over the song's mark at
-that bar.
-
-### The song's patterns (ENV, ENV)
+### The style's patterns (ENV)
 
 ![The song's patterns](docs/img/manual/song_patterns.png)
 
-Every song chooses a pattern for each of its six sections. Press ENV again for Intro, Main A and Main B
-(KNOB 1–3); once more for Fill AB, Fill BA and Ending. Each knob goes through the user patterns P01 to
+Every song chooses a pattern for each of its six sections. ENV shows Intro, Main A and Main B
+(KNOB 1–3); SELECT turns to Fill AB, Fill BA and Ending. Each knob goes through the user patterns P01 to
 P16, then the styles' patterns for that section by name ("Funk A", "Funk B"). So you can play Funk's
 Main A with Rock's fills.
 
-**KNOB 4** (and PRESETS) is the song's style, like the Song page's KNOB 1: it changes the sections
-playing a style, not the ones on user patterns.
-
-### Back to the song
-
-Picking a progression (SEL + a white key, or the Song page's KNOB 2) sets the song aside and plays the
-progression. The song comes back when you press PLAY on the Chords or Arrange pages, leave the
-Templates pages, change the song or edit it.
+**KNOB 4** (and PRESETS) is the song's style, like HOME's KNOB 1: it changes the sections playing a
+style, not the ones on user patterns.
 
 ## Recording a part
 
@@ -335,13 +286,13 @@ Polly records into the selected track of the section playing, as a loop.
 
 Good to know:
 
-- **The grid** (Pattern page KNOB 1, also Song page KNOB 4) moves notes to the nearest 8th, 8th
+- **The grid** (Pattern page KNOB 1) moves notes to the nearest 8th, 8th
   triplet, 16th, 16th triplet or 32nd, or "off" for none. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
 - **Notes follow the chords.** What you play is stored as if over C major 7, so it follows later
   chords like the style's own parts.
 - **Press REC before PLAY** and, with no song, the section you're recording into plays at once,
   without the Intro.
-- **A section change ends the take**: a fill, an ending, or a song's mark. Polly says "RECORD OFF
+- **A section change ends the take**: a fill, an ending, or a song's next row. Polly says "RECORD OFF
   section ended". Record with no song, or on a section that loops.
 - **A pattern holds 600 notes.** Past that, new notes are dropped.
 
@@ -357,11 +308,12 @@ song's, not the pattern's.
 
 There are 16 user patterns, P01 to P16, shared by the four songs. A free one is one that no song plays
 and that holds no notes. When none is free, Polly says **NO FREE PATTERN** "not kept": your change
-plays, but it isn't kept once another pattern is picked. Use the Copy pattern job to keep it.
+plays, but it isn't kept once another pattern is picked. Hold SAVE and press a white key on SEQ to
+keep it in a P number.
 
 The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to P16, then the styles'.
 
-### Pattern setup (SEQ, SEQ)
+### Pattern setup (SEQ, SELECT)
 
 ![Pattern setup](docs/img/manual/pattern_setup.png)
 
@@ -370,22 +322,11 @@ The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to
 - **KNOB 3** picks a letter of the name, **KNOB 4** changes it. Names are eight letters, digits, "-"
   and "#".
 
-### The pattern's jobs (hold SAVE)
+### The pattern's actions (SEL)
 
-![The pattern's jobs](docs/img/manual/pattern_jobs.png)
-
-On the Pattern, Track, Mixer and Master FX pages, hold **SAVE** for the jobs. They act on the section
-playing. **KNOB 1** picks the job, **KNOB 2** where a copy goes. Tap **SEL** to do it, **SAVE** to
-cancel.
-
-| Job | What it does |
-| --- | --- |
-| Erase track | Removes the selected track's notes |
-| Copy pattern | Copies the pattern, as it is now, into P01–P16. Only while stopped |
-| Clear pattern | Removes every note, keeps the sounds |
-| Back to style | The section plays the song's style again (shown: "Funk A"). Your user pattern is saved first and kept. Only while stopped, if it has unsaved changes |
-
-Erase and Clear on a style's section first give it a user pattern, as recording does.
+On the Pattern, Track, Mixer and Master FX pages, **SEL**'s list has the actions **ERASE TRACK**, **CLEAR PATTERN**
+and **BACK TO STYLE**, for the section playing. To copy the pattern into P01–P16, hold **SAVE** and press
+a white key on SEQ.
 
 ## Sound
 
@@ -408,13 +349,13 @@ The sound pages show and change the section playing, track by track: ALGORITHM p
 | Chord 2 | Pads | As Chord 1, and each note stays close to the one before, for smooth voice leading |
 | Bass | Bass lines | As Chord 1, and the first note after a chord change is the root (or the slash bass) |
 
-### Track keys (EDIT, EDIT)
+### Track keys (EDIT, SELECT)
 
 - **KNOB 1** high key (C to B, or off): the highest root before a Chord 1 or Bass part drops an octave,
   so a bass line doesn't climb out of reach as the chords rise.
 - **KNOB 2** the MIDI channel, 1 to 16. Drums are on 10.
 
-### Mixer (FX)
+### Mixer (LFO)
 
 ![The Mixer](docs/img/manual/mixer.png)
 
@@ -425,14 +366,14 @@ Eight strips. For the selected track: **KNOB 1** volume, **KNOB 2** pan, **KNOB 
 track stays muted in every section (and through fills), it's saved with the song, and each song has
 its own. Muting never takes a user pattern.
 
-### Mixer tone (FX, FX)
+### Mixer tone (LFO, SELECT)
 
 ![Mixer tone](docs/img/manual/mixer_tone.png)
 
 **KNOB 1** Bright (the filter's cutoff) and **KNOB 2** Reso (its resonance) for the selected track. 64
 is the instrument as it is. Lower Bright is darker; higher Reso is more pronounced.
 
-### Master FX (FX, FX, FX)
+### Master FX (FX)
 
 ![Master FX](docs/img/manual/master_fx.png)
 
@@ -444,11 +385,9 @@ The effects all the tracks share: **KNOB 1** the reverb (Off, Large hall, Hall, 
 
 ### Four songs
 
-Polly keeps four songs. Each has its own chords, sections, length, loop, style (its six patterns) and
-mutes.
+Polly keeps four songs. Each has its own rows, tempo, TRANSPOSE, style (its six patterns) and mutes.
 
-To change songs, hold **SEL** and turn **PRESETS**, on any page, or turn **KNOB 4** on the Arrange
-page. While playing, the new song waits until you stop ("SONG 2 after the stop"): loading a song saves
+To change songs, hold **HOME** and turn **PRESETS**, on any page, or turn **SONG** on SONG's page 3. While playing, the new song waits until you stop ("SONG 2 after the stop"): loading a song saves
 first, and saving pauses the sound for a moment.
 
 ### Saving
@@ -463,17 +402,9 @@ Saving pauses the FM-1 for a moment, which is why it waits until you stop.
 If two sections of a song play the same user pattern and both were changed, the newest change is kept,
 and Polly says "SHARED PATTERN kept Main B".
 
-### The song's jobs (hold SAVE)
+### The song's actions (SEL)
 
-On the Chords and Arrange pages, hold **SAVE** for the song's jobs. **KNOB 1** picks, **KNOB 2** the
-song a copy goes to, **SEL** does it, **SAVE** cancels.
-
-![The song's jobs](docs/img/manual/song_jobs.png)
-
-| Job | What it does |
-| --- | --- |
-| Clear song | Removes its chords and sections. Its patterns, style and mutes stay |
-| Copy song | Copies it to another song. Its user patterns are copied into free ones, so the two songs don't share them. Only while stopped |
+On the SONG pages, **SEL**'s list has **INSERT ROW**, **DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**.
 
 ## Setup and MIDI
 
@@ -485,12 +416,11 @@ Press **GLO** for Setup.
 | --- | --- |
 | KNOB 1 Clock | **MIDI in** (the default): Polly keeps its own time, and follows MIDI clock, start and stop whenever they come in. **internal**: it ignores MIDI clock |
 | KNOB 2 MIDI out | **on** (the default): the tracks go out over USB on their channels, with their sounds and mixer, and MIDI clock with start and stop while Polly keeps time. **off**: nothing goes out |
-| KNOB 3 Key | The progressions' key (as on the Song page) |
-| KNOB 4 Lights | **on**: keys light as you play, and the other buttons glow. **notes**: keys light, no glow. **off**: neither |
+| KNOB 3 Lights | **on**: keys light as you play, and the other buttons glow. **notes**: keys light, no glow. **off**: neither |
 
 The last row shows the QY70 bank: none, the number of styles, "damaged" or "old format".
 
-Press GLO again for the Panel: the processor's load, the voices sounding and the version.
+Turn SELECT for the Panel: the processor's load, the voices sounding and the version.
 
 **MIDI in** (USB and the TRS jack) plays Polly's sounds on all 16 channels, as a General MIDI sound
 module, drums on channel 10. It plays alongside the arranger. Controllers 74 (brightness) and 71
@@ -526,8 +456,7 @@ QY70 styles** removes it.
 
 ### Playing them
 
-The QY70 styles follow Polly's 16 on the Style knob (Song page KNOB 1, PRESETS, or the song's
-patterns pages), marked "QY". They play with their own bends, swells and filter moves, and change
+The QY70 styles follow Polly's 16 on the Style knob (HOME's KNOB 1, or the Style pages, ENV), marked "QY". They play with their own bends, swells and filter moves, and change
 sections and styles without a gap. A song plays one QY70 style at a time: picking a section from
 another one moves the song's other QY70 sections with it.
 
@@ -585,36 +514,25 @@ trademarks of their owners. Polly is GPL-3.0 (see LICENSING.md).
 
 ## Page by page
 
-ALGORITHM picks the track on every page. SEL held + PRESETS picks the song on every page.
+ALGORITHM picks the track on every page. HOME held + PRESETS picks the song on every page. SELECT turns a
+button's pages.
 
 | Page | Button | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
 | --- | --- | --- | --- | --- | --- | --- |
-| Song | HOME | Style | Template | Key | Grid | Style |
+| HOME | HOME | Style | Tempo | Transpose | Loop | The next loop |
+| SONG | HOME, SELECT | Row | Loop | Section | Repeat | The next row |
+| SONG 2 | HOME, SELECT ×2 | Row | Key | | | The next row |
+| SONG 3 | HOME, SELECT ×3 | Intro | Ending | At end | Song | The next row |
+| LOOP | ARP | Root | Type | Bass | Step | The next loop |
+| LOOP 2 | ARP, SELECT | Length | Beats | Name | | The next loop |
 | Pattern | SEQ | Grid | | | Mute | The section's pattern |
-| Pattern setup | SEQ ×2 | Bars | Beats | Letter | Character | The section's pattern |
+| Pattern setup | SEQ, SELECT | Bars | Beats | Letter | Character | The section's pattern |
 | Track | EDIT | Program | Type | Low | High | Program family |
-| Track keys | EDIT ×2 | High key | Channel | | | |
-| Mixer | FX | Volume | Pan | Reverb | Chorus | |
-| Mixer tone | FX ×2 | Bright | Reso | | | |
-| Master FX | FX ×3 | Reverb | Reverb level | Chorus | Chorus level | |
-| Chords | LFO | Root | Type | Bass | Step | Cursor |
-| Arrange | ENV | Section | Length | Loop | Song | Cursor (a bar) |
-| Song patterns | ENV ×2 | Intro | Main A | Main B | Style | Style |
-| Song patterns | ENV ×3 | Fill AB | Fill BA | Ending | Style | Style |
-| Templates | ARP | Template | Key | | | Template |
-| Copy template | ARP ×2 | Template | Times | From bar | | From bar |
-| Setup | GLO | Clock | MIDI out | Key | Lights | |
-| Panel | GLO ×2 | | | | | |
-| Jobs | SAVE held | Job | Copy to | | | |
-
-Other buttons by page:
-
-| Page | Button | Does |
-| --- | --- | --- |
-| Templates | PLAY (stopped) | Starts the progression under the cursor |
-| Chords | REC | Records chords into the song |
-| Chords, Arrange | PLAY | Brings the song back after a progression, and starts |
-| Copy template | SEL | Copies the progression into the song |
-| Jobs | SEL / SAVE | Do it / cancel |
-| Pattern to Master FX | SAVE held | The pattern's jobs |
-| Chords, Arrange | SAVE held | The song's jobs |
+| Track keys | EDIT, SELECT | High key | Channel | | | |
+| Mixer | LFO | Volume | Pan | Reverb | Chorus | |
+| Mixer tone | LFO, SELECT | Bright | Reso | | | |
+| Master FX | FX | Reverb | Reverb level | Chorus | Chorus level | |
+| Style | ENV | Intro | Main A | Main B | Style | Style |
+| Style 2 | ENV, SELECT | Fill AB | Fill BA | Ending | Style | Style |
+| Setup | GLO | Clock | MIDI out | Lights | | |
+| Panel | GLO, SELECT | | | | | |
