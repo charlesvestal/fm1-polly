@@ -152,3 +152,11 @@ int free_rec_bars(int beats, int bpb)
     m = loop_max_bars(bpb);
     return bars < 1 ? 1 : bars > m ? m : bars;
 }
+chord_t chord_shift(chord_t c, int by)
+{
+    by = (by % 12 + 12) % 12;
+    c.root = (uint8_t)((c.root + by) % 12);
+    if (c.bass < 12u)
+        c.bass = (uint8_t)((c.bass + by) % 12);
+    return c;
+}

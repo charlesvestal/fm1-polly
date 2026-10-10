@@ -24,3 +24,6 @@ void row_insert(song_t *g, int r);                /* a copy of row r - 1 (or a d
 void row_delete(song_t *g, int r);
 int loop_rows_using(const song_t *g, int loop);   /* rows of g that play it */
 int free_rec_bars(int beats, int beats_a_bar);    /* REC in FREE: the bars the take rounds up to (1..max) */
+/* c moved by `by` semitones (root and bass; any sign): a stored chord as it sounds (+ the transpose), or a chord
+ * played as it is stored (- the transpose) */
+chord_t chord_shift(chord_t c, int by);

@@ -476,6 +476,14 @@ static int expect(const char *what, const char *val)
         got = arr_loop_beat;
     else if (!strcmp(what, "override"))           /* a chord from the keys holds until the source's next change */
         got = arr_override;
+    else if (!strcmp(what, "rec_chords"))         /* REC writes chords (HOME, LOOP) */
+        got = ui.rec_chords;
+    else if (!strcmp(what, "take"))               /* REC on HOME in FREE: a new loop's take, 0 off, 1 waiting, 2 on */
+        got = ui.take;
+    else if (!strcmp(what, "cbeat"))              /* the chord cursor, a beat of the loop, 0.. */
+        got = app.cbeat;
+    else if (!strcmp(what, "app_loop"))           /* the loop the LOOP screen shows, 1..16 */
+        got = app.loop + 1;
     else if (!strcmp(what, "row"))                /* the song's row playing, 1.. */
         got = arr_row + 1;
     else if (!strcmp(what, "mutes"))              /* the engine's muted tracks now, bit t track t + 1 */
@@ -483,7 +491,7 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "loop_bars", 9))      /* loop_barsN: loop N's bars (0: empty) */
         got = songs.loop[(atoi(what + 9) - 1) & 15].bars;
     else if (!strncmp(what, "loop_ch", 7)) {      /* loop_chN_B: loop N's beat B, root*100 + type, -1 "." */
-        int l = (atoi(what + 7) - 1) & 15, b = strchr(what, '_') ? atoi(strchr(what, '_') + 1) : 0;
+        int l = (atoi(what + 7) - 1) & 15, b = strrchr(what, '_') ? atoi(strrchr(what, '_') + 1) : 0;
         uint16_t v = songs.loop[l].ch[b % ARR_LOOP_BEATS];
         got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
     } else if (!strcmp(what, "rows"))             /* the song's rows */
@@ -768,6 +776,11 @@ int main(int argc, char **argv)
                 for (int k = 0; k < ARR_NSECT; k++)
                     dbg_songs.song[n].style[k] = (uint16_t)(n * ARR_NSECT + k);
             project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_row")) {        /* host-only: poke_row L: a row of loop L (1..16) at the song's end
+                                                       * (until the SONG screen writes rows) */
+            songs_write(1);
+            row_tap(csong(), csong()->nrows, (atoi(a) - 1) & 15);
+            songs_write(0);
         } else if (!strcmp(cmd, "poke_share")) {      /* host-only: song 1 plays one user pattern as Main A and Main B */
             songs_defaults(&dbg_songs);
             for (int k = 0; k < ARR_NSECT; k++)

@@ -101,8 +101,20 @@ static void test_free_length(void)
     CHECK(free_rec_bars(200, 4) == 16 && free_rec_bars(200, 7) == 9, "64 beats at most");
     CHECK(free_rec_bars(5, 0) == 3, "bpb 0 clamped to 2, no divide by zero");
 }
+static void test_shift(void)
+{
+    chord_t d = {2, CH_MAJ, CH_NOBASS}, c = chord_shift(d, -2), g7e = {7, CH_7, 4}, s;
+    CHECK(c.root == 0 && c.type == CH_MAJ && c.bass == CH_NOBASS, "chord_shift({D, maj}, -2) is C, no bass added");
+    s = chord_shift(g7e, 5);
+    CHECK(s.root == 0 && s.type == CH_7 && s.bass == 9, "G7/E up 5: C7/A (the bass moves too)");
+    s = chord_shift(g7e, -19);
+    CHECK(s.root == 0 && s.bass == 9, "-19 is +5 (any sign, any size)");
+    s = chord_shift(chord_shift(g7e, 3), -3);
+    CHECK(s.root == 7 && s.bass == 4, "there and back");
+}
 int main(void)
 {
+    test_shift();
     test_pack();
     test_write();
     test_factory();

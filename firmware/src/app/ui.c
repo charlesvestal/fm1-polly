@@ -417,6 +417,7 @@ static void fx_apply(void) { gm_fx(proj.rev_type, proj.rev_level, proj.cho_type,
 void app_start(void)
 {
     memset(&app, 0, sizeof app);                 /* MODE FREE, loop L1, row 1 */
+    app.cstep = 2;                               /* the chord cursor steps a bar */
     for (int s = 0; s < ARR_NSECT; s++)
         app.slot_buf[s] = -1;
     qbuf[0].index = qbuf[1].index = -1;
@@ -484,7 +485,141 @@ static void copy_to(int n);
 static void list_open(void);
 static void list_sel(void);
 static void ask_end(int yes);
-/* the keys held as chords (KM_CHORD), to the chord recogniser (every change) */
+/* ---- writing chords (the spec's REC on HOME and LOOP) into the loop playing (stopped: app.loop, the LOOP screen's).
+ * Stopped: at the cursor (app.cbeat), which moves on a STEP when the chord's keys are all up; playing: on the
+ * nearest beat of the loop as it plays (arr_loop_beat, the next one past half a beat, round the end), overdubbed.
+ * While the chord's keys stay held, a chord growing (A C E, then G) rewrites the same beat; a key lifted and a
+ * new chord: the next beat (playing: the next beat if it is the same one; stopped: the next step). A chord is stored
+ * minus the transposition it plays at (xpose_now: TRANSPOSE, + the row's KEY in SONG), so it plays back as played.
+ * Writing past the end makes the loop longer, a bar at a time (loop_write); past 64 beats: LOOP FULL.
+ * REC on HOME in FREE is a new loop's take (free_take_*): its chords land on the nearest beat from its start. */
+static char *loop_name_l(int i, char *t);
+static void take_end(void);
+/* the cursor's step: a beat, half a bar (at least a beat), a bar of app.loop */
+static int step_beats(void)
+{
+    const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    int bpb = l->beats ? l->beats : 4;
+    return app.cstep == 0 ? 1 : app.cstep == 1 ? (bpb / 2 > 1 ? bpb / 2 : 1) : bpb;
+}
+/* the cursor d steps on. REC on: it may stand at the loop's end (a chord there makes the loop longer), and a step on
+ * from the end skips: the loop grows to hold it, by bars of "no change" (LOOP FULL at the limit). REC off: round
+ * the loop. Back past beat 0: the last step */
+static void cursor_move(int d)
+{
+    loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    int len = loop_len(l), s = step_beats(), bpb = l->beats ? l->beats : 4, b = app.cbeat + d * s;
+    char t[8];
+    if (d < 0) {
+        if (b < 0)
+            b = len > 0 ? (len - 1) / s * s : 0;
+    } else if (!ui.rec_chords)
+        b = len > 0 ? b % len : 0;
+    else if (b >= loop_max_bars(bpb) * bpb) {
+        loop_name_l(app.loop % ARR_LOOPS, t);
+        say("LOOP FULL", t);
+        return;
+    } else if (b > len && app.cbeat < len)
+        b = len;                                 /* (a step past what is left: the end first) */
+    else if (b > len) {                          /* from the end: a skip, the loop grows to hold it */
+        songs_write(1);
+        loop_set_bars(l, (b + bpb - 1) / bpb);
+        songs_write(0);
+    }
+    app.cbeat = (uint8_t)b;
+}
+/* the loop the keys write into: the one playing (playing), else app.loop */
+static int rec_loop(void)
+{
+    int ln = arr_loop_now;
+    return arr_playing && ln >= 0 && ln < ARR_LOOPS ? ln : app.loop % ARR_LOOPS;
+}
+/* chord c (as played) on beat b of loop i: 0 written, -1 LOOP FULL (said) */
+static int chord_write(int i, int b, chord_t c)
+{
+    int r;
+    char t[8];
+    songs_write(1);
+    r = loop_write(&songs.loop[i], b, chord_shift(c, -xpose_now()));
+    songs_write(0);
+    if (r < 0) {
+        loop_name_l(i, t);
+        say("LOOP FULL", t);
+    }
+    return r;
+}
+/* the beat nearest now of loop l playing (an empty loop: of the pattern's bar) */
+static int live_beat(const loop_t *l)
+{
+    uint32_t lb, tk, n = (uint32_t)loop_len(l), bpb = l->beats ? l->beats : 4u;
+    do {
+        lb = arr_loop_beat;
+        tk = arr_beat_tick;
+    } while (lb != arr_loop_beat || tk != arr_beat_tick);
+    if (!n)
+        return (int)((tk / ARR_PPQ + (tk % ARR_PPQ > ARR_PPQ / 2)) % bpb);
+    return (int)((lb + (tk % ARR_PPQ > ARR_PPQ / 2)) % n);
+}
+/* the take's beat now: from its downbeat, the nearest (below 0: before it) */
+static int32_t take_beat(void)
+{
+    uint32_t b, tk;
+    do {
+        b = arr_beats;
+        tk = arr_beat_tick;
+    } while (b != arr_beats || tk != arr_beat_tick);
+    return (int32_t)(b - ui.take_b0) + (tk % ARR_PPQ > ARR_PPQ / 2);
+}
+/* a chord recognised on the keys (chord_keys): written when REC writes chords, or into the take */
+static void chord_played(const uint8_t *n, int cnt)
+{
+    chord_t ch;
+    int prev = ui.centry, l, b;
+    if ((!ui.take && !ui.rec_chords) || !chord_recognize(n, cnt, &ch))
+        return;
+    l = ui.take ? ui.take_loop : rec_loop();
+    if (prev >= 0 && !ui.clifted) {              /* the chord still being built: its beat again */
+        chord_write(l, prev, ch);
+        return;
+    }
+    ui.clifted = 0;
+    if (ui.take) {                               /* the take: from its downbeat (waiting: it sounds, not written) */
+        int32_t tb = ui.take == 2 && arr_playing ? take_beat() : -1;
+        if (tb < 0)
+            return;
+        if (tb == prev)
+            tb++;
+        if (chord_write(l, (int)tb, ch) < 0) {
+            take_end();                          /* (full: the take ends there) */
+            return;
+        }
+        ui.centry = (int8_t)tb;
+        ui.centry_step = 0;
+        ui.take_any = 1;
+        if (tb > ui.take_last)
+            ui.take_last = (int16_t)tb;
+        return;
+    }
+    if (arr_playing) {                           /* in time: the nearest beat */
+        int len = loop_len(&songs.loop[l]);
+        if (arr_sect == SEC_INTRO) {
+            say("WRITE", "after the Intro");     /* (the loop has not started) */
+            return;
+        }
+        b = live_beat(&songs.loop[l]);
+        if (b == prev && len > 0)
+            b = (b + 1) % len;                   /* a change on the same beat: the next one */
+        ui.centry = (int8_t)(chord_write(l, b, ch) == 0 ? b : -1);
+        ui.centry_step = 0;
+        return;
+    }
+    if (prev >= 0 && ui.centry_step)             /* a key lifted, a new chord with keys still held: the next step */
+        cursor_move(1);
+    ui.centry = (int8_t)(chord_write(l, app.cbeat, ch) == 0 ? app.cbeat : -1);
+    ui.centry_step = 1;
+}
+/* the keys held as chords (KM_CHORD), to the chord recogniser (every change); a chord heard: written (REC); the keys
+ * all up after a chord written at the cursor: it moves on a step */
 static void chord_keys(void)
 {
     uint8_t n[NKEYS];
@@ -492,7 +627,115 @@ static void chord_keys(void)
     for (int i = 0; i < NKEYS; i++)
         if (ui.kmode[i] == KM_CHORD)
             n[c++] = ui.knote[i];
-    arr_keys_held(n, c);
+    if (c < ui.cheld && ui.centry >= 0)
+        ui.clifted = 1;                          /* a key up: the chord written is done */
+    ui.cheld = (uint8_t)c;
+    if (arr_keys_held(n, c)) {
+        app.played = 1;
+        chord_played(n, c);
+    }
+    if (!c && ui.centry >= 0) {
+        if (ui.centry_step)
+            cursor_move(1);
+        ui.centry = -1;
+        ui.clifted = 0;
+    }
+}
+/* REC writing chords on / off (HOME and LOOP in LOOP mode) */
+static void loop_rec_toggle(void)
+{
+    char t[16];
+    int len = loop_len(&songs.loop[app.loop % ARR_LOOPS]);
+    ui.rec_chords = (uint8_t)!ui.rec_chords;
+    ui.centry = -1;
+    ui.clifted = 0;
+    if (!ui.rec_chords) {
+        say("WRITE OFF", 0);
+        return;
+    }
+    if (app.cbeat > len)                         /* the cursor: at most at the loop's end */
+        app.cbeat = (uint8_t)len;
+    loop_name_l(rec_loop(), cat_s(t, "INTO "));
+    say("WRITE CHORDS", t);
+}
+/* ---- REC on HOME in FREE: a new loop. Into the first empty loop (its beats a bar the pattern's); from the next
+ * downbeat (playing) or from PLAY; REC again ends it, rounded up to whole bars (free_rec_bars), and it plays (MODE
+ * LOOP): "NEW LOOP L9". The transport stopping, or the keys leaving chords (another screen), ends it too. Nothing
+ * written: no loop */
+static void free_take_toggle(void)
+{
+    char a[12], b[24];
+    int i, bpb = clampi(app.hdr[eslot()].beats, 2, 7);
+    if (ui.take) {
+        take_end();
+        return;
+    }
+    for (i = 0; i < ARR_LOOPS && songs.loop[i].bars; i++)
+        ;
+    if (i == ARR_LOOPS) {
+        say("NO EMPTY LOOP", "CLEAR ONE (SEL)");
+        return;
+    }
+    ui.take_loop = (uint8_t)i;
+    ui.take_any = 0;
+    ui.take_last = -1;
+    ui.centry = -1;
+    if (songs.loop[i].beats != bpb) {
+        songs_write(1);
+        loop_set_beats(&songs.loop[i], bpb);
+        songs_write(0);
+    }
+    if (arr_playing) {                           /* from the next downbeat of the pattern playing */
+        uint32_t nb, tk;
+        do {
+            nb = arr_beats;
+            tk = arr_beat_tick;
+        } while (nb != arr_beats || tk != arr_beat_tick);
+        ui.take_b0 = nb - tk / ARR_PPQ + (uint32_t)bpb;
+        ui.take = 2;
+    } else
+        ui.take = 1;                             /* from PLAY (take_poll) */
+    loop_name_l(i, cat_s(a, "REC "));
+    cat_s(b, arr_playing ? "from the next bar" : "from PLAY");
+    say(a, b);
+}
+static void take_end(void)
+{
+    loop_t *l = &songs.loop[ui.take_loop % ARR_LOOPS];
+    int bpb = l->beats ? l->beats : 4, n = ui.take == 2 && arr_playing ? take_beat() : ui.take_pos;
+    char t[8];
+    ui.take = 0;
+    ui.centry = -1;
+    if (!ui.take_any) {
+        say("NO CHORDS", "no new loop");
+        return;
+    }
+    if (n < ui.take_last + 1)
+        n = ui.take_last + 1;
+    songs_write(1);
+    loop_set_bars(l, free_rec_bars(n, bpb));
+    songs_write(0);
+    app.loop = ui.take_loop;
+    app.cbeat = 0;
+    mode_set(ARR_LOOP);
+    loop_name_l(app.loop, t);
+    say("NEW LOOP", t);
+}
+/* each frame: the take waiting starts with PLAY; on, it follows the transport (stopped: it ends) and ends full */
+static void take_poll(void)
+{
+    if (ui.take == 1 && arr_playing) {
+        ui.take = 2;                             /* PLAY: beat 0 is the take's first */
+        ui.take_b0 = 0;
+        ui.take_pos = 0;
+    } else if (ui.take == 2) {
+        const loop_t *l = &songs.loop[ui.take_loop % ARR_LOOPS];
+        int bpb = l->beats ? l->beats : 4;
+        if (!arr_playing)
+            take_end();
+        else if ((ui.take_pos = take_beat()) >= loop_max_bars(bpb) * bpb)
+            take_end();                          /* 64 beats: as long as a loop gets */
+    }
 }
 /* loop i (HOME + white key, PRESETS on HOME / LOOP): MODE LOOP on it (while playing, from the next bar line); the
  * loop playing picked again: FREE */
@@ -506,6 +749,8 @@ static void loop_pick(int i)
         say("FREE", "no loop");
         return;
     }
+    if (i != app.loop)
+        app.cbeat = 0;                           /* another loop: its cursor at beat 0 */
     app.loop = (uint8_t)i;
     mode_set(ARR_LOOP);
     loop_label(i, t);
@@ -578,6 +823,56 @@ static void key_up(int k)
     else if (m == KM_CHORD)
         chord_keys();
 }
+/* REC where the keys play chords (HOME, LOOP): a take running ends; in FREE on HOME a new loop's take starts; else
+ * chords are written into the loop. In SONG, first MODE LOOP on the row's loop ("SONG PAUSED", MODE SONG goes back);
+ * on LOOP in FREE, MODE LOOP on the loop it shows (you edit what you hear) */
+static void rec_chords_button(void)
+{
+    char t[16];
+    if (ui.take || (!ui.rec_chords && app.mode == ARR_FREE && ui.page == P_HOME)) {
+        free_take_toggle();
+        return;
+    }
+    if (!ui.rec_chords && app.mode == ARR_SONG) {
+        const song_t *g = csong();
+        int ln = arr_loop_now;
+        app.loop = (uint8_t)(ln >= 0 && ln < ARR_LOOPS ? ln
+                             : g->nrows ? g->row[app.row < g->nrows ? app.row : 0].loop % ARR_LOOPS : app.loop);
+        app.cbeat = 0;
+        mode_set(ARR_LOOP);
+        loop_rec_toggle();
+        loop_name_l(app.loop, cat_s(t, "EDITING "));
+        say("SONG PAUSED", t);
+        return;
+    }
+    if (!ui.rec_chords && app.mode == ARR_FREE)
+        mode_set(ARR_LOOP);
+    loop_rec_toggle();
+}
+/* REC records what the keys play on this screen (principle 2): when they stop doing that (another screen), it ends.
+ * Track REC ends leaving SEQ / EDIT; writing chords (and a new loop's take, which keeps what it has) ends leaving
+ * HOME / LOOP. (One rule, so REC never records into what the keys no longer play) */
+static void rec_follow_keys(void)
+{
+    int r = key_role();
+    if (r == ui.role_was)
+        return;
+    ui.role_was = (uint8_t)r;
+    if (r != KR_TRACK && (ui.rec_want || arr_recording)) {
+        arr_record(proj.trk, 0);
+        ui.rec_want = ui.rec_seen = 0;
+        say("RECORD OFF", 0);
+    }
+    if (r != KR_CHORDS) {
+        if (ui.take)
+            take_end();
+        else if (ui.rec_chords) {
+            ui.rec_chords = 0;
+            ui.centry = -1;
+            say("WRITE OFF", 0);
+        }
+    }
+}
 
 /* the page buttons (PAGE_BTN, pages.c): pressed again, the next page; SELECT turns them both ways */
 static int page_button(int b)
@@ -620,11 +915,15 @@ static void button_down(int b)                   /* PLAY, REC: at once */
         break;
     case B_REC:
     {
-        int on = !arr_recording, s = eslot();   /* the state asked for (the engine's follows a block later) */
+        int on = !arr_recording, s = eslot(), r = key_role();   /* the state asked for (the engine's: a block later) */
         int st = songs.song[proj.song].style[s];
         char a[16], t[16];
-        if (on && key_role() != KR_TRACK) {      /* REC records what the keys play: a track on SEQ, EDIT */
-            say("REC", "on SEQ, EDIT");
+        if (r == KR_CHORDS) {                    /* HOME, LOOP: chords into the loop, or a new loop */
+            rec_chords_button();
+            break;
+        }
+        if (on && r != KR_TRACK) {               /* REC records what the keys play: a track on SEQ, EDIT */
+            say("REC", "not here");
             break;
         }
         if (on)
@@ -1646,7 +1945,7 @@ static void input(void)
 static void leds(void)
 {
     uint32_t b = 0, k = 0, i;
-    int rec = arr_recording;
+    int rec = arr_recording || ui.rec_chords || ui.take;
     if (arr_playing)
         b |= 1u << B_PLAY;
     if (rec)
@@ -1691,6 +1990,8 @@ void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
     ui.touched = -1;
+    ui.centry = -1;
+    ui.loop_seen = -1;
     ui.act_t = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }
@@ -1709,6 +2010,22 @@ void ui_frame(void)
         }
     }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
+    rec_follow_keys();
+    take_poll();
+    {   /* app.loop follows the loop playing as it changes (a loop or a song's row): LOOP shows what you hear; a loop
+         * picked and waiting for the bar line stays picked (no change seen yet) */
+        int ln = arr_loop_now;
+        if (ln != ui.loop_seen) {
+            ui.loop_seen = (int8_t)ln;
+            if (ln >= 0 && ln < ARR_LOOPS && app.mode != ARR_FREE && ln != app.loop) {
+                app.loop = (uint8_t)ln;
+                app.cbeat = 0;
+                ui.centry = -1;
+            }
+        }
+        if (arr_playing && ln >= 0)
+            app.played = 1;                      /* a loop or a song gave the chord */
+    }
     if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
         edits_flush();
     /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the

@@ -127,7 +127,7 @@ expect mode 0
 expect loop_now 0
 tap PLAY
 wait 500
-# REC on HOME: not here yet (the keys play chords)
+# REC on HOME in FREE: a new loop's take (no track recording); leaving HOME ends it (no chords: no loop)
 tap REC
 expect msg_is_REC 1
 expect recording 0

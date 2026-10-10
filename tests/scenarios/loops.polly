@@ -1,0 +1,187 @@
+# POLLY, loops: a new loop from FREE, writing chords on HOME (step while stopped, in time while playing), REC in SONG
+# pausing to LOOP; then on LOOP: the cursor, skip, name, copy.
+# Keys: F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, F#4 13, G4 14, A4 16, B4 18, D5 21. At 120 BPM a beat is 500 ms.
+# Chords as expected: root * 100 + CH_* (maj 0, M7 2, 7 6, min 16, m7 18), -1 for no change.
+wait 300
+expect mode 0
+expect tempo 105
+spin K2 15
+expect tempo 120
+wait 50
+shot home_free.png
+# ---- REC on HOME in FREE: a new loop into the first empty one (L9), from the next downbeat
+tap PLAY
+wait 200
+tap REC
+expect take 2
+expect msg_is_REC 1
+expect footer_is_KEYS:_CHORDS|REC:_NEW_LOOP 1
+# (the take starts at the next downbeat: beat 4; this chord lands near it, a third of a beat late: beat 0)
+wait 1800
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+shot home_take.png
+wait 1900
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+key 7 up
+wait 1000
+# REC again ends it: 7 beats played, 2 bars; the new loop plays
+tap REC
+wait 100
+expect take 0
+expect mode 1
+expect loop_bars9 2
+expect loop_ch9_0 916
+expect loop_ch9_4 500
+expect loop_ch9_1 -1
+expect msg_is_NEW 1
+expect footer_is_KEYS:_CHORDS|REC:_WRITE 1
+# (it plays from the next bar line)
+wait 800
+expect loop_now 9
+wait 700
+shot home_loop.png
+# ---- step writing on HOME, LOOP mode, stopped: at the cursor, a bar a step (STEP's default)
+tap PLAY
+wait 100
+press HOME
+tapkey w11
+release HOME
+expect mode 1
+expect app_loop 12
+expect cbeat 0
+tap REC
+expect rec_chords 1
+expect msg_is_WRITE 1
+key 9 down
+key 13 down
+key 16 down
+wait 50
+key 9 up
+key 13 up
+key 16 up
+wait 50
+expect loop_ch12_0 200
+expect cbeat 4
+# a chord growing while its keys stay held rewrites its beat: A C E, then G
+key 4 down
+key 7 down
+key 11 down
+wait 50
+expect loop_ch12_4 916
+key 14 down
+wait 50
+expect loop_ch12_4 918
+expect cbeat 4
+key 4 up
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect cbeat 8
+expect loop_bars12 2
+# with TRANSPOSE +2, D played is stored as C (it plays as D)
+spin K3 2
+expect transpose 2
+key 9 down
+key 13 down
+key 16 down
+wait 50
+key 9 up
+key 13 up
+key 16 up
+wait 50
+expect loop_ch12_8 0
+expect loop_bars12 3
+expect cbeat 12
+shot home_step.png
+spin K3 -2
+expect transpose 0
+tap REC
+expect rec_chords 0
+expect msg_is_WRITE 1
+# ---- writing in time, playing: on the nearest beat (Main A first: no Intro)
+press HOME
+tapkey b1
+release HOME
+tap PLAY
+tap REC
+expect rec_chords 1
+# beat 2.2: beat 2 (E minor)
+wait 1020
+key 11 down
+key 14 down
+key 18 down
+wait 60
+expect loop_ch12_2 416
+expect override 1
+shot home_coral.png
+key 11 up
+key 14 up
+key 18 up
+# beat 5.7: beat 6 (G)
+wait 1640
+key 14 down
+key 18 down
+key 21 down
+wait 60
+key 14 up
+key 18 up
+key 21 up
+expect loop_ch12_6 700
+# beat 11.8 of 12: round the end, beat 0 (F, over the D)
+wait 2980
+key 0 down
+key 4 down
+key 7 down
+wait 60
+key 0 up
+key 4 up
+key 7 up
+expect loop_ch12_0 500
+expect loop_bars12 3
+# REC ends when the keys stop playing chords: another screen
+tap SEQ
+expect rec_chords 0
+expect msg_is_WRITE 1
+tap HOME
+expect page 0
+# ---- REC in SONG: LOOP on the row's loop first ("SONG PAUSED")
+poke_row 3
+poke_row 12
+spin K4 1
+wait 50
+expect mode 2
+wait 2500
+expect loop_now 3
+expect row 1
+shot home_song.png
+tap REC
+expect mode 1
+expect rec_chords 1
+expect msg_is_SONG 1
+expect app_loop 3
+expect loop_now 3
+tap REC
+expect rec_chords 0
+# ---- HOME during an Intro: the loop starts after it
+tap PLAY
+wait 100
+press HOME
+tapkey b0
+release HOME
+tap PLAY
+wait 300
+expect sect 1
+shot home_intro.png
+wait 300
