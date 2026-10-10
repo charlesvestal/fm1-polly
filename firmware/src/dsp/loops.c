@@ -9,7 +9,7 @@ int loop_len(const loop_t *l) { return l->bars * (l->beats ? l->beats : 4); }
 int loop_max_bars(int beats)
 {
     int m = ARR_LOOP_BEATS / (beats < 2 ? 2 : beats);
-    return m > 16 ? 16 : m;
+    return m > ARR_LOOP_BARS ? ARR_LOOP_BARS : m;
 }
 static void name_set(loop_t *l, const char *s)
 {
@@ -60,9 +60,13 @@ chord_t loop_chord_at(const loop_t *l, int b)
 {
     int n = loop_len(l);
     chord_t none = {0, CH_NONE, CH_NOBASS};
+    if (n > ARR_LOOP_BEATS)              /* a damaged object: never read past ch[] */
+        n = ARR_LOOP_BEATS;
     if (n <= 0)
         return none;
     b %= n;
+    if (b < 0)
+        b += n;
     for (int k = 0; k < n; k++) {
         int i = (b - k + n) % n;
         if (l->ch[i] != LC_SAME)
@@ -142,6 +146,9 @@ int loop_rows_using(const song_t *g, int loop)
 }
 int free_rec_bars(int beats, int bpb)
 {
-    int bars = (beats + bpb - 1) / bpb, m = loop_max_bars(bpb);
+    int bars, m;
+    bpb = bpb < 2 ? 2 : bpb > 7 ? 7 : bpb;
+    bars = (beats + bpb - 1) / bpb;
+    m = loop_max_bars(bpb);
     return bars < 1 ? 1 : bars > m ? m : bars;
 }

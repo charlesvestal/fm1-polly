@@ -4,7 +4,7 @@
 #include "arr.h"
 extern const uint8_t FACTORY_LOOP[8];            /* L1..L8's factory progressions: TEMPLATES indices */
 int loop_len(const loop_t *l);                    /* its beats: bars * beats */
-int loop_max_bars(int beats);                     /* ARR_LOOP_BEATS / beats, at most 16 */
+int loop_max_bars(int beats);                     /* ARR_LOOP_BEATS / beats, at most ARR_LOOP_BARS */
 void loop_clear(loop_t *l, int i);                /* empty (0 bars of 4), named "Loop <i+1>" */
 void loop_from_template(loop_t *l, int t);        /* TEMPLATES[t]: a chord a bar, its beats, its name */
 /* chord c on beat b: the loop grows (bar by bar) to hold it. 0 = written, -1 = past ARR_LOOP_BEATS */
@@ -14,10 +14,11 @@ chord_t loop_chord_at(const loop_t *l, int b);    /* the chord sounding on beat 
                                                    * it, round from the end); CH_NONE type if it has none */
 void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; beats past the end kept, not played */
 void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats */
-void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM */
-/* white key `loop` tapped on the SONG screen at row r: r == the last row and its loop is `loop`: REPEAT + 1
- * (8 at most), returns r; else row r is set (a new row at the end), its section the one this loop had in an
- * earlier row, else Main A; returns the row; -1 when full */
+void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM;
+                                                   * keeps its style */
+/* white key `loop` tapped on the SONG screen at row r: r is the last row or the one after it, and the last
+ * row's loop is `loop`: REPEAT + 1 (8 at most), returns r; else row r is set (a new row at the end), its
+ * section the one this loop had in an earlier row, else Main A; returns the row; -1 when full */
 int row_tap(song_t *g, int r, int loop);
 void row_insert(song_t *g, int r);                /* a copy of row r - 1 (or a default row) at r */
 void row_delete(song_t *g, int r);

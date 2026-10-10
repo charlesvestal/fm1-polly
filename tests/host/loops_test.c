@@ -38,6 +38,15 @@ static void test_write(void)
     loop_set_beats(&l, 4);
     loop_set_bars(&l, 16);
     CHECK(l.bars == 16 && loop_len(&l) == 64, "4 beats: 16 bars");
+    loop_unwrite(&l, 4);
+    CHECK(l.ch[4] == LC_SAME, "unwrite beat 4");
+    loop_clear(&l, 9);
+    CHECK(strncmp(l.name, "Loop 10", 8) == 0, "Loop 10");
+    loop_clear(&l, 15);
+    CHECK(strncmp(l.name, "Loop 16", 8) == 0, "Loop 16");
+    CHECK(loop_chord_at(&l, 0).type == CH_NONE, "an empty loop: no chord");
+    loop_set_beats(&l, 7);
+    CHECK(loop_write(&l, 63, ch(0, CH_MAJ)) == -1, "7 beats: beat 63 refused");
 }
 static void test_factory(void)
 {
@@ -53,7 +62,7 @@ static void test_factory(void)
 }
 static void test_rows(void)
 {
-    song_t g;
+    song_t g = {0};
     loops_song_clear(&g);
     CHECK(g.nrows == 0 && g.intro == 1 && g.ending == 1 && g.at_end == 0 && g.tempo == 120, "an empty song");
     CHECK(row_tap(&g, 0, 8) == 0 && g.nrows == 1 && g.row[0].loop == 8 && g.row[0].rep == 1 && g.row[0].sect == ROW_A,
@@ -73,6 +82,15 @@ static void test_rows(void)
     CHECK(g.nrows == 5 && g.row[1].loop == 8 && g.row[2].loop == 9, "insert: a copy of the row before");
     row_delete(&g, 1);
     CHECK(g.nrows == 4 && g.row[1].loop == 9, "delete");
+    {
+        row_t ra = {0, ROW_A, 1, 0, 0, 0}, raf = {0, ROW_A_FILL, 1, 0, 0, 0};
+        row_t rb = {0, ROW_B, 1, 0, 0, 0}, rbf = {0, ROW_B_FILL, 1, 0, 0, 0};
+        CHECK(row_main(&ra) == SEC_A && row_main(&raf) == SEC_A && row_main(&rb) == SEC_B && row_main(&rbf) == SEC_B,
+              "row_main for each ROW_*");
+        CHECK(!row_fill(&ra) && row_fill(&raf) && !row_fill(&rb) && row_fill(&rbf), "row_fill for each ROW_*");
+    }
+    row_delete(&g, g.nrows - 1);
+    CHECK(g.nrows == 3, "deleting the last row");
     g.nrows = ARR_ROWS;
     g.row[ARR_ROWS - 1].loop = 0;
     CHECK(row_tap(&g, ARR_ROWS, 3) == -1, "32 rows at most");
@@ -81,6 +99,7 @@ static void test_free_length(void)
 {
     CHECK(free_rec_bars(0, 4) == 1 && free_rec_bars(4, 4) == 1 && free_rec_bars(5, 4) == 2, "rounded up to bars");
     CHECK(free_rec_bars(200, 4) == 16 && free_rec_bars(200, 7) == 9, "64 beats at most");
+    CHECK(free_rec_bars(5, 0) == 3, "bpb 0 clamped to 2, no divide by zero");
 }
 int main(void)
 {

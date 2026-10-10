@@ -19,6 +19,7 @@
 #define ARR_SONGS 4
 #define ARR_LOOPS 16                      /* L1..L16 */
 #define ARR_LOOP_BEATS 64                 /* a loop's beats at most (bars x beats) */
+#define ARR_LOOP_BARS 16                  /* a loop's bars at most */
 #define ARR_ROWS 32                       /* a song's rows at most */
 #define ARR_NSECT 6
 /* the sections (the QY70's), each a slot (sec - 1) holding its pattern. SEC_FILL is a command only (arr_section):
@@ -68,7 +69,7 @@ static inline chord_t lc_unpack(uint16_t v)
     return c;
 }
 typedef struct {
-    char name[8];
+    char name[8];                        /* up to 8 chars, NUL-padded, not terminated */
     uint8_t bars, beats;                 /* 0 bars: empty; 2..7 beats a bar; bars * beats <= ARR_LOOP_BEATS */
     uint8_t rsv[2];
     uint16_t ch[ARR_LOOP_BEATS];          /* beat i of the loop: lc_pack, or LC_SAME */
