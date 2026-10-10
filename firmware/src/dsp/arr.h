@@ -191,9 +191,12 @@ enum { ARR_FREE, ARR_LOOP, ARR_SONG };
 void arr_loops(const loop_t *table);             /* at init: the app's ARR_LOOPS loops */
 void arr_edit(int on);
 void arr_mode_free(void);
-/* loop i: stopped, from PLAY; playing, from the next bar line (its bars count from there) */
+/* loop i (0..ARR_LOOPS-1, another ignored): stopped, from PLAY (MIDI Continue: from the bar it continues in);
+ * playing, from the next bar line (its bars count from there). FREE: at once, the chord staying */
 void arr_mode_loop(int i);
-void arr_set_transpose(int semis);               /* -6..+5: loops and songs (not the keys' chords) */
+/* -6..+5: loops and songs (not the keys' chords). The chord sounding moves at once by the difference (a chord
+ * from the keys stays; the Intro's and the Ending's held chord moves too); the next chords come transposed */
+void arr_set_transpose(int semis);
 extern volatile uint8_t arr_mode;                /* ARR_* now (a change asked for: from its bar line) */
 extern volatile int8_t arr_loop_now;             /* the loop playing (LOOP, or the song's row), -1 none */
 extern volatile uint16_t arr_loop_beat;          /* the beat of that loop sounding (0..len-1) */

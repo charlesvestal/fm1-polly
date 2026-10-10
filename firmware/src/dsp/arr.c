@@ -75,7 +75,11 @@ void arr_clock(int msg) { post(C_CLOCK, (uint32_t)msg, 0); }
 void arr_loops(const loop_t *t) { loops = t; }
 void arr_edit(int on) { BARRIER(); edit_busy = (uint8_t)(on != 0); BARRIER(); }
 void arr_mode_free(void) { post(C_MODE, ARR_FREE, 0); }
-void arr_mode_loop(int i) { post(C_MODE, ARR_LOOP, (uint32_t)(i >= 0 && i < ARR_LOOPS ? i : 0)); }
+void arr_mode_loop(int i)
+{
+    if (i >= 0 && i < ARR_LOOPS)                   /* (another: ignored) */
+        post(C_MODE, ARR_LOOP, (uint32_t)i);
+}
 void arr_set_transpose(int s) { post(C_TRANSPOSE, (uint32_t)(int32_t)(s < -6 ? -6 : s > 5 ? 5 : s) & 0xFFu, 0); }
 static uint32_t keys_prev[4];                      /* the keys held at the last call (the caller's thread) */
 int arr_keys_held(const uint8_t *notes, int n)    /* in the caller's thread: chords.c has no state */
@@ -242,6 +246,8 @@ static int8_t transp;                              /* -6..+5 */
 static uint8_t chord_wait;                         /* a beat line found the table busy: its chord owed */
 static uint8_t override;                           /* a chord from the keys holds until the source's next change */
 static uint32_t lp_origin;                         /* beat_now where the loop's beat 0 fell */
+static uint32_t wait_from;                         /* the first beat line chord_wait missed */
+static uint16_t lbeat;                             /* the loop's beat sounding (arr_loop_beat, published a block) */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length (ours; pace: the one in use, ours or
  * the clock in's) */
@@ -863,6 +869,17 @@ static uint8_t resolve(uint32_t s, uint8_t *to)
 }
 
 /* ------------------------------------------------------------ the clock --- */
+/* the source asked for (mode_next) starts: its beat 0 at beat `origin`; the chord sounding there owed (a beat
+ * with no entry of its own still takes the loop's), a played chord's hold over */
+static void mode_apply(uint32_t origin)
+{
+    mode = mode_next;
+    lp = lp_next;
+    mode_wait = 0;
+    lp_origin = origin;
+    override = 0;
+    chord_owed = 1;
+}
 /* PLAY: the section queued; else (not recording) the Intro, when it has notes; else the Main as it was (after
  * anything else: Main A). A source asked for starts here, its beat 0 PLAY's */
 static void transport_start(void)
@@ -882,13 +899,11 @@ static void transport_start(void)
     cur = (uint8_t)(s - 1);
     first_tick = 1;
     sec_bars = 0;
-    if (mode_wait) {
-        mode = mode_next;
-        lp = lp_next;
-        mode_wait = 0;
-    }
+    if (mode_wait)
+        mode_apply(0);
     lp_origin = 0;
     override = 0;
+    chord_wait = 0;
     beat_now = bar_beat0 = 0;
     pos = 0;
     ftt = 0;                                       /* tick 0 at once */
@@ -959,13 +974,8 @@ static int bar_line(void)
     uint8_t next = arr_next_sect, mark = SEC_SAME;
     if (!first_tick)
         sec_bars++;
-    if (mode_wait) {                               /* a source asked for: its beat 0 is this downbeat */
-        mode = mode_next;
-        lp = lp_next;
-        mode_wait = 0;
-        lp_origin = beat_now;
-        chord_owed = 1;
-    }
+    if (mode_wait)                                 /* a source asked for: its beat 0 is this downbeat */
+        mode_apply(beat_now);
     if (next == SEC_END && arr_sect == SEC_END)
         next = SEC_SAME;                           /* the ending again: it plays out and stops */
     if (next == SEC_FILL && (arr_sect == SEC_INTRO || arr_sect == SEC_END))
@@ -1009,18 +1019,23 @@ static chord_t shifted(chord_t c, int by)          /* a stored chord, transposed
         c.bass = (uint8_t)((c.bass + by) % 12u);
     return c;
 }
+static int lp_len(const loop_t *l)                 /* its beats (never past ch[], whatever the table holds) */
+{
+    int n = l->bars * (l->beats ? l->beats : 4);
+    return n < 0 ? 0 : n > ARR_LOOP_BEATS ? ARR_LOOP_BEATS : n;
+}
 /* the loop's chord on this beat: its own entry (a change: it ends an override), or with `owed` (the loop's
  * first beat, after a held section) the one sounding there. 0: nothing to do */
 static int loop_beat(const loop_t *l, uint32_t b, int owed, int by, int play)
 {
-    int n = l->bars * (l->beats ? l->beats : 4);
+    int n = lp_len(l);
     uint16_t v;
-    if (n <= 0)
+    if (n <= 0) {
+        lbeat = 0;
         return 0;
-    if (n > ARR_LOOP_BEATS)
-        n = ARR_LOOP_BEATS;                        /* (a corrupt table: never past ch[]) */
+    }
     b %= (uint32_t)n;
-    arr_loop_beat = (uint16_t)b;
+    lbeat = (uint16_t)b;
     v = l->ch[b];
     if (v == LC_SAME && !owed)
         return 0;
@@ -1036,10 +1051,24 @@ static int loop_beat(const loop_t *l, uint32_t b, int owed, int by, int play)
     chord_change(shifted(lc_unpack(v), by), play);
     return 1;
 }
+/* a beat line missed while the table was busy (wait_from .. now) had an entry of its own: a change, which ends
+ * a played chord's hold (the table is read after the write, not during it) */
+static int missed_change(void)
+{
+    const loop_t *l = &loops[lp];
+    int n = lp_len(l);
+    uint32_t b = wait_from < lp_origin ? lp_origin : wait_from;
+    for (int k = 0; k < n && b + (uint32_t)k <= beat_now; k++)
+        if (l->ch[(b + (uint32_t)k - lp_origin) % (uint32_t)n] != LC_SAME)
+            return 1;
+    return 0;
+}
 /* the source's chord on a beat line (or owed: the one sounding now); the table busy: at the first block after */
 static void source_chord(int play)
 {
     if (edit_busy) {
+        if (!chord_wait)
+            wait_from = beat_now;
         chord_wait = 1;                            /* the first block after the app's write */
         return;
     }
@@ -1279,6 +1308,8 @@ static void clock_in(int msg)
         else if (!arr_playing) {
             seek();
             setup();
+            if (mode_wait)                         /* a source picked while stopped: its bar 1 is this bar */
+                mode_apply(bar_beat0);
         }
         clk_out = 0;
         arr_playing = 1;
@@ -1344,27 +1375,24 @@ static void drain(void)
         case C_MODE:
             if (a == ARR_LOOP && !loops)
                 break;
-            mode_next = (uint8_t)a;
-            lp_next = (uint8_t)b;
-            if (!arr_playing) {                    /* stopped: now; its beat 0 is PLAY's */
-                mode = mode_next;
-                lp = lp_next;
-                mode_wait = 0;
-            } else
-                mode_wait = 1;                     /* playing: from the next bar line */
-            if (a == ARR_FREE && arr_playing) {    /* FREE: at once (the chord stays) */
+            if (a == ARR_FREE) {                   /* FREE: at once (the chord stays) */
                 mode = ARR_FREE;
                 mode_wait = 0;
+                override = 0;
+                break;
             }
-            override = 0;
+            mode_next = (uint8_t)a;                /* from PLAY, Continue, or the next bar line (mode_apply) */
+            lp_next = (uint8_t)b;
+            mode_wait = 1;
             break;
-        case C_TRANSPOSE:
+        case C_TRANSPOSE: {                        /* the chord sounding moves by the difference now (a played one
+                                                    * stays): never looked up again, so a held Intro's moves too */
+            int was = transp;
             transp = (int8_t)(a & 0xFFu);
-            if (arr_playing && mode != ARR_FREE) {
-                chord_owed = 1;                    /* the chord sounding, moved now */
-                source_chord(1);
-            }
+            if (arr_playing && mode == ARR_LOOP && !override && lp_len(&loops[lp]) > 0)
+                chord_change(shifted(chord, transp - was), 1);
             break;
+        }
         case C_LIVE:                               /* the keys: until the source's next change */
             chord_change(arr_chord_unpack(a), 1);
             override = mode != ARR_FREE;
@@ -1397,7 +1425,7 @@ static void drain(void)
 }
 
 /* ---------------------------------------------------------------- the render's hook --- */
-void arr_block(uint32_t frames)
+static void block(uint32_t frames)
 {
     const int32_t end = (int32_t)(frames << 16);   /* the block's end, Q16 */
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
@@ -1405,15 +1433,14 @@ void arr_block(uint32_t frames)
     arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
     drain();
     if (chord_wait && !edit_busy && arr_playing) {
-        chord_owed = 1;                            /* the chord sounding now (a change on the missed beat too) */
+        if (mode == ARR_LOOP && missed_change())
+            override = 0;                          /* the change missed ends a played chord's hold */
+        chord_owed = 1;                            /* the chord sounding now */
         source_chord(1);
     }
     erase_apply();                                 /* what waited for a store to finish */
     rec_flush(0);
     sync();
-    arr_mode = mode_wait ? mode_next : mode;
-    arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : -1;
-    arr_override = override;
     ctl_out_flush();                               /* controller resets MIDI out still owes (playing or not) */
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
         out_link = arr_midi_out_link();
@@ -1499,6 +1526,14 @@ void arr_block(uint32_t frames)
     ftt -= end;
     sounds_out();
 }
+void arr_block(uint32_t frames)
+{
+    block(frames);
+    arr_mode = mode_wait ? mode_next : mode;       /* for the screen: together, after the block's ticks */
+    arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : -1;
+    arr_loop_beat = lbeat;
+    arr_override = override;
+}
 
 void arr_init(void)                                /* at boot, before the render runs */
 {
@@ -1565,7 +1600,8 @@ void arr_init(void)                                /* at boot, before the render
     transp = 0;
     override = 0;
     chord_wait = 0;
-    lp_origin = 0;
+    lp_origin = wait_from = 0;
+    lbeat = 0;
     arr_mode = ARR_FREE;
     arr_loop_now = -1;
     arr_loop_beat = 0;

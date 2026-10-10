@@ -762,7 +762,6 @@ static void test_tempos(void)
         float fpt = 110250.f / (float)bpm[b];
         reset();
         loops_reset();
-    loops_reset();
         pat_new();
         for (int t = 0; t < 96; t++)
             add(0, t, 1, 35 + t % 8);
@@ -806,7 +805,6 @@ static void test_lengths(void)
         int n = 0, cut = 0;
         reset();
         loops_reset();
-    loops_reset();
         pat_new();
         for (int t = 0; t < 96; t++)                /* track 0: lengths 1..5, eight notes round */
             add(0, t, 1 + t % 5, 35 + t % 8);
@@ -1074,10 +1072,10 @@ static void test_shorten(void)
 }
 #endif
 
+#if 0 /* Task 3 ports it to the new songs */
 /* a song edit's copy in progress (the main loop interrupted midway) as a beat comes: the beat's chord still
  * plays (the render's own copy of the song is never the one being written) */
 void arr_test_song_busy(int on);
-#if 0 /* Task 3 ports it to the new songs */
 static void test_song_busy(void)
 {
     reset();
@@ -1102,7 +1100,6 @@ static void test_song_busy(void)
     run_blocks(1);
 }
 #endif
-
 
 /* loop i: n chords, one a bar of `beats` */
 static void loop_bars(int i, int beats, int n, const chord_t *c)
@@ -1209,6 +1206,139 @@ static void test_loop_busy(void)                  /* the table busy on a beat li
     arr_play(0);
     run_blocks(1);
 }
+static void test_transpose_held(void)            /* a transpose moves the chord sounding, never looks the loop up */
+{
+    static const chord_t c2[2] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}};
+    static const uint8_t f[] = {53, 57, 60};
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(0, 4, 2, c2);                        /* C | G */
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(0.05f * BAR));
+    arr_keys_held(f, 3);                           /* F on beat 0, the loop's C beat */
+    run_to((uint32_t)(0.15f * BAR));
+    arr_set_transpose(0);                          /* no-op: the keys' F stays */
+    run_to((uint32_t)(0.6f * BAR));
+    CHECK(root_at(0.25f * BAR) == 5 && root_at(0.5f * BAR) == 5 && arr_override == 1, "transpose 0 over the keys' F: F (%d %d %d)",
+          root_at(0.25f * BAR), root_at(0.5f * BAR), arr_override);
+    arr_play(0);
+    run_blocks(1);
+    /* a 2-bar Intro over C | G: transposed in its bar 2, the held C moves to D (not the loop's A) */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 2, 4);
+    loop_bars(0, 4, 2, c2);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(1.6f * BAR));
+    arr_set_transpose(2);
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(arr_sect == SEC_A, "Main A after the Intro");
+    CHECK(root_at(1.75f * BAR) == 2, "the Intro's C, a tone up: D (%d)", root_at(1.75f * BAR));
+    CHECK(root_at(2 * BAR) == 2, "Main A: the loop's C, a tone up (%d)", root_at(2 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "transpose: offs match");
+}
+static void test_loop_busy_override(void)       /* a change missed while busy ends the keys' chord at release */
+{
+    static const chord_t c2[2] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}};
+    static const uint8_t f[] = {53, 57, 60};
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(0, 4, 2, c2);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_keys_held(f, 3);
+    run_to((uint32_t)(0.9f * BAR));
+    arr_edit(1);                                   /* busy across G's bar line, and the beat after */
+    run_to((uint32_t)(1.3f * BAR));
+    CHECK(arr_chord_unpack(arr_chord_now).root == 5, "busy: F still");
+    arr_edit(0);
+    run_blocks(1);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 7 && arr_override == 0, "released: the missed G, override off (%d %d)",
+          arr_chord_unpack(arr_chord_now).root, arr_override);
+    arr_play(0);
+    run_blocks(1);
+}
+static void test_loop_edges(void)
+{
+    static const chord_t pop[4] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}, {9, CH_MIN, CH_NOBASS}, {5, CH_MAJ, CH_NOBASS}};
+    /* beat 0 without an entry: PLAY looks round from the end (Am on beat 2 sounds from beat 0) */
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_clear(&LT[3], 3);
+    loop_write(&LT[3], 2, ch(9, CH_MIN));
+    arr_mode_loop(3);
+    arr_play(1);
+    run_to((uint32_t)(0.6f * BAR));
+    CHECK(root_at(0) == 9 && root_at(0.25f * BAR) == 9, "beat 0 empty: the loop's Am from the start (%d)", root_at(0));
+    arr_play(0);
+    run_blocks(1);
+    /* shortened while playing (2 of 4 bars): it wraps at its new end */
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(0, 4, 4, pop);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_edit(1);
+    LT[0].bars = 2;
+    arr_edit(0);
+    run_to((uint32_t)(3 * BAR + 512));
+    CHECK(root_at(BAR) == 7 && root_at(2 * BAR) == 0 && root_at(3 * BAR) == 7, "C G | C G (%d %d %d)", root_at(BAR),
+          root_at(2 * BAR), root_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* picked while stopped, then PLAY: from its beat 0; out of range: ignored */
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(1, 4, 4, pop);
+    loop_bars(0, 4, 1, pop + 3);
+    arr_mode_loop(1);
+    arr_mode_loop(ARR_LOOPS);                      /* ignored (not loop 0) */
+    arr_play(1);
+    run_to((uint32_t)(BAR + 512));
+    CHECK(arr_loop_now == 1 && root_at(0) == 0 && root_at(BAR) == 7, "stopped, then PLAY: loop 2 from beat 0 (%d %d %d)",
+          arr_loop_now, root_at(0), root_at(BAR));
+    arr_mode_loop(4);                              /* an empty loop: its beat shown 0 */
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(arr_loop_now == 4 && arr_loop_beat == 0, "empty loop: beat 0 (%d %d)", arr_loop_now, arr_loop_beat);
+    arr_play(0);
+    run_blocks(1);
+    /* picked while stopped, then MIDI Continue: its chord at the next beat line, though that beat has no entry */
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(0, 4, 1, pop + 2);                   /* Am, one bar */
+    arr_set_chord(ch(4, CH_MAJ));
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    for (int k = 0; k < 36; k++) {                 /* a beat and a half */
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(2);
+    }
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    arr_mode_loop(0);
+    run_blocks(1);
+    arr_clock(ARR_CLK_CONTINUE);
+    for (int k = 0; k < 24; k++) {
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(2);
+    }
+    CHECK(arr_chord_unpack(arr_chord_now).root == 9, "Continue into the loop: Am (%d)", arr_chord_unpack(arr_chord_now).root);
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+}
 static void test_live_chords(void)
 {
     static const uint8_t am[] = {57, 60, 64}, e7[] = {52, 56, 59, 62}, two[] = {60, 64};
@@ -1301,7 +1431,6 @@ static void test_keys_release(void)           /* lifting keys one by one keeps t
     arr_play(0);
     run_blocks(1);
 }
-
 
 static void test_ending_twice(void)           /* Ending pressed again in its last bar: it still stops */
 {
@@ -1635,7 +1764,6 @@ static void test_song_while_playing(void)     /* a song set mid-bar: from its ba
     CHECK(arr_playing == 0 && ons_after(5 * BAR - 4) == 0, "four bars, then stopped");
 }
 #endif
-
 
 #if 0 /* Task 3 ports it to the new songs */
 static void test_switch_chord_ends(void)      /* a chord change on a section's bar line ends A's chord notes */
@@ -2131,7 +2259,6 @@ static void test_tiny_notes(void)
         int bad = 0, n = 0;
         reset();
         loops_reset();
-    loops_reset();
         pat_new();
         for (int i = 0; i < 40; i++) {
             add(0, 0, 1, 35 + i % 20);
@@ -2436,6 +2563,9 @@ int main(void)
     test_loop_switch();
     test_loop_override();
     test_loop_busy();
+    test_transpose_held();
+    test_loop_busy_override();
+    test_loop_edges();
 #if 0
     test_song_marks_continue();
 #endif
