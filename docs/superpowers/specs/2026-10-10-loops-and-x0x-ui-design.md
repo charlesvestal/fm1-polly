@@ -7,18 +7,22 @@ buttons (LFO Chords, ENV Arrange, ARP ARP Copy template). This design makes prog
 conventions.
 
 Decided with the user: loops first, then chain them into a song; chords go in both step by step (stopped)
-and live (playing); each song row picks its section; a chord played over a loop holds until the loop's next
-change; SELECT turns pages; REC writes what the keys play, and REC on HOME in FREE starts a new loop.
+and live (playing); each song row picks its section, its mutes and its key; a chord played over a loop holds
+until the loop's next change; SELECT turns pages; REC writes what the keys play, and REC on HOME in FREE
+starts a new loop. Then a songwriting and UX pass (below, folded in).
 
 ## Principles
 
-1. **The screen shows what you hear.** Chords show transposed when TRANSPOSE is set; the big chord is the one
-   sounding; the loop being edited is the loop playing.
+1. **The screen shows what you hear.** Chords show transposed (TRANSPOSE and the row's KEY); the big chord
+   is the one sounding; the loop being edited is the loop playing.
 2. **The screen decides what the keys do**, the footer says it, and **REC records what the keys play there.**
 3. **HOME + a key jumps** from any screen: a white key to a loop, a black key to a section.
-4. **Words by place:** knobs are nouns (ROOT, REPEAT); list rows are verbs with ↵ (CLEAR LOOP); messages say
+4. **By hand wins until the next change.** In LOOP and SONG, a chord, a mute or a section you set by hand
+   lasts until the loop or song next changes it (the loop's next chord; the song's next row).
+5. **SAVE + a white key copies what the screen shows** into that slot (X0X's copy and paste).
+6. **Words by place:** knobs are nouns (ROOT, REPEAT); list rows are verbs with ↵ (CLEAR LOOP); messages say
    what happened (L3 COPIED TO L7).
-5. **One name per thing:** loops L1–L16, user patterns P01–P16, songs S1–S4; sections Intro, Main A,
+7. **One name per thing:** loops L1–L16, user patterns P01–P16, songs S1–S4; sections Intro, Main A,
    Main B, Fill, Ending (Fill AB / Fill BA only where the difference matters).
 
 ## Model
@@ -27,42 +31,51 @@ change; SELECT turns pages; REC writes what the keys play, and REC on HOME in FR
 
 - 16 loops, L1–L16. A loop: 1–16 bars of 2–7 beats, a chord per beat (or "·", no change), a name of 8
   characters.
-- The 16 factory progressions (`dsp/templates.c`) become the loops' factory contents (FACTORY RESET, and a
-  loop's list action RESET LOOP ↵). The 12-bar blues needs 12 bars, hence the 16-bar limit.
-- Chords are stored at real pitch. **TRANSPOSE** (−6..+5, today's Key) shifts everything that plays: loops,
-  songs and live chords. Writing stores the chord minus TRANSPOSE, so playback matches what was played, and
-  the screens show stored + TRANSPOSE (principle 1).
+- **L1–L8 start as eight factory progressions** (Pop, Sensitive, Fifties, ii–V–I, Blues, Minor, Andalusian,
+  Canon); **L9–L16 start empty**, for your own. All 16 factory progressions (`dsp/templates.c`) stay in
+  flash: the list action **LOAD PROGRESSION ↵** puts any of them into the current loop as a start. FACTORY
+  RESET puts L1–L8 back and empties L9–L16.
+- **Writing past a loop's end makes it longer**, a bar at a time (an empty loop has length 0 and grows as you
+  write). LENGTH trims.
 - A loop holds at most 64 beats: 16 bars of 2–4 beats, 12 of 5, 10 of 6, 9 of 7. LENGTH stops at the limit
   for the loop's BEATS, and raising BEATS shortens LENGTH to fit ("LENGTH 9: 64 BEATS MAX").
+- Chords are stored at real pitch. What plays is the chord + the song's TRANSPOSE (+ the row's KEY in
+  SONG). Writing stores the chord minus those, so playback matches what was played; the screens show what
+  sounds (principle 1).
 - Storage: 16 loops × 64 beats, a chord packed into 2 bytes (root 4 bits, type 5, bass 4 + "none"): 2 KB,
   plus names and lengths. The songs' per-beat chord tracks (4 × 64 × 4 × 3 bytes + section marks, ~3.4 KB)
   go, so RAM goes down.
 
 ### Songs
 
-- 4 songs, S1–S4. A song: up to 32 **rows**; a row is a loop, a SECTION (Main A, Main A + fill, Main B,
-  Main B + fill), REPEAT ×1–×8, and its **mutes** (8 bits, D1 … C4; 1 byte a row).
+- 4 songs, S1–S4. Each keeps its own **tempo, TRANSPOSE, style** (and its six section patterns), its
+  **mutes** for FREE and LOOP, and its rows; picking a song brings them all back.
+- Up to 32 **rows**. A row: a loop, a SECTION (Main A, Main A + fill, Main B, Main B + fill), REPEAT ×1–×8,
+  its **mutes** (8 bits, D1 … C4) and its **KEY** (−6..+5 over the song's TRANSPOSE: a last chorus a tone up).
+  5 bytes a row, 640 bytes for all.
 - Row mutes: the same loop and pattern with tracks silent (a verse with drums and bass only, then the full
-  band). In SONG they replace the song-wide mutes; in FREE and LOOP, SEQ's MUTE works as today, across
-  every section. A mute changed by hand while a song plays lasts until the next row; with REC on, it is
-  written into the row (as X0X records mutes into song bars).
+  band). In SONG they replace the song's mutes; in FREE and LOOP, SEQ's MUTE sets the song's mutes, across
+  every section, as today.
 - Fills: when the section changes between rows, the matching fill (AB or BA) plays in the row's last bar by
-  itself; a "+ fill" section forces one even without a change.
-- Per song: **INTRO** on/off, **ENDING** on/off, **AT END** stop / again; its style and section patterns
-  (the song-wide mutes go: rows carry them).
+  itself; a "+ fill" section forces one without a change.
+- Per song: **INTRO** on/off, **ENDING** on/off, **AT END** stop / again.
 - Songs format 5. Polly is unreleased: no migration from format 4 (the old songs are dropped and the
   factory songs written).
 
 ### MODE (HOME's KNOB 4)
 
-- **FREE** (at start-up): no loop; the band holds the last chord you played. HOME + black key picks the
-  section.
+- **FREE** (at start-up): no loop; the band holds the last chord you played (before any: C, the patterns as
+  written). HOME + black key picks the section.
 - **LOOP**: the selected loop goes round.
-- **SONG**: the song plays its rows from row 1 (or the selected row on the SONG screen).
-- In LOOP and SONG, a chord played on the keys **sounds until the loop's next chord change**, in the band's
-  rhythm, and the screen shows it (coral); then the loop carries on (teal).
-- HOME + a white key picks that loop and switches to LOOP (queued to the next bar while playing). HOME + the
-  lit white key stops the loop: FREE.
+- **SONG**: the song plays its rows.
+- By hand wins until the next change (principle 4):
+  - a chord played on the keys sounds, in the band's rhythm, until the loop's next chord change; the screen
+    shows it in coral, then the loop's again in teal;
+  - in SONG, a mute (SEQ's MUTE) or a section (HOME + black key) lasts until the next row.
+- HOME + a white key picks that loop and switches to LOOP (queued to the next bar while playing); in SONG it
+  leaves the song (with REC on, it writes the row instead). HOME + the lit white key stops the loop: FREE.
+- **PLAY** on the SONG screen starts at the selected row; anywhere else, SONG starts at row 1. While the song
+  plays, SONG's cursor follows it until you turn ROW.
 
 ## Buttons
 
@@ -70,49 +83,61 @@ A button always opens the same screen; pressing it again, or turning **SELECT**,
 
 | Button | Screen (pages) | KNOB 1–4 | PRESETS (the next one of what the screen shows) |
 |---|---|---|---|
-| HOME | **HOME**; again **SONG**, again back | STYLE · TEMPO · TRANSPOSE · MODE | loop |
-| ARP | **LOOP** (the loop playing); page 2 | ROOT · TYPE · BASS · STEP; LENGTH · BEATS · LETTER · CHARACTER | loop (queued: you edit what you hear) |
+| HOME | **HOME**; again **SONG**, again back | STYLE · TEMPO · TRANSPOSE · MODE (the song's) | loop |
+| ARP | **LOOP** (the loop playing, or the last picked); page 2 | ROOT · TYPE · BASS · STEP; LENGTH · BEATS · NAME · – | loop (queued: you edit what you hear) |
 | SEQ | Pattern (8 tracks of the section playing); page 2 Pattern setup | GRID · – · – · MUTE; BARS · BEATS · LETTER · CHARACTER | the section's pattern |
 | EDIT | Track; page 2 Track keys | PROGRAM · TYPE · LOW · HIGH; HIGH KEY · CHANNEL | instrument family |
 | LFO | Mixer; page 2 Tone | VOLUME · PAN · REVERB · CHORUS; BRIGHT · RESO | – |
 | FX | Master FX | REVERB · LEVEL · CHORUS · LEVEL | – |
 | ENV | **STYLE**: the six sections' patterns (two pages) | INTRO · MAIN A · MAIN B · STYLE; FILL AB · FILL BA · ENDING · STYLE | style |
 | GLO | Setup; page 2 Panel | CLOCK · MIDI OUT · LIGHTS · –  | – |
-| SONG (HOME ×2) | the song's rows; page 2 | ROW · LOOP · SECTION · REPEAT; INTRO · ENDING · AT END · SONG | row |
+| SONG (HOME ×2) | the rows; page 2 the row; page 3 the song | ROW · LOOP · SECTION · REPEAT; ROW · KEY · – · –; INTRO · ENDING · AT END · SONG | row |
 
+- **NAME** (LOOP page 2) turns through Verse, Chorus, Bridge, Pre, Intro, Outro, Solo, Break, then "Loop 9"
+  (its number). Letter by letter: the SEL list's MORE.
+- **TYPE** below maj is "·": the chord is cleared (no change).
 - **SELECT**: the previous / next page; in a list, up and down.
 - **ALGORITHM**: the track (D1 … C4) on any screen; in a list, changes the value.
 - **SEL**: the screen as a list of everything on it, then **MORE** (settings on no page), and actions (↵):
-  CLEAR LOOP, RESET LOOP, INSERT ROW, DELETE ROW, CLEAR SONG, COPY SONG TO, ERASE TRACK, CLEAR PATTERN,
-  COPY PATTERN TO, BACK TO STYLE. Today's SAVE-held jobs move here. In a question SEL is yes, HOME is no.
-- **SAVE**: save. **Hold SAVE + a white key**: copy the loop playing to that loop (L3 COPIED TO L7). It asks
-  first if the target has chords.
-- **OCT− / OCT+**: the keys' octave; on LOOP, the cursor back / forward a step.
+  LOAD PROGRESSION, CLEAR LOOP, INSERT ROW, DELETE ROW, CLEAR SONG, COPY SONG TO, ERASE TRACK, CLEAR PATTERN,
+  BACK TO STYLE. Today's SAVE-held jobs move here. In a question SEL is yes, HOME is no.
+- **SAVE**: save. **Hold SAVE + a white key** (principle 5): on HOME and LOOP, copy the loop playing to that
+  loop (L3 COPIED TO L7); on SEQ, copy the pattern to P01–P16 (P03 COPIED TO P07). It asks first if the target
+  isn't empty.
+- **OCT− / OCT+**: the keys' octave; on LOOP, the cursor: OCT+ **skips** a step (leaves "·", the chord before
+  goes on), OCT− steps back.
 - **Hold HOME** + white key: a loop (above); + black key 1–5: Intro, Main A, Main B, Fill, Ending; + SELECT:
-  tempo; + PRESETS: the song. While HOME is held, the screen shows the 16 loops by name and the five
-  sections, the playing / next ones outlined (today's SEL-held overlay, moved).
+  tempo; + PRESETS: the song. While HOME is held, the screen shows the 16 loops by name ("—" for empty) and
+  the five sections, the playing / next ones outlined (today's SEL-held overlay, moved).
 - **Hold any button alone for a second**: a card says what it does on this screen. Letting go does nothing.
 - **REC** (principle 2):
-  - HOME, LOOP: writes chords into the loop playing. Stopped: at the cursor, which moves on a STEP (bar, half
-    bar, beat) when all keys are up; playing: on the nearest beat, overdubbed.
+  - HOME, LOOP: writes chords into the loop playing. Stopped: at the cursor, which moves on a STEP (bar, half,
+    beat) when all keys are up; playing: on the nearest beat, overdubbed. Past the end, the loop grows.
   - HOME in FREE: starts a new loop in the first empty slot. Play chords with the band; REC again ends it,
-    rounded up to whole bars (max 16). The new loop plays, MODE becomes LOOP ("NEW LOOP L9").
+    rounded up to whole bars (max 16). The new loop plays, MODE becomes LOOP ("NEW LOOP L9"). None empty:
+    "NO EMPTY LOOP: CLEAR ONE (SEL)".
+  - HOME, LOOP in SONG: switches to LOOP on the row's loop first ("SONG PAUSED: EDITING L9"); MODE = SONG
+    goes back.
   - SEQ, EDIT: records the selected track (as today).
-  - SONG: with PLAY, writes rows from what you play with HOME + keys (loop, section) and the mutes you change, from the
-    selected row.
+  - SONG: with PLAY, writes rows from the selected row: the loops and sections you pick with HOME + keys, and
+    the mutes you change.
   - LFO, FX, ENV, GLO: "REC: not here".
 
 ## Keys and footer
 
 | Screen | Keys | Footer |
 |---|---|---|
-| HOME, LOOP | chords | `KEYS: CHORDS · REC: WRITE` (LOOP adds `OCT: ◀ ▶`) |
-| SONG | white: the row's loop, then the next row (adding rows at the end); black 1–8: the row's mutes, D1 D2 PC BA C1 C2 C3 C4 (a muted track's key glows dim) | `WHITE: ROW'S LOOP · BLACK: MUTES` |
+| HOME | chords | `KEYS: CHORDS · REC: WRITE` (FREE: `REC: NEW LOOP`) |
+| LOOP | chords | `KEYS: CHORDS · REC: WRITE · OCT+: SKIP` |
+| SONG | white: the row's loop, then the next row (adding rows at the end); **the same key again adds to REPEAT** (L9 L9 L10: verse ×2, chorus); black 1–8: the row's mutes, D1 D2 PC BA C1 C2 C3 C4 (a muted track's key glows dim) | `WHITE: ROW'S LOOP · BLACK: MUTES` |
 | SEQ, EDIT | the selected track's sound | `KEYS: C1 PIANO · REC: RECORD` |
 | LFO | black keys pick the track | `BLACK: TRACK` |
 | FX, ENV, GLO | nothing | (the screen's hint) |
 
-Until the first button press the footer says `HOLD ANY BUTTON: WHAT IT DOES`.
+- A new row's SECTION is the one the same loop had in an earlier row, else Main A: set the chorus to Main B
+  once and later chorus rows follow. Two rows of the same loop with different mutes: INSERT ROW, or the
+  LOOP knob.
+- Until the first button press the footer says `HOLD ANY BUTTON: WHAT IT DOES`.
 
 CHORD mode, SEL's tap toggle and SEL-held shortcuts are gone; the Templates, Copy template, Chords and
 Arrange pages are gone (LOOP and SONG replace them).
@@ -138,8 +163,11 @@ Pop · Main A           bar 2.3 / 4
 KEYS: CHORDS · REC: WRITE
 ```
 
+At start-up (FREE, nothing played) the box says **Play a chord**, and the strip "FREE". In SONG the strip
+shows the row, its loop and REPEAT count (row 2 of 4, ×1 of 2).
+
 ```
-LOOP  L3 Verse          ● 120 ▶
+LOOP  L3 Verse   in 3 rows   ● 120 ▶
  1 │ C     ·     ·     ·
  2 │ G     ·    [F]    ·          the cursor
  3 │ Am    ·     ·     ·
@@ -147,53 +175,68 @@ LOOP  L3 Verse          ● 120 ▶
 ────────────────────── L3 · BAR 2.3  ● ○
  ROOT    TYPE    BASS    STEP
  F       maj     –       beat
-KEYS: CHORDS · REC: WRITE · OCT: ◀ ▶
+KEYS: CHORDS · REC: WRITE · OCT+: SKIP
 ```
+
+"in 3 rows": the rows of the current song that play this loop (editing changes them all; SAVE + a white key
+makes a variant). Bars of 5–7 beats wrap to two lines.
 
 ```
 SONG  S1                ● 120
- #  LOOP        SECTION       REPEAT  MUTES
- 1  L1 Verse    Main A        ×2      ■■□■□□□□
- 2  L2 Chorus   Main B +fill  ×1      ■■■■■■■■
-▶3  L1 Verse    Main A        ×2      ■■■■■■■□
- 4  END
+ #  LOOP        SECTION       REPEAT  MUTES      KEY
+ 1  L9 Verse    Main A        ×2      ■■□■□□□□
+ 2  L10 Chorus  Main B +fill  ×1      ■■■■■■■■
+▶3  L9 Verse    Main A        ×2      ■■■■■■■□
+ 4  L10 Chorus  Main B        ×2      ■■■■■■■■   +2
+ 5  END
  Intro on · Ending on · at end: stop
-────────────────────── ROW 3  ● ○
+────────────────────── ROW 3  ● ○ ○
  ROW     LOOP    SECTION  REPEAT
 WHITE: ROW'S LOOP · BLACK: MUTES
 ```
 
-(■ plays, □ muted.)
+(■ plays, □ muted; KEY shown when not 0.)
 
-In FREE, HOME's strip shows "FREE: play chords" in place of the loop. In SONG, it shows the row, its loop
-and REPEAT count (row 2 of 4, ×1 of 2).
+## A song, start to finish (the walk this design is checked against)
+
+1. Verse: HOME + white 9 (empty L9), ARP, REC, play Am, F, C, G; REC. NAME: Verse.
+2. Chorus: HOME + white 10, REC, play C, G, Am, F; REC. NAME: Chorus.
+3. Song: HOME, HOME; tap white 9 9 10 9 9 10 10. Row 2's SECTION: Main B (row 4 follows). Row 4: page 2,
+   KEY +2. Page 3: ENDING on. PLAY.
+
+About 25 presses, against ~64 bars of cursor and knob work today.
 
 ## Engine
 
-- `arr` plays a chord source: none (FREE), a loop (index, transposed), or a song (rows → loops, sections,
-  fills, intro, ending), replacing the template and song chord-track paths (`arr_template`, the song's
-  `chord[]` / `sect[]`).
-- A live chord in LOOP / SONG sets an override that the source's next chord change clears.
-- Intros and endings still hold a chord: the first loop's first chord, and the last chord sounding.
+- `arr` plays a chord source: none (FREE), a loop (index, transpose), or a song (rows → loops, sections,
+  fills, mutes, keys, intro, ending), replacing the template and song chord-track paths (`arr_template`, the
+  song's `chord[]` / `sect[]`).
+- A hand override (chord; in SONG also mutes and section) is cleared at the source's next change (chord
+  change; row change).
+- Intros and endings still hold a chord: the first row's first chord (in its key), and the last chord sounding.
 - Loops are saved with the songs (one object, format 5); copy-on-write user patterns are unchanged.
 
 ## Testing
 
-- Host tests (`tests/host/arr_test.c`): loop playback and wrap, 3/4 and 7-beat loops, transpose, override
-  cleared at the next change, song rows with REPEAT, row mutes (and a hand mute
-  lasting to the next row), automatic and forced fills, intro / ending, AT END,
-  step and live chord writing, FREE → new loop length rounding.
+- Host tests (`tests/host/arr_test.c`): loop playback and wrap, 3/4 and 7-beat loops, growth past the end,
+  the 64-beat limit, transpose and row KEY (and writing through them), the chord override cleared at the next
+  change, song rows with REPEAT, the row's section default, same-key REPEAT, row mutes and hand mutes /
+  sections lasting to the next row, automatic and forced fills, intro / ending, AT END, step writing with
+  skip, live writing, FREE → new loop (length rounding, no empty slot), REC in SONG pausing to LOOP.
 - Scenarios (`tests/scenarios/`): rewrite `chords.polly`, `compose.polly`, `tour.polly`, `manual.polly` for
-  the new buttons; new `loops.polly` and `song.polly`; screenshots of HOME, LOOP, SONG, the HOME-held
-  overlay, a help card, a list.
-- Storage test: format 5 round trip; a format 4 file gives the factory songs.
+  the new buttons; new `loops.polly` and `song.polly` (the walk above); screenshots of HOME (FREE, LOOP,
+  SONG), LOOP, SONG's three pages, the HOME-held overlay, a help card, a list.
+- Storage test: format 5 round trip (loops, rows, per-song tempo / transpose); a format 4 file gives the
+  factory songs and loops.
 - Device: CPU on the Panel with a song playing; save while stopped.
 
 ## Docs
 
-MANUAL.md rewritten for the new model (quick start: style, PLAY, chords; then loops, then songs), a labelled
-panel drawing as X0X's (`docs/img/manual/`), the page-by-page table, and the figures regenerated.
+MANUAL.md rewritten for the new model (quick start: style, PLAY, chords; then your own loop; then a song, the
+walk above), a labelled panel drawing as X0X's (`docs/img/manual/`), the page-by-page table, and the figures
+regenerated.
 
 ## Out of scope
 
-Undo (X0X's HOME + REC); knob motion; per-row TRANSPOSE; more than 4 songs.
+Undo (X0X's HOME + REC); knob motion; more than 4 songs or 16 loops; a third main section (variety comes from
+row mutes and KEY).
