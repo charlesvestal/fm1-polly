@@ -345,3 +345,36 @@ expect loop_beats10 4
 # name it
 spin K3 -8
 expect loop_name10 Verse
+# a 16-bar loop, the cursor (a bar a step) on bar 12: the grid scrolled to it
+spin K1 13
+expect loop_bars10 16
+turn SELECT -1
+expect page 2
+expect cstep 2
+expect cbeat 11
+tap OCT+
+expect cbeat 15
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+expect cbeat 47
+shot loop16.png
+# LENGTH shrinking past the cursor brings it back into the loop: a ROOT turn then writes there, not past the end
+turn SELECT 1
+expect page 3
+spin K1 -15
+expect loop_bars10 1
+expect cbeat 3
+turn SELECT -1
+expect page 2
+spin K1 2
+expect loop_bars10 1
+expect cbeat 3
+expect loop_ch10_3 100
+wait 100
+shot loop_clamp.png

@@ -549,6 +549,14 @@ static void cursor_move(int d)
     }
     app.cbeat = (uint8_t)b;
 }
+/* the cursor kept in app.loop: REC on, at most at its end (a chord there makes it longer); REC off, on a beat of it
+ * (a ROOT / TYPE / BASS turn writes there: never past the end, growing the loop) */
+static void cursor_clamp(void)
+{
+    int len = loop_len(&songs.loop[app.loop % ARR_LOOPS]), m = ui.rec_chords ? len : len > 0 ? len - 1 : 0;
+    if (app.cbeat > m)
+        app.cbeat = (uint8_t)m;
+}
 /* the loop the keys write into: the one playing (playing), else app.loop */
 static int rec_loop(void)
 {
@@ -670,16 +678,14 @@ static void chord_keys(void)
 static void loop_rec_toggle(void)
 {
     char t[16];
-    int len = loop_len(&songs.loop[app.loop % ARR_LOOPS]);
     ui.rec_chords = (uint8_t)!ui.rec_chords;
     ui.centry = -1;
     ui.clifted = 0;
+    cursor_clamp();                              /* (off: back from the end onto the loop's last beat) */
     if (!ui.rec_chords) {
         say("WRITE OFF", 0);
         return;
     }
-    if (app.cbeat > len)                         /* the cursor: at most at the loop's end */
-        app.cbeat = (uint8_t)len;
     loop_name_l(rec_loop(), cat_s(t, "INTO "));
     say("WRITE CHORDS", t);
 }
@@ -1276,6 +1282,7 @@ static void song_page_knob(int k, int32_t e)
             loop_set_name_preset(l, app.loop % ARR_LOOPS, idx);
             songs_write(0);
         }
+        cursor_clamp();                          /* shorter: the cursor back in (a ROOT turn past it would grow it) */
         break;
     }
     default: break;
