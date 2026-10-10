@@ -12,8 +12,8 @@ int loop_write(loop_t *l, int b, chord_t c);
 void loop_unwrite(loop_t *l, int b);              /* beat b back to LC_SAME */
 chord_t loop_chord_at(const loop_t *l, int b);    /* the chord sounding on beat b (the latest at or before
                                                    * it, round from the end); CH_NONE type if it has none */
-void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; beats past the end kept, not played */
-void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats */
+void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; the beats past the end cleared (LC_SAME) */
+void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats; past the end cleared */
 void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM;
                                                    * keeps its style */
 /* white key `loop` tapped on the SONG screen at row r: r is the last row or the one after it, and the last

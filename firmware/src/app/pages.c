@@ -129,6 +129,8 @@ static struct {
     uint8_t take, take_loop, take_any;               /* the loop it fills (the first empty one); a chord written */
     uint32_t take_b0;
     int32_t take_pos;                                /* its beat as last seen (the transport stopped: its end) */
+    uint8_t mode_wait;                               /* a MODE asked for while playing waits for the bar line: */
+    uint32_t mode_at;                                /* arr_beats there (writing in time waits for it too) */
     int16_t take_last;                               /* the latest beat written */
     int8_t loop_seen;                                /* arr_loop_now as last seen (app.loop follows its changes) */
     uint8_t role_was;                                /* what the keys did last frame (REC ends when that changes) */
@@ -525,7 +527,10 @@ static void draw_home(void)
     h = hash(h, pl.bar << 8 | pl.beat | (uint32_t)(uint8_t)pl.loop << 16 | pl.lbeat << 24);
     h = hash(hash(h, has_next ? arr_chord_pack(nc) : 0xFFFFFFu), (uint32_t)xpose_now() & 31u);
     h = hash(h, (uint32_t)arr_row | (uint32_t)arr_rep << 8 | (uint32_t)csong()->nrows << 16 | (uint32_t)ui.take_loop << 24);
-    h = hash(h, (uint32_t)(tb < 0 ? -1 : tb / (int32_t)(songs.loop[ui.take_loop % ARR_LOOPS].beats | 1u)));
+    {
+        uint32_t tbt = songs.loop[ui.take_loop % ARR_LOOPS].beats ? songs.loop[ui.take_loop % ARR_LOOPS].beats : 4u;
+        h = hash(h, (uint32_t)(tb < 0 ? -1 : tb / (int32_t)tbt));
+    }
     h = hash(h, l ? (uint32_t)l->bars | (uint32_t)app.hdr[slot].bars << 8 : app.hdr[slot].bars);
     for (i = 0; i < ARR_TRACKS; i++)
         h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)trk_muted((int)i) << 12);

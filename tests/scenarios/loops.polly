@@ -185,3 +185,114 @@ wait 300
 expect sect 1
 shot home_intro.png
 wait 300
+# ---- a loop asked for while playing has not started: writing in time waits for its bar line
+tap PLAY
+wait 100
+spin K4 -1
+wait 50
+expect mode 0
+press HOME
+tapkey b1
+release HOME
+tap PLAY
+wait 300
+tap ARP
+expect page 2
+tap REC
+expect rec_chords 1
+expect mode 1
+expect app_loop 3
+key 4 down
+key 7 down
+key 11 down
+wait 60
+key 4 up
+key 7 up
+key 11 up
+expect msg_is_WRITE 1
+expect msg2_is_from_the_bar 1
+expect loop_ch3_0 0
+expect loop_ch3_1 -1
+# ---- a MODE change ends REC: MODE FREE, then a chord writes nothing
+wait 2000
+tap HOME
+expect page 0
+spin K4 -1
+wait 50
+expect mode 0
+expect rec_chords 0
+key 4 down
+key 7 down
+key 11 down
+wait 60
+key 4 up
+key 7 up
+key 11 up
+expect loop_ch3_0 0
+expect take 0
+# a take running, MODE LOOP: the take ends (kept, into L10), MODE stays as turned (L3)
+tap REC
+expect take 2
+wait 2100
+key 0 down
+key 4 down
+key 7 down
+wait 60
+key 0 up
+key 4 up
+key 7 up
+spin K4 1
+wait 50
+expect take 0
+expect mode 1
+expect app_loop 3
+expect loop_bars10 1
+expect loop_bars9 2
+expect msg_is_NEW 1
+wait 100
+# (L10 cleared again: SEL's CLEAR LOOP on it)
+tap PLAY
+wait 100
+press HOME
+tapkey w9
+release HOME
+expect app_loop 10
+tap SEL
+turn SELECT 5
+tap SEL
+expect asking 1
+tap SEL
+expect loop_bars10 0
+# ---- a loop picked while the keys hold a chord: no chord entry carried into it
+press HOME
+tapkey w11
+release HOME
+expect app_loop 12
+tap REC
+expect rec_chords 1
+key 4 down
+key 7 down
+key 11 down
+wait 50
+expect loop_ch12_0 916
+turn PRESET 1
+expect app_loop 13
+expect rec_chords 1
+key 14 down
+wait 50
+expect loop_ch12_0 916
+expect loop_ch13_4 -1
+expect loop_ch13_0 918
+key 4 up
+key 7 up
+key 11 up
+key 14 up
+wait 50
+tap REC
+expect rec_chords 0
+# (back to L3, playing)
+press HOME
+tapkey w2
+release HOME
+tap PLAY
+wait 300

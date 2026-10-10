@@ -297,9 +297,30 @@ static int slot_own(int s)
 /* MODE: FREE (the keys' chords only), LOOP (app.loop goes round), SONG (the song's rows: from app.row stopped,
  * else from row 1 at the next bar line). Leaving SONG, the song's FREE / LOOP mutes are all sent again (a row's
  * or a hand mute may be sounding) */
+static void chord_rec_stop(void);
+/* app.loop changes here only: another loop, its cursor at beat 0 and no chord entry carried over */
+static void app_loop_set(int i)
+{
+    if (i == app.loop)
+        return;
+    app.loop = (uint8_t)(i % ARR_LOOPS);
+    app.cbeat = 0;
+    ui.centry = -1;
+}
 static void mode_set(int m)
 {
     song_t *g = csong();
+    if (m != app.mode)
+        chord_rec_stop();                        /* writing chords was for the mode before (REC's own changes: off) */
+    if (arr_playing && m != ARR_FREE) {          /* LOOP / SONG start at the next bar line: until then the loop playing */
+        uint32_t nb, tk;                         /* is not the one asked for (chord_played writes nothing in time) */
+        do {
+            nb = arr_beats;
+            tk = arr_beat_tick;
+        } while (nb != arr_beats || tk != arr_beat_tick);
+        ui.mode_at = nb - tk / ARR_PPQ + (uint32_t)clampi(app.hdr[eslot()].beats, 1, 7);
+        ui.mode_wait = 1;
+    }
     app.mode = (uint8_t)m;
     if (m == ARR_LOOP)
         arr_mode_loop(app.loop);
@@ -606,6 +627,10 @@ static void chord_played(const uint8_t *n, int cnt)
             say("WRITE", "after the Intro");     /* (the loop has not started) */
             return;
         }
+        if (ui.mode_wait || arr_loop_now != l) { /* the loop asked for has not started: its place is not known */
+            say("WRITE", "from the bar line");
+            return;
+        }
         b = live_beat(&songs.loop[l]);
         if (b == prev && len > 0)
             b = (b + 1) % len;                   /* a change on the same beat: the next one */
@@ -699,7 +724,8 @@ static void free_take_toggle(void)
     cat_s(b, arr_playing ? "from the next bar" : "from PLAY");
     say(a, b);
 }
-static void take_end(void)
+/* the take ends: its loop rounded to whole bars and said; 1 = kept (a chord written), 0 = no loop */
+static int take_finish(void)
 {
     loop_t *l = &songs.loop[ui.take_loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4, n = ui.take == 2 && arr_playing ? take_beat() : ui.take_pos;
@@ -708,18 +734,32 @@ static void take_end(void)
     ui.centry = -1;
     if (!ui.take_any) {
         say("NO CHORDS", "no new loop");
-        return;
+        return 0;
     }
     if (n < ui.take_last + 1)
         n = ui.take_last + 1;
     songs_write(1);
     loop_set_bars(l, free_rec_bars(n, bpb));
     songs_write(0);
-    app.loop = ui.take_loop;
-    app.cbeat = 0;
-    mode_set(ARR_LOOP);
-    loop_name_l(app.loop, t);
+    loop_name_l(ui.take_loop, t);
     say("NEW LOOP", t);
+    return 1;
+}
+/* ... and it plays (MODE LOOP) */
+static void take_end(void)
+{
+    if (take_finish()) {
+        app_loop_set(ui.take_loop);
+        mode_set(ARR_LOOP);
+    }
+}
+/* writing chords stops: the take ends (kept, MODE left as it is), REC's writing off */
+static void chord_rec_stop(void)
+{
+    if (ui.take)
+        take_finish();
+    ui.rec_chords = 0;
+    ui.centry = -1;
 }
 /* each frame: the take waiting starts with PLAY; on, it follows the transport (stopped: it ends) and ends full */
 static void take_poll(void)
@@ -749,9 +789,7 @@ static void loop_pick(int i)
         say("FREE", "no loop");
         return;
     }
-    if (i != app.loop)
-        app.cbeat = 0;                           /* another loop: its cursor at beat 0 */
-    app.loop = (uint8_t)i;
+    app_loop_set(i);
     mode_set(ARR_LOOP);
     loop_label(i, t);
     say(arr_playing ? "NEXT" : "LOOP", t);
@@ -836,9 +874,8 @@ static void rec_chords_button(void)
     if (!ui.rec_chords && app.mode == ARR_SONG) {
         const song_t *g = csong();
         int ln = arr_loop_now;
-        app.loop = (uint8_t)(ln >= 0 && ln < ARR_LOOPS ? ln
-                             : g->nrows ? g->row[app.row < g->nrows ? app.row : 0].loop % ARR_LOOPS : app.loop);
-        app.cbeat = 0;
+        app_loop_set(ln >= 0 && ln < ARR_LOOPS ? ln
+                     : g->nrows ? g->row[app.row < g->nrows ? app.row : 0].loop % ARR_LOOPS : app.loop);
         mode_set(ARR_LOOP);
         loop_rec_toggle();
         loop_name_l(app.loop, cat_s(t, "EDITING "));
@@ -2010,6 +2047,8 @@ void ui_frame(void)
         }
     }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
+    if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
+        ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     rec_follow_keys();
     take_poll();
     {   /* app.loop follows the loop playing as it changes (a loop or a song's row): LOOP shows what you hear; a loop
@@ -2017,11 +2056,8 @@ void ui_frame(void)
         int ln = arr_loop_now;
         if (ln != ui.loop_seen) {
             ui.loop_seen = (int8_t)ln;
-            if (ln >= 0 && ln < ARR_LOOPS && app.mode != ARR_FREE && ln != app.loop) {
-                app.loop = (uint8_t)ln;
-                app.cbeat = 0;
-                ui.centry = -1;
-            }
+            if (ln >= 0 && ln < ARR_LOOPS && app.mode != ARR_FREE)
+                app_loop_set(ln);
         }
         if (arr_playing && ln >= 0)
             app.played = 1;                      /* a loop or a song gave the chord */

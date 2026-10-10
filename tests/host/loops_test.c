@@ -112,9 +112,27 @@ static void test_shift(void)
     s = chord_shift(chord_shift(g7e, 3), -3);
     CHECK(s.root == 7 && s.bass == 4, "there and back");
 }
+static void test_shrink(void)
+{
+    loop_t l;
+    chord_t g = {7, CH_MAJ, CH_NOBASS};
+    loop_clear(&l, 0);
+    loop_write(&l, 0, g);
+    loop_write(&l, 12, g);
+    loop_set_bars(&l, 2);
+    CHECK(l.ch[12] == LC_SAME, "LENGTH shorter: the beats past the end cleared");
+    loop_set_bars(&l, 4);
+    CHECK(l.ch[12] == LC_SAME && l.ch[0] != LC_SAME, "growing again: no stale chord comes back");
+    loop_write(&l, 60, g);
+    loop_set_beats(&l, 7);                        /* 16 bars of 7 > 64: 9 bars, 63 beats */
+    CHECK(l.bars == 9 && l.ch[60] != LC_SAME, "BEATS 7: 9 bars, beat 60 still in");
+    loop_set_beats(&l, 3);
+    CHECK(l.ch[60] == LC_SAME, "BEATS 3 (27 beats): beat 60 cleared");
+}
 int main(void)
 {
     test_shift();
+    test_shrink();
     test_pack();
     test_write();
     test_factory();

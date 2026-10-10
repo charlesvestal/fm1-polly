@@ -74,16 +74,23 @@ chord_t loop_chord_at(const loop_t *l, int b)
     }
     return none;
 }
+static void clear_past(loop_t *l)                 /* the beats past its end: no change (growth starts clean) */
+{
+    for (int b = loop_len(l); b < ARR_LOOP_BEATS; b++)
+        l->ch[b] = LC_SAME;
+}
 void loop_set_bars(loop_t *l, int bars)
 {
     int m = loop_max_bars(l->beats);
     l->bars = (uint8_t)(bars < 1 ? 1 : bars > m ? m : bars);
+    clear_past(l);
 }
 void loop_set_beats(loop_t *l, int beats)
 {
     l->beats = (uint8_t)(beats < 2 ? 2 : beats > 7 ? 7 : beats);
     if (l->bars > loop_max_bars(l->beats))
         l->bars = (uint8_t)loop_max_bars(l->beats);
+    clear_past(l);
 }
 void loops_song_clear(song_t *g)
 {
