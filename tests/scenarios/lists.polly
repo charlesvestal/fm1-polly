@@ -114,7 +114,7 @@ release HOME
 expect page 0
 expect loop_bars3 4
 # SONG: INSERT ROW while playing: STOP FIRST; stopped: a row
-tap HOME
+turn SELECT 1
 expect page 1
 tap PLAY
 wait 200
@@ -210,7 +210,7 @@ expect loop_bars5 12
 # DELETE ROW 10, CLEAR SONG 11, COPY SONG TO 12): a row; COPY
 # SONG TO Song 3 (empty: no question); again: Song 3 has a row now, a question; PLAY meanwhile, then SEL: STOP FIRST
 tap HOME
-tap HOME
+turn SELECT 1
 expect page 1
 tap SEL
 spin SELECT 9
@@ -256,7 +256,7 @@ expect page 6
 # SAVE tapped alone: save
 tap SAVE
 expect dirty 0
-# a question, then HOME + a white key: HOME's press says no, the key is its shortcut (L10, MODE LOOP)
+# a question, then HOME + a white key: HOME's press says no, the key is its shortcut (L10 goes round)
 tap HOME
 expect page 0
 press HOME

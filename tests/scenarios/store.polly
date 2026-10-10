@@ -29,7 +29,7 @@ expect song2_style5 37
 reboot
 expect song 1
 tap HOME
-turn SELECT 2
+turn SELECT 3
 expect page 3
 spin K4 1
 expect song 2

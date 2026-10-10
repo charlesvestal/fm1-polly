@@ -69,14 +69,17 @@ static void test_rows(void)
     CHECK(g.nrows == 0 && g.intro == 1 && g.ending == 1 && g.at_end == 0 && g.tempo == 120, "an empty song");
     CHECK(row_tap(&g, 0, 8) == 0 && g.nrows == 1 && g.row[0].loop == 8 && g.row[0].rep == 1 && g.row[0].sect == ROW_A,
           "tap L9: row 1, x1, Main A");
-    CHECK(row_tap(&g, 0, 8) == 0 && g.nrows == 1 && g.row[0].rep == 2, "L9 again: x2");
-    CHECK(row_tap(&g, 1, 9) == 1 && g.nrows == 2 && g.row[1].loop == 9, "L10: row 2");
+    CHECK(row_tap(&g, 1, 8) == 1 && g.nrows == 2 && g.row[1].loop == 8 && g.row[1].rep == 1 && g.row[0].rep == 1,
+          "L9 again at the END row: a row of its own, never a REPEAT");
+    CHECK(row_tap(&g, 1, 9) == 1 && g.nrows == 2 && g.row[1].loop == 9, "a tap on the last row replaces its loop");
+    g.row[1].sect = ROW_B;
+    g.row[1].rep = 2;
+    CHECK(row_tap(&g, 1, 9) == 1 && g.row[1].rep == 1 && g.nrows == 2, "the same loop on its row: the row again, no REPEAT");
     g.row[1].sect = ROW_B;
     row_tap(&g, 2, 8);
     row_tap(&g, 3, 9);
     CHECK(g.row[2].sect == ROW_A && g.row[3].sect == ROW_B, "a loop's section from its earlier row");
-    g.row[3].rep = 8;
-    CHECK(row_tap(&g, 4, 9) == 3 && g.row[3].rep == 8 && g.nrows == 4, "x8 at most");
+    CHECK(g.nrows == 4 && row_tap(&g, 5, 9) == -1, "past the END row: nothing");
     CHECK(row_tap(&g, 0, 9) == 0 && g.row[0].loop == 9 && g.row[0].rep == 1, "a tap on an earlier row rewrites it");
     g.row[0].loop = 8;
     CHECK(loop_rows_using(&g, 9) == 2, "L10 in 2 rows");

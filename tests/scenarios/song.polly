@@ -1,4 +1,4 @@
-# POLLY, song: verse and chorus loops into a song of 4 rows, chorus on Main B, last chorus +2, ending on (the spec's
+# POLLY, song: verse and chorus loops into a song of 4 rows (a white key a row, REPEAT by its knob), chorus on Main B, last chorus +2, ending on (the spec's
 # walk); PLAY from a row, the cursor following; then REC on SONG writing an empty song's rows from HOME + keys, a
 # section and the mutes, live.
 # Keys: F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14. Chords: root * 100 + CH_* (maj 0, min 16). At 120 BPM a
@@ -55,7 +55,7 @@ expect loop_ch9_0 916
 expect loop_ch9_4 500
 expect loop_ch9_8 0
 expect loop_ch9_12 700
-tap ARP
+turn SELECT 1
 expect page 5
 spin K3 1
 expect loop_name9 Verse
@@ -103,12 +103,14 @@ tap REC
 expect loop_bars10 4
 expect loop_ch10_0 0
 expect loop_ch10_12 500
-tap ARP
+turn SELECT 1
+expect page 5
 spin K3 2
 expect loop_name10 Chorus
-# ---- the song: HOME, HOME; 9 9 10 (verse x2, chorus)
+# ---- the song: HOME, SELECT; 9, 9 (a row each), row 2 retapped 10; REPEAT by its knob (verse x2, chorus)
 tap HOME
-tap HOME
+expect page 0
+turn SELECT 1
 expect page 1
 expect tag_is_NO_ROWS 1
 expect footer_is_WHITE:_ROW'S_LOOP|BLACK:_MUTES 1
@@ -117,9 +119,14 @@ shot song_empty.png
 tapkey w8
 expect rows 1
 expect cursor 2
+# the same key again: a row of its own, never a REPEAT
 tapkey w8
-expect rows 1
-expect row_rep1 2
+expect rows 2
+expect row_loop2 9
+expect row_rep1 1
+expect cursor 3
+# a tap on a row (not the END row) replaces its loop: row 2 -> L10
+spin K1 -1
 expect cursor 2
 tapkey w9
 expect rows 2
@@ -127,25 +134,34 @@ expect row_loop2 10
 expect row_sect2 0
 expect cursor 3
 expect tag_is_END_ROW 1
+# REPEAT only by its knob: row 1 x2
+spin K1 -2
+expect cursor 1
+spin K4 1
+expect row_rep1 2
 # row 2's SECTION: Main B (later chorus rows follow)
-spin K1 -1
+spin K1 1
 expect tag_is_ROW_2 1
 spin K3 2
 expect row_sect2 2
 spin K1 1
 expect cursor 3
-# then 9 9 10 10: row 3 verse x2 (Main A), row 4 chorus x2 on Main B by the section default
+# then 9, 10: row 3 verse (Main A), row 4 chorus on Main B by the section default; both x2 by REPEAT
 tapkey w8
-tapkey w8
-tapkey w9
 tapkey w9
 expect rows 4
 expect row_loop3 9
-expect row_rep3 2
 expect row_sect3 0
 expect row_loop4 10
 expect row_sect4 2
+expect cursor 5
+spin K1 -2
+spin K4 1
+expect row_rep3 2
+spin K1 1
+spin K4 1
 expect row_rep4 2
+spin K1 1
 expect cursor 5
 # row 2: Main B + fill (a fill in its last bar: one plays there anyway, B to A)
 spin K1 -3
@@ -162,14 +178,21 @@ shot song.png
 tapkey b1
 expect row_mute3 0
 expect black_dim 0
-# SAVE + a white key on SONG: a new row of that loop at the end, never a REPEAT (L10, as row 4: row 5, x1); on the END
-# row the black keys mute the row just added; then DELETE ROW (SEL's list, its row 10) takes it out again
+# SAVE + a white key on SONG: nothing (a white key adds a row by itself); SAVE's card here says so
 press SAVE
+wait 1100
+expect card 8
+shot card_save_song.png
 tapkey w9
 release SAVE
 expect asking 0
-expect msg_is_NEW 1
-expect msg2_is_L10_CHORUS 1
+expect rows 4
+expect cursor 3
+# on the END row a white key adds a row (L10, as row 4: row 5, x1, Main B); the black keys there mute the row just
+# added; then DELETE ROW (SEL's list, its row 10) takes it out again
+spin K1 2
+expect cursor 5
+tapkey w9
 expect rows 5
 expect row_loop5 10
 expect row_rep5 1
@@ -281,6 +304,8 @@ expect mode 2
 wait 50
 shot home_norows.png
 tap HOME
+expect page 0
+turn SELECT 1
 expect page 1
 tap REC
 expect song_rec 1
@@ -361,7 +386,7 @@ expect song_rec 0
 wait 50
 shot home_song.png
 # ---- SECTION on a row: the loop's other rows on the old Main follow (song 2: L9 Main B, L9 Main A, L10 Main A)
-tap HOME
+turn SELECT 1
 expect page 1
 spin K1 -9
 expect cursor 1

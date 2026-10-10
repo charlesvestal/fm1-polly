@@ -114,13 +114,7 @@ static row_t row_new(const song_t *g, int r, int loop)
 }
 int row_tap(song_t *g, int r, int loop)
 {
-    int last = g->nrows - 1;
-    if ((r == g->nrows || r == last) && last >= 0 && g->row[last].loop == loop) {
-        if (g->row[last].rep < 8)              /* the same loop again at the end: REPEAT + 1 */
-            g->row[last].rep++;
-        return last;
-    }
-    if (r < 0 || r > g->nrows || r >= ARR_ROWS)
+    if (r < 0 || r > g->nrows || r >= ARR_ROWS || loop < 0 || loop >= ARR_LOOPS)
         return -1;
     g->row[r] = row_new(g, r, loop);
     if (r == g->nrows)

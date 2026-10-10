@@ -1,5 +1,5 @@
-# POLLY, first: HOME at start-up (MODE FREE); the keys play chords there, PLAY starts the band on the chord played;
-# HOME + a white key picks a loop (MODE LOOP); SELECT turns HOME's pages; MIDI in plays the synth on its channels.
+# POLLY, first: HOME at start-up (FREE, LOOP "-"); the keys play chords there, PLAY starts the band on the chord
+# played; HOME + a white key picks a loop (it goes round); SELECT turns HOME's pages; MIDI in plays the synth on its channels.
 wait 500
 shot boot.png
 expect page 0

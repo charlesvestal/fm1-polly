@@ -21,15 +21,14 @@
 #define K_PLUM RGB(150, 112, 170)                    /* the Intro */
 #define K_SLATE RGB(84, 118, 168)                    /* the Ending */
 
-/* the pages (the spec's Buttons table): a button opens its first page; pressed again, or SELECT turned, its next */
+/* the pages (the spec's Buttons table): a button opens its first page; SELECT turns them */
 enum { P_HOME, P_SONG, P_SONG2, P_SONG3, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_TONE, P_MASTER,
        P_STYLE, P_STYLE2, P_SETUP, P_PANEL, NPAGES };
 static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Song", "Song", "Loop", "Loop", "Pattern", "Pattern setup", "Track",
                                               "Track keys", "Mixer", "Mixer tone", "Master FX", "Style", "Style",
                                               "Setup", "Panel"};
-/* the page buttons: a button holds up to two pages, pressed again (or SELECT): the next (the tag's dots: which).
- * HOME's four: HOME, then SONG's three pages; HOME pressed goes HOME -> SONG -> HOME (SONG's pages one stop), SELECT
- * turns them in order */
+/* the page buttons: a button opens its first page, SELECT the next (the tag's dots: which). HOME's four: HOME, then
+ * SONG's three pages */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_HOME, 4}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
     {B_FX, P_MASTER, 1}, {B_ENV, P_STYLE, 2}, {B_GLO, P_SETUP, 2}};
@@ -73,7 +72,7 @@ static qb_style_t qbuf[2] EN_POOL;
 /* the app's state that outlives the screen (ui_init runs again after an update session) */
 static struct {
     uint8_t dirty;                                   /* the project changed since it was saved */
-    uint8_t mode;                                    /* MODE (HOME's KNOB 4): ARR_FREE, ARR_LOOP, ARR_SONG */
+    uint8_t mode;                                    /* ARR_FREE / ARR_LOOP (HOME's LOOP knob), ARR_SONG (PLAY on SONG) */
     uint8_t loop;                                    /* the loop picked (LOOP plays it), 0..ARR_LOOPS-1 */
     uint8_t row;                                     /* the SONG screen's row, 0..ARR_ROWS-1 */
     /* the six slots' patterns (Intro, Main A, Main B, Fill AB, Fill BA, Ending) as the app knows them: the tracks' settings and
@@ -147,7 +146,6 @@ static struct {
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
     uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
     uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
-    uint8_t prev_btn, last_btn;                      /* the page buttons pressed: the one before the last, the last (+ 1) */
 } ui;
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
@@ -731,7 +729,7 @@ static void draw_home(void)
             e = itoa_u(arr_rep + 1u, cat_s(e, "|x"));
             itoa_u(g->row[arr_row % ARR_ROWS].rep, cat_s(e, " of "));
         } else
-            cat_s(t, "no rows yet|HOME again: write some");
+            cat_s(t, "no rows yet|SELECT: the SONG page");
         segs(8, STRIP_Y + 14, &FONT_XS, t, K_DIM);
     }
     for (i = 0; i < ARR_TRACKS; i++) {   /* the eight tracks: lit as they play, with their sounds */
@@ -1519,13 +1517,20 @@ static void transpose_knob(knob_t *k)
     int x = csong()->transpose;
     kv(k, "Transpose", KEY_NAME[(x + 12) % 12], x + 6, 11);
 }
-/* HOME: the song's style, tempo, transpose and MODE */
+/* HOME: the song's style, tempo, transpose; LOOP ("-" FREE, L1..L16, "Song" while in the song) */
 static void home_knobs(knob_t *k)
 {
+    char t[8];
     style_knob(&k[0]);
     kn(&k[1], "Tempo", csong()->tempo, 240);
     transpose_knob(&k[2]);
-    kv(&k[3], "Mode", MODE_NAME[app.mode % 3u], app.mode, 2);
+    if (app.mode == ARR_SONG)
+        kv(&k[3], "Loop", "Song", ARR_LOOPS, ARR_LOOPS);
+    else if (app.mode == ARR_LOOP) {
+        itoa_u(app.loop + 1u, cat_s(t, "L"));
+        kv(&k[3], "Loop", t, app.loop + 1, ARR_LOOPS);
+    } else
+        kv(&k[3], "Loop", "-", 0, ARR_LOOPS);
 }
 static void edit_knobs(knob_t *k)
 {
@@ -1850,10 +1855,6 @@ static void draw_tag(void)
     int g = page_group(ui.page), n = PAGE_BTN[g].n, d = ui.page - PAGE_BTN[g].first;
     int32_t r = 232, x, w;
     uint32_t h;
-    if (ui.page == P_HOME)                           /* HOME's dots: HOME, SONG; SONG's: its three pages */
-        n = 2;
-    else if (song_page())
-        n = 3, d = ui.page - P_SONG;
     page_tag(t);
     h = hash(2166136261u, ui.page);
     for (const char *c = t; *c; c++)
@@ -1973,14 +1974,14 @@ static void draw_footer(void)
 #define PG_SONG (PG(P_SONG) | PG(P_SONG2) | PG(P_SONG3))
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Loops", "Your chord loops. Play chords.", "REC writes them: at the cursor, or in time."},
-    {B_SEQ, PG_ANY, "Pattern", "The section's eight tracks; again: its length and name.", 0},
-    {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; again: its keys.", 0},
-    {B_LFO, PG_ANY, "Mixer", "Volume, pan and sends; again: the tone. Black keys pick the track.", 0},
+    {B_SEQ, PG_ANY, "Pattern", "The section's eight tracks; SELECT: its length and name.", 0},
+    {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; SELECT: its keys.", 0},
+    {B_LFO, PG_ANY, "Mixer", "Volume, pan and sends; SELECT: the tone. Black keys pick the track.", 0},
     {B_FX, PG_ANY, "Master FX", "The reverb and the chorus every track sends to.", 0},
     {B_ENV, PG_ANY, "Style", "The six sections' patterns. PRESETS: the next style.", 0},
-    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights; again: the panel.", 0},
+    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights; SELECT: the panel.", 0},
     {B_SEL, PG_ANY, "Lists", "This page as a list, MORE, actions.", "SELECT moves, ALGORITHM changes, HOME goes back."},
-    {B_SAVE, PG_SONG, "Save", "Tap: save. Hold + a white key: a new row of that loop.", "Never a REPEAT: a row of its own."},
+    {B_SAVE, PG_SONG, "Save", "Tap: save.", "Rows: a white key adds one by itself."},
     {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
     {B_REC, PG(P_HOME) | PG(P_LOOP) | PG(P_LOOP2), "Write chords",
      "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop."},

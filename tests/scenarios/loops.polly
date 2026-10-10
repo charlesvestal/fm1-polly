@@ -159,9 +159,15 @@ expect page 0
 # ---- REC in SONG: LOOP on the row's loop first ("SONG PAUSED")
 poke_row 3
 poke_row 12
-spin K4 1
+tap PLAY
+wait 100
+turn SELECT 1
+expect page 1
+tap PLAY
 wait 50
 expect mode 2
+tap HOME
+expect page 0
 wait 2500
 expect loop_now 3
 expect row 1
@@ -188,7 +194,7 @@ wait 300
 # ---- a loop asked for while playing has not started: writing in time waits for its bar line
 tap PLAY
 wait 100
-spin K4 -1
+spin K4 -16
 wait 50
 expect mode 0
 press HOME
@@ -213,11 +219,11 @@ expect msg_is_WRITE 1
 expect msg2_is_from_the_bar 1
 expect loop_ch3_0 0
 expect loop_ch3_1 -1
-# ---- a MODE change ends REC: MODE FREE, then a chord writes nothing
+# ---- the loop left ends REC: LOOP turned to "-" (FREE), then a chord writes nothing
 wait 2000
 tap HOME
 expect page 0
-spin K4 -1
+spin K4 -16
 wait 50
 expect mode 0
 expect rec_chords 0
@@ -230,7 +236,7 @@ key 7 up
 key 11 up
 expect loop_ch3_0 0
 expect take 0
-# a take running, MODE LOOP: the take ends (kept, into L10), MODE stays as turned (L3)
+# a take running, LOOP turned to L3: the take ends (kept, into L10), L3 plays as turned
 tap REC
 expect take 2
 wait 2100
@@ -241,7 +247,7 @@ wait 60
 key 0 up
 key 4 up
 key 7 up
-spin K4 1
+spin K4 3
 wait 50
 expect take 0
 expect mode 1
@@ -472,8 +478,8 @@ key 11 up
 key 14 up
 wait 50
 expect home_chord_root 9
-# HOME in FREE (MODE): a chord heard while held
-spin K4 -1
+# HOME in FREE (LOOP "-"): a chord heard while held
+spin K4 -16
 wait 50
 expect mode 0
 key 4 down

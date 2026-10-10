@@ -16,14 +16,14 @@ void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; the beats
 void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats; past the end cleared */
 void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM;
                                                    * keeps its style */
-/* white key `loop` tapped on the SONG screen at row r: r is the last row or the one after it, and the last
- * row's loop is `loop`: REPEAT + 1 (8 at most), returns r; else row r is set (a new row at the end), its
- * section the one this loop had in an earlier row, else Main A; returns the row; -1 when full */
+/* white key `loop` tapped on the SONG screen at row r: row r is set (r the END row, one after the last: a new row
+ * at the end; never a REPEAT + 1, REPEAT is the knob's), its section the one this loop had in an earlier row, else
+ * Main A; returns the row; -1 when full */
 int row_tap(song_t *g, int r, int loop);
 void row_insert(song_t *g, int r);                /* a copy of row r (the cursor's; the END row: of the last row,
                                                    * none: a default row) at r, the rows from r one down */
-int row_append(song_t *g, int loop);              /* a new row of `loop` at the end (never REPEAT + 1), its section as
-                                                   * row_tap's; the row, -1 when full */
+int row_append(song_t *g, int loop);              /* a new row of `loop` at the end, its section as row_tap's; the
+                                                   * row, -1 when full */
 /* row r's SECTION (ROW_*) set; when its Main (A / B) changed, the loop's other rows on the old Main get the new one
  * (their "+ fill" kept): the number of those */
 int row_set_sect(song_t *g, int r, int sect);
