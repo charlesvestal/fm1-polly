@@ -981,8 +981,8 @@ static void song_key(int k)
 /* REC on SONG (with PLAY): the player's changes into the rows. HOME + white key w: the loop goes into the row playing,
  * or, its last bar playing, into the row after it (after the last row: a row added; the last row's loop again: its
  * REPEAT + 1); the song plays on (the engine reads the rows at each block: the row playing's loop is heard from its
- * next beat, the next row's at its start). No rows playing yet (an empty song): a row at the end, which starts at
- * the next bar line. Stopped: as a tap at the cursor */
+ * next beat, the next row's at its start). No rows playing yet (an empty song), or the song's Ending playing: a row
+ * at the end (from an empty song it starts at the next bar line). Stopped: as a tap at the cursor */
 static int song_rec_loop(int w)
 {
     song_t *g = csong();
@@ -992,7 +992,7 @@ static int song_rec_loop(int w)
         song_tap(w);
         return 0;
     }
-    if (n && arr_loop_now >= 0 && r < n) {
+    if (n && arr_loop_now >= 0 && r < n && arr_sect != SEC_END) {   /* (the Ending: the rows are done, a row added) */
         const row_t *cw = &g->row[r];
         const loop_t *l = &songs.loop[cw->loop % ARR_LOOPS];
         int per = loop_len(l) > 0 ? loop_len(l) : 4, len = per * (cw->rep ? cw->rep : 1);

@@ -315,6 +315,19 @@ expect rows 2
 expect row_loop2 9
 wait 600
 expect loop_now 9
+# row 2 x2 (REPEAT on the cursor's row, following); the song's Ending (26 s, after it): HOME + white adds a row,
+# the finished last row keeps its loop
+expect cursor 2
+spin K4 1
+expect row_rep2 2
+wait 15000
+expect sect 6
+press HOME
+tapkey w9
+release HOME
+expect rows 3
+expect row_loop2 9
+expect row_loop3 10
 tap PLAY
 tap REC
 expect song_rec 0

@@ -1336,6 +1336,50 @@ static void test_song_rows_wait(void)
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "rows wait: offs match");
 }
+/* a song cleared while it plays (CLEAR SONG), a row written within the same bar (REC): row 1 from the next bar
+ * line, not the old row's end (its Ending, the stop); the old row's mutes gone at the clear */
+static void test_song_cleared_playing(void)
+{
+    static const chord_t g[1] = {{7, CH_MAJ, CH_NOBASS}};
+    reset();
+    loops_reset();
+    load_slot(SI, 1, 4);
+    load_slots(4);
+    loop_bars(0, 4, 1, g);
+    memset(&SG, 0, sizeof SG);
+    SG.row[0].loop = 0;
+    SG.row[0].sect = ROW_A;
+    SG.row[0].rep = 1;
+    SG.row[0].mute = 1u << 5;
+    SG.nrows = 1;
+    SG.at_end = 1;
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(2.3f * BAR));
+    CHECK(arr_playing && arr_loop_now == 0 && arr_mutes == 1u << 5, "playing row 1, track 5 muted (%02x)", arr_mutes);
+    arr_edit(1);                                   /* CLEAR SONG (Intro, Ending on) */
+    memset(&SG, 0, sizeof SG);
+    SG.intro = SG.ending = 1;
+    arr_edit(0);
+    run_to((uint32_t)(2.4f * BAR));
+    CHECK(arr_loop_now == -1 && arr_mutes == 0, "cleared: no loop, the row's mutes gone (%d %02x)", arr_loop_now, arr_mutes);
+    arr_edit(1);                                   /* REC: row 1, in the same bar */
+    SG.row[0].loop = 0;
+    SG.row[0].sect = ROW_A;
+    SG.row[0].rep = 1;
+    SG.nrows = 1;
+    arr_edit(0);
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(arr_playing && arr_loop_now == 0 && arr_row == 0 && arr_sect == SEC_A, "row 1 from the next bar line (%d %d %d %d)",
+          arr_playing, arr_loop_now, arr_row, arr_sect);
+    run_to((uint32_t)(3.9f * BAR));
+    CHECK(arr_playing && arr_sect == SEC_A, "still row 1 (%d %d)", arr_playing, arr_sect);
+    run_to((uint32_t)(4.5f * BAR));
+    CHECK(arr_playing && arr_sect == SEC_END, "then the Ending (%d %d)", arr_playing, arr_sect);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "cleared: offs match");
+}
 /* ---- songs: review fixes */
 static void test_song_ending_wins(void)       /* the song's end wins over a section by hand */
 {
@@ -3294,6 +3338,7 @@ int main(void)
     test_song_intro_ending();
     test_song_hand();
     test_song_rows_wait();
+    test_song_cleared_playing();
     test_song_ending_wins();
     test_song_start_busy();
     test_song_busy_fill();

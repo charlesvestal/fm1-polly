@@ -908,6 +908,7 @@ static uint16_t row_len(const row_t *w)            /* a row's beats: its loop's 
     int n = lp_len(row_loop(w));
     return (uint16_t)((n > 0 ? n : 4) * (w->rep ? w->rep : 1));
 }
+static void row_mutes(uint8_t m);
 /* the song's header and rows `row` and the one after it (row 0 after the last), when the app is not writing
  * (the main loop never runs inside the render: busy means it was interrupted mid-write; the last snapshot stays) */
 static void song_snap(void)
@@ -919,8 +920,13 @@ static void song_snap(void)
     sn.intro = sg->intro;
     sn.ending = sg->ending;
     sn.at_end = sg->at_end;
-    if (!sn.nrows)
+    if (!sn.nrows) {                               /* none (cleared while playing): rows start again at the first */
+        if (rows_live)                             /* bar line that finds some; the old row's mutes go */
+            row_mutes(0);
+        rows_live = 0;
+        rows_wait = 1;
         return;
+    }
     if (row >= sn.nrows)                           /* rows deleted under it: row 1 */
         row = 0;
     n = (uint8_t)(row + 1 < sn.nrows ? row + 1 : 0);
