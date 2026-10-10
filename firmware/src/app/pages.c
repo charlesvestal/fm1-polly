@@ -98,6 +98,8 @@ static struct {
     uint8_t cstep;                                   /* the cursor's step: 0 a beat, 1 half a bar, 2 a bar */
     uint8_t played;                                  /* a chord was heard since start-up (the keys', a loop's, a song's):
                                                       * HOME stops saying "Play a chord" */
+    uint8_t picked;                                  /* app.loop was set since start-up (picked, playing, ARP): until
+                                                      * then ARP opens the first empty loop */
 } app;
 
 /* the input's and the screen's state */
@@ -154,9 +156,9 @@ static int song_page(void) { return song_pg(ui.page); }
 /* SEL: the screen as a list. Its knobs' values (each page of its button: KNOB rows), then MORE (settings on no
  * page) and the actions (ACTION: do it, PICK: a choice first). Built afresh to draw it; sel and top stay */
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK };
-enum { A_LOAD_PROG, A_CLEAR_LOOP, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
+enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, NACTIONS };
-static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR LOOP", "INSERT ROW", "DELETE ROW",
+static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR LOOP", "PLAY FROM ROW", "INSERT ROW", "DELETE ROW",
                                                   "CLEAR SONG", "COPY SONG TO", "ERASE TRACK", "CLEAR PATTERN",
                                                   "BACK TO STYLE"};
 #define LIST_ROWS 24
@@ -1990,7 +1992,7 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_REC, PG_SONG, "Record the rows", "With PLAY: the loops and sections you pick with HOME + keys,",
      "and the mutes you change."},
     {B_REC, PG_ANY, "Record", "Nothing to record on this page.", 0},
-    {B_PLAY, PG_ANY, "Play", "Start and stop. In SONG: from the row on the SONG screen.", 0},
+    {B_PLAY, PG_ANY, "Play", "Start and stop. On SONG: the song from row 1 (from a loop: at the next bar).", 0},
     {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT-: back a step. OCT+: skips a step (the chord goes on).", 0},
     {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT+ skips a step (the chord goes on); OCT-: back a step.", 0},
     {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Both held 5 s: update mode."},
@@ -2114,7 +2116,12 @@ static void list_build(void)
         char v[8];
         if (ui.pick_song % ARR_SONGS == proj.song)    /* COPY SONG TO: another song */
             ui.pick_song = (uint8_t)((proj.song + 1u) % ARR_SONGS);
+        static char from[20];                        /* "PLAY FROM ROW 3": the cursor's row */
+        char r[4];
         itoa_u(ui.pick_song % ARR_SONGS + 1u, cat_s(v, "Song "));
+        itoa_u(app.row + 1u, r);
+        cat_s(cat_s(cat_s(from, ACTION_NAME[A_PLAY_FROM]), " "), r);
+        list_add(from, r, LK_ACTION, A_PLAY_FROM);
         list_add(ACTION_NAME[A_INSERT_ROW], 0, LK_ACTION, A_INSERT_ROW);
         list_add(ACTION_NAME[A_DELETE_ROW], 0, LK_ACTION, A_DELETE_ROW);
         list_add(ACTION_NAME[A_CLEAR_SONG], 0, LK_ACTION, A_CLEAR_SONG);

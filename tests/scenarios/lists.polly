@@ -37,10 +37,13 @@ wait 1000
 expect card 0
 release SEQ
 expect page 0
-# LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
+# ARP with no loop picked yet: the first empty loop (L9), never a factory one; PRESETS back to L1
 tap ARP
 expect page 4
+expect tag_is_L9|BAR_1.1 1
+turn PRESET -8
 expect tag_is_L1|BAR_1.1 1
+# LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
 expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT+:_SKIP 1
 tap SEL
 expect list_open 1
@@ -119,19 +122,19 @@ expect page 1
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 9
+spin SELECT 10
 tap SEL
 expect msg2_is_STOP_FIRST 1
 expect rows 0
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 9
+spin SELECT 10
 tap SEL
 expect rows 1
 expect msg_is_INSERTED 1
 tap SEL
-spin SELECT 10
+spin SELECT 11
 tap SEL
 expect rows 0
 # Pattern: ERASE TRACK asks first (the drums have notes)
@@ -206,19 +209,19 @@ expect asking 0
 expect loop_bars2 0
 expect loop_bars3 4
 expect loop_bars5 12
-# SONG (its three pages' knobs: Row, Loop, Section, Repeat, Key, Intro, Ending, At end, Song; then INSERT ROW 9,
-# DELETE ROW 10, CLEAR SONG 11, COPY SONG TO 12): a row; COPY
+# SONG (its three pages' knobs: Row, Loop, Section, Repeat, Key, Intro, Ending, At end, Song; then PLAY FROM ROW
+# 9, INSERT ROW 10, DELETE ROW 11, CLEAR SONG 12, COPY SONG TO 13): a row; COPY
 # SONG TO Song 3 (empty: no question); again: Song 3 has a row now, a question; PLAY meanwhile, then SEL: STOP FIRST
 tap HOME
 turn SELECT 1
 expect page 1
 tap SEL
-spin SELECT 9
+spin SELECT 10
 tap SEL
 expect rows 1
 tap SEL
 spin SELECT 20
-expect list_sel 12
+expect list_sel 13
 spin ALGO 1
 tap SEL
 expect asking 0
@@ -237,7 +240,7 @@ tap PLAY
 wait 200
 # CLEAR SONG: it has a row, a question; yes
 tap SEL
-spin SELECT 11
+spin SELECT 12
 tap SEL
 expect asking 1
 tap SEL

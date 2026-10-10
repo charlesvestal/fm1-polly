@@ -1,5 +1,5 @@
 # POLLY, song: verse and chorus loops into a song of 4 rows (a white key a row, REPEAT by its knob), chorus on Main B, last chorus +2, ending on (the spec's
-# walk); PLAY from a row, the cursor following; then REC on SONG writing an empty song's rows from HOME + keys, a
+# walk); PLAY on SONG from row 1 (from a loop: at the next bar line), PLAY FROM ROW, the cursor following; then REC on SONG writing an empty song's rows from HOME + keys, a
 # section and the mutes, live.
 # Keys: F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14. Chords: root * 100 + CH_* (maj 0, min 16). At 120 BPM a
 # 4-bar loop is 8000 ms. Pages: 0 HOME, 1-3 SONG, 4-5 LOOP.
@@ -189,7 +189,7 @@ expect asking 0
 expect rows 4
 expect cursor 3
 # on the END row a white key adds a row (L10, as row 4: row 5, x1, Main B); the black keys there mute the row just
-# added; then DELETE ROW (SEL's list, its row 10) takes it out again
+# added; then DELETE ROW (SEL's list, its row 11) takes it out again
 spin K1 2
 expect cursor 5
 tapkey w9
@@ -207,7 +207,7 @@ expect msg_is_C1 1
 spin K1 -1
 expect cursor 5
 tap SEL
-spin SELECT 10
+spin SELECT 11
 tap SEL
 expect rows 4
 expect msg_is_DELETED 1
@@ -234,7 +234,7 @@ shot song3.png
 # PRESETS: the row before; to row 1
 turn PRESET -3
 expect cursor 1
-# ---- PLAY on SONG: from the cursor's row; the cursor follows the song
+# ---- PLAY on SONG: the song from row 1; the cursor follows the song
 tap PLAY
 wait 300
 expect mode 2
@@ -273,12 +273,52 @@ expect playing 0
 # the song ended by itself: SONG's cursor back on row 1
 expect cursor 1
 expect row_follow 1
-# ---- PLAY from a row: row 3, stopped
+# ---- PLAY on SONG starts row 1, wherever the cursor is
 spin K1 2
 expect cursor 3
 tap PLAY
 wait 300
+expect row 1
+tap PLAY
+wait 300
+expect playing 0
+# PLAY FROM ROW (SEL's list, row 9): from the cursor's row, row 3
+spin K1 2
+expect cursor 3
+tap SEL
+spin SELECT 9
+expect list_sel 9
+wait 50
+shot song_list.png
+tap SEL
+expect list_open 0
+wait 300
+expect playing 1
 expect row 3
+expect loop_now 9
+tap PLAY
+wait 300
+expect playing 0
+# a loop playing (L10, HOME + white 10, PLAY), PLAY on SONG: the song from row 1 at the next bar line, no stop
+tap HOME
+press HOME
+tapkey w9
+release HOME
+tap PLAY
+wait 500
+expect mode 1
+expect loop_now 10
+turn SELECT 1
+expect page 1
+tap PLAY
+wait 50
+expect playing 1
+expect msg_is_NEXT 1
+expect loop_now 10
+wait 1600
+expect playing 1
+expect mode 2
+expect row 1
 expect loop_now 9
 tap PLAY
 wait 300

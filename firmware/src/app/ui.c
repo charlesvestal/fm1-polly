@@ -307,6 +307,7 @@ static void chord_rec_stop(void);
 /* app.loop changes here only: another loop, its cursor at beat 0, STEP a bar again, no chord entry carried over */
 static void app_loop_set(int i)
 {
+    app.picked = 1;
     if (i == app.loop)
         return;
     app.loop = (uint8_t)(i % ARR_LOOPS);
@@ -1097,7 +1098,8 @@ static void song_rec_sect(int sec)
     g->row[r].sect = (uint8_t)((sec == SEC_B ? ROW_B : ROW_A) + row_fill(&g->row[r]));
     songs_write(0);
 }
-/* REC on SONG: on (MODE SONG first: stopped, from the cursor's row at PLAY) / off */
+/* REC on SONG: on (MODE SONG first; playing, from the cursor's row at the next bar line; stopped, PLAY on SONG
+ * starts row 1, SEL's PLAY FROM ROW the cursor's) / off */
 static void song_rec_toggle(void)
 {
     const song_t *g = csong();
@@ -1176,15 +1178,30 @@ static void song_knob(int k, int32_t e)
 
 /* the page buttons (PAGE_BTN, pages.c): always the button's first page (HOME: HOME, from SONG's pages too); SELECT,
  * and only SELECT, turns the pages, both ways */
+static void arp_open(void);
 static int page_button(int b)
 {
     for (uint32_t i = 0; i < NPAGE_BTN; i++)
         if (PAGE_BTN[i].btn == b) {
             ui.page = PAGE_BTN[i].first;
             ui.touched = -1;
+            if (b == B_ARP)
+                arp_open();
             return 1;
         }
     return 0;
+}
+/* ARP before any loop was picked (start-up, no loop playing): the first empty loop, so writing on its grid never
+ * overwrites a factory progression by accident; none empty, the last picked. From then on ARP shows app.loop */
+static void arp_open(void)
+{
+    int i;
+    if (app.picked || (arr_playing && arr_loop_now >= 0))
+        return;
+    for (i = 0; i < ARR_LOOPS && songs.loop[i].bars; i++)
+        ;
+    if (i < ARR_LOOPS)
+        app_loop_set(i);
 }
 static void page_turn(int d)
 {
@@ -1202,25 +1219,40 @@ static void pat_name(int st, char *t)            /* "P05" */
     t[3] = 0;
 }
 
+/* the song from row r (PLAY on SONG: row 1; SEL's PLAY FROM ROW: the cursor's): stopped, at once (row 1 with its
+ * Intro when on); while a loop or FREE plays, or the song, from row r at the next bar line */
+static void song_play_from(int r)
+{
+    const song_t *g = csong();
+    char t[12];
+    if (r >= g->nrows)
+        r = 0;
+    if (app.mode != ARR_SONG)
+        mode_set(ARR_SONG);
+    arr_mode_song(g, r);
+    ui.row_follow = 1;
+    if (arr_playing) {
+        itoa_u((uint32_t)r + 1u, cat_s(t, "ROW "));
+        say("NEXT", t);
+    } else
+        arr_play(1);
+}
 static void song_rec_toggle(void);
 static void button_down(int b)                   /* PLAY: at once; REC: at its release (button_up) */
 {
     switch (b) {
     case B_PLAY:
-        if (!arr_playing && song_page()) {       /* on SONG: the song, from the cursor's row */
-            const song_t *g = csong();
-            int r = app.row < g->nrows ? app.row : 0;
-            if (app.mode != ARR_SONG)
-                mode_set(ARR_SONG);
-            arr_mode_song(g, r);
-            ui.row_follow = 1;
-        } else if (!arr_playing && app.mode == ARR_SONG) {   /* else SONG from row 1 */
-            arr_mode_song(csong(), 0);
-            ui.row_follow = 1;
-        }
         if (ui.msg_first)                        /* the section asked for first: now playing */
             ui.msg_until = plat_ms();
         ui.msg_first = 0;
+        if (song_page() && !(arr_playing && app.mode == ARR_SONG)) {   /* on SONG: the song, from row 1 */
+            song_play_from(0);
+            break;
+        }
+        if (!arr_playing && app.mode == ARR_SONG) {   /* else SONG from row 1 */
+            arr_mode_song(csong(), 0);
+            ui.row_follow = 1;
+        }
         arr_play(!arr_playing);
         break;
     case B_REC:
@@ -1859,6 +1891,7 @@ static void action_run(int a)
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
     case A_CLEAR_LOOP: act_clear_loop(); break;
+    case A_PLAY_FROM: song_play_from(app.row); break;
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
     case A_CLEAR_SONG: act_clear_song(); break;
