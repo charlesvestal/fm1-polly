@@ -5,7 +5,6 @@
  * The screen: a header (the page, the tempo and REC), the main band, and the four knobs' strip. Each
  * band is drawn only when what it shows changed (a hash of it). Pages not built yet show their name. */
 #include "gm_names.h"
-#include "../dsp/templates.h"
 
 #define K_BG RGB(250, 244, 232)
 #define K_PANEL RGB(236, 228, 212)
@@ -1041,8 +1040,7 @@ static void draw_home_held(void)
             cv_round(x, y, 112, 14, 4, i == ln ? K_TEAL : K_ACCENT);
             cv_round(x + 2, y + 2, 108, 10, 3, K_BG);
         }
-        e = itoa_u((uint32_t)i + 1u, cat_s(t, "L"));
-        (void)e;
+        itoa_u((uint32_t)i + 1u, cat_s(t, "L"));
         cv_text(x + 4, y, &FONT_XS, t, K_DIM);
         if (l->bars) {
             loop_label(i, t);

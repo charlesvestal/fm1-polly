@@ -127,6 +127,54 @@ expect mode 0
 expect loop_now 0
 tap PLAY
 wait 500
+# REC on HOME: not here yet (the keys play chords)
+tap REC
+expect msg_is_REC 1
+expect recording 0
+# HOME + a white key from another screen (SEQ): the loop, the page stays
+tap SEQ
+press HOME
+tapkey w4
+release HOME
+expect page 4
+expect mode 1
+tap PLAY
+wait 2500
+expect loop_now 5
+# PRESETS on HOME: the next loop (from the next bar line)
+tap HOME
+expect page 0
+turn PRESET 1
+wait 2500
+expect loop_now 6
+tap PLAY
+wait 500
+# mutes: SEQ's MUTE in LOOP is the song's; in SONG by hand only (the engine's); back in LOOP the song's again
+tap SEQ
+spin K4 1
+wait 100
+expect song1_mute 64
+expect mutes 64
+tap HOME
+spin K4 1
+wait 50
+expect mode 2
+tap SEQ
+spin K4 1
+wait 100
+expect song1_mute 64
+expect mutes 0
+tap HOME
+spin K4 -1
+wait 100
+expect mode 1
+expect mutes 64
+# HOME held + a knob: HOME used (its release turns no page)
+press HOME
+spin K2 1
+release HOME
+expect page 0
+expect tempo 111
 # the Setup's lights on KNOB 3 (no Key knob)
 tap GLO
 spin K3 1

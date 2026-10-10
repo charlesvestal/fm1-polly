@@ -423,7 +423,7 @@ static int expect(const char *what, const char *val)
             w[i] = what[8 + i] == '_' ? ' ' : what[8 + i];
         w[i] = 0;
         got = plat_ms() < ui.msg_until && !strncmp(ui.msg[1], w, strlen(w));
-    } else if (!strncmp(what, "songtext_is_", 12)) {   /* songtext_is_WORDS: the Song page header's style text ("_": a space) */
+    } else if (!strncmp(what, "songtext_is_", 12)) {   /* songtext_is_WORDS: HOME's header style text ("_": a space) */
         char w[32], t[32];
         int i;
         for (i = 0; i < 31 && what[12 + i]; i++)

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Polly's input: the controls (the spec's Controls table), the songs and patterns into the arranger, saving,
+/* Polly's input: the controls (the spec's Buttons and Keys tables), the songs and patterns into the arranger, saving,
  * the lights. Part of the unity build (after pages.c, which holds the shared state and the drawing); the host
  * simulator includes it too.
  *
@@ -326,8 +326,7 @@ static void song_load(void)
     arr_set_transpose(sg->transpose);
     if (app.row >= ARR_ROWS)
         app.row = 0;
-    mutes_apply();
-    mode_set(app.mode);
+    mode_set(app.mode);                          /* (FREE / LOOP: the song's mutes sent) */
 }
 /* the takes: when each slot was last recorded into (or erased), so a save knows the newest */
 static void watch_takes(void)
@@ -435,7 +434,7 @@ static void touch(int k)
     ui.touch_until = plat_ms() + 1200u;
 }
 /* the song's tempo (HOME's KNOB 2, HOME + SELECT) and TRANSPOSE (KNOB 3): kept in the song */
-static void song_changed(void)
+static void song_touched(void)
 {
     app.songs_dirty = 1;
     app.chg++;
@@ -449,7 +448,7 @@ static void set_tempo(int bpm)
         return;
     g->tempo = (uint8_t)bpm;
     arr_set_tempo(bpm);
-    song_changed();
+    song_touched();
 }
 static void set_transpose(int x)
 {
@@ -459,7 +458,7 @@ static void set_transpose(int x)
         return;
     g->transpose = (int8_t)x;
     arr_set_transpose(x);
-    song_changed();
+    song_touched();
 }
 static void set_track(int t)
 {
@@ -808,7 +807,7 @@ static int style_step(int s, int st, int d)
     i = clampi(i + d, 0, ARR_USER_PATTERNS + styles_n() - 1);
     return i < ARR_USER_PATTERNS ? i : style_number(i - ARR_USER_PATTERNS, s);
 }
-/* a slot's pattern changed to pattern `to` (a user pattern or a style's section; the Arrange page's, the
+/* a slot's pattern changed to pattern `to` (a user pattern or a style's section; the STYLE pages', the
  * Pattern page's PRESETS); its changes saved first (stopped), or refused while playing (a save pauses the
  * audio) */
 static void slot_style(int s, int to)
@@ -970,23 +969,23 @@ static int copy_patterns_pick(int to, uint16_t *st)
     }
     return 0;
 }
-/* the song's jobs (SAVE held on SONG): clear it (its rows; its patterns, style and loops kept), or copy it to
- * another */
+/* the song's jobs (SAVE held on SONG): clear it (its rows and settings; its patterns, style, tempo, transpose and
+ * mutes kept, the loops too), or copy it to another */
 static void song_job_run(void)
 {
     song_t *g = csong();
-    char t[12];
     ui.job = 0;
     if (ui.job_sel == 0) {
-        uint8_t mute = g->mute;
+        uint8_t mute = g->mute, tempo = g->tempo;
+        int8_t xp = g->transpose;
         arr_edit(1);                             /* (the engine may be playing its rows) */
         loops_song_clear(g);                     /* (its style kept) */
         g->mute = mute;
+        g->tempo = tempo;
+        g->transpose = xp;
         arr_edit(0);
         app.row = 0;
-        arr_set_tempo(g->tempo);
-        arr_set_transpose(g->transpose);
-        song_changed();
+        song_touched();
         say("CLEARED", "the song");
     } else {
         int to = ui.job_to % ARR_SONGS;
@@ -1021,11 +1020,10 @@ static void song_job_run(void)
         app.chg++;
         itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "SONG ")), " > "));
         say(a, "copied");
-        (void)t;
     }
 }
 
-/* the record grid (Song page KNOB 4, Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
+/* the record grid (Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
 static void grid_turn(int32_t e)
 {
     int q = proj.quant + (e > 0 ? 1 : -1);
@@ -1085,7 +1083,7 @@ static void edit_knob(int k, int32_t e)
     switch (ui.page) {
     case P_PATTERN:
         if (k == 0)
-            grid_turn(e);                        /* the grid, as on the Song page */
+            grid_turn(e);                        /* the record grid */
         else if (k == 3)
         {                                        /* a turn, either way: muted / plays; once a burst */
             uint32_t now = plat_ms();
@@ -1286,8 +1284,11 @@ static void input(void)
     if ((e = plat_enc(EN_PRESET)) != 0)
         presets(e);
     for (i = 0; i < 4; i++)
-        if ((e = plat_enc(EN_K1 + (int)i)) != 0)
+        if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
+            if (ui.btn >> B_HOME & 1u)
+                ui.btn_used |= 1u << B_HOME;     /* HOME used with a knob: its release turns no page */
             knob((int)i, e);
+        }
     if (btn || keys || ch)
         ui.act_t = plat_ms();
 }
