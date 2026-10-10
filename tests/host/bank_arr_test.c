@@ -11,6 +11,7 @@
 #include "arr.h"
 #include "gm_stub.h"
 #include "templates.h"
+#include "loops.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -71,6 +72,13 @@ static int last_val(int st, int d1, uint32_t f1, int data2)   /* the last messag
     return v;
 }
 static chord_t ch(int root, int type) { chord_t c = {(uint8_t)root, (uint8_t)type, CH_NOBASS}; return c; }
+static loop_t LT[ARR_LOOPS];                      /* the app's loop table, here */
+static void loops_reset(void)
+{
+    for (int i = 0; i < ARR_LOOPS; i++)
+        loop_clear(&LT[i], i);
+    arr_loops(LT);
+}
 
 /* ---- a hand-made style ---- */
 static qb_style_t A, B, D;
@@ -292,7 +300,9 @@ static void t_chord_hold(void)
     reset();
     make_a();
     load_all(&A);
-    arr_template(0);                              /* Pop: C G Am F, a bar each */
+    loop_from_template(&LT[0], 0);                /* Pop: C G Am F, a bar each */
+    arr_loops(LT);
+    arr_mode_loop(0);
     arr_section(SEC_INTRO);
     arr_play(1);
     run_to(BAR / 2);
@@ -303,62 +313,53 @@ static void t_chord_hold(void)
     run_to(2 * BAR + BAR / 2);
     CHECK(count(stub_log, stub_n, 0, 0, 2 * BAR, 0x92, 64) == 8, "C1's E4 on every beat of the Intro, as over C (%d)",
           count(stub_log, stub_n, 0, 0, 2 * BAR, 0x92, -1));
-    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 0, "Main A: the template's first bar, C");
+    /* the loop (LOOP mode's source) keeps its own clock running through the Intro (only the Ending's and the
+     * Intro's held chord is special); so Main A picks up where the template's beat count already is: its
+     * third bar, Am, not back at the first */
+    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 9, "Main A: the template's third bar, Am (%d)",
+          arr_chord_unpack(arr_chord_now).root);
     run_to(3 * BAR + BAR / 2);
-    CHECK(arr_chord_unpack(arr_chord_now).root == 7, "then G");
+    CHECK(arr_chord_unpack(arr_chord_now).root == 5, "then F, the template's fourth bar (%d)",
+          arr_chord_unpack(arr_chord_now).root);
     /* a chord the player sets changes it at once, in the Ending too; the song's and the template's do not */
     arr_section(SEC_END);
     run_to(4 * BAR + BAR / 2);
-    CHECK(arr_sect == SEC_END && arr_chord_unpack(arr_chord_now).root == 9, "the Ending over the bar's chord, Am (%d)",
-          arr_chord_unpack(arr_chord_now).root);
+    CHECK(arr_sect == SEC_END && arr_chord_unpack(arr_chord_now).root == 0, "the Ending over the bar's chord, C "
+          "(the template wrapped back to its first bar; %d)", arr_chord_unpack(arr_chord_now).root);
     arr_set_chord(ch(2, CH_MIN7));
     run_to(4 * BAR + 3 * BAR / 4);
     CHECK(arr_chord_unpack(arr_chord_now).root == 2, "Dm7 from the keys, at once");
     run_to(5 * BAR + 100);
     CHECK(!arr_playing, "the Ending played once: stopped");
-    /* a song: the chord on the Intro's first beat, held; its chord track again from Main A */
+    /* a song: the Intro holds row 0's first chord (rows do not run during it: the row starts fresh, at its own
+     * beat 0, once Main A begins, so its first chord is necessarily the one the Intro held); the row's loop
+     * plays on normally from there */
     {
         static song_t g;
         reset();
         load_all(&A);
+        loops_reset();
+        loop_write(&LT[0], 0, ch(5, CH_MAJ));      /* F, bar 1 */
+        loop_write(&LT[0], 4, ch(7, CH_MAJ));      /* G, bar 2 */
+        arr_loops(LT);
         memset(&g, 0, sizeof g);
-        g.bars = 4;
-        g.loop = 1;
-        for (int i = 0; i < ARR_SONGBARS * 4; i++)
-            g.chord[i] = ch(0, CH_NTYPES);
-        g.chord[0] = ch(5, CH_MAJ);               /* F, bar 1 */
-        g.chord[4] = ch(7, CH_MAJ);               /* G, bar 2 (in the Intro: held F) */
-        g.chord[8] = ch(9, CH_MIN);               /* Am, bar 3 (Main A) */
-        g.sect[0] = SEC_INTRO;
-        g.sect[2] = SEC_A;
-        arr_song(&g, 1);
+        g.nrows = 1;
+        g.row[0].loop = 0;
+        g.row[0].sect = ROW_A;
+        g.row[0].rep = 1;
+        g.intro = 1;
+        arr_mode_song(&g, 0);
         arr_play(1);
         run_to(BAR + BAR / 2);
         CHECK(arr_sect == SEC_INTRO && arr_chord_unpack(arr_chord_now).root == 5, "song: the Intro holds F (%d)",
               arr_chord_unpack(arr_chord_now).root);
+        run_to(2 * BAR - 100);
+        CHECK(arr_sect == SEC_INTRO && arr_chord_unpack(arr_chord_now).root == 5, "the Intro's second bar: F held too "
+              "(the row's loop does not run yet), root %d", arr_chord_unpack(arr_chord_now).root);
         run_to(2 * BAR + BAR / 2);
-        CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 9, "song: Main A plays the chord track (Am)");
-    }
-    {   /* a chord the song changed during the Intro, none at Main A's first beat: the song's latest, not the held one */
-        static song_t g;
-        reset();
-        load_all(&A);
-        memset(&g, 0, sizeof g);
-        g.bars = 4;
-        g.loop = 1;
-        for (int i = 0; i < ARR_SONGBARS * 4; i++)
-            g.chord[i] = ch(0, CH_NTYPES);
-        g.chord[0] = ch(5, CH_MAJ);               /* F, bar 1 */
-        g.chord[5] = ch(7, CH_MAJ);               /* G, bar 2 beat 2 (held F) */
-        g.sect[0] = SEC_INTRO;
-        g.sect[2] = SEC_A;
-        arr_song(&g, 1);
-        arr_play(1);
-        run_to(BAR + BAR / 2);
-        CHECK(arr_chord_unpack(arr_chord_now).root == 5, "song: F held through the Intro");
-        run_to(2 * BAR + BAR / 4);
-        CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 7, "song: Main A on the G the song moved to "
-              "during the Intro (%d)", arr_chord_unpack(arr_chord_now).root);
+        CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 5, "song: Main A starts on the Intro's chord, F");
+        run_to(3 * BAR + BAR / 2);
+        CHECK(arr_chord_unpack(arr_chord_now).root == 7, "song: Main A's second bar moves on to G, from the row's loop");
     }
 }
 
@@ -467,7 +468,9 @@ static int t_image(const char *path)
         CHECK(qb_decode(i, &S) == 0, "style %d decodes", i);
         reset();
         load_all(&S);
-        arr_template(1);
+        loop_from_template(&LT[0], 1);
+        arr_loops(LT);
+        arr_mode_loop(0);
         arr_section(SEC_A);
         arr_play(1);
         run_to(4 * BAR);

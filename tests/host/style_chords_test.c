@@ -9,6 +9,7 @@
 #include <string.h>
 #include "arr.h"
 #include "gm_stub.h"
+#include "loops.h"
 
 #define FPT 918.75f                           /* frames a 24th of a beat at 120 BPM: 44100 * 60 / (120 * 24) */
 void arr_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { (void)st, (void)d1, (void)d2; }
@@ -66,7 +67,7 @@ static const char *const SECT[ARR_NSECT] = {"Intro", "Main A", "Main B", "Fill A
 static const char *const TRK[8] = {"d1", "d2", "pc", "ba", "c1", "c2", "c3", "c4"};
 static const char *const NOTE[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 static pattern_t P;
-static song_t S;
+static loop_t LT[ARR_LOOPS];
 static int verbose, violations, checked, shown, patterns;
 
 int main(int argc, char **argv)
@@ -91,21 +92,19 @@ int main(int argc, char **argv)
                 const prog_t *g = &PROGS[pi];
                 int bars = g->n * P.bars, beats = P.beats;
                 uint32_t barf, end;
-                if (bars > ARR_SONGBARS)
-                    bars = ARR_SONGBARS;
-                memset(&S, 0, sizeof S);
-                S.bars = (uint8_t)bars;
-                S.sect[0] = SEC_A;
-                for (int i = 0; i < ARR_SONGBARS * 4; i++)
-                    S.chord[i] = C_(0, CH_NTYPES);
+                if (bars > loop_max_bars(beats))
+                    bars = loop_max_bars(beats);
+                loop_clear(&LT[0], 0);
+                LT[0].beats = (uint8_t)beats;
                 for (int b = 0; b < bars; b++)
-                    S.chord[b * 4] = g->c[b % g->n];
+                    loop_write(&LT[0], b * beats, g->c[b % g->n]);
                 arr_init();
                 stub_n = 0;
                 stub_frame = 0;
                 arr_set_tempo(120);
                 arr_load_pattern(SEC_A - 1, &P);
-                arr_song(&S, 0);
+                arr_loops(LT);
+                arr_mode_loop(0);
                 arr_play(1);
                 memset(start, 0xFF, sizeof start);
                 barf = (uint32_t)(FPT * 24.0f * (float)beats + 0.5f);
