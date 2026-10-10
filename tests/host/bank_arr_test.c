@@ -313,19 +313,18 @@ static void t_chord_hold(void)
     run_to(2 * BAR + BAR / 2);
     CHECK(count(stub_log, stub_n, 0, 0, 2 * BAR, 0x92, 64) == 8, "C1's E4 on every beat of the Intro, as over C (%d)",
           count(stub_log, stub_n, 0, 0, 2 * BAR, 0x92, -1));
-    /* the loop (LOOP mode's source) keeps its own clock running through the Intro (only the Ending's and the
-     * Intro's held chord is special); so Main A picks up where the template's beat count already is: its
-     * third bar, Am, not back at the first */
-    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 9, "Main A: the template's third bar, Am (%d)",
+    /* the loop counts its bars from the Intro's end (as the old templates did): Main A starts at its beat 0, C,
+     * the chord the Intro held */
+    CHECK(arr_sect == SEC_A && arr_chord_unpack(arr_chord_now).root == 0, "Main A: the loop's first bar, C (%d)",
           arr_chord_unpack(arr_chord_now).root);
     run_to(3 * BAR + BAR / 2);
-    CHECK(arr_chord_unpack(arr_chord_now).root == 5, "then F, the template's fourth bar (%d)",
+    CHECK(arr_chord_unpack(arr_chord_now).root == 7, "then G, the loop's second bar (%d)",
           arr_chord_unpack(arr_chord_now).root);
-    /* a chord the player sets changes it at once, in the Ending too; the song's and the template's do not */
+    /* a chord the player sets changes it at once, in the Ending too; the loop's do not */
     arr_section(SEC_END);
     run_to(4 * BAR + BAR / 2);
-    CHECK(arr_sect == SEC_END && arr_chord_unpack(arr_chord_now).root == 0, "the Ending over the bar's chord, C "
-          "(the template wrapped back to its first bar; %d)", arr_chord_unpack(arr_chord_now).root);
+    CHECK(arr_sect == SEC_END && arr_chord_unpack(arr_chord_now).root == 9, "the Ending over the bar's chord, Am "
+          "(the loop's third bar; %d)", arr_chord_unpack(arr_chord_now).root);
     arr_set_chord(ch(2, CH_MIN7));
     run_to(4 * BAR + 3 * BAR / 4);
     CHECK(arr_chord_unpack(arr_chord_now).root == 2, "Dm7 from the keys, at once");

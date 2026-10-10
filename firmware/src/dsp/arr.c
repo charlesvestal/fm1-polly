@@ -1061,6 +1061,8 @@ static void switch_to(uint8_t sec)
     ctl_reset();                                   /* the phrases' bends and swells end with their section */
     if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && sec != arr_sect)
         chord_owed = 1;                            /* the source's chords held meanwhile: its latest, at once */
+    if (arr_sect == SEC_INTRO && sec != arr_sect)
+        lp_origin = beat_now;                      /* a loop counts its bars from the Intro's end (its beat 0 now) */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -1234,7 +1236,9 @@ static void source_chord(int play)
         return;
     }
     chord_wait = 0;
-    if (mode == ARR_LOOP)
+    if (mode == ARR_LOOP && arr_sect == SEC_INTRO)  /* the Intro: the loop's beat-0 chord, held */
+        loop_beat(&loops[lp], 0, 1, transp, play);
+    else if (mode == ARR_LOOP)
         loop_beat(&loops[lp], beat_now - lp_origin, beat_now == lp_origin || chord_owed, transp, play);
     else if (mode == ARR_SONG && sn.nrows && (rows_live || arr_sect == SEC_INTRO))
         /* a row's loop from its first downbeat, in its key; the song's Intro: its first row's first chord */

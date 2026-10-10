@@ -1708,6 +1708,44 @@ static void test_transpose_held(void)            /* a transpose moves the chord 
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "transpose: offs match");
 }
+/* LOOP under an Intro: the Intro holds the loop's beat-0 chord; the loop starts at its beat 0 when Main A does */
+static void test_loop_intro(void)
+{
+    static const chord_t pop[4] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}, {9, CH_MIN, CH_NOBASS}, {5, CH_MAJ, CH_NOBASS}};
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 2, 4);
+    loop_bars(0, 4, 4, pop);                       /* C | G | Am | F */
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(slot_at(0) == SI && root_at(0) == 0 && root_at(BAR) == 0 && root_at(1.75f * BAR) == 0, "the Intro holds C (%d %d)",
+          root_at(BAR), root_at(1.75f * BAR));
+    CHECK(slot_at(2 * BAR) == SA && root_at(2 * BAR) == 0 && root_at(3 * BAR) == 7, "Main A from the loop's beat 0: C, then G (%d %d)",
+          root_at(2 * BAR), root_at(3 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* an Intro by hand while the loop plays (on its G): it holds C, then the loop from its beat 0 */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 1, 4);
+    loop_bars(0, 4, 4, pop);
+    arr_section(SEC_A);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(1.5f * BAR));
+    arr_section(SEC_INTRO);
+    run_to((uint32_t)(4.5f * BAR));
+    CHECK(root_at(BAR) == 7 && slot_at(2 * BAR) == SI && root_at(2 * BAR) == 0 && root_at(2.75f * BAR) == 0,
+          "G, then the Intro over the loop's C (%d %d)", root_at(BAR), root_at(2 * BAR));
+    CHECK(slot_at(3 * BAR) == SA && root_at(3 * BAR) == 0 && root_at(4 * BAR) == 7, "Main A from the loop's beat 0: C, G (%d %d)",
+          root_at(3 * BAR), root_at(4 * BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "loop intro: offs match");
+}
 static void test_loop_busy_override(void)       /* a change missed while busy ends the keys' chord at release */
 {
     static const chord_t c2[2] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}};
@@ -3137,6 +3175,7 @@ int main(void)
     test_loop_busy();
     test_transpose_held();
     test_loop_busy_override();
+    test_loop_intro();
     test_loop_edges();
     test_song_marks_continue();
     test_keys_release();
