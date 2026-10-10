@@ -85,6 +85,8 @@ void plat_leds(uint32_t b, uint32_t k)
 }
 static int glow_on = 1;                 /* the device's button glow (plat_glow); the lights printed are the bright ones */
 void plat_glow(int on) { glow_on = on; }
+static uint32_t dim_keys;
+void plat_keys_dim(uint32_t keys) { dim_keys = keys; }
 void plat_play_red(int red) { (void)red; }      /* the device's PLAY colour: green, red while recording */
 
 #define MQ 256
@@ -460,6 +462,10 @@ static int expect(const char *what, const char *val)
         got = 0;
         for (int i = 0; i < 11; i++)
             got |= (int)(lit_keys >> BLACK_K[i] & 1u) << i;
+    } else if (!strcmp(what, "black_dim")) {      /* the black keys lit dim, bit i = black key i (SONG: muted tracks) */
+        got = 0;
+        for (int i = 0; i < 11; i++)
+            got |= (int)(dim_keys >> BLACK_K[i] & 1u) << i;
     } else if (!strcmp(what, "playing"))
         got = arr_playing;
     else if (!strcmp(what, "recording"))
@@ -524,6 +530,18 @@ static int expect(const char *what, const char *val)
         got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].mute;
     else if (!strncmp(what, "row_key", 7))
         got = csong()->row[(atoi(what + 7) - 1) % ARR_ROWS].key;
+    else if (!strcmp(what, "cursor"))             /* SONG's cursor row, 1.. (the END row: rows + 1) */
+        got = app.row + 1;
+    else if (!strcmp(what, "song_intro"))         /* the song's INTRO, ENDING, AT END (0 stop, 1 again) */
+        got = csong()->intro;
+    else if (!strcmp(what, "song_ending"))
+        got = csong()->ending;
+    else if (!strcmp(what, "song_at_end"))
+        got = csong()->at_end;
+    else if (!strcmp(what, "song_rec"))           /* REC on SONG: rows written from HOME + keys */
+        got = ui.song_rec;
+    else if (!strcmp(what, "row_follow"))         /* SONG's cursor follows the row playing */
+        got = ui.row_follow;
     else if (!strcmp(what, "transpose"))          /* the song's, -6..+5 */
         got = csong()->transpose;
     else if (!strcmp(what, "track"))              /* the selected track, 1..8 */

@@ -262,6 +262,8 @@ static uint16_t lbeat;                             /* the loop's beat sounding (
 static const song_t *sg, *sg_next;                 /* the app's song playing; the one asked for (from mode_apply) */
 static uint8_t row_from;                           /* the row PLAY or the switch starts at */
 static uint8_t rows_live;                          /* the rows' clock runs (not in the song's Intro or Ending) */
+static uint8_t rows_wait;                          /* a song with no rows playing: its rows start at the first bar
+                                                    * line that finds some (REC on SONG writing the first row) */
 static uint8_t row;                                /* the row playing */
 static uint32_t row_b0;                            /* beat_now at its first downbeat */
 static uint8_t sect_owed;                          /* MIDI Continue into a song: the row's section at the next bar line */
@@ -969,7 +971,7 @@ static void mode_apply(uint32_t origin)
     if (mode == ARR_SONG) {
         sg = sg_next;
         row = row_from;
-        rows_live = 0;
+        rows_live = rows_wait = 0;
         sect_owed = song_end = 0;
         song_snap();
     }
@@ -996,6 +998,7 @@ static void transport_start(void)
         rows_live = 0;
         sect_owed = song_end = 0;
         song_snap();                               /* (never busy: drain holds a start back during a write) */
+        rows_wait = !sn.nrows;                     /* none yet: from the first bar line with some */
     }
     if (mode == ARR_SONG && sn.nrows) {
         if (!s && sn.intro && row == 0 && !rec_on && !sect_empty(SEC_INTRO)) {
@@ -1006,8 +1009,8 @@ static void transport_start(void)
             if (!s)
                 s = m;
         }
-    } else if (!s && !rec_on && !sect_empty(SEC_INTRO))
-        s = SEC_INTRO;
+    } else if (!s && !rec_on && !sect_empty(SEC_INTRO) && !(mode == ARR_SONG && !sn.intro))
+        s = SEC_INTRO;                             /* (a song with no rows yet: its Intro if on) */
     if (s)
         s = resolve(s, &to);
     if (!is_sect(s))                               /* none, no fill, no Ending: as it was (a fill: its Main) */
@@ -1081,8 +1084,15 @@ static void switch_to(uint8_t sec)
 static int song_bar(int fresh, int hand, uint8_t *mark)
 {
     uint32_t b = bar_len(&pat[cur]) / ARR_PPQ;
-    if (!sn.nrows || arr_sect == SEC_END)          /* (the Ending, the song's or by hand: it plays out) */
+    if (!sn.nrows) {                               /* no rows yet: they start when there are some */
+        rows_wait = 1;
         return 1;
+    }
+    if (arr_sect == SEC_END)                       /* (the Ending, the song's or by hand: it plays out) */
+        return 1;
+    if (rows_wait && arr_sect != SEC_INTRO)        /* rows written while it played: row 1 from this downbeat */
+        fresh = 1;
+    rows_wait = 0;
     if (fresh)                                     /* switched while playing: row_from from this downbeat */
         *mark = row_start(beat_now);
     else if (!first_tick && !rows_live && arr_sect == SEC_INTRO && (pos == 0 || hand))
@@ -1728,7 +1738,7 @@ void arr_block(uint32_t frames)
 {
     block(frames);
     arr_mode = mode_wait ? mode_next : mode;       /* for the screen: together, after the block's ticks */
-    arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : mode == ARR_SONG && sn.nrows ? (int8_t)(sn.cur.loop % ARR_LOOPS) : -1;
+    arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : mode == ARR_SONG && sn.nrows && !rows_wait ? (int8_t)(sn.cur.loop % ARR_LOOPS) : -1;
     arr_loop_beat = lbeat;
     arr_override = override;
     arr_row = mode_wait && mode_next == ARR_SONG ? row_from : row;   /* (a switch waiting: its row) */
@@ -1820,7 +1830,7 @@ void arr_init(void)                                /* at boot, before the render
     arr_beats = 0;
     sg = sg_next = 0;
     sg_want = 0;
-    row_from = rows_live = row = sect_owed = song_end = 0;
+    row_from = rows_live = rows_wait = row = sect_owed = song_end = 0;
     xp_pend = 0;
     row_b0 = 0;
     memset(&sn, 0, sizeof sn);

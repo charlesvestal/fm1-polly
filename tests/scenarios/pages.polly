@@ -1,7 +1,7 @@
 # POLLY, pages: the X0X page map (a button opens its first page, again its next; SELECT turns them), the keys by
 # screen, HOME held + a key / SELECT / PRESETS, MODE, the song's tempo and transpose.
-# Pages: 0 HOME, 1 SONG, 2-3 LOOP, 4 Pattern, 5 Pattern setup, 6 Track, 7 Track keys, 8 Mixer, 9 Tone,
-# 10 Master FX, 11-12 Style, 13 Setup, 14 Panel
+# Pages: 0 HOME, 1-3 SONG, 4-5 LOOP, 6 Pattern, 7 Pattern setup, 8 Track, 9 Track keys, 10 Mixer, 11 Tone,
+# 12 Master FX, 13-14 Style, 15 Setup, 16 Panel
 wait 300
 expect page 0
 tap HOME
@@ -9,43 +9,43 @@ expect page 1
 tap HOME
 expect page 0
 tap ARP
-expect page 2
+expect page 4
 tap ARP
-expect page 3
+expect page 5
 turn SELECT 1
-expect page 2
+expect page 4
 tap SEQ
-expect page 4
-turn SELECT 1
-expect page 5
-turn SELECT 1
-expect page 4
-turn SELECT -1
-expect page 5
-tap EDIT
 expect page 6
-tap EDIT
-expect page 7
-tap LFO
-expect page 8
-tap LFO
-expect page 9
-tap FX
-expect page 10
-tap FX
-expect page 10
 turn SELECT 1
+expect page 7
+turn SELECT 1
+expect page 6
+turn SELECT -1
+expect page 7
+tap EDIT
+expect page 8
+tap EDIT
+expect page 9
+tap LFO
 expect page 10
-tap ENV
+tap LFO
 expect page 11
-tap ENV
+tap FX
 expect page 12
+tap FX
+expect page 12
+turn SELECT 1
+expect page 12
+tap ENV
+expect page 13
+tap ENV
+expect page 14
 shot style2.png
 tap GLO
-expect page 13
+expect page 15
 shot setup.png
 tap GLO
-expect page 14
+expect page 16
 # the keys: the selected track on SEQ, nothing on FX, the track on LFO's black keys
 tap SEQ
 key 7 down
@@ -136,7 +136,7 @@ tap SEQ
 press HOME
 tapkey w4
 release HOME
-expect page 4
+expect page 6
 expect mode 1
 tap PLAY
 wait 2500

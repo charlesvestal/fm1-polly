@@ -22,14 +22,16 @@
 #define K_SLATE RGB(84, 118, 168)                    /* the Ending */
 
 /* the pages (the spec's Buttons table): a button opens its first page; pressed again, or SELECT turned, its next */
-enum { P_HOME, P_SONG, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_TONE, P_MASTER,
+enum { P_HOME, P_SONG, P_SONG2, P_SONG3, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_TONE, P_MASTER,
        P_STYLE, P_STYLE2, P_SETUP, P_PANEL, NPAGES };
-static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Loop", "Loop", "Pattern", "Pattern setup", "Track",
+static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Song", "Song", "Loop", "Loop", "Pattern", "Pattern setup", "Track",
                                               "Track keys", "Mixer", "Mixer tone", "Master FX", "Style", "Style",
                                               "Setup", "Panel"};
-/* the page buttons: a button holds up to two pages, pressed again (or SELECT): the next (the tag's dots: which) */
+/* the page buttons: a button holds up to two pages, pressed again (or SELECT): the next (the tag's dots: which).
+ * HOME's four: HOME, then SONG's three pages; HOME pressed goes HOME -> SONG -> HOME (SONG's pages one stop), SELECT
+ * turns them in order */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_HOME, 2}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
+    {B_HOME, P_HOME, 4}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
     {B_FX, P_MASTER, 1}, {B_ENV, P_STYLE, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_group(int p)                         /* the PAGE_BTN entry page p is on */
@@ -141,7 +143,12 @@ static struct {
     uint8_t role_was;                                /* what the keys did last frame (REC ends when that changes) */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer */
+    uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
+    uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
 } ui;
+/* one of SONG's three pages */
+static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
+static int song_page(void) { return song_pg(ui.page); }
 
 /* SEL: the screen as a list. Its knobs' values (each page of its button: KNOB rows), then MORE (settings on no
  * page) and the actions (ACTION: do it, PICK: a choice first). Built afresh to draw it; sel and top stay */
@@ -363,7 +370,8 @@ static char *loop_label(int i, char *t);
 static void draw_header(void)
 {
     char t[40];
-    int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords || ui.take, ext = arr_ext, sel = home_shown();
+    int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords || ui.take || ui.song_rec, ext = arr_ext;
+    int sel = home_shown();
     int un = unsaved(), ask = ui.ask;
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)rec << 11 |
                                        (uint32_t)ext << 12 | (uint32_t)sel << 13 | (uint32_t)ask << 14 |
@@ -377,6 +385,8 @@ static void draw_header(void)
         for (int i = 0; i < 8; i++)
             h = hash(h, (uint8_t)l->name[i]);
     }
+    if (song_page())                                 /* "4 rows" */
+        h = hash(h, 327680u + csong()->nrows);
     if (msg)
         h = hash(h, ui.msg_until);
     for (const char *c = ui.ask_q; ask && *c; c++)
@@ -396,7 +406,7 @@ static void draw_header(void)
         cv_text(232 - text_w(&FONT_XS, "PRESETS: song"), 5, &FONT_XS, "PRESETS: song", K_DIM);
     } else {
         int32_t x = cv_text(8, 4, &FONT_B, PAGE_NAME[ui.page], K_TEXT), r = 232;
-        if (ui.page == P_HOME || ui.page == P_SONG) {
+        if (ui.page == P_HOME || song_page()) {
             itoa_u(proj.song + 1u, cat_s(t, " S"));
             x = cv_text(x, 4, &FONT_B, t, K_TEXT);
         }
@@ -419,9 +429,15 @@ static void draw_header(void)
                 e = itoa_u((uint32_t)rows, cat_s(e, "  in "));
                 cat_s(e, rows == 1 ? " row" : " rows");
             }
+        } else if (song_page()) {                    /* "4 rows", "no rows" */
+            int n = csong()->nrows;
+            if (n)
+                cat_s(itoa_u((uint32_t)n, t), n == 1 ? " row" : " rows");
+            else
+                cat_s(t, "no rows");
         }
         if (un && r - 6 - text_w(&FONT_XS, "unsaved") > x + 8 &&   /* (HOME, LOOP: the extra text first; SAVE's lit) */
-            ((ui.page != P_HOME && ui.page != P_LOOP && ui.page != P_LOOP2) ||
+            ((ui.page != P_HOME && ui.page != P_LOOP && ui.page != P_LOOP2 && !song_page()) ||
              r - 6 - text_w(&FONT_XS, "unsaved") - 8 >= x + 8 + text_w(&FONT_B, t))) {
             r -= 6 + text_w(&FONT_XS, "unsaved");
             cv_text(r, 5, &FONT_XS, "unsaved", K_DIM);
@@ -434,7 +450,7 @@ static void draw_header(void)
                         break;
                     }
             text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
-        } else if (ui.page == P_LOOP || ui.page == P_LOOP2)
+        } else if (ui.page == P_LOOP || ui.page == P_LOOP2 || song_page())
             text_fit(x + 8, 4, &FONT_B, t, r - 8 - (x + 8), K_TEAL);
     }
     cv_blit(0, 0);
@@ -576,6 +592,8 @@ static void draw_home(void)
     char t[32];
     const loop_t *l;
     place_read(&pl);
+    if (app.mode == ARR_SONG && !csong()->nrows)      /* a song with no rows: no loop (not the last song's) */
+        pl.loop = -1;
     if (!play && app.mode == ARR_LOOP) {             /* stopped: the loop picked, from its beat 0 (PLAY starts it) */
         pl.loop = app.loop % ARR_LOOPS;
         pl.lbeat = 0;
@@ -668,7 +686,7 @@ static void draw_home(void)
             e = itoa_u(arr_rep + 1u, cat_s(e, "|x"));
             itoa_u(g->row[arr_row % ARR_ROWS].rep, cat_s(e, " of "));
         } else
-            cat_s(t, "the song has no rows");
+            cat_s(t, "no rows yet|HOME again: write some");
         segs(8, STRIP_Y + 14, &FONT_XS, t, K_DIM);
     }
     for (i = 0; i < ARR_TRACKS; i++) {   /* the eight tracks: lit as they play, with their sounds */
@@ -758,6 +776,140 @@ static void draw_loop(void)
     }
     if (!len)                                        /* an empty loop: what to do */
         text_c(LG_X + LG_W / 2, y0 + rh + 8, &FONT_XS, ui.rec_chords ? "play a chord" : "REC, then play chords", K_DIM);
+    cv_blit(0, MAIN_Y);
+}
+
+/* ---------------------------------------------------------- SONG page --- */
+/* the song's rows (the spec's Screens): a row a line, # / LOOP / SECTION / REPEAT / MUTES / KEY; the cursor row in a
+ * coral ring (white keys write there), the row playing tinted teal with a mark; after the last row the END row (taps
+ * there add rows), outlined as a row to come. MUTES: eight squares D1 D2 PC BA | C1 C2 C3 C4, filled teal = plays,
+ * outlined = muted. KEY only when not 0. The columns the page's knobs turn: their headings dark. Page 3 also says
+ * the song's Intro, Ending and end. Six rows show, scrolled to the cursor (a scroll bar when more) */
+#define SG_Y0 14                                     /* the first row (the headings over it) */
+#define SG_RH 16                                     /* a row's pitch */
+#define SG_SHOWN 6
+#define SG_LOOP 27                                   /* the columns: LOOP's left */
+#define SG_SECT 90                                   /* SECTION's colour chip, its name after */
+#define SG_REP 168                                   /* REPEAT's right edge */
+#define SG_MUTE 173                                  /* the mutes' first square */
+#define SG_KEY 234                                   /* KEY's right edge */
+static const char *const ROW_SECT_NAME[ROW_NSECT] = {"Main A", "Main A + fill", "Main B", "Main B + fill"};
+static void glyph_play(int32_t x, int32_t y, uint16_t c)    /* the row playing: a small triangle */
+{
+    for (int j = 0; j < 4; j++)
+        cv_rect(x + j, y + j, 1, 7 - 2 * j, c);
+}
+static void text_r(int32_t xr, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
+{
+    cv_text(xr - text_w(f, s), y, f, s, c);
+}
+static void draw_song(void)
+{
+    const song_t *g = csong();
+    int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows, total = n < ARR_ROWS ? n + 1 : n, cur = app.row, pg = ui.page - P_SONG;
+    int play = arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < n ? arr_row : -1, top, i;
+    uint32_t h;
+    char t[40];
+    if (cur > total - 1)
+        cur = total - 1;
+    top = cur - (SG_SHOWN - 1) / 2;                  /* the cursor near the middle */
+    if (top > total - SG_SHOWN)
+        top = total - SG_SHOWN;
+    if (top < 0)
+        top = 0;
+    h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)(play + 1) << 16 |
+                              (uint32_t)n << 24);
+    h = hash(h, (uint32_t)g->intro | (uint32_t)g->ending << 1 | (uint32_t)g->at_end << 2 | (uint32_t)ui.song_rec << 3);
+    for (i = top; i < n && i < top + SG_SHOWN; i++) {
+        const row_t *w = &g->row[i];
+        const loop_t *l = &songs.loop[w->loop % ARR_LOOPS];
+        h = hash(h, w->loop | (uint32_t)w->sect << 5 | (uint32_t)w->rep << 8 | (uint32_t)w->mute << 12 |
+                        (uint32_t)(uint8_t)w->key << 20 | (uint32_t)(l->bars != 0) << 28);
+        for (int c = 0; c < 8; c++)
+            h = hash(h, (uint8_t)l->name[c]);
+    }
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    /* the headings: the knobs' columns dark (page 1 LOOP, SECTION, REPEAT; page 2 KEY) */
+    text_r(23, 0, &FONT_XS, "#", K_DIM);
+    cv_text(SG_LOOP, 0, &FONT_XS, "LOOP", pg == 0 ? K_TEXT : K_DIM);
+    cv_text(SG_SECT, 0, &FONT_XS, "SECTION", pg == 0 ? K_TEXT : K_DIM);
+    text_r(SG_REP, 0, &FONT_XS, "REP", pg == 0 ? K_TEXT : K_DIM);
+    cv_text(SG_MUTE - 1, 0, &FONT_XS, "MUTES", K_DIM);
+    text_r(SG_KEY, 0, &FONT_XS, "KEY", pg == 1 ? K_TEXT : K_DIM);
+    for (i = top; i < total && i < top + SG_SHOWN; i++) {
+        int32_t y = SG_Y0 + (i - top) * SG_RH, ch = SG_RH - 2;
+        int on = i == cur, ghost = i >= n;
+        uint16_t fill = i == play ? K_TEAL_T : ghost ? K_BG : K_PANEL;
+        if (on) {                                    /* the cursor: a coral ring */
+            cv_round(2, y, 232, ch, 4, K_ACCENT);
+            cv_round(4, y + 2, 228, ch - 4, 2, fill);
+        } else if (ghost) {                          /* the END row: a row to come */
+            cv_round(2, y, 232, ch, 4, K_LINE);
+            cv_round(3, y + 1, 230, ch - 2, 3, fill);
+        } else
+            cv_round(2, y, 232, ch, 4, fill);
+        if (i == play)
+            glyph_play(7, y + 3, K_TEAL);
+        if (ghost) {
+            cv_text(SG_LOOP, y - 1, &FONT_XS, "END", on ? K_TEXT : K_DIM);
+            if (!n)
+                cv_text(SG_SECT, y - 1, &FONT_XS, "white keys add rows", K_DIM);
+            continue;
+        }
+        {
+            const row_t *w = &g->row[i];
+            const loop_t *l = &songs.loop[w->loop % ARR_LOOPS];
+            int32_t x;
+            char *e;
+            itoa_u((uint32_t)i + 1u, t);
+            text_r(23, y - 1, &FONT_XS, t, on || i == play ? K_TEXT : K_DIM);
+            /* LOOP: "L9" and its name ("-" an empty loop) */
+            itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(t, "L"));
+            x = cv_text(SG_LOOP, y - 1, &FONT_XS, t, K_DIM) + 3;
+            loop_label(w->loop, t);
+            for (e = t; *e && *e != ' '; e++)
+                ;
+            text_fit(x, y - 1, &FONT_XS, l->bars ? (*e ? e + 1 : e) : "empty", SG_SECT - 3 - x, l->bars ? K_TEXT : K_DIM);
+            /* SECTION: its colour, "Main B", "+fill" */
+            cv_round(SG_SECT, y + 3, 3, ch - 6, 1, sect_colour(row_main(w)));
+            x = cv_text(SG_SECT + 6, y - 1, &FONT_XS, row_main(w) == SEC_B ? "Main B" : "Main A", K_TEXT);
+            if (row_fill(w))
+                cv_text(x + 3, y - 1, &FONT_XS, "+fill", K_ACCENT);
+            /* REPEAT: "x2" (x1 dim) */
+            itoa_u(w->rep ? w->rep : 1u, cat_s(t, "x"));
+            text_r(SG_REP, y - 1, &FONT_XS, t, w->rep > 1 ? K_TEXT : K_DIM);
+            /* MUTES: D1 D2 PC BA | C1 C2 C3 C4 */
+            for (int k = 0; k < ARR_TRACKS; k++) {
+                int32_t mx = SG_MUTE + k * 5 + (k >= 4 ? 3 : 0), my = y + 3;
+                if (w->mute >> k & 1u) {
+                    cv_rect(mx, my, 4, 8, K_DIM);
+                    cv_rect(mx + 1, my + 1, 2, 6, fill);
+                } else
+                    cv_rect(mx, my, 4, 8, K_TEAL);
+            }
+            /* KEY: "+2", "-3" (0: nothing) */
+            if (w->key) {
+                t[0] = w->key > 0 ? '+' : '-';
+                itoa_u((uint32_t)(w->key > 0 ? w->key : -w->key), t + 1);
+                text_r(SG_KEY, y - 1, &FONT_XS, t, K_TEXT);
+            }
+        }
+    }
+    if (total > SG_SHOWN) {                          /* the scroll bar: where the window is */
+        int32_t th = SG_SHOWN * SG_RH - 2, bh = th * SG_SHOWN / total, by = SG_Y0 + th * top / total;
+        cv_round(236, SG_Y0, 3, th, 1, K_PANEL);
+        cv_round(236, by, 3, bh < 6 ? 6 : bh, 1, K_DIM);
+    }
+    if (pg == 2) {                                   /* the song: "Intro on . Ending on . at end: stop" */
+        char *e = cat_s(t, "Intro ");
+        e = cat_s(e, g->intro ? "on|Ending " : "off|Ending ");
+        e = cat_s(e, g->ending ? "on|at end: " : "off|at end: ");
+        cat_s(e, g->at_end ? "again" : "stop");
+        segs(8, SG_Y0 + SG_SHOWN * SG_RH + 2, &FONT_XS, t, K_TEXT);
+    }
     cv_blit(0, MAIN_Y);
 }
 
@@ -1395,11 +1547,40 @@ static void song_page_knobs(knob_t *k)
     const song_t *g = csong();
     char b[12];
     switch (ui.page) {
-    case P_SONG:
-        kv(&k[0], "Row", "-", 0, 0);
-        kv(&k[1], "Loop", "-", 0, 0);
-        kv(&k[2], "Section", "-", 0, 0);
-        kv(&k[3], "Repeat", "-", 0, 0);
+    case P_SONG: case P_SONG2: {                     /* the row's (the END row: none yet) */
+        const row_t *w = app.row < g->nrows ? &g->row[app.row] : 0;
+        if (app.row < g->nrows)
+            kn(&k[0], "Row", app.row + 1, g->nrows < ARR_ROWS ? g->nrows + 1 : g->nrows);
+        else
+            kv(&k[0], "Row", "end", g->nrows + 1, g->nrows + 1);
+        if (ui.page == P_SONG2) {
+            if (!w)
+                kv(&k[1], "Key", "-", 0, 0);
+            else {
+                b[0] = w->key > 0 ? '+' : '-';
+                itoa_u((uint32_t)(w->key < 0 ? -w->key : w->key), b + 1);
+                kv(&k[1], "Key", w->key ? b : "0", w->key + 6, 11);
+            }
+            break;
+        }
+        if (!w) {
+            kv(&k[1], "Loop", "-", 0, 0);
+            kv(&k[2], "Section", "-", 0, 0);
+            kv(&k[3], "Repeat", "-", 0, 0);
+            break;
+        }
+        itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(b, "L"));
+        kv(&k[1], "Loop", b, w->loop % ARR_LOOPS, ARR_LOOPS - 1);
+        kv(&k[2], "Section", ROW_SECT_NAME[w->sect % ROW_NSECT], w->sect % ROW_NSECT, ROW_NSECT - 1);
+        itoa_u(w->rep ? w->rep : 1u, cat_s(b, "x"));
+        kv(&k[3], "Repeat", b, w->rep, 8);
+        break;
+    }
+    case P_SONG3:
+        kv(&k[0], "Intro", g->intro ? "on" : "off", g->intro, 0);
+        kv(&k[1], "Ending", g->ending ? "on" : "off", g->ending, 0);
+        kv(&k[2], "At end", g->at_end ? "again" : "stop", g->at_end, 0);
+        kn(&k[3], "Song", proj.song + 1, ARR_SONGS);
         break;
     case P_LOOP: {
         const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
@@ -1566,14 +1747,21 @@ static void page_tag(char *t)
         if (app.mode == ARR_LOOP) {
             loop_label(app.loop, t);
             upcase(t);
-        } else if (app.mode == ARR_SONG)
+        } else if (app.mode == ARR_SONG && !csong()->nrows)
+            cat_s(t, "NO ROWS");
+        else if (app.mode == ARR_SONG)
             itoa_u(arr_row + 1u, cat_s(t, "ROW "));
         else
             cat_s(t, "FREE");
         break;
-    case P_SONG:
-        itoa_u(app.row + 1u, cat_s(t, "ROW "));
+    case P_SONG: case P_SONG2: case P_SONG3: {       /* "ROW 3", "END ROW", "NO ROWS" */
+        int n = csong()->nrows;
+        if (app.row < n)
+            itoa_u(app.row + 1u, cat_s(t, "ROW "));
+        else
+            cat_s(t, n ? "END ROW" : "NO ROWS");
         break;
+    }
     case P_LOOP: case P_LOOP2: {                     /* the loop and where it is (or the cursor): "L3|BAR 2.3" */
         place_t pl;
         const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
@@ -1610,6 +1798,10 @@ static void draw_tag(void)
     int g = page_group(ui.page), n = PAGE_BTN[g].n, d = ui.page - PAGE_BTN[g].first;
     int32_t r = 232, x, w;
     uint32_t h;
+    if (ui.page == P_HOME)                           /* HOME's dots: HOME, SONG; SONG's: its three pages */
+        n = 2;
+    else if (song_page())
+        n = 3, d = ui.page - P_SONG;
     page_tag(t);
     h = hash(2166136261u, ui.page);
     for (const char *c = t; *c; c++)
@@ -1670,8 +1862,8 @@ static void page_footer(char *t)
     case P_LOOP: case P_LOOP2:
         cat_s(t, "KEYS: CHORDS|REC: WRITE|OCT+: SKIP");
         break;
-    case P_SONG:
-        cat_s(t, "WHITE: ROW'S LOOP|BLACK: MUTES");
+    case P_SONG: case P_SONG2: case P_SONG3:
+        cat_s(t, ui.song_rec ? "REC: HOME + KEYS WRITE ROWS" : "WHITE: ROW'S LOOP|BLACK: MUTES");
         break;
     case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2: {   /* "KEYS: C1 PIANO|REC: RECORD" */
         char s[40];
@@ -1725,8 +1917,9 @@ static void draw_footer(void)
 /* the help cards: a button held alone for a second says what it does on this page (pages: bits of P_*). HOME
  * has none: held, it shows the loops and the sections (draw_home_held) */
 #define PG(p) (1u << (p))
-#define PG_ANY 0xFFFFu
-static const struct { uint8_t btn; uint16_t pages; const char *title, *l1, *l2; } CARD[] = {
+#define PG_ANY 0xFFFFFFFFu
+#define PG_SONG (PG(P_SONG) | PG(P_SONG2) | PG(P_SONG3))
+static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Loops", "Your chord loops. Play chords.", "REC writes them: at the cursor, or in time."},
     {B_SEQ, PG_ANY, "Pattern", "The section's eight tracks; again: its length and name.", 0},
     {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; again: its keys.", 0},
@@ -1740,7 +1933,8 @@ static const struct { uint8_t btn; uint16_t pages; const char *title, *l1, *l2; 
      "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop."},
     {B_REC, PG(P_PATTERN) | PG(P_PATSET) | PG(P_TRACK) | PG(P_TRACK2), "Record the track",
      "What the keys play goes into the selected track.", 0},
-    {B_REC, PG(P_SONG), "Record the song's rows", "With PLAY: the loops and sections you pick.", 0},
+    {B_REC, PG_SONG, "Record the rows", "With PLAY: the loops and sections you pick with HOME + keys,",
+     "and the mutes you change."},
     {B_REC, PG_ANY, "Record", "Nothing to record on this page.", 0},
     {B_PLAY, PG_ANY, "Play", "Start and stop. In SONG: from the row on the SONG screen.", 0},
     {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT-: back a step. OCT+: skips a step (the chord goes on).", 0},
@@ -1835,8 +2029,10 @@ static void list_build(void)
     knob_t k[4];
     char *nm = list_name();
     lst.n = 0;
-    if (keep == P_HOME || keep == P_SONG)
+    if (keep == P_HOME)
         f = keep, n = 1;
+    else if (song_pg(keep))                          /* SONG: its three pages */
+        f = P_SONG, n = 3;
     for (int p = f; p < f + n; p++) {
         ui.page = (uint8_t)p;
         page_knobs(k);
@@ -1860,7 +2056,7 @@ static void list_build(void)
     if (list_loops()) {
         list_add(ACTION_NAME[A_LOAD_PROG], TEMPLATES[ui.pick_prog % NTEMPLATES].name, LK_PICK, A_LOAD_PROG);
         list_add(ACTION_NAME[A_CLEAR_LOOP], 0, LK_ACTION, A_CLEAR_LOOP);
-    } else if (keep == P_SONG) {
+    } else if (song_pg(keep)) {
         char v[8];
         if (ui.pick_song % ARR_SONGS == proj.song)    /* COPY SONG TO: another song */
             ui.pick_song = (uint8_t)((proj.song + 1u) % ARR_SONGS);
@@ -1978,6 +2174,8 @@ static void draw_page(void)
         draw_setup();
     else if (ui.page == P_PANEL)
         draw_panel();
+    else if (song_page())
+        draw_song();
     else
-        draw_coming();                               /* SONG: its screen comes later */
+        draw_coming();
 }

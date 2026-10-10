@@ -1,0 +1,328 @@
+# POLLY, song: verse and chorus loops into a song of 4 rows, chorus on Main B, last chorus +2, ending on (the spec's
+# walk); PLAY from a row, the cursor following; then REC on SONG writing an empty song's rows from HOME + keys, a
+# section and the mutes, live.
+# Keys: F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14. Chords: root * 100 + CH_* (maj 0, min 16). At 120 BPM a
+# 4-bar loop is 8000 ms. Pages: 0 HOME, 1-3 SONG, 4-5 LOOP.
+wait 300
+expect rows 0
+spin K2 15
+expect tempo 120
+# ---- L9: Am F C G, a chord a bar (step writing on LOOP, stopped), named Verse
+press HOME
+tapkey w8
+release HOME
+expect mode 1
+expect app_loop 9
+tap ARP
+expect page 4
+tap REC
+expect rec_chords 1
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 50
+key 0 down
+key 4 down
+key 7 down
+wait 50
+key 0 up
+key 4 up
+key 7 up
+wait 50
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+tap REC
+expect loop_bars9 4
+expect loop_ch9_0 916
+expect loop_ch9_4 500
+expect loop_ch9_8 0
+expect loop_ch9_12 700
+tap ARP
+expect page 5
+spin K3 1
+expect loop_name9 Verse
+# ---- L10: C G Am F, named Chorus
+press HOME
+tapkey w9
+release HOME
+expect app_loop 10
+tap ARP
+expect page 4
+tap REC
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 50
+key 0 down
+key 4 down
+key 7 down
+wait 50
+key 0 up
+key 4 up
+key 7 up
+wait 50
+tap REC
+expect loop_bars10 4
+expect loop_ch10_0 0
+expect loop_ch10_12 500
+tap ARP
+spin K3 2
+expect loop_name10 Chorus
+# ---- the song: HOME, HOME; 9 9 10 (verse x2, chorus)
+tap HOME
+tap HOME
+expect page 1
+expect tag_is_NO_ROWS 1
+expect footer_is_WHITE:_ROW'S_LOOP|BLACK:_MUTES 1
+wait 50
+shot song_empty.png
+tapkey w8
+expect rows 1
+expect cursor 2
+tapkey w8
+expect rows 1
+expect row_rep1 2
+expect cursor 2
+tapkey w9
+expect rows 2
+expect row_loop2 10
+expect row_sect2 0
+expect cursor 3
+expect tag_is_END_ROW 1
+# row 2's SECTION: Main B (later chorus rows follow)
+spin K1 -1
+expect tag_is_ROW_2 1
+spin K3 2
+expect row_sect2 2
+spin K1 1
+expect cursor 3
+# then 9 9 10 10: row 3 verse x2 (Main A), row 4 chorus x2 on Main B by the section default
+tapkey w8
+tapkey w8
+tapkey w9
+tapkey w9
+expect rows 4
+expect row_loop3 9
+expect row_rep3 2
+expect row_sect3 0
+expect row_loop4 10
+expect row_sect4 2
+expect row_rep4 2
+expect cursor 5
+# row 2: Main B + fill (a fill in its last bar: one plays there anyway, B to A)
+spin K1 -3
+spin K3 1
+expect row_sect2 3
+# a mute on row 3 (black 2: D2), its key glowing dim; again: plays
+spin K1 1
+expect cursor 3
+tapkey b1
+expect row_mute3 2
+expect black_dim 2
+wait 50
+shot song.png
+tapkey b1
+expect row_mute3 0
+expect black_dim 0
+# SAVE + a white key on SONG: no copy
+wait 1500
+press SAVE
+tapkey w3
+release SAVE
+expect asking 0
+expect msg 0
+# row 4: page 2, KEY +2
+spin K1 1
+expect tag_is_ROW_4 1
+turn SELECT 1
+expect page 2
+spin K2 2
+expect row_key4 2
+wait 50
+shot song2.png
+# page 3: INTRO off (for the timing here), ENDING on (off, on again), AT END stop
+turn SELECT 1
+expect page 3
+spin K1 -1
+expect song_intro 0
+spin K2 -1
+expect song_ending 0
+spin K2 1
+expect song_ending 1
+expect song_at_end 0
+wait 50
+shot song3.png
+# PRESETS: the row before; to row 1
+turn PRESET -3
+expect cursor 1
+# ---- PLAY on SONG: from the cursor's row; the cursor follows the song
+tap PLAY
+wait 300
+expect mode 2
+expect row 1
+expect sect 2
+expect loop_now 9
+expect row_follow 1
+wait 16000
+expect row 2
+expect sect 3
+expect loop_now 10
+expect cursor 2
+wait 50
+shot song_play.png
+turn SELECT -1
+expect page 2
+wait 50
+shot song_play2.png
+turn SELECT -1
+expect page 1
+# row 4 (40 s in): the chorus a tone up, C -> D
+wait 24500
+expect row 4
+expect chord_root 2
+# ROW turned: the cursor stays
+spin K1 -2
+expect row_follow 0
+expect cursor 2
+wait 2000
+expect cursor 2
+# the Ending after row 4 (56 s), then the stop
+wait 14500
+expect sect 6
+wait 12000
+expect playing 0
+# ---- PLAY from a row: row 3, stopped
+spin K1 1
+expect cursor 3
+tap PLAY
+wait 300
+expect row 3
+expect loop_now 9
+tap PLAY
+wait 300
+expect playing 0
+# ---- REC on SONG: song 2 (empty), INTRO off, 120 BPM
+turn SELECT 1
+turn SELECT 1
+expect page 3
+spin K4 1
+expect song 2
+expect rows 0
+expect cursor 1
+spin K1 -1
+expect song_intro 0
+press HOME
+spin SELECT 15
+release HOME
+expect tempo 120
+# HOME in SONG with no rows says so
+tap HOME
+expect page 0
+expect mode 2
+wait 50
+shot home_norows.png
+tap HOME
+expect page 1
+tap REC
+expect song_rec 1
+expect msg_is_REC 1
+expect footer_is_REC:_HOME_+_KEYS_WRITE_ROWS 1
+tap PLAY
+wait 500
+expect mode 2
+expect loop_now 0
+# HOME + white 9: row 1 (L9), heard from the next bar line (2 s)
+press HOME
+tapkey w8
+release HOME
+expect rows 1
+expect row_loop1 9
+expect mode 2
+expect msg_is_ROW 1
+wait 1000
+expect loop_now 0
+wait 800
+expect loop_now 9
+expect row 1
+# HOME + black 3: Main B, into the row; black 2 on SONG: D2 muted in the row playing, heard now
+wait 1500
+press HOME
+tapkey b2
+release HOME
+expect row_sect1 2
+tapkey b1
+expect row_mute1 2
+wait 100
+expect mutes 2
+wait 50
+shot song_rec.png
+# in row 1's last bar (8-10 s): HOME + white 10 writes the next row, added at the end
+wait 4300
+press HOME
+tapkey w9
+release HOME
+expect rows 2
+expect row_loop2 10
+expect row_sect2 0
+wait 1700
+expect row 2
+expect loop_now 10
+expect mutes 0
+# not the row's last bar: the row playing takes the loop (heard from its next beat)
+wait 1000
+press HOME
+tapkey w8
+release HOME
+expect rows 2
+expect row_loop2 9
+wait 600
+expect loop_now 9
+tap PLAY
+tap REC
+expect song_rec 0
+# leaving SONG ends REC there
+tap REC
+expect song_rec 1
+tap HOME
+expect page 0
+expect song_rec 0
+wait 50
+shot home_song.png

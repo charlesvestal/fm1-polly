@@ -1,6 +1,6 @@
 # POLLY, lists: SEL opens the screen as a list (its knobs' values, MORE, the actions); a button held alone shows
 # its help card; an action that loses chords asks first (SEL yes, HOME no); SAVE + a white key copies here.
-# Pages: 0 HOME, 1 SONG, 2-3 LOOP, 4 Pattern, 5 Pattern setup. Cards: the button + 1 (ARP 9, SAVE 8)
+# Pages: 0 HOME, 1-3 SONG, 4-5 LOOP, 6 Pattern, 7 Pattern setup. Cards: the button + 1 (ARP 9, SAVE 8)
 wait 300
 # the tag and the footer before any button: FREE, the hint
 expect tag_is_FREE 1
@@ -39,7 +39,7 @@ release SEQ
 expect page 0
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
 tap ARP
-expect page 2
+expect page 4
 expect tag_is_L1|BAR_1.1 1
 expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT+:_SKIP 1
 tap SEL
@@ -115,24 +115,24 @@ expect page 1
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 4
+spin SELECT 9
 tap SEL
 expect msg2_is_STOP_FIRST 1
 expect rows 0
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 4
+spin SELECT 9
 tap SEL
 expect rows 1
 expect msg_is_INSERTED 1
 tap SEL
-spin SELECT 5
+spin SELECT 10
 tap SEL
 expect rows 0
 # Pattern: ERASE TRACK asks first (the drums have notes)
 tap SEQ
-expect page 4
+expect page 6
 tap SEL
 shot list_pattern.png
 spin SELECT 20
@@ -188,7 +188,7 @@ tap SEL
 expect msg2_is_COPIED_TO_P07 1
 # a loop question: PRESETS and HOME + PRESETS / a white key change nothing; SEL clears the loop asked about (L2)
 tap ARP
-expect page 2
+expect page 4
 tap SEL
 spin SELECT 20
 tap SEL
@@ -205,18 +205,19 @@ expect asking 0
 expect loop_bars2 0
 expect loop_bars3 4
 expect loop_bars5 12
-# SONG (rows: Row, Loop, Section, Repeat, INSERT ROW 4, DELETE ROW 5, CLEAR SONG 6, COPY SONG TO 7): a row; COPY
+# SONG (its three pages' knobs: Row, Loop, Section, Repeat, Key, Intro, Ending, At end, Song; then INSERT ROW 9,
+# DELETE ROW 10, CLEAR SONG 11, COPY SONG TO 12): a row; COPY
 # SONG TO Song 3 (empty: no question); again: Song 3 has a row now, a question; PLAY meanwhile, then SEL: STOP FIRST
 tap HOME
 tap HOME
 expect page 1
 tap SEL
-spin SELECT 4
+spin SELECT 9
 tap SEL
 expect rows 1
 tap SEL
 spin SELECT 20
-expect list_sel 7
+expect list_sel 12
 spin ALGO 1
 tap SEL
 expect asking 0
@@ -235,7 +236,7 @@ tap PLAY
 wait 200
 # CLEAR SONG: it has a row, a question; yes
 tap SEL
-spin SELECT 6
+spin SELECT 11
 tap SEL
 expect asking 1
 tap SEL
@@ -250,7 +251,7 @@ tap SEQ
 tap SEL
 tap SEQ
 expect list_open 0
-expect page 4
+expect page 6
 # SAVE tapped alone: save
 tap SAVE
 expect dirty 0

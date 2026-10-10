@@ -1301,6 +1301,41 @@ static void test_song_intro_ending(void)
     arr_play(0);
     run_blocks(1);
 }
+/* a song with no rows playing (REC on SONG from an empty song): rows written while it plays start at the next
+ * bar line, row 1 in its section and key */
+static void test_song_rows_wait(void)
+{
+    static const chord_t g[1] = {{7, CH_MAJ, CH_NOBASS}};
+    reset();
+    loops_reset();
+    load_slot(SI, 1, 4);
+    load_slots(4);
+    loop_bars(0, 4, 1, g);
+    memset(&SG, 0, sizeof SG);                     /* (the song's Intro off: none) */
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(1.5f * BAR));
+    CHECK(arr_playing && arr_loop_now == -1 && slot_at(0) == SA && slot_at(BAR) == SA, "no rows, Intro off: Main A plays, no loop (%d %d)",
+          slot_at(0), arr_loop_now);
+    arr_edit(1);                                   /* the first row, written while it plays */
+    SG.row[0].loop = 0;
+    SG.row[0].sect = ROW_B;
+    SG.row[0].rep = 1;
+    SG.row[0].key = 2;
+    SG.nrows = 1;
+    SG.at_end = 1;
+    arr_edit(0);
+    run_to((uint32_t)(1.9f * BAR));
+    CHECK(arr_loop_now == -1, "not before the bar line (%d)", arr_loop_now);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(arr_loop_now == 0 && arr_row == 0 && slot_at(2 * BAR) == SB && root_at(2 * BAR) == 9,
+          "row 1 from the bar line: B over A (G + 2) (%d %d %d)", arr_loop_now, slot_at(2 * BAR), root_at(2 * BAR));
+    run_to((uint32_t)(3.5f * BAR));
+    CHECK(arr_playing && arr_row == 0 && slot_at(3 * BAR) == SB, "and on (again)");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "rows wait: offs match");
+}
 /* ---- songs: review fixes */
 static void test_song_ending_wins(void)       /* the song's end wins over a section by hand */
 {
@@ -3258,6 +3293,7 @@ int main(void)
     test_song_forced_fill_mutes_key();
     test_song_intro_ending();
     test_song_hand();
+    test_song_rows_wait();
     test_song_ending_wins();
     test_song_start_busy();
     test_song_busy_fill();

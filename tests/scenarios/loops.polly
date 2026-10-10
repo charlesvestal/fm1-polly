@@ -197,7 +197,7 @@ release HOME
 tap PLAY
 wait 300
 tap ARP
-expect page 2
+expect page 4
 tap REC
 expect rec_chords 1
 expect mode 1
@@ -303,7 +303,7 @@ press HOME
 tapkey w9
 release HOME
 tap ARP
-expect page 2
+expect page 4
 tap REC
 key 7 down
 key 11 down
@@ -330,16 +330,16 @@ expect loop_ch10_8 700
 shot loop.png
 # page 2: LENGTH, BEATS, NAME (Verse, Chorus, ... then "Loop N")
 turn SELECT 1
-expect page 3
+expect page 5
 shot loop2.png
 # a loop of 7-beat bars: the grid wraps to two lines a bar
 spin K2 3
 expect loop_beats10 7
 turn SELECT -1
-expect page 2
+expect page 4
 shot loop7.png
 turn SELECT 1
-expect page 3
+expect page 5
 spin K2 -3
 expect loop_beats10 4
 # name it
@@ -349,7 +349,7 @@ expect loop_name10 Verse
 spin K1 13
 expect loop_bars10 16
 turn SELECT -1
-expect page 2
+expect page 4
 expect cstep 2
 expect cbeat 11
 tap OCT+
@@ -366,12 +366,12 @@ expect cbeat 47
 shot loop16.png
 # LENGTH shrinking past the cursor brings it back into the loop: a ROOT turn then writes there, not past the end
 turn SELECT 1
-expect page 3
+expect page 5
 spin K1 -15
 expect loop_bars10 1
 expect cbeat 3
 turn SELECT -1
-expect page 2
+expect page 4
 spin K1 2
 expect loop_bars10 1
 expect cbeat 3

@@ -214,7 +214,9 @@ void arr_mode_loop(int i);
  * snapshots the song's header and the rows it needs at each block's start, when not busy (arr_edit): an edit
  * while it plays takes effect at the next block (the playing row's loop or key: its chord from the next beat;
  * a row's mutes and section: from its next start); a start (PLAY, MIDI Start / Continue) asked for during a
- * write waits for the first block after it. Leaving SONG, the app sends its mutes again (arr_track_mute). */
+ * write waits for the first block after it. A song with no rows plays its sections (its Intro only when on, no
+ * loop: arr_loop_now -1); rows written meanwhile start, row 1, at the next bar line (REC on SONG from an empty
+ * song). Leaving SONG, the app sends its mutes again (arr_track_mute). */
 void arr_mode_song(const song_t *s, int r);
 extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row), its pass (0..rep-1) */
 extern volatile uint8_t arr_mutes;                /* the tracks muted now (rows and hand mutes), bit t track t */

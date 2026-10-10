@@ -43,6 +43,8 @@ static void led_pos_init(void)
 #define GLOW_DIV 4u
 static uint8_t glow_on = 1;
 void plat_glow(int on) { glow_on = (uint8_t)(on != 0); }
+static uint32_t keys_dim;
+void plat_keys_dim(uint32_t keys) { keys_dim = keys; }
 /* PLAY has two LEDs: its red at the button's own position, a green at the keyless matrix position
  * column 8, row PA5 (found on the device). Green, unless recording. */
 static uint8_t play_red;
@@ -61,14 +63,14 @@ void plat_leds(uint32_t buttons, uint32_t keys)
             continue;
         if (on)
             nl[q >> 3] |= (uint8_t)(1u << (q & 7u));
-        else if (i < NB && glow_on)
+        else if ((i < NB && glow_on) || (i >= NB && (keys_dim >> (i - NB) & 1u)))
             dl[q >> 3] |= (uint8_t)(1u << (q & 7u));
     }
     for (c = 0; c < FM1_NCOL; c++) {
         fm1_led[c] = nl[c];
         fm1_led_dim[c] = dl[c];
     }
-    fm1_led_dim_div = glow_on ? GLOW_DIV : 0u;
+    fm1_led_dim_div = glow_on || keys_dim ? GLOW_DIV : 0u;
 }
 
 /* MIDI: Felucca's rings carry 4-byte USB-MIDI event packets, byte 0 = cable / CIN */
