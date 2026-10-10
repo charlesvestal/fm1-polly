@@ -169,11 +169,9 @@ void arr_load_bank(int slot, const qb_style_t *s, int k, const pattern_t *p);
  * quietest are dropped (their count returned) */
 int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
 /* The Intro and the Ending play over a held chord (the QY70's way: their phrases carry their own lead-in and
- * cadence): the chord on the section's first beat (the song's or the template's on that beat, else the one
- * before) stays until the section ends; the song's chord track and the template change it again from the next
- * section. A template counts its bars from the end of the Intro (its first bar starts with Main A). Chords the
- * player sets (the keys, arr_set_chord, a template picked or the key changed) change it at once, also in the
- * Intro and the Ending.
+ * cadence): the chord on the section's first beat (the source's on that beat, else the one before) stays until
+ * the section ends; the source changes it again from the next section. Chords the player sets (the keys,
+ * arr_set_chord, the transpose moved) change it at once, also in the Intro and the Ending.
  * SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
  * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
  * is Fill BA from Main B, else Fill AB (from Main A); a fill during a fill adds a bar; SEC_FILL during the Intro
@@ -182,28 +180,28 @@ int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
  * notes falls back: no Fill BA, Fill AB (still back to Main A), and the other way round; neither: no fill (the
  * section plays on); no Intro: Main A; no Ending: the stop at that bar line. Notes sounding over a section
  * change keep their voicing to their end, not re-voiced by the new pattern's track types. PLAY starts with the
- * section queued; else a song's mark on its bar 1; else the Intro when it has notes (not when recording: the
- * pattern being recorded into plays); else as it was: Main A or B, a fill's Main (Fill AB: B, Fill BA: A),
- * else Main A. */
+ * section queued; else the Intro when it has notes (not when recording: the pattern being recorded into
+ * plays); else as it was: Main A or B, a fill's Main (Fill AB: B, Fill BA: A), else Main A. */
 void arr_section(int sec);
-/* a song (copied; 0: none, back to free play): its section track switches sections at its bars, its chord
- * track sets the chord on its beats (the first 4 beats of a bar; CH_NTYPES keeps the last). A section mark
- * switches only to a section other than the one playing (marks over a region play it on). It stops at the
- * end of its last bar, or with loop goes round. It starts at bar 1 with PLAY, or at the next bar line when
- * set while playing (a song set again while it plays keeps its place). A section queued by arr_section wins
- * over the section track's mark at that bar. A song turns a template off. The app loads its six patterns
- * (style) into the slots with arr_load_pattern. */
-void arr_song(const song_t *s, int loop);
-/* a chord template (templates.h) as the chord track, looping, transposed by the key; -1: off (the chord
- * stays). Picked while playing, its first chord sounds at once and its bars count from the playing bar's
- * downbeat; a template's bar is its own beats (3 for the waltz). Turns a song off; the transport is the
- * app's (arr_play). */
-void arr_template(int i);
-/* 0..11 semitones over C: the templates' key. Key transposes templates only: songs are entered at real pitch */
-void arr_set_key(int key);
+/* ---- the chord source. FREE: the keys' chords only (held: fingered). LOOP: a loop of the app's table goes
+ * round, transposed; SONG: rows of a song (Task 3). The app's table and song stay put (they are the app's
+ * songs_t): the render reads them on beat and bar lines. The app brackets every write into them with
+ * arr_edit(1) / arr_edit(0); a beat line that finds them busy takes its chord at the first block after. */
+enum { ARR_FREE, ARR_LOOP, ARR_SONG };
+void arr_loops(const loop_t *table);             /* at init: the app's ARR_LOOPS loops */
+void arr_edit(int on);
+void arr_mode_free(void);
+/* loop i: stopped, from PLAY; playing, from the next bar line (its bars count from there) */
+void arr_mode_loop(int i);
+void arr_set_transpose(int semis);               /* -6..+5: loops and songs (not the keys' chords) */
+extern volatile uint8_t arr_mode;                /* ARR_* now (a change asked for: from its bar line) */
+extern volatile int8_t arr_loop_now;             /* the loop playing (LOOP, or the song's row), -1 none */
+extern volatile uint16_t arr_loop_beat;          /* the beat of that loop sounding (0..len-1) */
+extern volatile uint8_t arr_override;            /* a chord from the keys holds until the source's next change */
+extern volatile uint32_t arr_beats;              /* beats since PLAY (REC in FREE measures its take with it) */
 /* live chords (fingered): the keys held, as MIDI notes, called on every change (one caller: the main loop).
- * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord, ending
- * a template; keys lifted one by one never re-recognise. 1 = a new chord; 0 = none (no key pressed, fewer
+ * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord; in LOOP
+ * and SONG it holds until the source's next chord change; keys lifted one by one never re-recognise. 1 = a new chord; 0 = none (no key pressed, fewer
  * than 3 pitch classes, or no type fits): the chord stays as it was. The app calls arr_keys_held(0, 0) when
  * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
@@ -268,11 +266,6 @@ uint32_t arr_midi_out_link(void);
 /* state for the screen */
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
-extern volatile uint8_t arr_song_bar;               /* the song's bar playing (0..63), with a song */
-extern volatile uint8_t arr_song_wait;              /* a song set while playing waits for the next bar line, where
-                                                     * it starts at its bar 1 (arr_song_bar is the old place) */
-extern volatile int8_t arr_template_now;            /* the template playing, -1 none */
-extern volatile uint8_t arr_template_bar;           /* its bar sounding now (0..nbars-1): the screen's next chord */
 extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
 static inline uint32_t arr_chord_pack(chord_t c) { return (uint32_t)c.root | (uint32_t)c.type << 8 | (uint32_t)c.bass << 16; }
 static inline chord_t arr_chord_unpack(uint32_t v)

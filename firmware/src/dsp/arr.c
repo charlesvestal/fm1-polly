@@ -6,7 +6,6 @@
 #include <string.h>
 #include "arr.h"
 #include "gm.h"
-#include "templates.h"
 #include "styles.h"
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
@@ -25,15 +24,16 @@
 
 volatile uint8_t arr_playing, arr_sect = SEC_A, arr_next_sect, arr_ext;
 volatile uint16_t arr_bar, arr_beat_tick;
-volatile uint8_t arr_song_bar;
-volatile int8_t arr_template_now = -1;
-volatile uint8_t arr_template_bar;
+volatile uint8_t arr_mode, arr_override;
+volatile int8_t arr_loop_now = -1;
+volatile uint16_t arr_loop_beat;
+volatile uint32_t arr_beats;
 volatile uint32_t arr_chord_now;
 volatile uint32_t arr_track_hit[ARR_TRACKS];
 volatile uint32_t arr_ticks;
 
 /* ------------------------------------------------------------ commands --- */
-enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_SONG, C_TEMPLATE, C_KEY, C_LIVE,
+enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_MODE, C_TRANSPOSE, C_LIVE,
        C_REC, C_NOTE, C_QUANT, C_ERASE };
 #define QN 64u
 static uint32_t q[QN], qb[QN];
@@ -61,12 +61,9 @@ static uint8_t bsec[ARR_NSECT];
 static volatile uint8_t busy[ARR_NSECT], gen[ARR_NSECT];
 static volatile uint8_t ident[ARR_NSECT];         /* counts loads of another pattern (not stores of an edit) */
 static uint8_t seen[ARR_NSECT];
-/* the song: the main loop copies it into a stage (busy meanwhile); the render takes the stage into its own
- * copy at a block's start when it is complete. So the render's song is never half-written and never
- * unreadable: a beat or bar line during an edit plays the song as it was, not skipped */
-static song_t song, stage;
-static volatile uint8_t song_busy, stage_ready;
-volatile uint8_t arr_song_wait;
+/* the chord source's data: the app's loop table (read on beat and bar lines), busy while the app writes it */
+static const loop_t *loops;
+static volatile uint8_t edit_busy;
 
 void arr_play(int on) { post(C_PLAY, on != 0, 0); }
 void arr_set_tempo(int bpm) { post(C_TEMPO, (uint32_t)(bpm < 40 ? 40 : bpm > 240 ? 240 : bpm), 0); }
@@ -75,22 +72,11 @@ void arr_section(int sec) { post(C_SECTION, (uint32_t)sec, 0); }
 void arr_track_mute(int trk, int on) { post(C_MUTE, (uint32_t)trk, on != 0); }
 void arr_midi_out_on(int on) { post(C_MOUT, on != 0, 0); }
 void arr_clock(int msg) { post(C_CLOCK, (uint32_t)msg, 0); }
-void arr_song(const song_t *s, int loop)
-{
-    if (!s) {
-        post(C_SONG, 0, 0);
-        return;
-    }
-    song_busy = 1;
-    BARRIER();
-    memcpy(&stage, s, sizeof stage);
-    stage_ready = 1;
-    BARRIER();
-    song_busy = 0;
-    post(C_SONG, 1, (uint32_t)(loop != 0) | (uint32_t)(s->bars < 1 ? 1 : s->bars > ARR_SONGBARS ? ARR_SONGBARS : s->bars) << 8);
-}
-void arr_template(int i) { post(C_TEMPLATE, i >= 0 && i < NTEMPLATES ? (uint32_t)i + 1 : 0, 0); }
-void arr_set_key(int key) { post(C_KEY, (uint32_t)(((key % 12) + 12) % 12), 0); }
+void arr_loops(const loop_t *t) { loops = t; }
+void arr_edit(int on) { BARRIER(); edit_busy = (uint8_t)(on != 0); BARRIER(); }
+void arr_mode_free(void) { post(C_MODE, ARR_FREE, 0); }
+void arr_mode_loop(int i) { post(C_MODE, ARR_LOOP, (uint32_t)(i >= 0 && i < ARR_LOOPS ? i : 0)); }
+void arr_set_transpose(int s) { post(C_TRANSPOSE, (uint32_t)(int32_t)(s < -6 ? -6 : s > 5 ? 5 : s) & 0xFFu, 0); }
 static uint32_t keys_prev[4];                      /* the keys held at the last call (the caller's thread) */
 int arr_keys_held(const uint8_t *notes, int n)    /* in the caller's thread: chords.c has no state */
 {
@@ -199,7 +185,6 @@ uint32_t arr_test_tick_calls(void) { return tick_calls; }
 #endif
 #ifdef ARR_TEST
 void arr_test_busy(int slot, int on) { busy[slot] = (uint8_t)(on != 0); }   /* a load caught midway */
-void arr_test_song_busy(int on) { song_busy = (uint8_t)(on != 0); }           /* a song copy caught midway */
 #endif
 
 /* ------------------------------------------------------------ the state --- */
@@ -243,19 +228,20 @@ static uint16_t late_off[LATE_OFFS];               /* chan << 8 | note */
 static int n_late;
 static uint8_t start_wait;                         /* a start waiting for its sounds to go out: blocks waited + 1 */
 
-/* sections, songs, templates */
+/* sections, the chord source */
 static uint8_t first_tick;                         /* the first tick since a start: no bar or beat behind it */
 static uint8_t fill_to = SEC_B;                    /* the Main the fill playing goes to after its bar */
 static uint8_t ended;                              /* stopped by an Ending or a song's end (Continue: a new start) */
 static uint16_t sec_bars;                          /* bars played of the section playing */
-static uint8_t song_on, song_loop, song_restart;   /* restart: set while playing, from bar 1 at the next bar line */
-static uint8_t song_len;                           /* its bars, from the command: kept outside the copy */
-static uint8_t sbar;                               /* the song's bar */
-static int8_t tmpl = -1;                           /* the template playing, -1 none */
-static uint8_t key;                                /* the templates' key, semitones over C */
-static uint8_t chord_owed;                         /* leaving a held Intro / Ending: the song's latest chord */
-static uint32_t beat_now, bar_beat0, t_origin;     /* beats since the start: now, at the bar's downbeat, and
-                                                    * where the template's first bar fell */
+static uint8_t chord_owed;                         /* leaving a held Intro / Ending (a loop's start, a transpose):
+                                                    * the source's chord sounding there, not only a change */
+static uint32_t beat_now, bar_beat0;               /* beats since the start: now, at the bar's downbeat */
+static uint8_t mode, mode_next, lp, lp_next;       /* the source, and one asked for (from its bar line) */
+static uint8_t mode_wait;                          /* mode_next waits for the bar line */
+static int8_t transp;                              /* -6..+5 */
+static uint8_t chord_wait;                         /* a beat line found the table busy: its chord owed */
+static uint8_t override;                           /* a chord from the keys holds until the source's next change */
+static uint32_t lp_origin;                         /* beat_now where the loop's beat 0 fell */
 
 /* our clock: Q16 output frames to the next tick, and a tick's length (ours; pace: the one in use, ours or
  * the clock in's) */
@@ -877,14 +863,12 @@ static uint8_t resolve(uint32_t s, uint8_t *to)
 }
 
 /* ------------------------------------------------------------ the clock --- */
-/* PLAY: the section queued; else a song's mark on its bar 1; else (not recording) the Intro, when it has notes;
- * else the Main as it was (after anything else: Main A) */
+/* PLAY: the section queued; else (not recording) the Intro, when it has notes; else the Main as it was (after
+ * anything else: Main A). A source asked for starts here, its beat 0 PLAY's */
 static void transport_start(void)
 {
     uint8_t s = arr_next_sect, to = fill_to;
     rec_flush(1);
-    if (!s && song_on && is_sect(song.sect[0]))
-        s = song.sect[0];
     if (!s && !rec_on && !sect_empty(SEC_INTRO))
         s = SEC_INTRO;
     if (s)
@@ -898,10 +882,14 @@ static void transport_start(void)
     cur = (uint8_t)(s - 1);
     first_tick = 1;
     sec_bars = 0;
-    sbar = 0;
-    song_restart = 0;
-    arr_song_bar = 0;
-    beat_now = bar_beat0 = t_origin = 0;
+    if (mode_wait) {
+        mode = mode_next;
+        lp = lp_next;
+        mode_wait = 0;
+    }
+    lp_origin = 0;
+    override = 0;
+    beat_now = bar_beat0 = 0;
     pos = 0;
     ftt = 0;                                       /* tick 0 at once */
     ext_pend = 0;
@@ -946,10 +934,8 @@ static void switch_to(uint8_t sec)
     rec_flush(1);                                  /* recording: the pass ends here, and recording too */
     rec_on = arr_recording = 0;                    /* (it would go on into the other pattern) */
     ctl_reset();                                   /* the phrases' bends and swells end with their section */
-    if (arr_sect == SEC_INTRO && sec != SEC_INTRO)
-        t_origin = beat_now;                       /* a template's first bar: after the Intro */
     if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && sec != arr_sect)
-        chord_owed = 1;                            /* the song's chords held meanwhile: its latest, at once */
+        chord_owed = 1;                            /* the source's chords held meanwhile: its latest, at once */
     for (int t = 0; t < ARR_TRACKS; t++)
         for (int i = 0; i < tk[t].nh; i++)
             tk[t].h[i].fixed = (uint8_t)(busy[cur] || !follows_chord(pat[cur].trk[t].x.type) ? 1 : 2);
@@ -961,10 +947,10 @@ static void switch_to(uint8_t sec)
     seek();
     setup();
 }
-/* a bar line: the song's bar, the section next, a song's or an ending's end. 0: stopped here.
+/* a bar line: a source asked for starts, the section next, an ending's end. 0: stopped here.
  * The section next: one queued (arr_section) switches, and restarts the section playing unless it is at its
- * start; Ending queued during the ending lets it end. Else the song's mark, only when it differs from the
- * section playing (a mark on every bar of a region plays the section on). Else a fill's return to its Main
+ * start; Ending queued during the ending lets it end. Else a mark (none yet: Task 3's songs), only when it
+ * differs from the section playing. Else a fill's return to its Main
  * after its bar (not under a Fill mark: the fill goes on), the Intro's to Main A after it played once (not
  * under an Intro mark), or the ending's stop after it played once. What is asked for goes through resolve()
  * (SEC_FILL by the Main playing, the fallbacks of sections without notes). */
@@ -973,24 +959,12 @@ static int bar_line(void)
     uint8_t next = arr_next_sect, mark = SEC_SAME;
     if (!first_tick)
         sec_bars++;
-    if (song_on && !(song_restart && stage_ready)) { /* a new song's start waits for its copy */
-        int restart = song_restart;
-        if (restart)
-            sbar = 0;
-        else if (!first_tick)
-            sbar++;
-        song_restart = 0;
-        if (sbar >= song_len) {
-            if (!song_loop) {
-                stop_ours();
-                ended = 1;
-                return 0;
-            }
-            sbar = 0;
-        }
-        if ((!first_tick || restart) && is_sect(song.sect[sbar]))
-            mark = song.sect[sbar];
-        arr_song_bar = sbar;
+    if (mode_wait) {                               /* a source asked for: its beat 0 is this downbeat */
+        mode = mode_next;
+        lp = lp_next;
+        mode_wait = 0;
+        lp_origin = beat_now;
+        chord_owed = 1;
     }
     if (next == SEC_END && arr_sect == SEC_END)
         next = SEC_SAME;                           /* the ending again: it plays out and stops */
@@ -1027,34 +1001,60 @@ static int bar_line(void)
     bar_beat0 = beat_now;
     return 1;
 }
-static chord_t tmpl_chord(void)                    /* the template's chord on the beat now, in the key */
+static chord_t shifted(chord_t c, int by)          /* a stored chord, transposed */
 {
-    const template_t *m = &TEMPLATES[tmpl];
-    uint32_t b = (beat_now - t_origin) / m->beats % m->nbars;
-    chord_t c = m->bars[b];
-    arr_template_bar = (uint8_t)b;
-    c.root = (uint8_t)((c.root + key) % 12u);
+    by = ((by % 12) + 12) % 12;
+    c.root = (uint8_t)((c.root + by) % 12u);
+    if (c.bass < 12u)
+        c.bass = (uint8_t)((c.bass + by) % 12u);
     return c;
 }
-/* a beat line: the song's chord, or the template's; on a tick dropped in a clock-in catch-up (play 0) the
- * chord is set but nothing restruck */
+/* the loop's chord on this beat: its own entry (a change: it ends an override), or with `owed` (the loop's
+ * first beat, after a held section) the one sounding there. 0: nothing to do */
+static int loop_beat(const loop_t *l, uint32_t b, int owed, int by, int play)
+{
+    int n = l->bars * (l->beats ? l->beats : 4);
+    uint16_t v;
+    if (n <= 0)
+        return 0;
+    if (n > ARR_LOOP_BEATS)
+        n = ARR_LOOP_BEATS;                        /* (a corrupt table: never past ch[]) */
+    b %= (uint32_t)n;
+    arr_loop_beat = (uint16_t)b;
+    v = l->ch[b];
+    if (v == LC_SAME && !owed)
+        return 0;
+    if (v == LC_SAME) {                            /* the latest before it, round from the end */
+        for (int k = 1; k < n && v == LC_SAME; k++)
+            v = l->ch[((int)b - k + n) % n];
+        if (v == LC_SAME)
+            return 0;
+        if (override)                              /* (owed: a played chord still wins until a real change) */
+            return 0;
+    }
+    override = 0;
+    chord_change(shifted(lc_unpack(v), by), play);
+    return 1;
+}
+/* the source's chord on a beat line (or owed: the one sounding now); the table busy: at the first block after */
+static void source_chord(int play)
+{
+    if (edit_busy) {
+        chord_wait = 1;                            /* the first block after the app's write */
+        return;
+    }
+    chord_wait = 0;
+    if (mode == ARR_LOOP)
+        loop_beat(&loops[lp], beat_now - lp_origin, beat_now == lp_origin || chord_owed, transp, play);
+    chord_owed = 0;
+}
+/* a beat line: the source's chord; on a tick dropped in a clock-in catch-up (play 0) the chord is set but
+ * nothing restruck */
 static void beat_chord(int play)
 {
-    uint32_t beat = pos % bar_len(&pat[cur]) / ARR_PPQ;
     if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && (pos || sec_bars))
         return;                                    /* the Intro and the Ending: the chord of their first beat, held */
-    if (song_on) {
-        if (!song_restart && beat < 4 && sbar < ARR_SONGBARS) {
-            int k = (int)(sbar * 4u + beat);
-            chord_t c = song.chord[k];
-            while (chord_owed && k > 0 && !(c.type < CH_NTYPES && c.root < 12))
-                c = song.chord[--k];               /* after a held section: the song's latest chord */
-            chord_owed = 0;
-            if (c.type < CH_NTYPES && c.root < 12)
-                chord_change(c, play);
-        }
-    } else if (tmpl >= 0)
-        chord_change(tmpl_chord(), play);
+    source_chord(play);
 }
 
 /* the notes whose end is due (the tick arr_ticks), and the next end */
@@ -1196,6 +1196,7 @@ static void tick(int play)
     if (pos % ARR_PPQ == 0) {                      /* a beat line (first_tick: pos 0) */
         if (!first_tick)
             beat_now++;
+        arr_beats = beat_now;
         if (pos % bar_len(p) == 0 && !bar_line()) {    /* sections change on the bar; an end stops here */
             in_tick = 0;
             return;
@@ -1340,33 +1341,33 @@ static void drain(void)
             }
             break;
         case C_CLOCK: clock_in((int)a); break;
-        case C_SONG:
-            if (a) {
-                song_restart = arr_playing && !song_on;    /* a new song while playing: from the next bar */
-                song_on = 1;
-                song_loop = (uint8_t)(b & 1u);
-                song_len = (uint8_t)(b >> 8);
-                tmpl = -1;
+        case C_MODE:
+            if (a == ARR_LOOP && !loops)
+                break;
+            mode_next = (uint8_t)a;
+            lp_next = (uint8_t)b;
+            if (!arr_playing) {                    /* stopped: now; its beat 0 is PLAY's */
+                mode = mode_next;
+                lp = lp_next;
+                mode_wait = 0;
             } else
-                song_on = song_restart = 0;
+                mode_wait = 1;                     /* playing: from the next bar line */
+            if (a == ARR_FREE && arr_playing) {    /* FREE: at once (the chord stays) */
+                mode = ARR_FREE;
+                mode_wait = 0;
+            }
+            override = 0;
             break;
-        case C_TEMPLATE:
-            if (a) {
-                tmpl = (int8_t)(a - 1);
-                song_on = song_restart = 0;
-                t_origin = arr_playing ? bar_beat0 : beat_now;   /* its first bar: the bar playing */
-                chord_change(tmpl_chord(), 1);     /* its chord at once */
-            } else
-                tmpl = -1;
+        case C_TRANSPOSE:
+            transp = (int8_t)(a & 0xFFu);
+            if (arr_playing && mode != ARR_FREE) {
+                chord_owed = 1;                    /* the chord sounding, moved now */
+                source_chord(1);
+            }
             break;
-        case C_KEY:
-            key = (uint8_t)a;
-            if (tmpl >= 0)
-                chord_change(tmpl_chord(), 1);
-            break;
-        case C_LIVE:                               /* the keys take over from a template */
-            tmpl = -1;
+        case C_LIVE:                               /* the keys: until the source's next change */
             chord_change(arr_chord_unpack(a), 1);
+            override = mode != ARR_FREE;
             break;
         case C_REC:
             rec_trk = (uint8_t)a;
@@ -1402,16 +1403,17 @@ void arr_block(uint32_t frames)
     ons_left = MAX_ONS;                            /* chord changes in the commands count too */
     blk_count++;
     arr_late_offs();                               /* the last block's late note-offs (gm_render sends them first) */
-    if (stage_ready && !song_busy) {               /* a song set: in, whole */
-        memcpy(&song, &stage, sizeof song);
-        stage_ready = 0;
-    }
     drain();
+    if (chord_wait && !edit_busy && arr_playing) {
+        chord_owed = 1;                            /* the chord sounding now (a change on the missed beat too) */
+        source_chord(1);
+    }
     erase_apply();                                 /* what waited for a store to finish */
     rec_flush(0);
-    arr_template_now = tmpl;
-    arr_song_wait = (uint8_t)(song_on && song_restart);
     sync();
+    arr_mode = mode_wait ? mode_next : mode;
+    arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : -1;
+    arr_override = override;
     ctl_out_flush();                               /* controller resets MIDI out still owes (playing or not) */
     if (arr_midi_out_link() != out_link) {        /* a new connection: its sounds unknown */
         out_link = arr_midi_out_link();
@@ -1545,10 +1547,6 @@ void arr_init(void)                                /* at boot, before the render
     arr_next_sect = SEC_SAME;
     arr_bar = arr_beat_tick = 0;
     arr_ticks = 0;
-    song_busy = stage_ready = 0;
-    arr_song_wait = 0;
-    song_on = song_loop = song_restart = 0;
-    song_len = 1;
     memset(keys_prev, 0, sizeof keys_prev);
     memset(rec, 0, sizeof rec);
     n_live = 0;
@@ -1561,16 +1559,22 @@ void arr_init(void)                                /* at boot, before the render
     arr_full = 0;
     for (int i = 0; i < ARR_NSECT; i++)
         arr_dirty[i] = 0;
-    sbar = 0;
-    arr_song_bar = 0;
-    tmpl = -1;
-    arr_template_now = -1;
-    arr_template_bar = 0;
-    key = 0;
+    mode = mode_next = ARR_FREE;                   /* (loops kept: arr_loops is called once by the app) */
+    lp = lp_next = 0;
+    mode_wait = 0;
+    transp = 0;
+    override = 0;
+    chord_wait = 0;
+    lp_origin = 0;
+    arr_mode = ARR_FREE;
+    arr_loop_now = -1;
+    arr_loop_beat = 0;
+    arr_override = 0;
+    arr_beats = 0;
     first_tick = 0;
     fill_to = SEC_B;
     sec_bars = 0;
-    beat_now = bar_beat0 = t_origin = 0;
+    beat_now = bar_beat0 = 0;
 }
 
 /* ------------------------------------------------------------ factory styles --- */
