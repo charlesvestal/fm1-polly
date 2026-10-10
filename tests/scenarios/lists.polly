@@ -1,0 +1,143 @@
+# POLLY, lists: SEL opens the screen as a list (its knobs' values, MORE, the actions); a button held alone shows
+# its help card; an action that loses chords asks first (SEL yes, HOME no); SAVE + a white key copies here.
+# Pages: 0 HOME, 1 SONG, 2-3 LOOP, 4 Pattern, 5 Pattern setup. Cards: the button + 1 (ARP 9, SAVE 8)
+wait 300
+# HOME's list: SELECT moves (not the page), ALGORITHM changes the row's value, HOME backs out
+expect list_open 0
+tap SEL
+expect list_open 1
+expect list_sel 0
+shot list_home.png
+turn SELECT 1
+expect list_sel 1
+expect page 0
+spin ALGO 2
+expect tempo 107
+expect track 5
+tap HOME
+expect list_open 0
+expect page 0
+# a help card: ARP held alone a second; letting go does nothing (no page turned)
+press ARP
+wait 1200
+expect card 9
+shot card_arp.png
+release ARP
+wait 50
+expect card 0
+expect page 0
+# a key during the hold: no card, and the button's release does nothing either
+press SEQ
+wait 300
+tapkey w3
+wait 1000
+expect card 0
+release SEQ
+expect page 0
+# LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
+tap ARP
+expect page 2
+tap SEL
+expect list_open 1
+spin SELECT 20
+tap SEL
+expect asking 1
+shot ask_clear.png
+tap HOME
+expect asking 0
+expect list_open 1
+expect loop_bars1 4
+tap SEL
+expect asking 1
+tap SEL
+expect asking 0
+expect list_open 0
+expect loop_bars1 0
+expect msg_is_CLEARED 1
+# CLEAR LOOP on an empty loop: said, no question
+tap SEL
+spin SELECT 20
+tap SEL
+expect asking 0
+expect msg2_is_IS_EMPTY 1
+# LOAD PROGRESSION (one row up): ALGORITHM picks (the 2nd: Sensitive, from Am), SEL loads it into the empty L1, no question
+tap SEL
+spin SELECT 20
+turn SELECT -1
+spin ALGO 1
+tap SEL
+expect asking 0
+expect loop_bars1 4
+expect loop_ch1_0 916
+# MORE's NAME: ALGORITHM turns the letter, SEL the next
+tap SEL
+spin SELECT 20
+turn SELECT -2
+spin ALGO 1
+tap SEL
+expect name_cur 1
+tap HOME
+expect list_open 0
+# HOME + white key 2: L2; SAVE held (a second: its card) + white key 9: L2 copied to the empty L9
+tap HOME
+expect page 0
+press HOME
+tapkey w1
+release HOME
+wait 50
+expect mode 1
+press SAVE
+wait 1100
+expect card 8
+tapkey w8
+expect card 0
+release SAVE
+expect loop_bars9 4
+expect msg2_is_COPIED_TO_L9 1
+expect loop_ch9_0 916
+# SAVE + white key 3: L3 has chords, a question; HOME: no
+press SAVE
+tapkey w2
+release SAVE
+expect asking 1
+tap HOME
+expect asking 0
+expect page 0
+expect loop_bars3 4
+# SONG: INSERT ROW while playing: STOP FIRST; stopped: a row
+tap HOME
+expect page 1
+tap PLAY
+wait 200
+tap SEL
+spin SELECT 4
+tap SEL
+expect msg2_is_STOP_FIRST 1
+expect rows 0
+tap PLAY
+wait 200
+tap SEL
+spin SELECT 4
+tap SEL
+expect rows 1
+expect msg_is_INSERTED 1
+tap SEL
+spin SELECT 5
+tap SEL
+expect rows 0
+# Pattern: ERASE TRACK asks first (the drums have notes)
+tap SEQ
+expect page 4
+tap SEL
+shot list_pattern.png
+spin SELECT 20
+turn SELECT -2
+tap SEL
+expect asking 1
+tap HOME
+expect asking 0
+tap HOME
+expect list_open 0
+# SAVE tapped alone: save
+tap SAVE
+expect dirty 0

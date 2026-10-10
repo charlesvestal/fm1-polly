@@ -548,8 +548,16 @@ static int expect(const char *what, const char *val)
         got = proj.quant;
     else if (!strcmp(what, "grid_bar"))           /* the Grid knob's bar, as drawn: its fill */
         got = grid_fill();
-    else if (!strcmp(what, "job"))              /* the jobs open */
-        got = ui.job;
+    else if (!strcmp(what, "list_open"))          /* SEL's list on screen */
+        got = lst.open;
+    else if (!strcmp(what, "list_sel"))           /* the list's row picked, 0.. */
+        got = lst.sel;
+    else if (!strcmp(what, "card"))               /* a help card on screen: its button + 1 (B_*), 0 none */
+        got = ui.card;
+    else if (!strcmp(what, "asking"))             /* a question on screen (SEL yes, HOME no) */
+        got = ui.ask;
+    else if (!strcmp(what, "name_cur"))           /* the name's letter edited, 0..7 */
+        got = ui.name_cur;
     else if (!strcmp(what, "rev_type"))
         got = proj.rev_type;
     else if (!strcmp(what, "song0_tempo")) {      /* song 0's tempo, as saved */

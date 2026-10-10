@@ -5,7 +5,9 @@
  *
  *   PLAY            start / stop (SONG: from the SONG screen's row, else row 1)
  *   REC             record into the selected track (SEQ, EDIT; its light: the engine's)
- *   SEL tap         the jobs open: do it
+ *   SEL tap         the screen as a list (SELECT moves, ALGORITHM changes, SEL does an action, HOME goes back);
+ *                   a question: SEL yes, HOME no
+ *   a button held alone 1 s: its help card (letting go does nothing)
  *   HOME held       the shortcuts on screen (after HOME_HOLD_MS):
  *     + white key 1..16   loop n: MODE LOOP (from the next bar while playing); the loop playing again: FREE
  *     + black key 1..5    Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
@@ -16,7 +18,8 @@
  *   the header's dots: which of a button's pages
  *   the keys        by the page (key_role): chords (HOME, LOOP), the selected track (SEQ, EDIT), the track (LFO's
  *                   black keys), nothing (FX, ENV, GLO)
- *   SAVE            saves (lit: something to save; held: the jobs)        OCT- / OCT+   the keys' octave
+ *   SAVE            saves (lit: something to save); held + white key n: copy here (HOME, LOOP: the loop to Ln; SEQ:
+ *                   the pattern to P(n))                                  OCT- / OCT+   the keys' octave
  *   SELECT          the button's next / previous page       ALGORITHM   the track       PRESETS   per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 
@@ -440,6 +443,14 @@ static void song_touched(void)
     app.chg++;
     ui.act_t = plat_ms();
 }
+/* every write into the loops (songs.loop[]) or a song's rows: the render reads them on beat and bar lines,
+ * arr_edit(1) holds it off; done (0), the songs are unsaved */
+static void songs_write(int on)
+{
+    arr_edit(on);
+    if (!on)
+        song_touched();
+}
 static void set_tempo(int bpm)
 {
     song_t *g = csong();
@@ -468,8 +479,11 @@ static void set_track(int t)
     mark_dirty();
 }
 
-static void song_job_run(void);
 static void song_pick(int d);
+static void copy_to(int n);
+static void list_open(void);
+static void list_sel(void);
+static void ask_end(int yes);
 /* the keys held as chords (KM_CHORD), to the chord recogniser (every change) */
 static void chord_keys(void)
 {
@@ -538,6 +552,10 @@ static void key_down(int k)
     if (ui.btn >> B_HOME & 1u) {                 /* HOME held: a shortcut (its release is no page press) */
         ui.btn_used |= 1u << B_HOME;
         home_key(k);
+    } else if (ui.btn >> B_SAVE & 1u) {          /* SAVE held + a white key: copy here (no save on its release) */
+        ui.btn_used |= 1u << B_SAVE;
+        if (ordinal(WHITE_K, 16, k) >= 0)
+            copy_to(ordinal(WHITE_K, 16, k));
     } else if (r == KR_CHORDS) {
         ui.kmode[k] = KM_CHORD;
         chord_keys();
@@ -574,20 +592,8 @@ static void page_turn(int d)
     int g = page_group(ui.page), f = PAGE_BTN[g].first, n = PAGE_BTN[g].n;
     ui.page = (uint8_t)(f + ((ui.page - f + d) % n + n) % n);
     ui.touched = -1;
-    ui.job = 0;
 }
 
-/* ------------------------------------------------------------- jobs --- */
-/* SAVE held: a job on the pattern playing (its slot) and the selected track; KNOB 1 picks, KNOB 2 the copy's
- * destination, SEL does it, SAVE (or a page) cancels */
-static void jobs_open(void)
-{
-    int st = songs.song[proj.song].style[eslot()];
-    ui.job = 1;
-    ui.job_sel = 0;
-    ui.job_to = (uint8_t)(st < ARR_USER_PATTERNS ? (st + 1) % ARR_USER_PATTERNS : pattern_free() < 0 ? 0 : pattern_free());
-    ui.touched = -1;
-}
 static void slot_style(int s, int to);
 static void pat_name(int st, char *t)            /* "P05" */
 {
@@ -596,88 +602,9 @@ static void pat_name(int st, char *t)            /* "P05" */
     t[2] = (char)('0' + (st + 1) % 10);
     t[3] = 0;
 }
-static void job_run(void)
-{
-    int s = eslot(), st = songs.song[proj.song].style[s];
-    char t[8];
-    ui.job = 0;
-    edits_flush();
-    if (ui.job_sel == 3) {                       /* back to the song's style: its section, the user pattern kept */
-        int i = style_index(songs.song[proj.song].sty);
-        if (st >= ARR_USER_PATTERNS)
-            say(SECT_NAME[s + 1], "plays the style");
-        else if (i >= 0) {
-            slot_style(s, style_number(i, s));   /* (saved first; refused while playing with changes unsaved) */
-            if (songs.song[proj.song].style[s] != st) {
-                char b[24];
-                style_name(songs.song[proj.song].style[s], b);
-                say("BACK TO", b);
-            }
-        }
-        return;
-    }
-    if (ui.job_sel != 1) {                       /* erase, clear: a style's section gets a user pattern first */
-        slot_own(s);
-        st = songs.song[proj.song].style[s];
-    }
-    if (ui.job_sel == 0) {                       /* erase the selected track's notes */
-        arr_erase_track(proj.trk);
-        say("ERASED", TRACK_NAME[proj.trk]);
-    } else if (ui.job_sel == 2) {                /* clear the pattern: every note gone, its sounds kept */
-        for (int tries = 0; tries < 8; tries++) {
-            uint16_t d = arr_pattern_copy(s, &scratch);
-            scratch.nev = 0;
-            for (int k = 0; k < ARR_TRACKS; k++)
-                scratch.trk[k].first = scratch.trk[k].count = 0;
-            if (arr_store_pattern(s, &scratch, d)) {
-                edited(s);
-                app.edit_pend &= (uint8_t)~(1u << s);
-                app.edited[s] = 1;
-                say("CLEARED", SECT_NAME[s + 1]);
-                return;
-            }
-        }
-        say("NOT CLEARED", "RECORDING");
-    } else {                                     /* copy it (as it is now) into a user pattern */
-        int to = ui.job_to;
-        uint16_t d;
-        pat_name(to, t);
-        if (arr_playing) {                       /* a flash write pauses the audio */
-            say("COPY", "STOP FIRST");
-            return;
-        }
-        for (int j = 0; j < ARR_NSECT; j++)      /* another section plays it, changed: those changes first */
-            if (j != s && songs.song[proj.song].style[j] == to && slot_unsaved(j)) {
-                char a[24];
-                cat_s(cat_s(a, t), " UNSAVED IN");
-                say(a, SECT_NAME[j + 1]);
-                return;
-            }
-        d = arr_pattern_copy(s, &scratch);
-        if (project_pattern_save(to, &scratch) != 0) {
-            say("NOT COPIED", "FLASH ERROR");
-            return;
-        }
-        if (to == st) {                          /* into its own: saved */
-            app.saved[s] = d;
-            app.edited[s] = 0;
-        }
-        for (int j = 0; j < ARR_NSECT; j++)      /* the other slots playing that pattern get the copy */
-            if (j != s && songs.song[proj.song].style[j] == to) {
-                arr_load_pattern(j, &scratch);
-                slot_cache(j, &scratch);
-                app.saved[j] = arr_dirty[j];
-            }
-        say("COPIED TO", t);
-    }
-}
 
-static void button_down(int b)
+static void button_down(int b)                   /* PLAY, REC: at once */
 {
-    if (page_button(b)) {
-        ui.job = 0;
-        return;
-    }
     switch (b) {
     case B_PLAY:
         if (!arr_playing && app.mode == ARR_SONG)   /* SONG: from the SONG screen's row, else row 1 */
@@ -714,25 +641,31 @@ static void button_down(int b)
     default: break;
     }
 }
-static void button_up(int b)                     /* a tap: released before it was used as a hold */
+static void button_up(int b)                     /* a tap: released before it was used (a key, a knob, its card) */
 {
+    if (b != B_HOME && b != B_SEL && b != B_SAVE && page_button(b)) {   /* another page: the list, a question go */
+        ui.ask = 0;
+        lst.open = 0;
+        return;
+    }
     switch (b) {
-    case B_SEL:
-        if (ui.job == 2)
-            song_job_run();
-        else if (ui.job)
-            job_run();
+    case B_SEL:                                  /* a question: yes; a list: its row; else the list */
+        if (ui.ask)
+            ask_end(1);
+        else if (lst.open)
+            list_sel();
+        else
+            list_open();
         break;
-    case B_HOME:                                 /* HOME on release: no key, SELECT or PRESETS used it */
-        ui.job = 0;
-        page_button(B_HOME);
+    case B_HOME:                                 /* HOME on release: no; back from a list; else the page */
+        if (ui.ask)
+            ask_end(0);
+        else if (lst.open)
+            lst.open = 0;
+        else
+            page_button(B_HOME);
         break;
     case B_SAVE: {
-        if (ui.job) {
-            ui.job = 0;
-            say("JOB", "CANCELLED");
-            break;
-        }
         uint32_t m = ui.msg_until;
         int rc = save_all();
         if (rc != 0)
@@ -756,22 +689,15 @@ static void button_up(int b)                     /* a tap: released before it wa
     default: break;
     }
 }
-#define HOLD_MS 600u
+#define CARD_MS 1000u
 static void holds(void)
 {
     uint32_t now = plat_ms();
-    if ((ui.btn >> B_SAVE & 1u) && !(ui.btn_used >> B_SAVE & 1u) && now - ui.btn_t[B_SAVE] > HOLD_MS) {
-        ui.btn_used |= 1u << B_SAVE;
-        if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
-            jobs_open();                         /* the pattern's jobs */
-        else if (ui.page == P_SONG) {
-            ui.job = 2;                          /* the song's */
-            ui.job_sel = 0;
-            ui.job_to = (uint8_t)((proj.song + 1u) % ARR_SONGS);
-            ui.touched = -1;
-        } else
-            say("JOBS", "on the Pattern, Song pages");
-    }
+    for (int b = 0; b < NB; b++)                 /* a button held alone, unused: its card (its release does nothing) */
+        if (ui.btn == 1u << b && !ui.keys && b != B_HOME && !(ui.btn_used >> b & 1u) && now - ui.btn_t[b] >= CARD_MS) {
+            ui.card = (uint8_t)(b + 1);
+            ui.btn_used |= 1u << b;
+        }
     if ((ui.btn >> B_HOME & 1u) && now - ui.btn_t[B_HOME] >= HOME_HOLD_MS)
         ui.btn_used |= 1u << B_HOME;             /* HOME held to look (the loops, the sections): not a page press */
 }
@@ -969,58 +895,337 @@ static int copy_patterns_pick(int to, uint16_t *st)
     }
     return 0;
 }
-/* the song's jobs (SAVE held on SONG): clear it (its rows and settings; its patterns, style, tempo, transpose and
- * mutes kept, the loops too), or copy it to another */
-static void song_job_run(void)
+/* ------------------------------------------------------- the actions --- */
+/* a question in the header (an action that loses notes or chords): SEL yes (yes() runs, the list closes), HOME no */
+static void ask(const char *q, void (*yes)(void))
+{
+    uint32_t i;
+    for (i = 0; i < sizeof ui.ask_q - 1u && q[i]; i++)
+        ui.ask_q[i] = q[i];
+    ui.ask_q[i] = 0;
+    ui.ask = 1;
+    ui.ask_yes = yes;
+}
+static void ask_end(int yes)
+{
+    void (*f)(void) = ui.ask_yes;
+    ui.ask = 0;
+    ui.ask_yes = 0;
+    if (yes) {
+        lst.open = 0;
+        if (f)
+            f();
+    }
+}
+static char *loop_name_l(int i, char *t) { return itoa_u((uint32_t)i + 1u, cat_s(t, "L")); }   /* "L3" */
+/* "WORDS L3?" */
+static void ask_loop(const char *what, int i, void (*yes)(void))
+{
+    char q[32];
+    cat_s(loop_name_l(i, cat_s(q, what)), "?");
+    ask(q, yes);
+}
+
+/* LOAD PROGRESSION: one of the 16 factory progressions into the loop (its name too) */
+static void do_load_prog(void)
+{
+    int t = ui.pick_prog % NTEMPLATES;
+    char a[16], b[16];
+    songs_write(1);
+    loop_from_template(&songs.loop[app.loop], t);
+    songs_write(0);
+    loop_name_l(app.loop, cat_s(b, "INTO "));
+    cat_s(a, TEMPLATES[t].name);
+    say(upcase(a), b);
+}
+static void act_load_progression(void)
+{
+    char q[32];
+    if (!songs.loop[app.loop].bars) {
+        do_load_prog();
+        return;
+    }
+    cat_s(cat_s(cat_s(q, "LOAD "), TEMPLATES[ui.pick_prog % NTEMPLATES].name), " INTO ");
+    upcase(q);
+    ask_loop(q, app.loop, do_load_prog);
+}
+static void do_clear_loop(void)
+{
+    char t[8];
+    songs_write(1);
+    loop_clear(&songs.loop[app.loop], app.loop);
+    songs_write(0);
+    loop_name_l(app.loop, t);
+    say("CLEARED", t);
+}
+static void act_clear_loop(void)
+{
+    char t[8];
+    if (!songs.loop[app.loop].bars) {
+        loop_name_l(app.loop, t);
+        say(t, "IS EMPTY");
+    } else
+        ask_loop("CLEAR ", app.loop, do_clear_loop);
+}
+/* INSERT ROW, DELETE ROW: at the SONG screen's row; stopped only (the rows after the one playing would move) */
+static void act_row(int ins)
 {
     song_t *g = csong();
-    ui.job = 0;
-    if (ui.job_sel == 0) {
-        uint8_t mute = g->mute, tempo = g->tempo;
-        int8_t xp = g->transpose;
-        arr_edit(1);                             /* (the engine may be playing its rows) */
-        loops_song_clear(g);                     /* (its style kept) */
-        g->mute = mute;
-        g->tempo = tempo;
-        g->transpose = xp;
-        arr_edit(0);
-        app.row = 0;
-        song_touched();
-        say("CLEARED", "the song");
-    } else {
-        int to = ui.job_to % ARR_SONGS;
-        song_t *d = &songs.song[to];
-        uint16_t st[ARR_NSECT];
-        char a[16];
-        if (to == proj.song) {
-            say("COPY", "SAME SONG");
+    char t[12];
+    if (arr_playing) {
+        say(ins ? "INSERT ROW" : "DELETE ROW", "STOP FIRST");
+        return;
+    }
+    if (ins && g->nrows >= ARR_ROWS) {
+        say("SONG FULL", "32 ROWS");
+        return;
+    }
+    if (!ins && app.row >= g->nrows) {
+        say("DELETE ROW", "NO ROW HERE");
+        return;
+    }
+    itoa_u(app.row + 1u, cat_s(t, "ROW "));
+    songs_write(1);
+    if (ins)
+        row_insert(g, app.row > g->nrows ? g->nrows : app.row);
+    else
+        row_delete(g, app.row);
+    songs_write(0);
+    if (app.row >= ARR_ROWS || (!ins && app.row && app.row >= g->nrows))
+        app.row = (uint8_t)(g->nrows ? g->nrows - 1 : 0);
+    say(ins ? "INSERTED" : "DELETED", t);
+}
+/* CLEAR SONG: its rows and settings (its patterns, style, tempo, transpose and mutes kept, the loops too) */
+static void do_clear_song(void)
+{
+    song_t *g = csong();
+    uint8_t mute = g->mute, tempo = g->tempo;
+    int8_t xp = g->transpose;
+    songs_write(1);                              /* (the engine may be playing its rows) */
+    loops_song_clear(g);                         /* (its style kept) */
+    g->mute = mute;
+    g->tempo = tempo;
+    g->transpose = xp;
+    songs_write(0);
+    app.row = 0;
+    say("CLEARED", "the song");
+}
+static void act_clear_song(void)
+{
+    char q[16];
+    if (!csong()->nrows) {
+        do_clear_song();
+        return;
+    }
+    cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR SONG ")), "?");
+    ask(q, do_clear_song);
+}
+/* COPY SONG TO: the song (its rows, settings, styles) into another; its user patterns into ones of the target's */
+static void do_copy_song(void)
+{
+    song_t *g = csong();
+    int to = ui.pick_song % ARR_SONGS;
+    song_t *d = &songs.song[to];
+    uint16_t st[ARR_NSECT];
+    char a[16];
+    edits_flush();
+    if (copy_patterns_pick(to, st) != 0) {
+        say("NOT COPIED", "NO FREE PATTERN");
+        return;
+    }
+    for (int i = 0; i < ARR_NSECT; i++) {        /* the patterns' contents, as they play now; the song after */
+        if (st[i] >= ARR_USER_PATTERNS)
+            continue;
+        arr_pattern_copy(i, &scratch);
+        if (project_pattern_save(st[i], &scratch) != 0) {
+            say("FLASH ERROR", "song unchanged");
             return;
         }
-        if (arr_playing) {                       /* it writes patterns: a flash write pauses the audio */
+    }
+    songs_write(1);                              /* (not the song playing: no need, but every row write goes so) */
+    *d = *g;
+    memcpy(d->style, st, sizeof st);
+    songs_write(0);
+    itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "SONG ")), " > "));
+    say(a, "copied");
+}
+static void act_copy_song(void)
+{
+    int to = ui.pick_song % ARR_SONGS;
+    char q[20];
+    if (to == proj.song) {
+        say("COPY", "SAME SONG");
+        return;
+    }
+    if (arr_playing) {                           /* it writes patterns: a flash write pauses the audio */
+        say("COPY", "STOP FIRST");
+        return;
+    }
+    if (!songs.song[to].nrows) {
+        do_copy_song();
+        return;
+    }
+    cat_s(itoa_u((uint32_t)to + 1u, cat_s(q, "REPLACE SONG ")), "?");
+    ask(q, do_copy_song);
+}
+/* ERASE TRACK: the selected track's notes in the pattern playing (a style's section: a user pattern first) */
+static void do_erase_track(void)
+{
+    edits_flush();
+    slot_own(eslot());
+    arr_erase_track(proj.trk);
+    say("ERASED", TRACK_NAME[proj.trk]);
+}
+static void act_erase_track(void)
+{
+    char q[16];
+    arr_pattern_copy(eslot(), &scratch);
+    if (!scratch.trk[proj.trk].count) {
+        say(TRACK_NAME[proj.trk], "HAS NO NOTES");
+        return;
+    }
+    cat_s(cat_s(cat_s(q, "ERASE "), TRACK_NAME[proj.trk]), "?");
+    ask(q, do_erase_track);
+}
+/* CLEAR PATTERN: every note gone, its sounds kept */
+static void do_clear_pattern(void)
+{
+    int s = eslot();
+    edits_flush();
+    slot_own(s);
+    for (int tries = 0; tries < 8; tries++) {
+        uint16_t d = arr_pattern_copy(s, &scratch);
+        scratch.nev = 0;
+        for (int k = 0; k < ARR_TRACKS; k++)
+            scratch.trk[k].first = scratch.trk[k].count = 0;
+        if (arr_store_pattern(s, &scratch, d)) {
+            edited(s);
+            app.edit_pend &= (uint8_t)~(1u << s);
+            app.edited[s] = 1;
+            say("CLEARED", SECT_NAME[s + 1]);
+            return;
+        }
+    }
+    say("NOT CLEARED", "RECORDING");
+}
+static void act_clear_pattern(void)
+{
+    char q[24];
+    int s = eslot();
+    arr_pattern_copy(s, &scratch);
+    if (!scratch.nev) {
+        say(SECT_NAME[s + 1], "HAS NO NOTES");
+        return;
+    }
+    cat_s(cat_s(cat_s(q, "CLEAR "), SECT_NAME[s + 1]), "?");
+    upcase(q);
+    ask(q, do_clear_pattern);
+}
+/* BACK TO STYLE: the section plays the song's style again (its user pattern kept, saved first) */
+static void act_back_to_style(void)
+{
+    int s = eslot(), st = songs.song[proj.song].style[s], i = style_index(songs.song[proj.song].sty);
+    edits_flush();
+    if (st >= ARR_USER_PATTERNS)
+        say(SECT_NAME[s + 1], "plays the style");
+    else if (i >= 0) {
+        slot_style(s, style_number(i, s));       /* (saved first; refused while playing with changes unsaved) */
+        if (songs.song[proj.song].style[s] != st) {
+            char b[24];
+            style_name(songs.song[proj.song].style[s], b);
+            say("BACK TO", b);
+        }
+    }
+}
+static void action_run(int a)
+{
+    switch (a) {
+    case A_LOAD_PROG: act_load_progression(); break;
+    case A_CLEAR_LOOP: act_clear_loop(); break;
+    case A_INSERT_ROW: act_row(1); break;
+    case A_DELETE_ROW: act_row(0); break;
+    case A_CLEAR_SONG: act_clear_song(); break;
+    case A_COPY_SONG: act_copy_song(); break;
+    case A_ERASE_TRACK: act_erase_track(); break;
+    case A_CLEAR_PATTERN: act_clear_pattern(); break;
+    case A_BACK_TO_STYLE: act_back_to_style(); break;
+    default: break;
+    }
+    if (!ui.ask)                                 /* done (or said why not): back to the page */
+        lst.open = 0;
+}
+
+/* SAVE + white key n (principle 5): HOME, LOOP: the loop playing into Ln; SEQ: the pattern into P(n). Asks first
+ * when the target holds chords / notes */
+static void do_copy_loop(void)
+{
+    char a[8], b[20];
+    songs_write(1);
+    songs.loop[ui.copy_to % ARR_LOOPS] = songs.loop[ui.copy_src % ARR_LOOPS];
+    songs_write(0);
+    loop_name_l(ui.copy_src, a);
+    loop_name_l(ui.copy_to, cat_s(b, "COPIED TO "));
+    say(a, b);
+}
+static void do_copy_pattern(void)
+{
+    int s = eslot(), st = songs.song[proj.song].style[s], to = ui.copy_to % ARR_USER_PATTERNS;
+    uint16_t d;
+    char a[24], t[20];
+    pat_name(to, cat_s(t, "COPIED TO "));
+    edits_flush();
+    for (int j = 0; j < ARR_NSECT; j++)          /* another section plays it, changed: those changes first */
+        if (j != s && songs.song[proj.song].style[j] == to && slot_unsaved(j)) {
+            pat_name(to, a);
+            cat_s(a + 3, " UNSAVED IN");
+            say(a, SECT_NAME[j + 1]);
+            return;
+        }
+    d = arr_pattern_copy(s, &scratch);
+    if (project_pattern_save(to, &scratch) != 0) {
+        say("NOT COPIED", "FLASH ERROR");
+        return;
+    }
+    if (to == st) {                              /* into its own: saved */
+        app.saved[s] = d;
+        app.edited[s] = 0;
+    }
+    for (int j = 0; j < ARR_NSECT; j++)          /* the other slots playing that pattern get the copy */
+        if (j != s && songs.song[proj.song].style[j] == to) {
+            arr_load_pattern(j, &scratch);
+            slot_cache(j, &scratch);
+            app.saved[j] = arr_dirty[j];
+        }
+    style_name(st, a);
+    say(upcase(a), t);
+}
+static void copy_to(int n)
+{
+    char q[16];
+    ui.copy_to = (uint8_t)n;
+    if (list_loops()) {
+        int src = app.mode == ARR_SONG && arr_loop_now >= 0 && arr_loop_now < ARR_LOOPS ? arr_loop_now : app.loop;
+        ui.copy_src = (uint8_t)src;
+        if (n == src) {
+            loop_name_l(n, q);
+            say(q, "IS THIS LOOP");
+        } else if (songs.loop[n].bars)
+            ask_loop("REPLACE ", n, do_copy_loop);
+        else
+            do_copy_loop();
+    } else if (ui.page == P_PATTERN || ui.page == P_PATSET) {
+        if (arr_playing) {                       /* a flash write pauses the audio */
             say("COPY", "STOP FIRST");
             return;
         }
-        edits_flush();
-        if (copy_patterns_pick(to, st) != 0) {
-            say("NOT COPIED", "NO FREE PATTERN");
-            return;
-        }
-        for (int i = 0; i < ARR_NSECT; i++) {    /* the patterns' contents, as they play now; the song after */
-            if (st[i] >= ARR_USER_PATTERNS)
-                continue;
-            arr_pattern_copy(i, &scratch);
-            if (project_pattern_save(st[i], &scratch) != 0) {
-                say("FLASH ERROR", "song unchanged");
-                return;
-            }
-        }
-        *d = *g;
-        memcpy(d->style, st, sizeof st);
-        app.songs_dirty = 1;
-        app.chg++;
-        itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "SONG ")), " > "));
-        say(a, "copied");
-    }
+        if (n != songs.song[proj.song].style[eslot()] && !pattern_blank(n)) {
+            pat_name(n, cat_s(q, "REPLACE "));
+            cat_s(q + 11, "?");
+            ask(q, do_copy_pattern);
+        } else
+            do_copy_pattern();
+    } else
+        say("COPY", "ON HOME, LOOP, SEQ");
 }
 
 /* the record grid (Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
@@ -1156,15 +1361,6 @@ static void edit_knob(int k, int32_t e)
 }
 static void knob(int k, int32_t e)
 {
-    if (ui.job) {                                /* the jobs: KNOB 1 the job, KNOB 2 the copy's pattern / song */
-        int n = ui.job == 2 ? ARR_SONGS : ARR_USER_PATTERNS;
-        if (k == 0)
-            ui.job_sel = (uint8_t)clampi(ui.job_sel + (e > 0 ? 1 : -1), 0, ui.job == 2 ? 1 : 3);
-        else if (k == 1)
-            ui.job_to = (uint8_t)(((ui.job_to + accel(EN_K2, e)) % n + n) % n);
-        touch(k);
-        return;
-    }
     if (ui.page == P_HOME)
         home_knob(k, e);
     else if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
@@ -1206,6 +1402,108 @@ static void presets(int32_t e)
     }
 }
 
+/* ------------------------------------------------------------- lists --- */
+static void list_open(void)
+{
+    lst.open = 1;
+    lst.sel = lst.top = 0;
+    list_build();
+    if (!lst.n) {
+        lst.open = 0;
+        say("LIST", "NOTHING HERE");
+    }
+}
+/* SELECT in a list: d rows on (over the MORE heading), the rows shown following */
+static void list_move(int d)
+{
+    int s = lst.sel;
+    list_build();
+    while (d) {
+        int step = d > 0 ? 1 : -1, t = s + step;
+        while (t >= 0 && t < lst.n && lst.row[t].kind == LK_MORE)
+            t += step;
+        if (t < 0 || t >= lst.n)
+            break;
+        s = t;
+        d -= step;
+    }
+    lst.sel = (uint8_t)s;
+    if (lst.sel < lst.top)
+        lst.top = lst.sel;
+    if (lst.sel == lst.top && lst.top && lst.row[lst.top - 1].kind == LK_MORE)
+        lst.top--;                               /* the heading over its row */
+    if (lst.sel >= lst.top + LIST_SHOWN)
+        lst.top = (uint8_t)(lst.sel - LIST_SHOWN + 1);
+}
+/* ALGORITHM on a NAME row: the letter at the cursor (a loop's: through songs_write) */
+static void name_turn(int32_t e)
+{
+    char *nm = list_name();
+    int loop = ui.page == P_LOOP || ui.page == P_LOOP2, c = ui.name_cur & 7, i = 0;
+    const char *set = loop ? LOOP_CHARS : NAME_CHARS;
+    int n = loop ? NLOOP_CHARS : NNAME_CHARS;
+    if (!nm)
+        return;
+    while (i < n && set[i] != (nm[c] ? nm[c] : ' '))
+        i++;
+    i = ((i % n + e) % n + n) % n;
+    if (loop)
+        songs_write(1);
+    for (int j = 0; j < c; j++)                  /* (no end before the letter) */
+        if (!nm[j])
+            nm[j] = ' ';
+    nm[c] = set[i];
+    if (loop)
+        songs_write(0);
+    else
+        edited(pslot());
+}
+/* ALGORITHM in a list: the row's value (a knob's turn, on its page), the letter, the choice */
+static void list_change(int32_t e)
+{
+    int d = e > 0 ? 1 : -1;
+    list_build();
+    if (!lst.n)
+        return;
+    switch (lst.row[lst.sel].kind) {
+    case LK_KNOB: {
+        uint8_t keep = ui.page;
+        ui.page = (uint8_t)(lst.row[lst.sel].id >> 2);
+        knob(lst.row[lst.sel].id & 3, e);
+        ui.page = keep;
+        ui.touched = -1;
+        break;
+    }
+    case LK_NAME:
+        name_turn(e);
+        break;
+    case LK_PICK:
+        if (lst.row[lst.sel].id == A_LOAD_PROG)
+            ui.pick_prog = (uint8_t)((ui.pick_prog + d + NTEMPLATES) % NTEMPLATES);
+        else {                                   /* COPY SONG TO: another song */
+            int to = ui.pick_song;
+            do
+                to = (to + d + ARR_SONGS) % ARR_SONGS;
+            while (to == proj.song);
+            ui.pick_song = (uint8_t)to;
+        }
+        break;
+    default: break;
+    }
+}
+/* SEL in a list: an action runs; on NAME, the next letter */
+static void list_sel(void)
+{
+    list_build();
+    if (!lst.n)
+        return;
+    if (lst.row[lst.sel].kind == LK_NAME)
+        ui.name_cur = (uint8_t)((ui.name_cur + 1) & 7);
+    else if (lst.row[lst.sel].kind == LK_ACTION || lst.row[lst.sel].kind == LK_PICK) {
+        action_run(lst.row[lst.sel].id);
+    }
+}
+
 static void midi_in(void)
 {
     uint32_t pkt;
@@ -1243,21 +1541,28 @@ static void midi_in(void)
 static void input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
-    int32_t e;
+    int32_t e, ev[NE];
     ch = btn ^ ui.btn;
     ui.btn = btn;
     for (i = 0; i < NB; i++) {
         uint32_t m = 1u << i;
-        int hold = i == B_SEL || i == B_SAVE || i == B_OCTDN || i == B_OCTUP || i == B_HOME;
+        int hold = i != B_PLAY && i != B_REC;    /* (on release: unless a key, a knob, a card used it) */
         if (!(ch & m))
             continue;
         if (btn & m) {
+            ui.any_btn = 1;
+            ui.card = 0;                         /* another button: the card goes, the ones held are used */
+            ui.btn_used |= btn & ~m;
             ui.btn_used &= ~m;
             ui.btn_t[i] = plat_ms();
             if (!hold)
                 button_down((int)i);
-        } else if (hold && !(ui.btn_used & m))
-            button_up((int)i);
+        } else {
+            if (ui.card == i + 1u)
+                ui.card = 0;                     /* its card: gone, nothing else */
+            if (hold && !(ui.btn_used & m))
+                button_up((int)i);
+        }
     }
     if ((btn & (1u << B_OCTDN | 1u << B_OCTUP)) == (1u << B_OCTDN | 1u << B_OCTUP))
         ui.btn_used |= 1u << B_OCTDN | 1u << B_OCTUP;   /* both: update mode (main loop), not ours */
@@ -1266,29 +1571,40 @@ static void input(void)
     ui.keys = keys;
     for (i = 0; i < NKEYS; i++)
         if (ch >> i & 1u) {
-            if (keys >> i & 1u)
+            if (keys >> i & 1u) {
+                ui.card = 0;                     /* a key with a button held: the combination, no card */
+                ui.btn_used |= btn;
                 key_down((int)i);
-            else
+            } else
                 key_up((int)i);
         }
     midi_in();
-    if ((e = plat_enc(EN_SELECT)) != 0) {
-        if (ui.btn >> B_HOME & 1u) {             /* HOME held: the tempo */
-            ui.btn_used |= 1u << B_HOME;
+    for (i = 0; i < NE; i++)
+        if ((ev[i] = plat_enc((int)i)) != 0) {   /* a knob with a button held: the combination, no card */
+            ui.card = 0;
+            ui.btn_used |= btn;
+        }
+    if ((e = ev[EN_SELECT]) != 0) {
+        if (ui.btn >> B_HOME & 1u)               /* HOME held: the tempo */
             set_tempo(csong()->tempo + accel(EN_SELECT, e));
-        } else
+        else if (ui.ask)
+            ;                                    /* a question: SEL or HOME */
+        else if (lst.open)
+            list_move(e);                        /* a list: up and down */
+        else
             page_turn(e > 0 ? 1 : -1);
     }
-    if ((e = plat_enc(EN_ALGO)) != 0)
-        set_track(proj.trk + (e > 0 ? 1 : -1));
-    if ((e = plat_enc(EN_PRESET)) != 0)
+    if ((e = ev[EN_ALGO]) != 0) {
+        if (lst.open && !ui.ask)
+            list_change(e);                      /* a list: the value */
+        else
+            set_track(proj.trk + (e > 0 ? 1 : -1));
+    }
+    if ((e = ev[EN_PRESET]) != 0)
         presets(e);
     for (i = 0; i < 4; i++)
-        if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
-            if (ui.btn >> B_HOME & 1u)
-                ui.btn_used |= 1u << B_HOME;     /* HOME used with a knob: its release turns no page */
-            knob((int)i, e);
-        }
+        if ((e = ev[EN_K1 + i]) != 0)
+            knob((int)i, e);                     /* (HOME held: used, its release turns no page) */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
 }
@@ -1374,7 +1690,9 @@ void ui_frame(void)
     autosave();
     draw_header();
     draw_page();
+    draw_tag();
     draw_knobs();
+    draw_footer();
     leds();
     ui.frame++;
 }

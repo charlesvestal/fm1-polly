@@ -3,6 +3,7 @@
  * MIDI-in channels' program, volume, pan, reverb and chorus. Patterns and songs have their own objects.
  * Part of the unity build, after app.h. */
 #include "../dsp/loops.h"
+#include "../dsp/templates.h"                 /* LOAD PROGRESSION (the lists) */
 
 project_t proj;
 
