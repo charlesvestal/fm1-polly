@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Polly's arranger (arr.c): patterns of 8 tracks written over C M7, re-voiced by a chord track; songs of
- * sections and chords. This first part: the data, as it is stored. */
+/* Polly's arranger (arr.c): patterns of 8 tracks written over C M7, re-voiced by a chord track; chord
+ * loops, and songs of rows of them. This first part: the data, as it is stored. */
 #pragma once
 #include <stdint.h>
 #include "chords.h"
@@ -184,7 +184,7 @@ int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
  * plays); else as it was: Main A or B, a fill's Main (Fill AB: B, Fill BA: A), else Main A. */
 void arr_section(int sec);
 /* ---- the chord source. FREE: the keys' chords only (held: fingered). LOOP: a loop of the app's table goes
- * round, transposed; SONG: rows of a song (Task 3). The app's table and song stay put (they are the app's
+ * round, transposed; SONG: the rows of a song (arr_mode_song). The app's table and song stay put (they are the app's
  * songs_t): the render reads them on beat and bar lines. The app brackets every write into them with
  * arr_edit(1) / arr_edit(0); a beat line that finds them busy takes its chord at the first block after. */
 enum { ARR_FREE, ARR_LOOP, ARR_SONG };
@@ -194,6 +194,20 @@ void arr_mode_free(void);
 /* loop i (0..ARR_LOOPS-1, another ignored): stopped, from PLAY (MIDI Continue: from the bar it continues in);
  * playing, from the next bar line (its bars count from there). FREE: at once, the chord staying */
 void arr_mode_loop(int i);
+/* SONG: song *s (the app's; it stays put) plays its rows from row r: stopped, from PLAY (with its Intro when
+ * r is 0 and Intro is on; MIDI Continue: from the bar it continues in, the row's section from the next bar line);
+ * playing, from the next bar line (no Intro). Each row plays its loop rep times in its section (Main A or B),
+ * its tracks muted as the row says, its chords shifted by the transpose and the row's key. The section changes
+ * at the row's first downbeat (the same section plays on); a fill plays in a row's last bar when the next row's
+ * section differs, or the row asks for one (from Main B Fill BA, else Fill AB). A section, a fill or a mute set
+ * by hand lasts until the next row. The Intro holds the first row's first chord, its mutes the row's. After
+ * the last row: the Ending (on), held on the last chord, then the stop; else at_end again: row 0 (no Intro);
+ * else the stop. The engine snapshots the song's header and the rows it needs at each block's start, when not
+ * busy (arr_edit): an edit while it plays takes effect at the next block (a row's mutes and section: from its
+ * next start). Leaving SONG, the app sends its mutes again (arr_track_mute). */
+void arr_mode_song(const song_t *s, int r);
+extern volatile uint8_t arr_row, arr_rep;         /* the row playing, and its pass (0..rep-1) */
+extern volatile uint8_t arr_mutes;                /* the tracks muted now (rows and hand mutes), bit t track t */
 /* -6..+5: loops and songs (not the keys' chords). The chord sounding moves at once by the difference (a chord
  * from the keys stays; the Intro's and the Ending's held chord moves too); the next chords come transposed */
 void arr_set_transpose(int semis);
