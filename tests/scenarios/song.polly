@@ -162,15 +162,33 @@ shot song.png
 tapkey b1
 expect row_mute3 0
 expect black_dim 0
-# SAVE + a white key on SONG: no copy
-wait 1500
+# SAVE + a white key on SONG: a new row of that loop at the end, never a REPEAT (L10, as row 4: row 5, x1); on the END
+# row the black keys mute the row just added; then DELETE ROW (SEL's list, its row 10) takes it out again
 press SAVE
-tapkey w3
+tapkey w9
 release SAVE
 expect asking 0
-expect msg 0
+expect msg_is_NEW 1
+expect msg2_is_L10_CHORUS 1
+expect rows 5
+expect row_loop5 10
+expect row_rep5 1
+expect row_rep4 2
+expect row_sect5 2
+expect cursor 6
+expect tag_is_END_ROW 1
+tapkey b4
+expect row_mute5 16
+expect black_dim 16
+expect msg_is_C1 1
+spin K1 -1
+expect cursor 5
+tap SEL
+spin SELECT 10
+tap SEL
+expect rows 4
+expect msg_is_DELETED 1
 # row 4: page 2, KEY +2
-spin K1 1
 expect tag_is_ROW_4 1
 turn SELECT 1
 expect page 2
@@ -229,8 +247,11 @@ wait 14500
 expect sect 6
 wait 12000
 expect playing 0
+# the song ended by itself: SONG's cursor back on row 1
+expect cursor 1
+expect row_follow 1
 # ---- PLAY from a row: row 3, stopped
-spin K1 1
+spin K1 2
 expect cursor 3
 tap PLAY
 wait 300
@@ -339,3 +360,34 @@ expect page 0
 expect song_rec 0
 wait 50
 shot home_song.png
+# ---- SECTION on a row: the loop's other rows on the old Main follow (song 2: L9 Main B, L9 Main A, L10 Main A)
+tap HOME
+expect page 1
+spin K1 -9
+expect cursor 1
+spin K3 -2
+expect row_sect1 0
+expect row_sect2 0
+expect msg_is_L9 0
+spin K3 2
+expect row_sect1 2
+expect row_sect2 2
+expect row_sect3 0
+expect msgtext_is_L9_ROWS:_MAIN_B 1
+# a fill alone: that row only
+spin K1 1
+spin K3 1
+expect row_sect2 3
+expect row_sect1 2
+# ---- PLAY from row 1 (INTRO off): its row marked playing (the triangle, teal) from the start
+spin K1 -1
+expect cursor 1
+expect teal_7_41 0
+tap PLAY
+wait 300
+expect row 1
+expect teal_7_41 1
+wait 50
+shot song_row1_playing.png
+tap PLAY
+wait 100

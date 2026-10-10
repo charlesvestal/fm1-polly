@@ -65,7 +65,7 @@ spin SELECT 20
 tap SEL
 expect asking 0
 expect msg2_is_IS_EMPTY 1
-# LOAD PROGRESSION (one row up): ALGORITHM picks (the 2nd: Sensitive, from Am), SEL loads it into the empty L1, no question
+# LOAD PROGRESSION (one row up): ALGORITHM picks (the 2nd: Ballad, from Am), SEL loads it into the empty L1, no question
 tap SEL
 spin SELECT 20
 turn SELECT -1
@@ -100,13 +100,17 @@ release SAVE
 expect loop_bars9 4
 expect msg2_is_COPIED_TO_L9 1
 expect loop_ch9_0 916
-# SAVE + white key 3: L3 has chords, a question; HOME: no
+# SAVE + white key 3: L3 has chords, a question, the footer says how to answer at once (not the message before);
+# HOME pressed (held, before its release): no, and its release turns no page
 press SAVE
 tapkey w2
 release SAVE
 expect asking 1
-tap HOME
+expect footer_is_SEL:_YES|HOME:_NO 1
+press HOME
 expect asking 0
+wait 600
+release HOME
 expect page 0
 expect loop_bars3 4
 # SONG: INSERT ROW while playing: STOP FIRST; stopped: a row
@@ -186,7 +190,7 @@ release SAVE
 expect asking 1
 tap SEL
 expect msg2_is_COPIED_TO_P07 1
-# a loop question: PRESETS and HOME + PRESETS / a white key change nothing; SEL clears the loop asked about (L2)
+# a loop question: PRESETS changes nothing; SEL clears the loop asked about (L2)
 tap ARP
 expect page 4
 tap SEL
@@ -194,11 +198,8 @@ spin SELECT 20
 tap SEL
 expect asking 1
 turn PRESET 1
-press HOME
-tapkey w4
-turn PRESET 1
-release HOME
 expect asking 1
+expect app_loop 2
 expect song 1
 tap SEL
 expect asking 0
@@ -255,3 +256,20 @@ expect page 6
 # SAVE tapped alone: save
 tap SAVE
 expect dirty 0
+# a question, then HOME + a white key: HOME's press says no, the key is its shortcut (L10, MODE LOOP)
+tap HOME
+expect page 0
+press HOME
+tapkey w0
+release HOME
+press SAVE
+tapkey w2
+release SAVE
+expect asking 1
+press HOME
+tapkey w9
+release HOME
+expect asking 0
+expect app_loop 10
+expect mode 1
+expect page 0

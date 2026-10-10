@@ -179,3 +179,37 @@ expect tempo 111
 tap GLO
 spin K3 1
 expect lit_GLO 1
+# ---- a page button opens its first page; again (the page button pressed before it was itself), its next: ARP, ARP
+# page 2; ARP, then HOME + a key (a shortcut), then ARP: page 1, the LOOP screen of the loop picked
+tap ARP
+expect page 4
+tap ARP
+expect page 5
+tap ARP
+expect page 4
+press HOME
+tapkey w1
+release HOME
+expect msgtext_is_LOOP_L2_BALLAD 1
+tap ARP
+expect page 4
+expect app_loop 2
+# ---- REC acts on its release: held for its card (on HOME in FREE: "a new loop"), nothing starts
+tap HOME
+expect page 0
+spin K4 -2
+wait 50
+expect mode 0
+press REC
+wait 1100
+expect card 12
+expect take 0
+release REC
+expect take 0
+expect rec_chords 0
+# a tap: the take waits for PLAY at once; again: it ends (no chords, no loop)
+tap REC
+expect take 1
+tap REC
+expect take 0
+expect msgtext_is_NO_CHORDS_NO_NEW_LOOP 1

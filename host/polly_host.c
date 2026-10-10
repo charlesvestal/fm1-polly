@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
@@ -424,7 +425,7 @@ static int expect(const char *what, const char *val)
         for (i = 0; i < 23 && what[8 + i]; i++)
             w[i] = what[8 + i] == '_' ? ' ' : what[8 + i];
         w[i] = 0;
-        got = plat_ms() < ui.msg_until && !strncmp(ui.msg[1], w, strlen(w));
+        got = plat_ms() < ui.msg_until && !strncasecmp(ui.msg[1], w, strlen(w));   /* (messages are upper case) */
     } else if (!strncmp(what, "songtext_is_", 12)) {   /* songtext_is_WORDS: HOME's header style text ("_": a space) */
         char w[32], t[32];
         int i;
@@ -449,13 +450,30 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (%s: \"%s\")\n", f ? "footer" : "tag", t);
+    } else if (!strncmp(what, "teal_", 5)) {      /* teal_X_Y: the screen's pixel X, Y is K_TEAL (a mark drawn) */
+        int x = atoi(what + 5), y = strchr(what + 5, '_') ? atoi(strchr(what + 5, '_') + 1) : 0;
+        uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_TEAL;
+        got = p == t || p == (uint16_t)(t >> 8 | t << 8);
+    } else if (!strncmp(what, "msgtext_is_", 11)) {   /* msgtext_is_WORDS: the message, both parts, exactly ("_": a space) */
+        char w[64], t[64];
+        int i;
+        for (i = 0; i < 63 && what[11 + i]; i++)
+            w[i] = what[11 + i] == '_' ? ' ' : what[11 + i];
+        w[i] = 0;
+        snprintf(t, sizeof t, "%s%s%s", ui.msg[0], ui.msg[1][0] ? " " : "", ui.msg[1]);
+        got = plat_ms() < ui.msg_until && !strcmp(t, w);
+        if (!got)
+            printf("  (message: \"%s\")\n", t);
+    } else if (!strcmp(what, "home_chord_root") || !strcmp(what, "home_chord_type")) {   /* the big chord HOME shows */
+        chord_t c = arr_chord_unpack(home_chord());
+        got = what[11] == 'r' ? c.root : c.type;
     } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
         got = home_shown();
     else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
         int b = find_name(BTN_N, NB, what + 4);
         got = b >= 0 && (lit_btn >> b & 1u);
     } else if (!strncmp(what, "msg_is_", 7))      /* msg_is_WORD: the message showing starts with WORD (1 / 0) */
-        got = plat_ms() < ui.msg_until && !strncmp(ui.msg[0], what + 7, strlen(what + 7));
+        got = plat_ms() < ui.msg_until && !strncasecmp(ui.msg[0], what + 7, strlen(what + 7));
     else if (!strcmp(what, "msg"))                /* a message showing */
         got = plat_ms() < ui.msg_until;
     else if (!strcmp(what, "black_lit")) {        /* the black keys lit, bit i = black key i (b0..b10) */

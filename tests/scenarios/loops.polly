@@ -345,24 +345,25 @@ expect loop_beats10 4
 # name it
 spin K3 -8
 expect loop_name10 Verse
-# a 16-bar loop, the cursor (a bar a step) on bar 12: the grid scrolled to it
+# a 16-bar loop, the cursor (a bar a step: REC ended it on the start of the last bar written, 3.1) on bar 12: the grid
+# scrolled to it
 spin K1 13
 expect loop_bars10 16
 turn SELECT -1
 expect page 4
 expect cstep 2
-expect cbeat 11
+expect cbeat 8
 tap OCT+
-expect cbeat 15
-tap OCT+
-tap OCT+
+expect cbeat 12
 tap OCT+
 tap OCT+
 tap OCT+
 tap OCT+
 tap OCT+
 tap OCT+
-expect cbeat 47
+tap OCT+
+tap OCT+
+expect cbeat 44
 shot loop16.png
 # LENGTH shrinking past the cursor brings it back into the loop: a ROOT turn then writes there, not past the end
 turn SELECT 1
@@ -378,3 +379,127 @@ expect cbeat 3
 expect loop_ch10_3 100
 wait 100
 shot loop_clamp.png
+# ---- the songwriting pass: STEP's tag and grid, chords heard while stopped, REC's end, names, PRESETS, PLAY
+# STEP half: the tag says so (the cursor on 1.4); another loop (HOME + white 15, empty L15): STEP a bar again
+spin K4 -1
+expect cstep 1
+expect tag_is_L10|BAR_1.4|HALF 1
+press HOME
+tapkey w14
+release HOME
+expect app_loop 15
+expect cstep 2
+expect tag_is_L15|BAR_1.1 1
+# its default name: "L15" alone (not "L15 Loop 15"); messages in upper case
+expect msgtext_is_LOOP_L15 1
+# step writing 4 bars a bar a step: Am F Em G, each heard while its keys are held (C1's sound), silent after
+expect loop_bars15 0
+tap REC
+key 4 down
+key 7 down
+key 11 down
+wait 100
+expect voices >2
+key 4 up
+key 7 up
+key 11 up
+wait 1500
+expect voices 0
+key 0 down
+key 4 down
+key 7 down
+wait 50
+key 0 up
+key 4 up
+key 7 up
+wait 50
+key 11 down
+key 14 down
+key 18 down
+wait 50
+key 11 up
+key 14 up
+key 18 up
+wait 50
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+expect cbeat 16
+tap REC
+# REC ended at the loop's end: the cursor on the last bar's start (4.1), not its last beat
+expect cbeat 12
+# OCT-: a bar back (3.1); ROOT there changes that bar's chord (Em -> Ebm), nothing on its beat 4
+tap OCT-
+expect cbeat 8
+spin K1 -1
+expect loop_ch15_8 316
+expect loop_ch15_11 -1
+# off the grid (STEP beat: 3.2), then STEP half: OCT+ 3.3; STEP bar from 3.3: OCT- 3.1, again 2.1
+spin K4 -1
+spin K4 -1
+expect cstep 0
+tap OCT+
+expect cbeat 9
+spin K4 1
+tap OCT+
+expect cbeat 10
+spin K4 1
+expect cstep 2
+tap OCT-
+expect cbeat 8
+tap OCT-
+expect cbeat 4
+# HOME, stopped in LOOP: the big chord is the loop's first (Am, what PLAY starts on), not the last one written; a
+# chord held shows while held (coral), then the loop's first again
+tap HOME
+expect home_chord_root 9
+expect home_chord_type 16
+wait 50
+shot home_loop_stopped.png
+key 7 down
+key 11 down
+key 14 down
+wait 100
+expect home_chord_root 0
+shot home_loop_held.png
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect home_chord_root 9
+# HOME in FREE (MODE): a chord heard while held
+spin K4 -1
+wait 50
+expect mode 0
+key 4 down
+key 7 down
+key 11 down
+wait 100
+expect voices >2
+key 4 up
+key 7 up
+key 11 up
+# PRESETS on LOOP in FREE: its first detent the next loop (L16), MODE LOOP
+tap ARP
+expect page 4
+expect app_loop 15
+turn PRESET 1
+expect app_loop 16
+expect mode 1
+# PLAY in LOOP: Main A, not the style's Intro (that by HOME + black 1, or in SONG)
+press HOME
+tapkey w0
+release HOME
+tap PLAY
+wait 200
+expect sect 2
+tap PLAY
+wait 100
+# the factory loops' names: 8 characters at most, never cut
+expect loop_name2 Ballad
+expect loop_name7 Flamenco

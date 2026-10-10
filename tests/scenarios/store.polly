@@ -25,3 +25,48 @@ expect song2_style3 35
 expect song2_style2 127
 expect song2_style0 32
 expect song2_style5 37
+# ---- the song picked is kept at once: S1 -> S2 -> S1 (SONG page 3's SONG knob), off 2 s later: S1 again
+reboot
+expect song 1
+tap HOME
+turn SELECT 2
+expect page 3
+spin K4 1
+expect song 2
+spin K4 -1
+expect song 1
+wait 2000
+reboot
+expect song 1
+# S2 kept the same way (picked with HOME + PRESETS)
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+wait 500
+reboot
+expect song 2
+# ---- a style picked brings its tempo until the song's tempo is set by hand; then the style keeps it (saved too)
+spin K1 -9
+wait 50
+expect tempo 105
+spin K1 1
+expect tempo 100
+spin K2 3
+expect tempo 103
+spin K1 1
+expect tempo 103
+wait 5000
+reboot
+expect song 2
+expect tempo 103
+spin K1 -1
+expect tempo 103
+# another song's tempo, never set by hand, still follows its style
+press HOME
+turn PRESET -1
+release HOME
+expect song 1
+spin K1 -9
+spin K1 1
+expect tempo 100

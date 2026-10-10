@@ -145,6 +145,9 @@ static struct {
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
+    uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
+    uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
+    uint8_t prev_btn, last_btn;                      /* the page buttons pressed: the one before the last, the last (+ 1) */
 } ui;
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
@@ -456,11 +459,27 @@ static void draw_header(void)
     cv_blit(0, 0);
 }
 
-/* "L3 Verse": a loop's number and name (trailing spaces cut) */
+/* "L3 Verse": a loop's number and name (trailing spaces cut); "L9" alone while it has its own default name ("Loop 9":
+ * not "L9 Loop 9") */
+static int loop_name_default(const loop_t *l, int i)
+{
+    char d[8] = "Loop ";
+    if (i >= 9) {
+        d[5] = '1';
+        d[6] = (char)('0' + (i + 1) % 10);
+    } else
+        d[5] = (char)('1' + i);
+    for (int n = 0; n < 8; n++)
+        if (l->name[n] != d[n])
+            return 0;
+    return 1;
+}
 static char *loop_label(int i, char *t)
 {
     const loop_t *l = &songs.loop[i % ARR_LOOPS];
     char *e = itoa_u((uint32_t)(i % ARR_LOOPS) + 1u, cat_s(t, "L"));
+    if (loop_name_default(l, i % ARR_LOOPS))
+        return e;
     *e++ = ' ';
     for (int n = 0; n < 8 && l->name[n]; n++)
         *e++ = l->name[n];
@@ -580,6 +599,37 @@ static void home_strip(const place_t *pl, const loop_t *l, int intro, uint32_t *
     }
     *hp = h;
 }
+/* HOME's place: the engine's, as HOME shows it (stopped: the loop picked from its beat 0, and the chord PLAY starts on,
+ * unless chord keys are held: that chord while they are). 1: the chord is the source's (PLAY's), not one from the keys */
+static int home_place(place_t *pl)
+{
+    place_read(pl);
+    if (app.mode == ARR_SONG && !csong()->nrows)      /* a song with no rows: no loop (not the last song's) */
+        pl->loop = -1;
+    if (!arr_playing && app.mode == ARR_LOOP) {      /* stopped: the loop picked, from its beat 0 (PLAY starts it) */
+        pl->loop = app.loop % ARR_LOOPS;
+        pl->lbeat = 0;
+    }
+    if (!arr_playing && !ui.cheld && app.mode != ARR_FREE) {   /* stopped: the chord PLAY starts on (the loop's
+                                                      * first; in SONG row 1's, in its key), not the last one heard (PLAY
+                                                      * ends a chord from the keys in LOOP and SONG) */
+        const song_t *g = csong();
+        const loop_t *l0 = app.mode == ARR_LOOP ? &songs.loop[app.loop % ARR_LOOPS]
+                         : g->nrows ? &songs.loop[g->row[0].loop % ARR_LOOPS] : 0;
+        chord_t c0;
+        if (l0 && (c0 = loop_chord_at(l0, 0)).type != CH_NONE) {
+            pl->chord = arr_chord_pack(chord_shift(c0, g->transpose + (app.mode == ARR_SONG ? g->row[0].key : 0)));
+            return 1;
+        }
+    }
+    return 0;
+}
+static uint32_t home_chord(void)                     /* the big chord HOME shows, packed */
+{
+    place_t pl;
+    home_place(&pl);
+    return pl.chord;
+}
 static void draw_home(void)
 {
     uint32_t h, now = arr_ticks, lit = 0, i;
@@ -591,13 +641,8 @@ static void draw_home(void)
     chord_t nc;
     char t[32];
     const loop_t *l;
-    place_read(&pl);
-    if (app.mode == ARR_SONG && !csong()->nrows)      /* a song with no rows: no loop (not the last song's) */
-        pl.loop = -1;
-    if (!play && app.mode == ARR_LOOP) {             /* stopped: the loop picked, from its beat 0 (PLAY starts it) */
-        pl.loop = app.loop % ARR_LOOPS;
-        pl.lbeat = 0;
-    }
+    if (home_place(&pl))
+        ovr = 0;                                     /* (PLAY's chord: the source's colour) */
     l = pl.loop >= 0 ? &songs.loop[pl.loop] : 0;
     bt = l && l->beats ? l->beats : 4u;
     intro = l && play && sect == SEC_INTRO;          /* an Intro holds its chord: the loop starts after it */
@@ -650,7 +695,7 @@ static void draw_home(void)
     {   /* the chord now, big, in its box; the next one */
         cv_round(8, 22, 144, 33, 6, K_PANEL);
         if (fresh)
-            text_c(80, 30, &FONT_B, "Play a chord", K_DIM);
+            text_c(80, 30, &FONT_B, "Play a chord: 3 keys", K_DIM);
         else {
             chord_name(arr_chord_unpack(pl.chord), t);
             text_c(80, 22, &FONT_L, t, ovr ? K_ACCENT : K_TEAL);
@@ -817,8 +862,8 @@ static void draw_song(void)
         top = total - SG_SHOWN;
     if (top < 0)
         top = 0;
-    h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)(play + 1) << 16 |
-                              (uint32_t)n << 24);
+    h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
+    h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
     h = hash(h, (uint32_t)g->intro | (uint32_t)g->ending << 1 | (uint32_t)g->at_end << 2 | (uint32_t)ui.song_rec << 3);
     for (i = top; i < n && i < top + SG_SHOWN; i++) {
         const row_t *w = &g->row[i];
@@ -1423,7 +1468,12 @@ static void draw_home_held(void)
             loop_label(i, t);
             for (e = t; *e && *e != ' '; e++)
                 ;
-            text_fit(x + 28, y - 1, &FONT_XS, *e ? e + 1 : e, 80, K_TEXT);
+            if (*e)
+                text_fit(x + 28, y - 1, &FONT_XS, e + 1, 80, K_TEXT);
+            else {                                   /* its default name: its length instead ("2 bars") */
+                cat_s(itoa_u(l->bars, t), l->bars == 1 ? " bar" : " bars");
+                cv_text(x + 28, y - 1, &FONT_XS, t, K_DIM);
+            }
         } else
             cv_text(x + 28, y - 1, &FONT_XS, "-", K_LINE);
     }
@@ -1762,7 +1812,7 @@ static void page_tag(char *t)
             cat_s(t, n ? "END ROW" : "NO ROWS");
         break;
     }
-    case P_LOOP: case P_LOOP2: {                     /* the loop and where it is (or the cursor): "L3|BAR 2.3" */
+    case P_LOOP: case P_LOOP2: {                     /* the loop and where it is (or the cursor): "L3|BAR 2.3", the STEP */
         place_t pl;
         const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
         uint32_t bt = l->beats ? l->beats : 4u, b = 0;
@@ -1771,7 +1821,9 @@ static void page_tag(char *t)
         e = itoa_u(app.loop + 1u, cat_s(t, "L"));
         e = itoa_u(b / bt + 1u, cat_s(e, "|BAR "));
         *e++ = '.';
-        itoa_u(b % bt + 1u, e);
+        e = itoa_u(b % bt + 1u, e);
+        if (app.cstep < 2)                           /* STEP not a bar: say so ("L10|BAR 1.1|HALF") */
+            cat_s(e, app.cstep ? "|HALF" : "|BEAT");
         break;
     }
     case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2:
@@ -1928,6 +1980,7 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_ENV, PG_ANY, "Style", "The six sections' patterns. PRESETS: the next style.", 0},
     {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights; again: the panel.", 0},
     {B_SEL, PG_ANY, "Lists", "This page as a list, MORE, actions.", "SELECT moves, ALGORITHM changes, HOME goes back."},
+    {B_SAVE, PG_SONG, "Save", "Tap: save. Hold + a white key: a new row of that loop.", "Never a REPEAT: a row of its own."},
     {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
     {B_REC, PG(P_HOME) | PG(P_LOOP) | PG(P_LOOP2), "Write chords",
      "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop."},

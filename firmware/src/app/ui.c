@@ -4,7 +4,8 @@
  * simulator includes it too.
  *
  *   PLAY            start / stop (SONG: from the SONG screen's row, else row 1)
- *   REC             record into the selected track (SEQ, EDIT; its light: the engine's)
+ *   REC             on its release: what the keys play here (chords on HOME / LOOP, the track on SEQ / EDIT, rows on
+ *                   SONG); held for its card, nothing
  *   SEL tap         the screen as a list (SELECT moves, ALGORITHM changes, SEL does an action, HOME goes back);
  *                   a question: SEL yes, HOME no
  *   a button held alone 1 s: its help card (letting go does nothing)
@@ -14,12 +15,13 @@
  *     + SELECT            the song's tempo
  *     + PRESETS           the song (while playing: after the stop)
  *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE, 4 MODE (FREE / LOOP / SONG): the song's; again: SONG
+ *   (a page button: its first page; pressed again right after itself, its next)
  *   ARP LOOP (x2), SEQ Pattern (x2), EDIT Track (x2), LFO Mixer (x2), FX Master FX, ENV Style (x2), GLO Setup (x2);
  *   the tag's dots: which of a button's pages
  *   the keys        by the page (key_role): chords (HOME, LOOP), the selected track (SEQ, EDIT), the track (LFO's
  *                   black keys), nothing (FX, ENV, GLO)
  *   SAVE            saves (lit: something to save); held + white key n: copy here (HOME, LOOP: the loop to Ln; SEQ:
- *                   the pattern to P(n))                                  OCT- / OCT+   the keys' octave
+ *                   the pattern to P(n); SONG: a new row of Ln)            OCT- / OCT+   the keys' octave (LOOP: the cursor)
  *   SELECT          the button's next / previous page       ALGORITHM   the track       PRESETS   per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 
@@ -32,6 +34,9 @@ static void say(const char *a, const char *b)
     for (i = 0; i < 23u && b && b[i]; i++)
         ui.msg[1][i] = b[i];
     ui.msg[1][i] = 0;
+    upcase(ui.msg[0]);                           /* messages are upper case, whole (LOOP L1 POP), as the tags and the
+                                                  * footer; titles (the header's page, a loop's name on its screen) mixed */
+    upcase(ui.msg[1]);
     ui.msg_until = plat_ms() + 1300u;
     ui.msg_first = 0;
 #if defined(GM_HOST) && !defined(GM_WEB)        /* the simulator: a message the header cuts is a bug */
@@ -298,13 +303,14 @@ static int slot_own(int s)
  * else from row 1 at the next bar line). Leaving SONG, the song's FREE / LOOP mutes are all sent again (a row's
  * or a hand mute may be sounding) */
 static void chord_rec_stop(void);
-/* app.loop changes here only: another loop, its cursor at beat 0 and no chord entry carried over */
+/* app.loop changes here only: another loop, its cursor at beat 0, STEP a bar again, no chord entry carried over */
 static void app_loop_set(int i)
 {
     if (i == app.loop)
         return;
     app.loop = (uint8_t)(i % ARR_LOOPS);
     app.cbeat = 0;
+    app.cstep = 2;
     ui.centry = -1;
 }
 static void mode_set(int m)
@@ -477,6 +483,8 @@ static void songs_write(int on)
     if (!on)
         song_touched();
 }
+/* the song's tempo; by hand (KNOB 2, HOME + SELECT) it is the song's own from then on (SONG_F_TEMPO): a style picked
+ * after keeps it. A style picked before that brings its tempo (style_tempo_follow) */
 static void set_tempo(int bpm)
 {
     song_t *g = csong();
@@ -486,6 +494,18 @@ static void set_tempo(int bpm)
     g->tempo = (uint8_t)bpm;
     arr_set_tempo(bpm);
     song_touched();
+}
+static void set_tempo_hand(int bpm)
+{
+    song_t *g = csong();
+    if (!(g->flags & SONG_F_TEMPO) && clampi(bpm, 40, 240) != g->tempo)
+        g->flags |= SONG_F_TEMPO;
+    set_tempo(bpm);
+}
+static void style_tempo_follow(int i)
+{
+    if (!(csong()->flags & SONG_F_TEMPO))
+        set_tempo(style_tempo(i));
 }
 static void set_transpose(int x)
 {
@@ -527,17 +547,29 @@ static int step_beats(void)
     int bpb = l->beats ? l->beats : 4;
     return app.cstep == 0 ? 1 : app.cstep == 1 ? (bpb / 2 > 1 ? bpb / 2 : 1) : bpb;
 }
-/* the cursor d steps on. REC on: it may stand at the loop's end (a chord there makes the loop longer), and a step on
- * from the end skips: the loop grows to hold it, by bars of "no change" (LOOP FULL at the limit). REC off: round
- * the loop. Back past beat 0: the last step */
+/* the cursor d (1 / -1) steps on, on the STEP's grid of each bar (bar: its beat 1; half: beats 1 and 3 of 4; beat):
+ * off the grid (STEP changed, or REC stopped it on a beat), OCT- goes to the grid point before it and OCT+ to the one
+ * after it (4.4 with bar: OCT- 4.1; 3.2 with half: OCT+ 3.3). REC on: it may stand at the loop's end (a chord there
+ * makes the loop longer), and a step on from the end skips: the loop grows to hold it, by bars of "no change" (LOOP
+ * FULL at the limit). REC off: round the loop. Back past beat 0: the last bar's last grid point */
 static void cursor_move(int d)
 {
     loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
-    int len = loop_len(l), s = step_beats(), bpb = l->beats ? l->beats : 4, b = app.cbeat + d * s;
+    int len = loop_len(l), s = step_beats(), bpb = l->beats ? l->beats : 4;
+    int bar = app.cbeat / bpb, p = app.cbeat % bpb, b;
     char t[8];
+    if (d > 0) {
+        p = (p / s + 1) * s;
+        if (p >= bpb)
+            bar++, p = 0;
+    } else if (p % s)
+        p = p / s * s;
+    else if ((p -= s) < 0)
+        bar--, p = (bpb - 1) / s * s;
+    b = bar * bpb + p;
     if (d < 0) {
         if (b < 0)
-            b = len > 0 ? (len - 1) / s * s : 0;
+            b = len > 0 ? (len - 1) / bpb * bpb + (bpb - 1) / s * s : 0;
     } else if (!ui.rec_chords)
         b = len > 0 ? b % len : 0;
     else if (b >= loop_max_bars(bpb) * bpb) {
@@ -685,7 +717,14 @@ static void loop_rec_toggle(void)
     ui.rec_chords = (uint8_t)!ui.rec_chords;
     ui.centry = -1;
     ui.clifted = 0;
-    cursor_clamp();                              /* (off: back from the end onto the loop's last beat) */
+    if (!ui.rec_chords) {                        /* off at the loop's end: the start of the last bar written (a knob
+                                                  * there changes that bar's chord, OCT- walks back by bars) */
+        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        int len = loop_len(l), bpb = l->beats ? l->beats : 4;
+        if (len > 0 && app.cbeat >= len)
+            app.cbeat = (uint8_t)((len - 1) / bpb * bpb);
+    }
+    cursor_clamp();                              /* (an empty loop: beat 0) */
     if (!ui.rec_chords) {
         say("WRITE OFF", 0);
         return;
@@ -843,7 +882,30 @@ static int key_role(void)
         return KR_PICK;
     return song_page() ? KR_PICK : KR_NONE;
 }
+/* stopped, a chord played on the keys sounds while they are held (step writing is not blind): each key on C1's
+ * channel with C1's sound (the section's), ending at its release. Playing, the band plays the chord */
+#define SOUND_TRK 4                              /* C1 */
+static void chord_sound(int k, int on)
+{
+    const arr_trk_t *t = &app.trk[eslot()][SOUND_TRK];
+    uint32_t ch = t->chan & 15u;
+    if (on) {
+        if (arr_playing || ch == 9u || (ui.ksound >> k & 1u))
+            return;
+        if (!ui.ksound) {                        /* (the first key: C1's sound, as the band would play it) */
+            gm_midi(0xC0u | ch, t->program & 127u, 0);
+            gm_midi(0xB0u | ch, 7, t->vol & 127u);
+        }
+        ui.ksound |= 1u << k;
+        ui.ksound_ch[k] = (uint8_t)ch;
+        gm_midi(0x90u | ch, ui.knote[k], 90);
+    } else if (ui.ksound >> k & 1u) {
+        ui.ksound &= ~(1u << k);
+        gm_midi(0x80u | ui.ksound_ch[k], ui.knote[k], 0);
+    }
+}
 static void song_key(int k);
+static void song_add_row(int w);
 static void key_down(int k)
 {
     int r = key_role(), b = ordinal(BLACK_K, 11, k);
@@ -858,10 +920,13 @@ static void key_down(int k)
         home_key(k);
     } else if (ui.btn >> B_SAVE & 1u) {          /* SAVE held + a white key: copy here (no save on its release) */
         ui.btn_used |= 1u << B_SAVE;
-        if (ordinal(WHITE_K, 16, k) >= 0 && !song_page())
-            copy_to(ordinal(WHITE_K, 16, k));    /* (SONG: nothing to copy, nothing happens) */
+        if (ordinal(WHITE_K, 16, k) >= 0 && song_page())
+            song_add_row(ordinal(WHITE_K, 16, k));   /* SONG: a separate new row of that loop */
+        else if (ordinal(WHITE_K, 16, k) >= 0)
+            copy_to(ordinal(WHITE_K, 16, k));
     } else if (r == KR_CHORDS) {
         ui.kmode[k] = KM_CHORD;
+        chord_sound(k, 1);
         chord_keys();
     } else if (r == KR_TRACK) {
         ui.kmode[k] = KM_PLAY;
@@ -879,6 +944,7 @@ static void key_up(int k)
         arr_key(ui.knote[k], 0, 0);
     else if (m == KM_CHORD)
         chord_keys();
+    chord_sound(k, 0);
 }
 /* REC where the keys play chords (HOME, LOOP): a take running ends; in FREE on HOME a new loop's take starts; else
  * chords are written into the loop. In SONG, first MODE LOOP on the row's loop ("SONG PAUSED", MODE SONG goes back);
@@ -932,7 +998,8 @@ static void rec_follow_keys(void)
 
 /* ---- SONG (HOME twice): the song's rows. White key n: the row at the cursor plays Ln (row_tap: after the last row a
  * row is added; the last row's loop again: its REPEAT + 1, the cursor stays), the cursor to the row after; black
- * keys 1-8: the row's mutes (D1 D2 PC BA C1 C2 C3 C4; the row playing: heard at once). Every write to the rows
+ * keys 1-8: the row's mutes (D1 D2 PC BA C1 C2 C3 C4; the row playing: heard at once; on the END row: the last row's,
+ * the one just added). SAVE + white key n: a new row of Ln at the end, never a REPEAT (song_add_row). Every write to the rows
  * goes through songs_write (the render reads them at each block's start). Rows are only set or added here, never
  * moved (INSERT / DELETE ROW: stopped only), so the row playing keeps its index */
 static void song_tap(int w)
@@ -951,6 +1018,26 @@ static void song_tap(int w)
     if (!bump)
         app.row = (uint8_t)(r + 1 <= g->nrows ? r + 1 : g->nrows);
 }
+/* SAVE + white key w on SONG (principle 5 there: "copy here" is a row of its own): a new row of Lw at the end, never
+ * the last row's REPEAT + 1 (two rows of a loop, each its mutes and key); the cursor to the END row after it */
+static void song_add_row(int w)
+{
+    song_t *g = csong();
+    int r;
+    char a[16], t[16];
+    songs_write(1);
+    r = row_append(g, w);
+    songs_write(0);
+    if (r < 0) {
+        say("SONG FULL", "32 ROWS");
+        return;
+    }
+    ui.row_follow = 0;
+    app.row = g->nrows;
+    itoa_u((uint32_t)r + 1u, cat_s(a, "NEW ROW "));
+    loop_label(w, t);
+    say(a, t);
+}
 /* the row the mutes and sections REC writes go to: playing (rows started), the one playing; else the cursor's */
 static int song_rec_row(void)
 {
@@ -966,10 +1053,12 @@ static void song_key(int k)
     }
     if (b < 0 || b >= ARR_TRACKS)
         return;                                  /* black keys 9-11: nothing */
-    if (r >= g->nrows) {
-        say("END ROW", "NO MUTES");
+    if (!g->nrows) {
+        say("NO ROWS", "WHITE KEYS FIRST");
         return;
     }
+    if (r >= g->nrows)
+        r = g->nrows - 1;                        /* the END row: the last row (the one just added) */
     songs_write(1);
     g->row[r].mute ^= (uint8_t)(1u << b);
     songs_write(0);
@@ -1100,23 +1189,31 @@ static void song_knob(int k, int32_t e)
         w->key = (int8_t)to;
     else if (k == 1)
         w->loop = (uint8_t)to;
-    else if (k == 2)
-        w->sect = (uint8_t)to;
-    else
+    else if (k == 2 && row_set_sect(g, app.row, to)) {   /* the loop's other rows on the old Main follow */
+        char a[16];
+        songs_write(0);
+        cat_s(loop_name_l(w->loop % ARR_LOOPS, a), " ROWS:");
+        say(a, row_main(w) == SEC_B ? "MAIN B" : "MAIN A");
+        return;
+    } else if (k == 3)
         w->rep = (uint8_t)to;
     songs_write(0);
 }
 
-/* the page buttons (PAGE_BTN, pages.c): pressed again, the next page; SELECT turns them both ways */
+/* the page buttons (PAGE_BTN, pages.c): its first page; pressed again (the page button pressed before it was itself:
+ * ARP, REC, ARP), the next page. After another page button (ARP, then HOME + a key, then ARP) its first page again:
+ * a button opens its screen, it never moves on unasked. SELECT turns the pages both ways */
 static int page_button(int b)
 {
     for (uint32_t i = 0; i < NPAGE_BTN; i++)
         if (PAGE_BTN[i].btn == b) {
-            int f = PAGE_BTN[i].first, n = PAGE_BTN[i].n;
+            int f = PAGE_BTN[i].first, n = PAGE_BTN[i].n, on = ui.page >= f && ui.page < f + n;
             if (b == B_HOME)                     /* HOME -> SONG (its pages one stop) -> HOME */
                 ui.page = (uint8_t)(ui.page == P_HOME ? P_SONG : P_HOME);
+            else if (on && ui.prev_btn == b + 1)
+                ui.page = (uint8_t)(f + (ui.page - f + 1) % n);
             else
-                ui.page = (uint8_t)(ui.page >= f && ui.page < f + n ? f + (ui.page - f + 1) % n : f);
+                ui.page = (uint8_t)f;
             ui.touched = -1;
             return 1;
         }
@@ -1139,7 +1236,7 @@ static void pat_name(int st, char *t)            /* "P05" */
 }
 
 static void song_rec_toggle(void);
-static void button_down(int b)                   /* PLAY, REC: at once */
+static void button_down(int b)                   /* PLAY: at once; REC: at its release (button_up) */
 {
     switch (b) {
     case B_PLAY:
@@ -1207,6 +1304,9 @@ static void button_up(int b)                     /* a tap: released before it wa
         return;
     }
     switch (b) {
+    case B_REC:                                  /* (on release, at once: holding it shows its card, starts nothing) */
+        button_down(B_REC);
+        break;
     case B_SEL:                                  /* a question: yes; a list: its row; else the list */
         if (ui.ask)
             ask_end(1);
@@ -1282,6 +1382,8 @@ static void song_change(int s)
     app.row = 0;
     song_load();
     mark_dirty();
+    save_all();                                  /* the song picked, kept now: a power-off comes back on it (stopped:
+                                                  * the save before already paused nothing that plays) */
     itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
     say(t, 0);
 }
@@ -1326,8 +1428,8 @@ static void slot_style(int s, int to)
                 slot_load(j, songs.song[proj.song].style[j]);
     song_style_derive(&songs.song[proj.song]);   /* the song's style: its sections' (Main A's first) */
     a = songs.song[proj.song].style[SEC_A - 1];
-    if (a != main_a && style_index(a) >= 0 && !songs.song[proj.song].nrows)   /* a style for a new song: its tempo */
-        set_tempo(style_tempo(style_index(a)));
+    if (a != main_a && style_index(a) >= 0)      /* another style: its tempo, unless the song's was set by hand */
+        style_tempo_follow(style_index(a));
     style_name(to, t);
     say(SECT_NAME[s + 1], t);
 }
@@ -1381,8 +1483,7 @@ static void style_all(int n)
     app.songs_dirty = 1;
     app.chg++;
     app.gen++;
-    if (!g->nrows)                               /* a style for a new song: its tempo */
-        set_tempo(style_tempo(n));
+    style_tempo_follow(n);                       /* its tempo, unless the song's was set by hand */
     say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
 }
 /* another song, d on (PRESETS with HOME held); while playing it waits for the stop (a
@@ -1536,6 +1637,7 @@ static void ask(const char *q, void (*yes)(void))
     ui.ask_q[i] = 0;
     ui.ask = 1;
     ui.ask_yes = yes;
+    ui.msg_until = plat_ms();                    /* the footer says SEL: YES, HOME: NO at once (not a message before) */
 }
 static void ask_end(int yes)
 {
@@ -1631,12 +1733,13 @@ static void act_row(int ins)
 static void do_clear_song(void)
 {
     song_t *g = csong();
-    uint8_t mute = g->mute, tempo = g->tempo;
+    uint8_t mute = g->mute, tempo = g->tempo, fl = g->flags;
     int8_t xp = g->transpose;
     songs_write(1);                              /* (the engine may be playing its rows) */
     loops_song_clear(g);                         /* (its style kept) */
     g->mute = mute;
     g->tempo = tempo;
+    g->flags = fl;                               /* (a tempo set by hand stays the song's) */
     g->transpose = xp;
     songs_write(0);
     app.row = 0;
@@ -1898,7 +2001,7 @@ static void home_knob(int k, int32_t e)
     song_t *g = csong();
     switch (k) {
     case 0: style_turn(accel(EN_K1, e)); break;
-    case 1: set_tempo(g->tempo + accel(EN_K2, e)); break;
+    case 1: set_tempo_hand(g->tempo + accel(EN_K2, e)); break;
     case 2: set_transpose(g->transpose + e); break;   /* (no acceleration: 12 steps) */
     case 3: {
         int m = clampi(app.mode + e, ARR_FREE, ARR_SONG);
@@ -2046,7 +2149,10 @@ static void presets(int32_t e)
         ui.btn_used |= 1u << B_HOME;
         song_pick(d);
     } else if (ui.page == P_HOME || ui.page == P_LOOP || ui.page == P_LOOP2) {   /* the next loop (MODE LOOP) */
-        int n = app.mode == ARR_LOOP ? clampi(app.loop + d, 0, ARR_LOOPS - 1) : app.loop;
+        /* (the loop the screen shows: LOOP always, HOME in LOOP; the next one is the first detent's. HOME in FREE or
+         * SONG shows none: the one last picked first) */
+        int shown = app.mode == ARR_LOOP || (app.mode == ARR_FREE && ui.page != P_HOME);
+        int n = shown ? clampi(app.loop + d, 0, ARR_LOOPS - 1) : app.loop;
         if (app.mode != ARR_LOOP || n != app.loop)
             loop_pick(n);
     } else if (song_page()) {                    /* the next row (the END row after the last) */
@@ -2212,7 +2318,8 @@ static void input(void)
     ui.btn = btn;
     for (i = 0; i < NB; i++) {
         uint32_t m = 1u << i;
-        int hold = i != B_PLAY && i != B_REC;    /* (on release: unless a key, a knob, a card used it) */
+        int hold = i != B_PLAY;                  /* (on release: unless a key, a knob, a card used it; REC too, so
+                                                  * holding it for its card starts nothing) */
         if (!(ch & m))
             continue;
         if (btn & m) {
@@ -2221,6 +2328,16 @@ static void input(void)
             ui.btn_used |= btn & ~m;
             ui.btn_used &= ~m;
             ui.btn_t[i] = plat_ms();
+            for (uint32_t g = 0; g < NPAGE_BTN; g++)   /* the page buttons pressed (HOME's shortcuts too) */
+                if (PAGE_BTN[g].btn == i) {
+                    ui.prev_btn = ui.last_btn;
+                    ui.last_btn = (uint8_t)(i + 1u);
+                }
+            if (i == B_HOME && ui.ask) {         /* a question: HOME pressed, held or not, is no (its release: nothing) */
+                ask_end(0);
+                ui.btn_used |= m;
+                continue;
+            }
             if (!hold)
                 button_down((int)i);
         } else {
@@ -2256,7 +2373,7 @@ static void input(void)
         return;
     if ((e = ev[EN_SELECT]) != 0) {
         if (ui.btn >> B_HOME & 1u)               /* HOME held: the tempo */
-            set_tempo(csong()->tempo + accel(EN_SELECT, e));
+            set_tempo_hand(csong()->tempo + accel(EN_SELECT, e));
         else if (lst.open)
             list_move(e);                        /* a list: up and down */
         else
@@ -2301,10 +2418,12 @@ static void leds(void)
         const song_t *g = csong();
         if (proj.leds)
             k = ui.keys;
-        if (song_page() && app.row < g->nrows)   /* SONG: the row's muted tracks' black keys glow dim */
+        if (song_page() && g->nrows) {           /* SONG: the row's muted tracks' black keys glow dim (END: the last's) */
+            const row_t *w = &g->row[app.row < g->nrows ? app.row : g->nrows - 1];
             for (i = 0; i < ARR_TRACKS; i++)
-                if (g->row[app.row].mute >> i & 1u)
+                if (w->mute >> i & 1u)
                     dim |= 1u << BLACK_K[i];
+        }
     }
     plat_glow(proj.leds == 1);
     plat_keys_dim(dim & ~k);
@@ -2353,6 +2472,10 @@ void ui_frame(void)
         }
     }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
+    if (ui.stopped == 1u && arr_ended && app.mode == ARR_SONG) {
+        app.row = 0;                             /* the song ended by itself: SONG's cursor back on row 1 (PLAY there: */
+        ui.row_follow = 1;                       /* the song again); a stop by PLAY leaves it where it stopped */
+    }
     if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     rec_follow_keys();
