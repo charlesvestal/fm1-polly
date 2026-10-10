@@ -55,14 +55,58 @@ static void test_old_format(void)
 static void test_clamp(void)
 {
     static songs_t s;
+    char name3[8], name4[8];
+    chord_t bad = {15, CH_MAJ, CH_NOBASS};              /* root 15: invalid */
+
     project_songs_load(&s);
-    s.loop[2].bars = 20;
+    s.loop[1].bars = 20;                                /* too many bars for its beats: cleared */
+    s.loop[2].beats = 9;                                /* out of 2..7: cleared */
+    memcpy(name4, s.loop[3].name, 8);                    /* untouched by either clear: kept for comparison */
+    s.loop[4].ch[0] = lc_pack(bad);                      /* a chord this firmware can't play: that beat only */
+    uint16_t kept4 = s.loop[4].ch[4];
+
     s.song[1].nrows = 40;
-    s.song[1].row[0].rep = 0;
     s.song[1].row[0].loop = 30;
+    s.song[1].row[0].rep = 0;
+    s.song[1].row[0].sect = 7;
+    s.song[1].row[1].key = 9;
+    s.song[1].row[2].key = -7;
+    s.song[1].tempo = 250;
+    s.song[1].transpose = 8;
+
+    s.song[2].style[2] = 9999;
+    s.song[2].sty = 9999;
+
+    s.song[3].intro = 5;
+    s.song[3].ending = 0;
+    s.song[3].at_end = 3;
+
     project_songs_save(&s);
     project_songs_load(&s);
-    CHECK(s.loop[2].bars == 0 && s.song[1].nrows == 32 && s.song[1].row[0].rep == 1 && s.song[1].row[0].loop == 0, "clamped");
+
+    memcpy(name3, s.loop[1].name, 8);
+    CHECK(s.loop[1].bars == 0 && strncmp(name3, "Loop 2", 8) == 0, "bars too big for its beats: that loop cleared");
+    memcpy(name3, s.loop[2].name, 8);
+    CHECK(s.loop[2].bars == 0 && strncmp(name3, "Loop 3", 8) == 0, "beats out of 2..7: that loop cleared");
+    CHECK(memcmp(s.loop[3].name, name4, 8) == 0 && s.loop[3].bars != 0, "another loop untouched");
+    CHECK(s.loop[4].ch[0] == LC_SAME, "a chord this firmware can't play: that beat set to no change");
+    CHECK(s.loop[4].ch[4] == kept4, "the loop's other chords kept");
+
+    CHECK(s.song[1].nrows == 32, "nrows clamped to ARR_ROWS");
+    CHECK(s.song[1].row[0].loop == 0, "a row's loop >= ARR_LOOPS clamped");
+    CHECK(s.song[1].row[0].rep == 1, "a row's rep < 1 clamped");
+    CHECK(s.song[1].row[0].sect == ROW_A, "a row's sect >= ROW_NSECT clamped to ROW_A");
+    CHECK(s.song[1].row[1].key == 0, "a row's key > 5 clamped");
+    CHECK(s.song[1].row[2].key == 0, "a row's key < -6 clamped");
+    CHECK(s.song[1].tempo == 120, "tempo out of 40..240 defaulted");
+    CHECK(s.song[1].transpose == 0, "transpose out of -6..5 defaulted");
+
+    CHECK(song_style_valid(s.song[2].style[2]), "a bad style[k] repaired to a pattern this firmware has");
+    CHECK(song_style_base(s.song[2].sty) == s.song[2].sty, "a bad sty repaired to a valid base");
+
+    CHECK(s.song[3].intro == 1, "intro forced to 0/1");
+    CHECK(s.song[3].ending == 0, "ending forced to 0/1 (already 0)");
+    CHECK(s.song[3].at_end == 1, "at_end forced to 0/1");
 }
 int main(void)
 {

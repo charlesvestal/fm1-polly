@@ -2,7 +2,6 @@
 /* Polly's project: one flash object (OBJ_PROJ): the keys' octave, the track, tempo, key and grid, and the
  * MIDI-in channels' program, volume, pan, reverb and chorus. Patterns and songs have their own objects.
  * Part of the unity build, after app.h. */
-#include <stddef.h>
 #include "../dsp/loops.h"
 
 project_t proj;
@@ -146,8 +145,8 @@ int project_pattern_save(int i, const pattern_t *p)
     return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
 }
 
-/* an empty song: no rows yet, Intro and Ending on, 120 BPM, on the first factory style (its six sections). A
- * section gets a user pattern of its own when it is first recorded into or edited (ui.c, slot_own) */
+/* an empty song: no rows yet, Intro and Ending on, at the first factory style's tempo, on that style (its six
+ * sections). A section gets a user pattern of its own when it is first recorded into or edited (ui.c, slot_own) */
 void song_default(song_t *g, int n)
 {
     (void)n;
@@ -201,7 +200,8 @@ void song_style_derive(song_t *g)
 
 /* a stored object of another format (or none, or damaged): the defaults (16 loops and songs of rows are new
  * in format 6; Polly is unreleased, so no migration). Else every value that indexes or sizes something kept
- * in range: a loop with beats or bars out of bounds cleared; a song's tempo and transpose defaulted; its
+ * in range: a loop with beats or bars out of bounds cleared (else its chords, each a chord this firmware can
+ * play, else no change); a song's style, tempo and transpose defaulted, intro/ending/at_end forced to 0/1; its
  * rows' loop, sect, rep and key clamped, and nrows at most ARR_ROWS. */
 int project_songs_load(songs_t *s)
 {
@@ -212,8 +212,15 @@ int project_songs_load(songs_t *s)
     }
     for (int i = 0; i < ARR_LOOPS; i++) {
         loop_t *l = &s->loop[i];
-        if (l->beats < 2u || l->beats > 7u || l->bars > loop_max_bars(l->beats))
+        if (l->beats < 2u || l->beats > 7u || l->bars > loop_max_bars(l->beats)) {
             loop_clear(l, i);
+            continue;
+        }
+        for (int b = 0; b < ARR_LOOP_BEATS; b++) {   /* a chord this firmware can't play: no change */
+            chord_t c = lc_unpack(l->ch[b]);
+            if (l->ch[b] != LC_SAME && (c.root > 11u || c.type >= CH_NTYPES))
+                l->ch[b] = LC_SAME;
+        }
     }
     for (int i = 0; i < ARR_SONGS; i++) {
         song_t *g = &s->song[i];
@@ -223,6 +230,9 @@ int project_songs_load(songs_t *s)
         if (song_style_base(g->sty) != g->sty)       /* a style this firmware lacks: from the sections, else the first */
             g->sty = ARR_FACTORY0;
         song_style_derive(g);
+        g->intro = g->intro != 0;
+        g->ending = g->ending != 0;
+        g->at_end = g->at_end != 0;
         if (g->nrows > ARR_ROWS)
             g->nrows = ARR_ROWS;
         if (g->tempo < 40u || g->tempo > 240u)
