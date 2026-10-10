@@ -133,8 +133,32 @@ void row_insert(song_t *g, int r)              /* (no memmove in the firmware: b
         return;
     for (int k = g->nrows; k > r; k--)
         g->row[k] = g->row[k - 1];
-    g->row[r] = r > 0 ? g->row[r - 1] : row_new(g, 0, 0);
+    g->row[r] = r < g->nrows ? g->row[r + 1] : r > 0 ? g->row[r - 1] : row_new(g, 0, 0);
     g->nrows++;
+}
+int row_append(song_t *g, int loop)
+{
+    if (g->nrows >= ARR_ROWS || loop < 0 || loop >= ARR_LOOPS)
+        return -1;
+    g->row[g->nrows] = row_new(g, g->nrows, loop);
+    return g->nrows++;
+}
+int row_set_sect(song_t *g, int r, int sect)
+{
+    int was, now, n = 0;
+    if (r < 0 || r >= g->nrows || sect < 0 || sect >= ROW_NSECT)
+        return 0;
+    was = row_main(&g->row[r]);
+    g->row[r].sect = (uint8_t)sect;
+    now = row_main(&g->row[r]);
+    if (now == was)
+        return 0;
+    for (int k = 0; k < g->nrows; k++)          /* the loop's other rows on the old Main: the new one, fills kept */
+        if (k != r && g->row[k].loop == g->row[r].loop && row_main(&g->row[k]) == was) {
+            g->row[k].sect = (uint8_t)((now == SEC_B ? ROW_B : ROW_A) + row_fill(&g->row[k]));
+            n++;
+        }
+    return n;
 }
 void row_delete(song_t *g, int r)
 {

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Chord templates: 16 progressions in C, a chord a bar (beats: 4 a bar; 3 for the waltz). */
+/* Chord templates: 16 progressions in C, a chord a bar (beats: 4 a bar; 3 for the waltz). Their names are a loop's:
+ * 8 characters at most (Ballad: vi-IV-I-V, the "sensitive" one; Flamenco: the Andalusian cadence; Mixo: Mixolydian) */
 #include "templates.h"
 #define C_(r, t) {r, t, CH_NOBASS}
 static const chord_t T_POP[] = {C_(0, CH_MAJ), C_(7, CH_MAJ), C_(9, CH_MIN), C_(5, CH_MAJ)};       /* I-V-vi-IV */
@@ -23,9 +24,9 @@ static const chord_t T_VAMP[] = {C_(2, CH_MIN7), C_(7, CH_7)};                  
 static const chord_t T_GOSPEL[] = {C_(5, CH_MAJ), C_(0, CH_MAJ), C_(5, CH_MAJ), C_(0, CH_MAJ)};     /* IV-I */
 static const chord_t T_WALTZ[] = {C_(0, CH_MAJ), C_(0, CH_MAJ), C_(7, CH_7), C_(0, CH_MAJ)};
 const template_t TEMPLATES[NTEMPLATES] = {
-    {"Pop", T_POP, 4, 4}, {"Sensitive", T_SENS, 4, 4}, {"Fifties", T_50S, 4, 4}, {"ii-V-I", T_251, 4, 4},
-    {"Blues", T_BLUES, 12, 4}, {"Minor blues", T_MBLUES, 12, 4}, {"One-four", T_ONEFOUR, 2, 4},
-    {"Minor", T_MINOR, 4, 4}, {"Canon", T_CANON, 8, 4}, {"Andalusian", T_ANDAL, 4, 4}, {"Mixolydian", T_MIXO, 4, 4},
+    {"Pop", T_POP, 4, 4}, {"Ballad", T_SENS, 4, 4}, {"Fifties", T_50S, 4, 4}, {"ii-V-I", T_251, 4, 4},
+    {"Blues", T_BLUES, 12, 4}, {"MinBlues", T_MBLUES, 12, 4}, {"One-four", T_ONEFOUR, 2, 4},
+    {"Minor", T_MINOR, 4, 4}, {"Canon", T_CANON, 8, 4}, {"Flamenco", T_ANDAL, 4, 4}, {"Mixo", T_MIXO, 4, 4},
     {"Doo-wop", T_DOOWOP, 4, 4}, {"Jazz", T_JAZZ, 4, 4}, {"Vamp", T_VAMP, 2, 4}, {"Gospel", T_GOSPEL, 4, 4},
     {"Waltz", T_WALTZ, 4, 3},
 };

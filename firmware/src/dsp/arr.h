@@ -91,9 +91,10 @@ typedef struct {
     uint8_t tempo;                       /* 40..240 */
     int8_t transpose;                    /* -6..+5 */
     uint8_t mute;                        /* the tracks muted in FREE and LOOP */
-    uint8_t rsv;
+    uint8_t flags;                       /* SONG_F_*: was rsv (0 in songs saved before) */
     row_t row[ARR_ROWS];
 } song_t;
+#define SONG_F_TEMPO 1u                  /* its tempo was set by hand: a style picked keeps it */
 typedef struct {
     uint32_t magic, format;
     loop_t loop[ARR_LOOPS];
@@ -184,8 +185,9 @@ int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
  * notes falls back: no Fill BA, Fill AB (still back to Main A), and the other way round; neither: no fill (the
  * section plays on); no Intro: Main A; no Ending: the stop at that bar line. Notes sounding over a section
  * change keep their voicing to their end, not re-voiced by the new pattern's track types. PLAY starts with the
- * section queued; else the Intro when it has notes (not when recording: the pattern being recorded into
- * plays); else as it was: Main A or B, a fill's Main (Fill AB: B, Fill BA: A), else Main A. */
+ * section queued (HOME + black 1 stopped: the Intro); else, in SONG with INTRO on, the Intro when it has notes
+ * (not when recording: the pattern being recorded into plays); else as it was: Main A or B, a fill's Main (Fill
+ * AB: B, Fill BA: A), else Main A. FREE and LOOP never start with the Intro by themselves. */
 void arr_section(int sec);
 /* ---- the chord source. FREE: the keys' chords only (held: fingered). LOOP: a loop of the app's table goes
  * round, transposed; SONG: the rows of a song (arr_mode_song). The app's table and song stay put (they are the app's
@@ -295,6 +297,7 @@ uint32_t arr_midi_out_link(void);
 
 /* state for the screen */
 extern volatile uint8_t arr_playing, arr_sect, arr_next_sect, arr_ext;
+extern volatile uint8_t arr_ended;                /* the last stop was the source's own (an Ending, a song's end) */
 extern volatile uint16_t arr_bar, arr_beat_tick;     /* position in the playing pattern */
 extern volatile uint32_t arr_chord_now;            /* the chord, packed in one word (never torn): arr_chord_unpack */
 static inline uint32_t arr_chord_pack(chord_t c) { return (uint32_t)c.root | (uint32_t)c.type << 8 | (uint32_t)c.bass << 16; }

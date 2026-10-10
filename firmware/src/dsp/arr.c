@@ -245,7 +245,7 @@ static uint8_t start_wait;                         /* a start waiting for its so
 /* sections, the chord source */
 static uint8_t first_tick;                         /* the first tick since a start: no bar or beat behind it */
 static uint8_t fill_to = SEC_B;                    /* the Main the fill playing goes to after its bar */
-static uint8_t ended;                              /* stopped by an Ending or a song's end (Continue: a new start) */
+volatile uint8_t arr_ended;                        /* stopped by an Ending or a song's end (Continue: a new start) */
 static uint16_t sec_bars;                          /* bars played of the section playing */
 static uint8_t chord_owed;                         /* leaving a held Intro / Ending (a loop's start, a transpose):
                                                     * the source's chord sounding there, not only a change */
@@ -989,7 +989,7 @@ static void transport_start(void)
 {
     uint8_t s = arr_next_sect, to = fill_to;
     rec_flush(1);
-    ended = 0;
+    arr_ended = 0;
     chord_owed = 0;
     first_tick = 1;
     sec_bars = 0;
@@ -1015,8 +1015,8 @@ static void transport_start(void)
             if (!s)
                 s = m;
         }
-    } else if (!s && !rec_on && !sect_empty(SEC_INTRO) && !(mode == ARR_SONG && !sn.intro))
-        s = SEC_INTRO;                             /* (a song with no rows yet: its Intro if on) */
+    } else if (!s && !rec_on && mode == ARR_SONG && sn.intro && !sect_empty(SEC_INTRO))
+        s = SEC_INTRO;                             /* (a song with no rows yet: its Intro if on; FREE, LOOP: none) */
     if (s)
         s = resolve(s, &to);
     if (!is_sect(s))                               /* none, no fill, no Ending: as it was (a fill: its Main) */
@@ -1043,7 +1043,7 @@ static void transport_stop(void)
 {
     rec_flush(1);                                  /* the notes being recorded end here */
     arr_playing = 0;
-    ended = 0;
+    arr_ended = 0;
     start_wait = 0;
     ext_pend = 0;                                  /* no tick after a stop */
     all_off();
@@ -1119,7 +1119,7 @@ static int song_bar(int fresh, int hand, uint8_t *mark)
             return 2;
         } else {
             stop_ours();
-            ended = 1;
+            arr_ended = 1;
             return 0;
         }
     }
@@ -1174,7 +1174,7 @@ static int bar_line(void)
             next = SEC_A;                          /* the intro played once */
         else if (arr_sect == SEC_END && pos == 0) {    /* the ending played once */
             stop_ours();
-            ended = 1;
+            arr_ended = 1;
             return 0;
         }
     }
@@ -1184,7 +1184,7 @@ static int bar_line(void)
         next = resolve(next, &to);
         if (next == SEC_STOP) {                    /* an Ending without notes: the end is here */
             stop_ours();
-            ended = 1;
+            arr_ended = 1;
             return 0;
         }
         if (next && (next != arr_sect || (pos != 0 && next == asked))) {   /* (a fallback to the section
@@ -1487,7 +1487,7 @@ static void clock_in(int msg)
         arr_ext = 1;
         ext_age = 0;
     } else if (msg == ARR_CLK_CONTINUE) {
-        if (!arr_playing && ended)                 /* after an Ending (or a song's end): from the start */
+        if (!arr_playing && arr_ended)             /* after an Ending (or a song's end): from the start */
             transport_start();
         else if (!arr_playing) {
             seek();

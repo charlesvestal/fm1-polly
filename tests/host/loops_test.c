@@ -51,9 +51,11 @@ static void test_write(void)
 static void test_factory(void)
 {
     loop_t l;
-    static const int L18[8] = {0, 1, 2, 3, 4, 7, 9, 8};   /* L1..L8: Pop, Sensitive, Fifties, ii-V-I, Blues, Minor, Andalusian, Canon */
+    static const int L18[8] = {0, 1, 2, 3, 4, 7, 9, 8};   /* L1..L8: Pop, Ballad, Fifties, ii-V-I, Blues, Minor, Flamenco, Canon */
     for (int i = 0; i < 8; i++)
         CHECK(FACTORY_LOOP[i] == L18[i], "factory loop %d is template %d", i, L18[i]);
+    for (int t = 0; t < NTEMPLATES; t++)
+        CHECK(strlen(TEMPLATES[t].name) <= 8, "%s: a loop's name, 8 characters at most", TEMPLATES[t].name);
     loop_from_template(&l, 4);
     CHECK(l.bars == 12 && l.beats == 4 && strcmp(l.name, "Blues") == 0, "the blues: 12 bars");
     CHECK(lc_unpack(l.ch[4]).root == 5 && l.ch[5] == LC_SAME, "a chord a bar: F7 on bar 2");
@@ -79,7 +81,8 @@ static void test_rows(void)
     g.row[0].loop = 8;
     CHECK(loop_rows_using(&g, 9) == 2, "L10 in 2 rows");
     row_insert(&g, 1);
-    CHECK(g.nrows == 5 && g.row[1].loop == 8 && g.row[2].loop == 9, "insert: a copy of the row before");
+    CHECK(g.nrows == 5 && g.row[1].loop == 9 && g.row[2].loop == 9 && g.row[1].sect == g.row[2].sect,
+          "insert: a copy of the cursor's row");
     row_delete(&g, 1);
     CHECK(g.nrows == 4 && g.row[1].loop == 9, "delete");
     {
@@ -88,6 +91,25 @@ static void test_rows(void)
         CHECK(row_main(&ra) == SEC_A && row_main(&raf) == SEC_A && row_main(&rb) == SEC_B && row_main(&rbf) == SEC_B,
               "row_main for each ROW_*");
         CHECK(!row_fill(&ra) && row_fill(&raf) && !row_fill(&rb) && row_fill(&rbf), "row_fill for each ROW_*");
+    }
+    {   /* SECTION: the loop's other rows on the old Main follow (fills kept); a fill alone changes one row */
+        song_t h = {0};
+        loops_song_clear(&h);
+        row_append(&h, 9);
+        row_append(&h, 8);
+        row_append(&h, 9);
+        h.row[2].sect = ROW_A_FILL;
+        row_append(&h, 9);
+        h.row[3].sect = ROW_B;
+        CHECK(h.nrows == 4 && h.row[2].loop == 9 && h.row[2].rep == 1, "append: separate rows of the same loop");
+        CHECK(row_set_sect(&h, 0, ROW_A_FILL) == 0 && h.row[2].sect == ROW_A_FILL && h.row[3].sect == ROW_B,
+              "a fill alone: that row");
+        CHECK(row_set_sect(&h, 0, ROW_B) == 1 && h.row[2].sect == ROW_B_FILL && h.row[3].sect == ROW_B &&
+              h.row[1].sect == ROW_A, "Main A -> B: L10's other Main A row too, its fill kept (%d)", h.row[2].sect);
+        CHECK(row_append(&h, 9) == 4 && h.row[4].sect == ROW_B, "append: the loop's section from its earlier row");
+        h.row[0] = h.row[1];
+        row_insert(&h, 5);
+        CHECK(h.nrows == 6 && h.row[5].loop == 9, "insert on the END row: a copy of the last row");
     }
     row_delete(&g, g.nrows - 1);
     CHECK(g.nrows == 3, "deleting the last row");

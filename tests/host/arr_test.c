@@ -1560,6 +1560,7 @@ static void test_transpose_busy(void)         /* a transpose during a write: the
     load_slot(SI, 2, 4);
     loop_bars(0, 4, 2, c2);
     arr_mode_loop(0);
+    arr_section(SEC_INTRO);                        /* (HOME + black 1: FREE and LOOP start with no Intro of their own) */
     arr_play(1);
     run_to((uint32_t)(1.3f * BAR));
     arr_edit(1);
@@ -1776,6 +1777,7 @@ static void test_transpose_held(void)            /* a transpose moves the chord 
     load_slot(SI, 2, 4);
     loop_bars(0, 4, 2, c2);
     arr_mode_loop(0);
+    arr_section(SEC_INTRO);                        /* (HOME + black 1: FREE and LOOP start with no Intro of their own) */
     arr_play(1);
     run_to((uint32_t)(1.6f * BAR));
     arr_set_transpose(2);
@@ -1797,6 +1799,7 @@ static void test_loop_intro(void)
     load_slot(SI, 2, 4);
     loop_bars(0, 4, 4, pop);                       /* C | G | Am | F */
     arr_mode_loop(0);
+    arr_section(SEC_INTRO);                        /* (HOME + black 1: FREE and LOOP start with no Intro of their own) */
     arr_play(1);
     run_to((uint32_t)(3.5f * BAR));
     CHECK(slot_at(0) == SI && root_at(0) == 0 && root_at(BAR) == 0 && root_at(1.75f * BAR) == 0, "the Intro holds C (%d %d %d %d)",
@@ -1834,6 +1837,7 @@ static void test_loop_intro(void)
     loop_write(&LT[0], 4, ch(7, CH_MAJ));          /* . | G | . | F */
     loop_write(&LT[0], 12, ch(5, CH_MAJ));
     arr_mode_loop(0);
+    arr_section(SEC_INTRO);                        /* (HOME + black 1: FREE and LOOP start with no Intro of their own) */
     arr_play(1);
     run_to((uint32_t)(2.5f * BAR));
     CHECK(slot_at(0) == SI && root_at(0) == 5 && root_at(0.75f * BAR) == 5, "the Intro holds F, the loop's last (%d %d %d)",
@@ -2292,11 +2296,22 @@ static void empty_slot(int slot)
 }
 static void test_intro(void)
 {
-    /* PLAY with an Intro (2 bars): it plays once, then Main A; PLAY again: the Intro again */
+    /* PLAY in FREE: Main A, never the Intro by itself (it has notes) */
     reset();
     loops_reset();
     load_slots(4);
     load_slot(SI, 2, 4);
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_sect == SEC_A, "PLAY in FREE: Main A, no Intro (%d)", arr_sect);
+    arr_play(0);
+    run_blocks(1);
+    /* the Intro asked for first (HOME + black 1, 2 bars): it plays once, then Main A; PLAY again: Main A */
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SI, 2, 4);
+    arr_section(SEC_INTRO);
     arr_play(1);
     run_to((uint32_t)(3.5f * BAR));
     CHECK(slot_at(0) == SI && slot_at(1.75f * BAR) == SI, "the Intro first, both its bars (%d %d)", slot_at(0), slot_at(1.75f * BAR));
@@ -2308,7 +2323,7 @@ static void test_intro(void)
     stub_frame = 0;
     arr_play(1);
     run_blocks(2);
-    CHECK(arr_sect == SEC_INTRO, "PLAY again: the Intro again (%d)", arr_sect);
+    CHECK(arr_sect == SEC_A, "PLAY again: Main A, not the Intro (%d)", arr_sect);
     arr_play(0);
     run_blocks(1);
     /* queued while playing: from the next bar, once, then Main A (a Fill during it ignored); then a fill from A */
@@ -3260,6 +3275,7 @@ static void test_section_decisions(void)
     loops_reset();
     load_slots(4);
     load_slot(SI, 2, 4);
+    arr_section(SEC_INTRO);
     arr_play(1);
     run_to((uint32_t)(0.5f * BAR));
     arr_section(SEC_FILL);
@@ -3286,7 +3302,8 @@ static void test_section_decisions(void)
     CHECK(arr_sect == SEC_B, "stopped in Fill AB: PLAY on Main B (%d)", arr_sect);
     arr_play(0);
     run_blocks(1);
-    /* Continue after an Ending stopped it: the start again, as PLAY (the Intro first) */
+    CHECK(arr_ended == 0, "a stop by PLAY: not the source's own end");
+    /* Continue after an Ending stopped it: the start again, as PLAY (in FREE: Main A, its Intro not by itself) */
     reset();
     loops_reset();
     load_slots(4);
@@ -3299,9 +3316,10 @@ static void test_section_decisions(void)
         run_blocks(1);
     }
     CHECK(arr_playing == 0, "the Ending stopped it");
+    CHECK(arr_ended == 1, "the Ending's stop says so (arr_ended: the app's SONG cursor goes back to row 1)");
     arr_clock(ARR_CLK_CONTINUE);
     run_blocks(1);
-    CHECK(arr_playing == 1 && arr_sect == SEC_INTRO && arr_ticks >= 0u, "Continue after the Ending: the Intro, from its start (%d)",
+    CHECK(arr_playing == 1 && arr_sect == SEC_A && arr_ticks >= 0u, "Continue after the Ending: Main A, from its start (%d)",
           arr_sect);
     arr_clock(ARR_CLK_TICK);
     run_blocks(1);

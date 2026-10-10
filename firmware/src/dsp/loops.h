@@ -20,7 +20,13 @@ void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending o
  * row's loop is `loop`: REPEAT + 1 (8 at most), returns r; else row r is set (a new row at the end), its
  * section the one this loop had in an earlier row, else Main A; returns the row; -1 when full */
 int row_tap(song_t *g, int r, int loop);
-void row_insert(song_t *g, int r);                /* a copy of row r - 1 (or a default row) at r */
+void row_insert(song_t *g, int r);                /* a copy of row r (the cursor's; the END row: of the last row,
+                                                   * none: a default row) at r, the rows from r one down */
+int row_append(song_t *g, int loop);              /* a new row of `loop` at the end (never REPEAT + 1), its section as
+                                                   * row_tap's; the row, -1 when full */
+/* row r's SECTION (ROW_*) set; when its Main (A / B) changed, the loop's other rows on the old Main get the new one
+ * (their "+ fill" kept): the number of those */
+int row_set_sect(song_t *g, int r, int sect);
 void row_delete(song_t *g, int r);
 int loop_rows_using(const song_t *g, int loop);   /* rows of g that play it */
 int free_rec_bars(int beats, int beats_a_bar);    /* REC in FREE: the bars the take rounds up to (1..max) */
