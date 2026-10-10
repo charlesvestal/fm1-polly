@@ -202,14 +202,20 @@ void arr_mode_loop(int i);
  * section differs, or the row asks for one (from Main B Fill BA, else Fill AB). A section, a fill or a mute set
  * by hand lasts until the next row. The Intro holds the first row's first chord, its mutes the row's. After
  * the last row: the Ending (on), held on the last chord, then the stop; else at_end again: row 0 (no Intro);
- * else the stop. The engine snapshots the song's header and the rows it needs at each block's start, when not
- * busy (arr_edit): an edit while it plays takes effect at the next block (a row's mutes and section: from its
- * next start). Leaving SONG, the app sends its mutes again (arr_track_mute). */
+ * else the stop. The song's end wins over a section by hand (queued on its bar line, or during its Ending:
+ * ignored, as a Fill is). Rows change on the pattern's bar lines: a loop whose bar differs from the pattern's
+ * goes round in its own beats, and its row lasts its beats rounded up to the pattern's bar (a 3-beat loop ×2,
+ * 6 beats, over 4-beat bars: 2 bars); an empty loop's row: a bar of 4 a pass, the chord unchanged. The engine
+ * snapshots the song's header and the rows it needs at each block's start, when not busy (arr_edit): an edit
+ * while it plays takes effect at the next block (the playing row's loop or key: its chord from the next beat;
+ * a row's mutes and section: from its next start); a start (PLAY, MIDI Start / Continue) asked for during a
+ * write waits for the first block after it. Leaving SONG, the app sends its mutes again (arr_track_mute). */
 void arr_mode_song(const song_t *s, int r);
-extern volatile uint8_t arr_row, arr_rep;         /* the row playing, and its pass (0..rep-1) */
+extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row), its pass (0..rep-1) */
 extern volatile uint8_t arr_mutes;                /* the tracks muted now (rows and hand mutes), bit t track t */
 /* -6..+5: loops and songs (not the keys' chords). The chord sounding moves at once by the difference (a chord
- * from the keys stays; the Intro's and the Ending's held chord moves too); the next chords come transposed */
+ * from the keys stays; the Intro's and the Ending's held chord moves too; during a write, at the first block
+ * after it); the next chords come transposed */
 void arr_set_transpose(int semis);
 extern volatile uint8_t arr_mode;                /* ARR_* now (a change asked for: from its bar line) */
 extern volatile int8_t arr_loop_now;             /* the loop playing (LOOP, or the song's row), -1 none */
