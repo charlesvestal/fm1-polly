@@ -13,8 +13,9 @@ land: cursors and positions. A rule for every editing screen:
    near the cursor in the main area, not only in the tag line.
 
 Screens:
-- **Progression**: the cursor as a thick coral ring on its beat cell + the bar.beat readout by the grid; the
-  playing beat teal; a written chord flashes.
+- **Progression**: the cursor as a thick coral ring on its beat cell, its bar's and beat's numbers on coral (the
+  "where" readout by the grid was dropped in the screen audit: with the badges and the ring it said the place
+  four ways; the badges sit at the cursor, so they stayed); the playing beat teal; a written chord flashes.
 - **Band** (a groove's notes): add an edit position: a beat cursor (BAR / BEAT as on Progression, or OCT to
   step) shown as a vertical coral line across the instruments, the selected instrument's row highlighted,
   the playhead teal; notes recorded flash. (Note editing itself is a later step; this gives the place.)
@@ -28,3 +29,25 @@ Screens:
 
 Checks: screenshots of each screen stopped, playing and right after an edit, read at 240×240; host expects
 for the cursor positions; the suite green.
+
+## The colours (the screen audit, 2026-10-11)
+
+Each colour means one thing, on every page:
+
+- **Teal: sounding now**, and nothing else: the bar, beat, section, progression playing; the playhead; a melody's
+  chip while it sounds; HOME held's progression playing (filled) and groove playing (ringed), only while playing;
+  Free's chord while the band plays it.
+- **Coral: you**: the cursor, an edit's flash, the knob turned last (value and bar), REC (its dot, the row being
+  recorded), the chord you play over a progression (Home, top right, until the progression's next change), the
+  progression or groove you asked for (HOME held), questions and messages.
+- **Ink and its neutrals: everything static**: names, values, chords, notes on Band, mute squares; a list's
+  selection (ink fill, light text); a selected row or strip (Band, Mixer: a darker panel, an ink outline); the knobs'
+  bars (dim; the hot one coral); the page dots; the help card's and an instrument's pill (an ink outline); Mixer
+  strips (muted: pale); where PLAY starts, stopped (an ink ring: Home's bar 1, HOME held's progression and groove).
+  Hints are dim ink, not coral.
+- **Section colours only on the groove pills** (Home, HOME held, Band, Style, Song's GROOVE mark): **Groove A slate,
+  Groove B amber**; Intro, Fill AB / BA, Ending are neutral outlined pills (one look for both fills).
+- **Plum: the melodies** (M1, M2 pills, strips, mute squares). Drums lose their coral (notes and strips are ink).
+
+The simulator's expects check the rule where it was broken: HOME held after a stop rings nothing teal
+(tests/scenarios/screens.polly, held_ringN: 1 teal only while playing, 2 coral asked for, 3 ink where PLAY starts).
