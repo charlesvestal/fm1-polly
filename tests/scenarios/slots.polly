@@ -19,7 +19,7 @@ turn SELECT -1
 tap SEL
 wait 50
 expect loops_slot 0
-expect footer_is_NO_FREE_SLOT|SEL:_SLOTS,_FREE_ONE 1
+expect footer_is_MEMORY_FULL|SEL:_MEMORY,_FREE_ONE 1
 shot noslot_hint.png
 # SEL now: SLOTS
 tap SEL
@@ -42,7 +42,7 @@ wait 50
 expect asking 0
 expect slots_list 1
 # the loops' change NO FREE SLOT left unkept takes the slot freed at once (said)
-expect msgtext_is_LOOPS_KEPT_IN_SLOT_13 1
+expect msgtext_is_PROGS_KEPT_IN_MEMORY_13 1
 expect loops_slot 13
 expect slot_shown13 4
 expect footer_is_SELECT:_MOVE|SEL:_FREE|HOME:_BACK 1
@@ -117,7 +117,7 @@ tap SEL
 wait 50
 expect song1_style1 33
 expect slot_shown2 0
-expect msgtext_is_SLOT_2_S1_BACK_TO_STYLE 1
+expect msgtext_is_MEMORY_2_S1_BACK_TO_STYLE 1
 tap HOME
 tap HOME
 expect list_open 0
@@ -194,8 +194,8 @@ expect lead_sel 0
 expect track 5
 spin K1 1
 wait 100
-expect msgtext_is_NO_FREE_SLOT_NOT_KEPT 1
-expect footer_is_NO_FREE_SLOT|SEL:_SLOTS,_FREE_ONE 1
+expect msgtext_is_MEMORY_FULL_NOT_KEPT 1
+expect footer_is_MEMORY_FULL|SEL:_MEMORY,_FREE_ONE 1
 expect song1_style1 33
 expect trk5_program 2
 tap SEL
@@ -207,6 +207,6 @@ tap SEL
 wait 50
 expect song1_style1 13
 expect trk5_program 2
-expect msgtext_is_MAIN_A_KEPT_IN_P14 1
+expect msgtext_is_GROOVE_A_KEPT_IN_MEMORY_14 1
 wait 100
 shot slots_kept.png

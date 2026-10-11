@@ -82,14 +82,14 @@ release HOME
 expect rec_chords 0
 expect loop_ch9_0 -1
 expect loop_bars9 0
-expect msgtext_is_UNDO_L9_CHORD 1
+expect msgtext_is_UNDO_P9_CHORD 1
 shot undo_chord.png
 press HOME
 tap PLAY
 release HOME
 expect playing 0
 expect loop_ch9_0 916
-expect msgtext_is_REDO_L9_CHORD 1
+expect msgtext_is_REDO_P9_CHORD 1
 shot redo_chord.png
 # ---- CLEAR LOOP (SEL's last action on LOOP), undone, redone, undone again
 tap SEL
@@ -101,14 +101,14 @@ expect loop_bars9 0
 press HOME
 tap REC
 release HOME
-expect msgtext_is_UNDO_CLEAR_LOOP 1
+expect msgtext_is_UNDO_CLEAR_PROG 1
 expect loop_bars9 1
 expect loop_ch9_0 916
 shot undo_clear_loop.png
 press HOME
 tap PLAY
 release HOME
-expect msgtext_is_REDO_CLEAR_LOOP 1
+expect msgtext_is_REDO_CLEAR_PROG 1
 expect loop_bars9 0
 press HOME
 tap REC
@@ -130,7 +130,7 @@ press HOME
 tap REC
 release HOME
 expect rows 2
-expect msgtext_is_UNDO_ROW_3 1
+expect msgtext_is_UNDO_SECTION_3 1
 shot undo_row.png
 press HOME
 tap PLAY
@@ -138,7 +138,7 @@ release HOME
 expect playing 0
 expect rows 3
 expect row_loop3 9
-expect msgtext_is_REDO_ROW_3 1
+expect msgtext_is_REDO_SECTION_3 1
 # two taps in quick succession (row 3, the cursor's, to L2; a row added): one step
 expect cursor 3
 tapkey w1
@@ -152,7 +152,7 @@ tap REC
 release HOME
 expect rows 3
 expect row_loop3 9
-expect msgtext_is_UNDO_ROWS 1
+expect msgtext_is_UNDO_SECTIONS 1
 # an edit after an undo: what was undone can no longer be redone
 tapkey w3
 wait 1100
@@ -213,7 +213,7 @@ tap REC
 release HOME
 expect lead_notes 0
 expect recording 0
-expect msgtext_is_UNDO_TAKE_LD1 1
+expect msgtext_is_UNDO_TAKE_M1 1
 shot undo_take.png
 press HOME
 tap PLAY
@@ -221,7 +221,7 @@ release HOME
 expect playing 0
 expect lead_notes 3
 expect lead2_note 64
-expect msgtext_is_REDO_TAKE_LD1 1
+expect msgtext_is_REDO_TAKE_M1 1
 expect recording 0
 # ---- C1's sound (EDIT, KNOB 1): the section gets a user pattern of its own; undone, both go back
 turn ALGO -4
@@ -310,7 +310,7 @@ tap REC
 release HOME
 expect playing 1
 expect slot1_trk5_count 25
-expect msgtext_is_UNDO_CLEAR_PATTERN 1
+expect msgtext_is_UNDO_CLEAR_GROOVE_A 1
 shot undo_clear_pattern.png
 wait 1000
 tap PLAY

@@ -14,9 +14,9 @@ tap PLAY
 wait 200
 tap REC
 expect take 2
-expect msgtext_is_RECORDING_NEW_LOOP_L9 1
+expect msgtext_is_RECORDING_NEW_PROGRESSION_P9 1
 expect footer_is_KEYS:_CHORDS|REC:_STOP 1
-expect tag_is_NEW_LOOP_L9 1
+expect tag_is_S1>new_P9 1
 # (the take starts at the next downbeat: beat 4; this chord lands near it, a third of a beat late: beat 0)
 wait 1800
 key 4 down
@@ -390,15 +390,15 @@ shot loop_clamp.png
 # STEP half: the tag says so (the cursor on 1.4); another loop (HOME + white 15, empty L15): STEP a bar again
 spin K4 -1
 expect cstep 1
-expect tag_is_L10|BAR_1.4|HALF 1
+expect tag_is_S1>P10_Verse|bar_1.4|half 1
 press HOME
 tapkey w14
 release HOME
 expect app_loop 15
 expect cstep 2
-expect tag_is_L15|BAR_1.1 1
+expect tag_is_S1>P15|bar_1.1 1
 # its default name: "L15" alone (not "L15 Loop 15"); messages in upper case
-expect msgtext_is_LOOP_L15 1
+expect msgtext_is_PROGRESSION_P15 1
 # step writing 4 bars a bar a step: Am F Em G, each heard while its keys are held (C1's sound), silent after
 expect loop_bars15 0
 tap REC

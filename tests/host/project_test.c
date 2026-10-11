@@ -241,7 +241,7 @@ static void test_loops(void)
     CHECK(project_loops_load(0, &LP, &sl) == -1 && sl == -1, "nothing stored: the defaults, no slot");
     CHECK(strcmp(LP.loop[0].name, "Pop") == 0 && LP.loop[4].bars == 12 && strcmp(LP.loop[7].name, "Canon") == 0,
           "L1 Pop, L5 Blues, L8 Canon");
-    CHECK(LP.loop[8].bars == 0 && strcmp(LP.loop[8].name, "Loop 9") == 0 && strcmp(LP.loop[15].name, "Loop 16") == 0, "L9..L16 empty");
+    CHECK(LP.loop[8].bars == 0 && strcmp(LP.loop[8].name, "Prog 9") == 0 && strcmp(LP.loop[15].name, "Prog 16") == 0, "L9..L16 empty");
     CHECK(loops_is_default(LP.loop), "the defaults are the defaults");
     CHECK(project_loops_save(0, &LP, &sl) == 0 && sl == -1, "the defaults saved: no slot needed");
     for (int i = 0; i < ARR_USER_PATTERNS; i++)
@@ -306,8 +306,8 @@ static void test_loops(void)
     memcpy(name4, LG.loop[3].name, 8);
     CHECK(project_loops_save(0, &LG, &gs) == 0, "saved as they are");
     project_loops_load(0, &LG, &gs);
-    CHECK(LG.loop[1].bars == 0 && strncmp(LG.loop[1].name, "Loop 2", 8) == 0, "bars too big for its beats: that loop cleared");
-    CHECK(LG.loop[2].bars == 0 && strncmp(LG.loop[2].name, "Loop 3", 8) == 0, "beats out of 2..7: that loop cleared");
+    CHECK(LG.loop[1].bars == 0 && strncmp(LG.loop[1].name, "Prog 2", 8) == 0, "bars too big for its beats: that loop cleared");
+    CHECK(LG.loop[2].bars == 0 && strncmp(LG.loop[2].name, "Prog 3", 8) == 0, "beats out of 2..7: that loop cleared");
     CHECK(memcmp(LG.loop[3].name, name4, 8) == 0 && LG.loop[3].bars != 0, "another loop untouched");
     CHECK(LG.loop[4].ch[0] == LC_SAME && LG.loop[4].ch[4] == kept4, "a bad chord: that beat no change, the others kept");
     /* a short (damaged) loops object: the defaults, its slot kept for the next save */

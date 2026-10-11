@@ -21,7 +21,7 @@ static void test_write(void)
 {
     loop_t l;
     loop_clear(&l, 8);
-    CHECK(l.bars == 0 && l.beats == 4 && loop_len(&l) == 0 && strcmp(l.name, "Loop 9") == 0, "empty, named by its number");
+    CHECK(l.bars == 0 && l.beats == 4 && loop_len(&l) == 0 && strcmp(l.name, "Prog 9") == 0, "empty, named by its number");
     CHECK(loop_write(&l, 0, ch(9, CH_MIN)) == 0 && l.bars == 1, "beat 0: one bar");
     CHECK(loop_write(&l, 4, ch(5, CH_MAJ)) == 0 && l.bars == 2, "beat 4: two bars");
     CHECK(loop_write(&l, 13, ch(7, CH_MAJ)) == 0 && l.bars == 4, "beat 13: four bars");
@@ -41,9 +41,9 @@ static void test_write(void)
     loop_unwrite(&l, 4);
     CHECK(l.ch[4] == LC_SAME, "unwrite beat 4");
     loop_clear(&l, 9);
-    CHECK(strncmp(l.name, "Loop 10", 8) == 0, "Loop 10");
+    CHECK(strncmp(l.name, "Prog 10", 8) == 0, "Prog 10");
     loop_clear(&l, 15);
-    CHECK(strncmp(l.name, "Loop 16", 8) == 0, "Loop 16");
+    CHECK(strncmp(l.name, "Prog 16", 8) == 0, "Prog 16");
     CHECK(loop_chord_at(&l, 0).type == CH_NONE, "an empty loop: no chord");
     loop_set_beats(&l, 7);
     CHECK(loop_write(&l, 63, ch(0, CH_MAJ)) == -1, "7 beats: beat 63 refused");

@@ -5,7 +5,7 @@
 extern const uint8_t FACTORY_LOOP[8];            /* L1..L8's factory progressions: TEMPLATES indices */
 int loop_len(const loop_t *l);                    /* its beats: bars * beats */
 int loop_max_bars(int beats);                     /* ARR_LOOP_BEATS / beats, at most ARR_LOOP_BARS */
-void loop_clear(loop_t *l, int i);                /* empty (0 bars of 4), named "Loop <i+1>" */
+void loop_clear(loop_t *l, int i);                /* empty (0 bars of 4), named "Prog <i+1>" (its progression number) */
 void loop_from_template(loop_t *l, int t);        /* TEMPLATES[t]: a chord a bar, its beats, its name */
 void loops_default_one(loop_t *l, int i);         /* loop i as a song starts with it: L1..L8 the factory's, else empty */
 void loops_default(loop_t *t);                    /* a song's ARR_LOOPS loops as it starts with them */

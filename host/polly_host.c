@@ -606,10 +606,11 @@ static int expect(const char *what, const char *val)
         if (!got)
             printf("  (song text: \"%s\")\n", t);
     } else if (!strncmp(what, "tag_is_", 7) || !strncmp(what, "footer_is_", 10)) {
-        /* tag_is_WORDS / footer_is_WORDS: the tag over the knobs, the footer, exactly ("_": a space, "|": a dot) */
-        char w[64], t[64];
+        /* tag_is_WORDS / footer_is_WORDS: the tag over the knobs, the footer, exactly ("_": a space, "|": a dot, ">": the
+         * breadcrumb's chevron) */
+        char w[96], t[96];
         int i, f = what[0] == 'f', o = f ? 10 : 7;
-        for (i = 0; i < 63 && what[o + i]; i++)
+        for (i = 0; i < 95 && what[o + i]; i++)
             w[i] = what[o + i] == '_' ? ' ' : what[o + i];
         w[i] = 0;
         if (f)
@@ -705,10 +706,10 @@ static int expect(const char *what, const char *val)
         int l = (atoi(what + 7) - 1) & 15, b = strrchr(what, '_') ? atoi(strrchr(what, '_') + 1) : 0;
         uint16_t v = sloops.loop[l].ch[b % ARR_LOOP_BEATS];
         got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
-    } else if (!strncmp(what, "loop_name_i", 11))   /* loop_name_iN: loop N's name, the NAME list index (8: "Loop N" / custom) */
+    } else if (!strncmp(what, "loop_name_i", 11))   /* loop_name_iN: loop N's name, the NAME list index (8: "Prog N" / custom) */
         got = loop_name_index(&sloops.loop[(atoi(what + 11) - 1) & 15]);
     else if (!strncmp(what, "loop_name", 9) && (what[9] >= '0' && what[9] <= '9')) {
-        /* loop_nameN VAL: loop N's name, exactly (its own string, not "_is_"'s 0/1: "Loop 10" has a space) */
+        /* loop_nameN VAL: loop N's name, exactly (its own string, not "_is_"'s 0/1: "Prog 10" has a space) */
         const loop_t *l = &sloops.loop[(atoi(what + 9) - 1) & 15];
         char nm[9];
         int i, ok;

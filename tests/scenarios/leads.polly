@@ -27,8 +27,8 @@ expect page 8
 expect track 5
 turn ALGO 4
 expect lead_sel 1
-expect tag_is_LD1_SQUARE_LEAD 1
-expect footer_is_KEYS:_LD1_SQUARE_LEAD|REC:_RECORD 1
+expect tag_is_S1>M1_Square_Lead 1
+expect footer_is_KEYS:_M1_SQUARE_LEAD|REC:_RECORD 1
 expect lsnd1_prog 81
 wait 1500
 shot track_ld1.png
@@ -43,7 +43,7 @@ wait 200
 tap REC
 wait 50
 expect recording 0
-expect msgtext_is_LEADS_RECORD_IN_A_SONG 1
+expect msgtext_is_MELODIES_RECORD_IN_A_SONG 1
 shot rec_free.png
 tap PLAY
 wait 100
@@ -61,7 +61,7 @@ tap REC
 wait 50
 expect recording 1
 expect rec_shown 1
-expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
+expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 wait 1500
 shot lead_armed.png
 # PLAY here: the song from row 1; the keys go into LD1 at their places (row 1: C4 E4 G4, row 2: A4 C5)
@@ -114,7 +114,7 @@ expect lead_sel 1
 tap REC
 wait 50
 expect recording 1
-expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
+expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 wait 100
 shot lead_punch_armed.png
 tap PLAY
@@ -136,7 +136,7 @@ shot lead_punch_row3.png
 turn ALGO 1
 expect lead_sel 2
 expect recording 1
-expect tag_is_LD2_STRINGS_1 1
+expect tag_is_S1>M2_Strings_1 1
 wait 300
 key 14 down
 wait 900
@@ -189,14 +189,14 @@ tap EDIT
 # ---- the Mixer: ten strips, LD1's volume by KNOB 1; black key 10 picks LD2; the tone
 tap LFO
 expect page 10
-expect tag_is_MIXER:_LD1 1
+expect tag_is_S1>M1_Square_Lead 1
 spin K1 -20
 expect lsnd1_vol 80
 wait 100
 shot mixer_leads.png
 tapkey b9
 expect lead_sel 2
-expect tag_is_MIXER:_LD2 1
+expect tag_is_S1>M2_Strings_1 1
 turn SELECT 1
 expect page 11
 spin K1 -30
@@ -335,7 +335,7 @@ wait 100
 shot lead_quantise_list.png
 tap SEL
 wait 50
-expect msgtext_is_QUANTISED_LD1_ROW_4_TO_16 1
+expect msgtext_is_QUANTISED_M1_SECTION_4_TO_16 1
 shot lead_quantised.png
 # on the 16ths: 1320 (11 x 120), 2160 (18 x 120)
 expect lead8_pos 1320

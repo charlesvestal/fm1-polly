@@ -23,9 +23,9 @@ tap REC
 wait 50
 expect recording 1
 expect type5 2
-expect msgtext_is_C1_FOLLOWS_CHORDS_INTO_NEW_P01 1
+expect msgtext_is_C1_FOLLOWS_CHORDS_(YOURS) 1
 # (the pattern, 2 bars, is shorter than the loop: the footer says SEL makes it 4 first, over the hint)
-expect footer_is_SEL:_4_BARS,_AS_THE_LOOP|REC:_STOP 1
+expect footer_is_SEL:_4_BARS,_AS_THE_PROG|REC:_STOP 1
 shot rec_follows.png
 tap REC
 wait 50
@@ -34,7 +34,7 @@ expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
 # said once: REC again, no hint
 tap REC
 wait 50
-expect msgtext_is_RECORD_C1_MAIN_A 1
+expect msgtext_is_RECORD_C1_GROOVE_A 1
 tap REC
 wait 50
 # a clean track: ERASE TRACK
@@ -66,7 +66,7 @@ expect recording 1
 expect rec_wait 1
 expect rec_shown 1
 expect type5 1
-expect msgtext_is_C1:_AS_PLAYED_MAIN_A 1
+expect msgtext_is_C1:_AS_PLAYED_GROOVE_A 1
 # its range opened: the whole keyboard, no high key (notes as played, never folded)
 expect xlo5 0
 expect xhi5 127

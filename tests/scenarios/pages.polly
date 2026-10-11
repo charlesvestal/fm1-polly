@@ -229,7 +229,7 @@ expect page 4
 press HOME
 tapkey w1
 release HOME
-expect msgtext_is_LOOP_L2_BALLAD 1
+expect msgtext_is_PROGRESSION_P2_BALLAD 1
 tap ARP
 expect page 4
 expect app_loop 2
@@ -251,4 +251,4 @@ tap REC
 expect take 1
 tap REC
 expect take 0
-expect msgtext_is_NO_CHORDS_NO_NEW_LOOP 1
+expect msgtext_is_NO_CHORDS_NO_NEW_PROGRESSION 1

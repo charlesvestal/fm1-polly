@@ -19,7 +19,7 @@ static void name_set(loop_t *l, const char *s)
 }
 void loop_clear(loop_t *l, int i)
 {
-    char n[8] = "Loop ";
+    char n[8] = "Prog ";
     memset(l, 0, sizeof *l);
     l->beats = 4;
     if (i >= 9) {

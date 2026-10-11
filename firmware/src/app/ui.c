@@ -3,28 +3,29 @@
  * the lights. Part of the unity build (after pages.c, which holds the shared state and the drawing); the host
  * simulator includes it too.
  *
- *   PLAY            start / stop (SONG: from the SONG screen's row, else row 1)
- *   REC             on its release: what the keys play here (chords on HOME / LOOP, the track on SEQ / EDIT, rows on
- *                   SONG); held for its card, nothing
+ *   PLAY            start / stop (Song: from the Song page's section, else section 1)
+ *   REC             on its release: what the keys play here (chords into the progression on Home / Progression, the
+ *                   instrument on Band / Sound, the sections on Song); held for its card, nothing
  *   SEL tap         the screen as a list (SELECT moves, ALGORITHM changes, SEL does an action, HOME goes back);
  *                   a question: SEL yes, HOME no
  *   a button held alone 1 s: its help card (letting go does nothing)
  *   HOME held       the shortcuts on screen (after HOME_HOLD_MS):
- *     + white key 1..16   loop n goes round (from the next bar while playing); the loop playing again: FREE
- *     + black key 1..5    Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
+ *     + white key 1..16   progression Pn goes round (from the next bar while playing); the one playing again: free
+ *     + black key 1..5    Intro, Groove A, Groove B, Fill (AB from Groove A, BA from Groove B), Ending, from the next bar
  *     + SELECT            the song's tempo
  *     + PRESETS           the song (while playing: after the stop)
  *     + REC / + PLAY      undo / redo (the journal: below)
- *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 LOOP ("-" FREE, L1..L16; "Song" in a song);
- *   SELECT: SONG's three pages (the rows, the row, the song)
+ *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 PROG ("-" free, P1..P16; "Song" in a song);
+ *   SELECT: Song's three pages (the sections, a section's transpose, the song)
  *   (a page button: always its first page; SELECT, and only SELECT, turns the pages)
- *   ARP LOOP (x2), SEQ Pattern (x2), EDIT Track (x2), LFO Mixer (x2), FX Master FX, ENV Style (x2), GLO Setup (x2);
- *   the tag's dots: which of a button's pages
- *   the keys        by the page (key_role): chords (HOME, LOOP), the selected track (SEQ, EDIT), the track (LFO's
- *                   black keys), nothing (FX, ENV, GLO)
- *   SAVE            saves (lit: something to save); held + white key n: copy here (HOME, LOOP: the loop to Ln; SEQ:
- *                   the pattern to P(n))                                    OCT- / OCT+   the keys' octave (LOOP: the cursor)
- *   SELECT          the button's next / previous page      ALGORITHM   the track (D1..C4, LD1, LD2)   PRESETS   per page
+ *   ARP Progression (x2), SEQ Band (x2: the groove's notes; its length), EDIT Sound (x2), LFO Mixer (x2), FX Effects,
+ *   ENV Style (x2), GLO Setup (x2); the tag's dots: which of a button's pages
+ *   the keys        by the page (key_role): chords (Home, Progression), the selected instrument (Band, Sound), the
+ *                   instrument (Mixer's black keys), nothing (Effects, Style, Setup)
+ *   SAVE            saves (lit: something to save); held + white key n: copy here (Home, Progression: the progression
+ *                   to Pn; Band: the groove to memory n)                OCT- / OCT+   the keys' octave (Progression: the cursor)
+ *   SELECT          the button's next / previous page      ALGORITHM   the instrument (D1..C4, the melodies M1, M2)
+ *   PRESETS         per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 #include "journal.c"                            /* undo and redo (HOME + REC, HOME + PLAY) */
 
@@ -372,7 +373,7 @@ static int slot_own(int s)
 {
     song_t *g = &songs.song[proj.song];
     int p;
-    char t[8];
+    char t[16];
     uj_pat_touch(s);                             /* (undo: the pattern as it was) */
     if (app.slot_buf[s] >= 0) {                  /* a QY70 section: a pattern of its notes (up to 600) from here */
         arr_pattern_copy(s, &scratch);
@@ -382,7 +383,7 @@ static int slot_own(int s)
     if (g->style[s] < ARR_USER_PATTERNS)
         return 0;
     if ((p = pattern_free()) < 0) {
-        say_noslot("NO FREE SLOT", "NOT KEPT");  /* (SLOTS: a slot freed, the change is kept then: slots_retry) */
+        say_noslot("MEMORY FULL", "NOT KEPT");   /* (MEMORY: a place freed, the change is kept then: slots_retry) */
         return -1;
     }
     g->style[s] = (uint16_t)p;
@@ -390,11 +391,9 @@ static int slot_own(int s)
     app.songs_dirty = 1;
     app.chg++;
     app.gen++;
-    t[0] = 'P';
-    t[1] = (char)('0' + (p + 1) / 10);
-    t[2] = (char)('0' + (p + 1) % 10);
-    t[3] = 0;
-    say("NEW PATTERN", t);
+    cat_s(t, SECT_NAME[s + 1]);                  /* "GROOVE A NOW YOURS": a user pattern ("(yours)" on screen; its
+                                                  * number never) */
+    say(upcase(t), "NOW YOURS");
     return 0;
 }
 /* ---- the lead tracks' notes (leads): the song's, loaded with it, written as the engine hands recorded notes over,
@@ -449,7 +448,7 @@ static int lead_put(const lead_ev_t *e)
             break;
         k = app.lslot[0] < 0 ? 0 : 1;            /* full: the next part, in a slot of its own */
         if (room >= LEAD_MAX || (p = pattern_free()) < 0) {
-            say_noslot(k ? "LEAD FULL" : "NO FREE SLOT", k ? "NOTES NOT KEPT" : "LEADS NOT KEPT");
+            say_noslot(k ? "MELODY FULL" : "MEMORY FULL", k ? "NOTES NOT KEPT" : "MELODY NOT KEPT");
             return -1;
         }
         app.lslot[k] = (int8_t)p;
@@ -464,7 +463,7 @@ static void lead_add(const arr_lnote_t *n)
 {
     lead_ev_t e;
     lead_set(&e, n->row, n->pos, n->len, n->note, n->vel, n->trk, n->root);
-    undo_hint(n->trk ? "TAKE LD2" : "TAKE LD1");
+    undo_hint(n->trk ? "TAKE M2" : "TAKE M1");
     lead_put(&e);
 }
 static void leads_poll(void)                     /* the notes the engine recorded (ui_frame) */
@@ -487,6 +486,10 @@ static void loops_load(void)                     /* the selected song's (its cha
 {
     arr_edit(1);
     project_loops_load(proj.song, &sloops, &app.lpslot);
+    for (int i = 0; i < ARR_LOOPS; i++)          /* saved before progressions: an empty one named "Loop 9" is "Prog 9"
+                                                  * now (the default, so the defaults still take no memory) */
+        if (loop_name_is(&sloops.loop[i], i, "Loop"))
+            loop_set_name_preset(&sloops.loop[i], i, NLOOP_NAMES);
     arr_edit(0);
     app.lpsum = loops_sum();
     app.lpdirty = 0;
@@ -499,7 +502,7 @@ static int loops_slot_take(void)
     if (app.lpslot >= 0 || loops_is_default(sloops.loop))
         return 0;
     if ((p = pattern_free()) < 0) {
-        say_noslot("NO FREE SLOT", "LOOPS NOT KEPT");
+        say_noslot("MEMORY FULL", "PROGS NOT KEPT");
         app.lpsum = loops_sum();                 /* (said once: again at their next change) */
         return -1;
     }
@@ -673,7 +676,7 @@ static int save_all_now(void)
         if (lost >= 0) {
             char b[24];
             cat_s(cat_s(b, "kept "), SECT_NAME[k + 1]);
-            say("SHARED PATTERN", b);
+            say("SHARED GROOVE", b);
         }
     }
     return rc;
@@ -818,7 +821,7 @@ static void set_track(int t)
         if (rec && app.mode != ARR_SONG) {
             arr_record(t, 0);
             ui.rec_want = ui.rec_seen = 0;
-            say("LEADS RECORD", "IN A SONG");
+            say("MELODIES RECORD", "IN A SONG");
             return;
         }
         arr_trk_t lb;
@@ -895,7 +898,7 @@ static void cursor_move(int d)
         b = len > 0 ? b % len : 0;
     else if (b >= loop_max_bars(bpb) * bpb) {
         loop_name_l(app.loop % ARR_LOOPS, t);
-        say("LOOP FULL", t);
+        say("PROGRESSION FULL", t);
         return;
     } else if (b > len && app.cbeat < len)
         b = len;                                 /* (a step past what is left: the end first) */
@@ -930,7 +933,7 @@ static int chord_write(int i, int b, chord_t c)
     songs_write(0);
     if (r < 0) {
         loop_name_l(i, t);
-        say("LOOP FULL", t);
+        say("PROGRESSION FULL", t);
     } else {
         ui.wrote_t = plat_ms();
         ui.wrote_loop = (uint8_t)i;
@@ -1090,7 +1093,7 @@ static void free_take_toggle(void)
     for (i = 0; i < ARR_LOOPS && sloops.loop[i].bars; i++)
         ;
     if (i == ARR_LOOPS) {
-        say("NO EMPTY LOOP", "CLEAR ONE (SEL)");
+        say("NO EMPTY PROG", "CLEAR ONE (SEL)");
         return;
     }
     ui.take_loop = (uint8_t)i;
@@ -1112,7 +1115,7 @@ static void free_take_toggle(void)
         ui.take = 2;
     } else
         ui.take = 1;                             /* from PLAY (take_poll) */
-    loop_name_l(i, cat_s(b, "NEW LOOP "));     /* (when it starts: HOME's line says, "starts at the next bar") */
+    loop_name_l(i, cat_s(b, "NEW PROGRESSION "));   /* (when it starts: HOME's line says, "starts at the next bar") */
     say("RECORDING", b);
 }
 /* the take ends: its loop rounded to whole bars and said; 1 = kept (a chord written), 0 = no loop */
@@ -1124,7 +1127,7 @@ static int take_finish(void)
     ui.take = 0;
     ui.centry = -1;
     if (!ui.take_any) {
-        say("NO CHORDS", "no new loop");
+        say("NO CHORDS", "no new progression");
         return 0;
     }
     if (n < ui.take_last + 1)
@@ -1133,7 +1136,7 @@ static int take_finish(void)
     loop_set_bars(l, free_rec_bars(n, bpb));
     songs_write(0);
     loop_name_l(ui.take_loop, t);
-    say("NEW LOOP", t);
+    say("NEW PROGRESSION", t);
     return 1;
 }
 /* ... and it plays (MODE LOOP) */
@@ -1177,13 +1180,13 @@ static void loop_pick(int i)
         return;
     if (arr_mode == ARR_LOOP && (arr_playing ? arr_loop_now == i : app.loop == i)) {   /* stopped: the one picked */
         mode_set(ARR_FREE);
-        say("FREE", "no loop");
+        say("FREE", "no progression");
         return;
     }
     app_loop_set(i);
     mode_set(ARR_LOOP);
     loop_label(i, t);
-    say(arr_playing ? "NEXT" : "LOOP", t);
+    say(arr_playing ? "NEXT" : "PROGRESSION", t);
 }
 /* HOME held + a key: a loop (white 1..16) or a section (black 1..5: Intro, Main A, Main B, Fill, Ending); the
  * other black keys do nothing */
@@ -1349,7 +1352,7 @@ static void song_tap(int w)
     r = row_tap(g, app.row, w);
     songs_write(0);
     if (r < 0) {
-        say("SONG FULL", "32 ROWS");
+        say("SONG FULL", "32 SECTIONS");
         return;
     }
     ui.row_follow = 0;                           /* (writing: the cursor stays where the keys write) */
@@ -1371,7 +1374,7 @@ static void song_key(int k)
     if (b < 0 || b >= ARR_ALLTRK)
         return;                                  /* black key 11: nothing */
     if (!g->nrows) {
-        say("NO ROWS", "WHITE KEYS FIRST");
+        say("NO SECTIONS", "WHITE KEYS FIRST");
         return;
     }
     if (r >= g->nrows)
@@ -1423,10 +1426,10 @@ static int song_rec_loop(int w)
         res = row_tap(g, n, w);
     songs_write(0);
     if (res < 0) {
-        say("SONG FULL", "32 ROWS");
+        say("SONG FULL", "32 SECTIONS");
         return -1;
     }
-    itoa_u((uint32_t)res + 1u, cat_s(a, "ROW "));
+    itoa_u((uint32_t)res + 1u, cat_s(a, "SECTION "));
     loop_label(w, t);
     say(a, t);
     return res;
@@ -1458,7 +1461,7 @@ static void song_rec_toggle(void)
             arr_mode_song(g, app.row < g->nrows ? app.row : 0);
     }
     ui.song_rec = 1;
-    say("REC ROWS", arr_playing ? "HOME + keys" : "PLAY, HOME + keys");
+    say("REC SECTIONS", arr_playing ? "HOME + keys" : "PLAY, HOME + keys");
 }
 /* SONG's knobs: ROW (the END row after the last), LOOP, SECTION, REPEAT; ROW, KEY; INTRO, ENDING, AT END, SONG */
 static void song_knob(int k, int32_t e)
@@ -1512,8 +1515,8 @@ static void song_knob(int k, int32_t e)
     else if (k == 2 && row_set_sect(g, app.row, to)) {   /* the loop's other rows on the old Main follow */
         char a[16];
         songs_write(0);
-        cat_s(loop_name_l(w->loop % ARR_LOOPS, a), " ROWS:");
-        say(a, row_main(w) == SEC_B ? "MAIN B" : "MAIN A");
+        cat_s(loop_name_l(w->loop % ARR_LOOPS, a), " SECTIONS:");
+        say(a, row_main(w) == SEC_B ? "GROOVE B" : "GROOVE A");
         return;
     } else if (k == 3)
         w->rep = (uint8_t)to;
@@ -1555,12 +1558,10 @@ static void page_turn(int d)
 }
 
 static void slot_style(int s, int to);
-static void pat_name(int st, char *t)            /* "P05" */
+static char *pat_name(int st, char *t)           /* "MEMORY 5": a user pattern's place (SAVE + white key 5), as the
+                                                  * MEMORY list numbers them (never "P05": P is a progression) */
 {
-    t[0] = 'P';
-    t[1] = (char)('0' + (st + 1) / 10);
-    t[2] = (char)('0' + (st + 1) % 10);
-    t[3] = 0;
+    return itoa_u((uint32_t)st + 1u, cat_s(t, "MEMORY "));
 }
 
 /* the song from row r (PLAY on SONG: row 1; SEL's PLAY FROM ROW: the cursor's): stopped, at once (row 1 with its
@@ -1576,7 +1577,7 @@ static void song_play_from(int r)
     arr_mode_song(g, r);
     ui.row_follow = 1;
     if (arr_playing) {
-        itoa_u((uint32_t)r + 1u, cat_s(t, "ROW "));
+        itoa_u((uint32_t)r + 1u, cat_s(t, "SECTION "));
         say("NEXT", t);
     } else
         arr_play(1);
@@ -1592,7 +1593,7 @@ static void lead_rec_button(int on)
     if (on && app.mode != ARR_SONG && !arr_playing && csong()->nrows)
         mode_set(ARR_SONG);                      /* stopped: the song it records into (PLAY starts it) */
     if (on && app.mode != ARR_SONG) {
-        say("LEADS RECORD", "IN A SONG");
+        say("MELODIES RECORD", "IN A SONG");
         return;
     }
     arr_record(sel_trk(), on ? ARR_REC_BAR : 0);   /* (playing: a count-in to the next bar line; stopped: from PLAY) */
@@ -1628,7 +1629,7 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         int on = !arr_recording, s = eslot(), r = key_role(), rp = 0;   /* the state asked for (the engine's: a block
                                                                          * later) */
         int st = songs.song[proj.song].style[s];
-        char a[24], t[16];
+        char a[24], t[24];
         if (r == KR_CHORDS) {                    /* HOME, LOOP: chords into the loop, or a new loop */
             rec_chords_button();
             break;
@@ -1659,9 +1660,10 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         ui.rec_seen = 0;
         if (!on)
             say("RECORD OFF", 0);
-        else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: say which */
-            pat_name(songs.song[proj.song].style[s], cat_s(t, "into new "));
-            say(a, t);
+        else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: "GROOVE A (YOURS)" */
+            cat_s(cat_s(t, SECT_NAME[s + 1]), " (yours)");
+            upcase(t);
+            say(a, 8 + text_w(&FONT_B, a) + 8 + text_w(&FONT_B, t) > 232 ? "(YOURS)" : t);
         } else
             say(a, SECT_NAME[s + 1]);
     }
@@ -1807,7 +1809,7 @@ static void slot_style(int s, int to)
             return;
         }
         if (save_all() != 0) {
-            say("NOT SAVED", "PATTERN KEPT");
+            say("NOT SAVED", "GROOVE KEPT");
             return;
         }
     }
@@ -2065,8 +2067,8 @@ static void ask_end(int yes)
             f();
     }
 }
-static char *loop_name_l(int i, char *t) { return itoa_u((uint32_t)i + 1u, cat_s(t, "L")); }   /* "L3" */
-/* "WORDS L3?" */
+static char *loop_name_l(int i, char *t) { return itoa_u((uint32_t)i + 1u, cat_s(t, "P")); }   /* "P3" */
+/* "WORDS P3?" */
 static void ask_loop(const char *what, int i, void (*yes)(void))
 {
     char q[32];
@@ -2103,7 +2105,7 @@ static void do_clear_loop(void)
 {
     char t[8];
     int l = ui.tgt.loop % ARR_LOOPS;
-    undo_hint("CLEAR LOOP");
+    undo_hint("CLEAR PROG");
     songs_write(1);
     loop_clear(&sloops.loop[l], l);
     songs_write(0);
@@ -2125,15 +2127,15 @@ static int row_change(int ins, int row)
 {
     song_t *g = csong();
     if (arr_playing) {
-        say(ins ? "INSERT ROW" : "DELETE ROW", "STOP FIRST");
+        say(ins ? "INSERT SECTION" : "DELETE SECTION", "STOP FIRST");
         return -1;
     }
     if (ins && g->nrows >= ARR_ROWS) {
-        say("SONG FULL", "32 ROWS");
+        say("SONG FULL", "32 SECTIONS");
         return -1;
     }
     if (!ins && row >= g->nrows) {
-        say("DELETE ROW", "NO ROW HERE");
+        say("DELETE SECTION", "NONE HERE");
         return -1;
     }
     return 0;
@@ -2146,12 +2148,12 @@ static void do_delete_row(void)
 }
 static void act_row(int ins)
 {
-    char q[32];
+    char q[48];
     if (row_change(ins, app.row) != 0)
         return;
     if (!ins && leads_count(&leads, app.row, -1)) {
         ui.tgt.lrow = app.row;
-        cat_s(itoa_u(app.row + 1u, cat_s(q, "ROW ")), " HAS LEAD NOTES: DELETE?");
+        cat_s(itoa_u(app.row + 1u, cat_s(q, "SECTION ")), " HAS MELODY NOTES: DELETE?");
         ask(q, do_delete_row);
         return;
     }
@@ -2160,9 +2162,9 @@ static void act_row(int ins)
 static void row_do(int ins, int row)
 {
     song_t *g = csong();
-    char t[12];
-    itoa_u((uint32_t)row + 1u, cat_s(t, "ROW "));
-    undo_hint(ins ? "INSERT ROW" : "DELETE ROW");
+    char t[16];
+    itoa_u((uint32_t)row + 1u, cat_s(t, "SECTION "));
+    undo_hint(ins ? "INSERT SECTION" : "DELETE SECTION");
     {
         int r = ins ? (row > g->nrows ? g->nrows : row) : row, before = leads.n;
         songs_write(1);                          /* (the rows and the lead notes in one write: their rows move together) */
@@ -2231,7 +2233,7 @@ static void do_copy_song(void)
     }
     edits_flush();
     if (copy_patterns_pick(to, st) != 0) {
-        say_noslot("NOT COPIED", "NO FREE SLOT");
+        say_noslot("NOT COPIED", "MEMORY FULL");
         return;
     }
     for (int i = 0; i < ARR_NSECT; i++)
@@ -2239,7 +2241,7 @@ static void do_copy_song(void)
             mine |= 1u << st[i];
     if (!deflt && (lp = (int8_t)project_loops_slot(to)) < 0 &&
         (lp = (int8_t)project_slot_free(&songs, mine, &scratch)) < 0) {   /* the loops' slot: the target's, else free */
-        say_noslot("NOT COPIED", "NO FREE SLOT");
+        say_noslot("NOT COPIED", "MEMORY FULL");
         return;
     }
     for (int i = 0; i < ARR_NSECT; i++) {        /* the patterns' contents, as they play now; the song after */
@@ -2287,11 +2289,11 @@ static void act_copy_song(void)
 }
 /* ERASE LD1 IN ROW n (the row playing, else SONG's cursor), ERASE LD1 (the whole song's): the lead's notes, asked
  * first. tgt.lrow 255: every row */
-static void lead_erase_what(char *t)            /* "LD1 IN ROW 3", "LD1" */
+static void lead_erase_what(char *t)            /* "M1 IN SECTION 3", "M1" */
 {
     char *e = cat_s(t, TRACK_NAME[ARR_LD1 + ui.tgt.ltrk % ARR_LEADS]);
     if (ui.tgt.lrow != 255u)
-        itoa_u(ui.tgt.lrow + 1u, cat_s(e, " IN ROW "));
+        itoa_u(ui.tgt.lrow + 1u, cat_s(e, " IN SECTION "));
 }
 static void do_erase_lead(void)
 {
@@ -2325,7 +2327,7 @@ static void do_erase_track(void)
 {
     int t = ui.tgt.trk & 7;
     if (eslot() != ui.tgt.slot) {                /* the engine erases in the section playing: another now */
-        say("NOT ERASED", "SECTION CHANGED");
+        say("NOT ERASED", "GROOVE CHANGED");
         return;
     }
     char h[16];
@@ -2352,8 +2354,10 @@ static void act_erase_track(void)
 static void do_clear_pattern(void)
 {
     int s = ui.tgt.slot % ARR_NSECT;
+    char h[16];
     edits_flush();
-    undo_hint("CLEAR PATTERN");
+    cat_s(cat_s(h, "CLEAR "), SECT_NAME[s + 1]);
+    undo_hint(upcase(h));                        /* "CLEAR GROOVE A" */
     slot_own(s);
     for (int tries = 0; tries < 8; tries++) {
         uint16_t d = arr_pattern_copy(s, &scratch);
@@ -2409,7 +2413,7 @@ static void act_quant_lead(void)
     int k = (app.lead ? app.lead - 1 : 0) % ARR_LEADS, r = lead_row(), n, before = leads.n, from;
     uint32_t end = 0;
     char a[24], *e;
-    e = cat_s(cat_s(a, TRACK_NAME[ARR_LD1 + k]), " ROW ");
+    e = cat_s(cat_s(a, TRACK_NAME[ARR_LD1 + k]), " SECTION ");
     itoa_u((uint32_t)r + 1u, e);
     if (proj.quant % ARR_NQ == ARR_Q_OFF) {
         say("GRID IS OFF", "SEQ: GRID");
@@ -2487,9 +2491,9 @@ static void do_copy_lead(void)
         put++;
     }
     undo_commit();                               /* one step */
-    itoa_u((uint32_t)to + 1u, cat_s(itoa_u((uint32_t)from + 1u, cat_s(cat_s(b, TRACK_NAME[ARR_LD1 + k]), " ROW ")), " > ROW "));
+    itoa_u((uint32_t)to + 1u, cat_s(itoa_u((uint32_t)from + 1u, cat_s(cat_s(b, TRACK_NAME[ARR_LD1 + k]), " SECTION ")), " > "));
     if (put || !n)
-        say("COPIED", b);                        /* (else what lead_put said: NO FREE SLOT, LEAD FULL) */
+        say("COPIED", b);                        /* (else what lead_put said: MEMORY FULL, MELODY FULL) */
 }
 static void act_copy_lead(void)
 {
@@ -2501,7 +2505,7 @@ static void act_copy_lead(void)
     if (ui.tgt.lfrom >= g->nrows || ui.tgt.lfrom == ui.tgt.lrow)
         return;
     if (!leads_count(&leads, ui.tgt.lfrom, ui.tgt.ltrk)) {
-        e = cat_s(cat_s(q, TRACK_NAME[ARR_LD1 + ui.tgt.ltrk]), " ROW ");
+        e = cat_s(cat_s(q, TRACK_NAME[ARR_LD1 + ui.tgt.ltrk]), " SECTION ");
         itoa_u(ui.tgt.lfrom + 1u, e);
         say(q, "HAS NO NOTES");
         return;
@@ -2510,7 +2514,7 @@ static void act_copy_lead(void)
         do_copy_lead();
         return;
     }
-    e = cat_s(cat_s(cat_s(q, "REPLACE "), TRACK_NAME[ARR_LD1 + ui.tgt.ltrk]), " IN ROW ");
+    e = cat_s(cat_s(cat_s(q, "REPLACE "), TRACK_NAME[ARR_LD1 + ui.tgt.ltrk]), " IN SECTION ");
     cat_s(itoa_u(ui.tgt.lrow + 1u, e), "?");
     ask(q, do_copy_lead);
 }
@@ -2581,8 +2585,10 @@ static int songs_n(uint8_t plays)
         k += plays >> n & 1u;
     return k;
 }
-static void slot_text(int i, char *t)            /* "P03|Funk A|S1", "S2 leads 1/2", "S1 loops", "free" (the pattern's
-                                                  * name and the section the song plays it as) */
+/* what memory place i holds, in the screen's words: "Pop|Groove A (yours)|S1" (a user pattern: its name, the section
+ * the song selected plays it as, the songs playing it), "Pop (yours)|no song", "S2 melodies 1/2" (a song's lead notes,
+ * part 1 of 2), "S1 progressions" (a song's own loops), "free" */
+static void slot_text(int i, char *t)
 {
     slot_who_t w;
     char *e;
@@ -2593,32 +2599,27 @@ static void slot_text(int i, char *t)            /* "P03|Funk A|S1", "S2 leads 1
         e = cat_s(t, "S");
         *e++ = (char)('1' + w.song);
         *e = 0;
-        e = cat_s(e, " leads ");
+        e = cat_s(e, " melodies ");
         *e++ = (char)('1' + w.part);
         cat_s(e, "/2");
     } else if (w.kind == SLOT_LOOPS) {
         e = cat_s(t, "S");
         *e++ = (char)('1' + w.song);
         *e = 0;
-        cat_s(e, " loops");
+        cat_s(e, " progressions");
     } else if (w.kind == SLOT_PATTERN) {
-        static const char *const SEC_SHORT[ARR_NSECT] = {" Intro", " A", " B", " Fill AB", " Fill BA", " End"};
-        const char *nm = 0;
-        char b[9], nb[24];
-        style_name(i, t);                        /* "P03" */
+        char nm[12];
+        nm[0] = 0;
         if (w.sect >= 0)
-            nm = app.hdr[w.sect].name;
+            pat_name8(app.hdr[w.sect].name, nm);
         else if (project_pattern_load(i, &scratch) == 0)
-            nm = scratch.name;
-        if (nm)
-            pat_name8(nm, b);
-        else
-            b[0] = 0;
-        e = t + slen(t);
-        cat_s(cat_s(nb, b), b[0] && w.sect >= 0 ? SEC_SHORT[w.sect % ARR_NSECT] : "");   /* "Funk A", "VERSE B" */
-        if (nb[0])
-            e = cat_s(cat_s(e, "|"), nb);
-        e = cat_s(e, "|");
+            pat_name8(scratch.name, nm);
+        e = t;
+        if (nm[0])                               /* "Pop|", "Pop " */
+            e = cat_s(cat_s(e, nm), w.sect >= 0 ? "|" : " ");
+        if (w.sect >= 0)                         /* "Groove A " */
+            e = cat_s(cat_s(e, SECT_NAME[w.sect % ARR_NSECT + 1]), " ");
+        e = cat_s(e, "(yours)|");
         if (w.plays)
             song_list(w.plays, e);
         else
@@ -2631,7 +2632,7 @@ static void slots_scan(void)
     for (int i = 0; i < ARR_USER_PATTERNS; i++)
         slot_text(i, slot_txt[i]);
 }
-/* SLOTS from a list (HOME: back to it), or from the hint after a NO FREE SLOT (HOME: the page) */
+/* MEMORY from a list (HOME: back to it), or from the hint after a MEMORY FULL (HOME: the page) */
 static void slots_open(int from_list)
 {
     lst.back_sel = from_list ? lst.sel : 255u;
@@ -2660,15 +2661,15 @@ static void slots_retry(char *a, char *b)
         if (g->style[s] >= ARR_USER_PATTERNS &&
             (app.edited[s] || (app.edit_pend >> s & 1u) || arr_dirty[s] != app.saved[s]) && slot_own(s) == 0 &&
             g->style[s] < ARR_USER_PATTERNS) {
-            upcase(cat_s(cat_s(a, SECT_NAME[s + 1]), " KEPT"));
+            cat_s(cat_s(a, SECT_NAME[s + 1]), " KEPT");   /* "GROOVE A KEPT IN MEMORY 14" */
             pat_name(g->style[s], cat_s(b, "IN "));
             app.songs_dirty = 1;
             return;
         }
     if (app.lpslot < 0 && !loops_is_default(sloops.loop) && loops_slot_take() == 0 && app.lpslot >= 0) {
         app.lpdirty = 1;
-        cat_s(a, "LOOPS KEPT");
-        itoa_u((uint32_t)app.lpslot + 1u, cat_s(b, "IN SLOT "));
+        cat_s(a, "PROGS KEPT");
+        pat_name(app.lpslot, cat_s(b, "IN "));
     }
 }
 /* FREE: slot ui.tgt.free let go. A pattern the songs play: those sections back to their song's style, the pattern
@@ -2684,7 +2685,7 @@ static void do_free_slot(void)
         return;
     }
     slot_who(i, &w);
-    itoa_u((uint32_t)i + 1u, cat_s(a, "SLOT "));
+    pat_name(i, a);                              /* "MEMORY 2 FREE NOW", "MEMORY 2 S1 BACK TO STYLE" */
     cat_s(b, "FREE NOW");
     if (w.kind == SLOT_PATTERN) {
         edits_flush();
@@ -2712,7 +2713,7 @@ static void do_free_slot(void)
         app.gen++;
     } else if (w.kind == SLOT_LEAD && w.song == proj.song) {
         int k = w.part % LEAD_PARTS;
-        undo_hint(k ? "FREE LEADS 2" : "FREE LEADS 1");
+        undo_hint(k ? "FREE MELODY 2" : "FREE MELODY 1");
         lead_write(1);
         leads_erase_at(&leads, (uint32_t)k * LEAD_PART_NOTES, leads.part[k].n);
         lead_write(0);
@@ -2722,14 +2723,14 @@ static void do_free_slot(void)
         }
         app.ldirty = (1u << LEAD_PARTS) - 1u;
         save_all();
-        cat_s(b, "LEAD NOTES ERASED");
+        cat_s(b, "MELODY NOTES ERASED");
     } else if (w.kind == SLOT_LOOPS && w.song == proj.song) {
-        undo_hint("LOOPS FACTORY");
+        undo_hint("PROGS FACTORY");
         songs_write(1);
         loops_default(sloops.loop);
         songs_write(0);
         save_all();
-        cat_s(b, "LOOPS: FACTORY");
+        cat_s(b, "PROGS: FACTORY");
     } else if (w.kind == SLOT_LEAD || w.kind == SLOT_LOOPS) {
         if (project_slot_clear(i) != 0) {
             say("NOT FREED", "FLASH ERROR");
@@ -2737,7 +2738,7 @@ static void do_free_slot(void)
         }
     } else
         return;
-    slots_retry(a, b);                           /* a change NO FREE SLOT left unkept: kept now */
+    slots_retry(a, b);                           /* a change MEMORY FULL left unkept: kept now */
     lst.open = 1;                                /* (the question closed the list: SLOTS again, as it is now) */
     lst.slots = 1;
     slots_scan();
@@ -2746,7 +2747,7 @@ static void do_free_slot(void)
 static void act_free_slot(int i)
 {
     slot_who_t w;
-    char q[40], *e;
+    char q[48], *e;
     if (slot_kind[i % ARR_USER_PATTERNS] == SLOT_NONE)
         return;
     if (arr_playing) {
@@ -2756,8 +2757,7 @@ static void act_free_slot(int i)
     ui.tgt.free = (uint8_t)i;
     slot_who(i, &w);
     if (w.kind == SLOT_PATTERN) {
-        style_name(i, cat_s(q, "FREE "));
-        e = cat_s(q + slen(q), "? ");
+        e = cat_s(pat_name(i, cat_s(q, "FREE ")), "? ");   /* "FREE MEMORY 3? S1 BACK TO STYLE" */
         if (songs_n(w.plays) > 1)
             cat_s(itoa_u((uint32_t)songs_n(w.plays), e), " SONGS BACK TO STYLE");
         else if (w.plays)
@@ -2767,13 +2767,13 @@ static void act_free_slot(int i)
     } else if (w.kind == SLOT_LEAD) {
         e = cat_s(q, "ERASE S");
         *e++ = (char)('1' + w.song);
-        e = cat_s(e, " LEADS ");
+        e = cat_s(e, " MELODIES ");
         *e++ = (char)('1' + w.part);
         cat_s(e, "/2?");
     } else if (w.kind == SLOT_LOOPS) {
         e = cat_s(q, "S");
         *e++ = (char)('1' + w.song);
-        cat_s(e, "'S LOOPS BACK TO FACTORY?");
+        cat_s(e, "'S PROGRESSIONS BACK TO FACTORY?");
     } else {
         slots_scan();                            /* (free meanwhile) */
         return;
@@ -2817,7 +2817,7 @@ static void action_run(int a)
 static void do_copy_loop(void)
 {
     char a[8], b[20];
-    undo_hint("COPY LOOP");
+    undo_hint("COPY PROG");
     songs_write(1);
     sloops.loop[ui.copy_to % ARR_LOOPS] = sloops.loop[ui.copy_src % ARR_LOOPS];
     songs_write(0);
@@ -2829,19 +2829,20 @@ static void do_copy_pattern(void)
 {
     int s = ui.tgt.slot % ARR_NSECT, st = songs.song[proj.song].style[s], to = ui.copy_to % ARR_USER_PATTERNS;
     uint16_t d;
-    char a[24], t[20];
+    char a[24], t[24];
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
         say("COPY", "STOP FIRST");
         return;
     }
-    pat_name(to, cat_s(t, "COPIED TO "));
+    pat_name(to, cat_s(t, "COPIED TO "));        /* "POP (YOURS) COPIED TO MEMORY 7" */
     edits_flush();
     undo_commit();                               /* (a copy into the flash: not undone; the slots given it followed) */
     for (int j = 0; j < ARR_NSECT; j++)          /* another section plays it, changed: those changes first */
         if (j != s && songs.song[proj.song].style[j] == to && slot_unsaved(j)) {
-            pat_name(to, a);
-            cat_s(a + 3, " UNSAVED IN");
-            say(a, SECT_NAME[j + 1]);
+            char u[24];
+            pat_name(to, a);                     /* "MEMORY 7 UNSAVED IN GROOVE B" */
+            cat_s(cat_s(u, "UNSAVED IN "), SECT_NAME[j + 1]);
+            say(a, u);
             return;
         }
     d = arr_pattern_copy(s, &scratch);
@@ -2860,12 +2861,12 @@ static void do_copy_pattern(void)
             app.saved[j] = arr_dirty[j];
         }
     undo_sync();
-    style_name(st, a);
+    pat_title(s, a);
     say(upcase(a), t);
 }
 static void copy_to(int n)
 {
-    char q[16];
+    char q[32];
     ui.copy_to = (uint8_t)n;
     ui.tgt.slot = (uint8_t)eslot();
     if (list_loops()) {
@@ -2875,7 +2876,7 @@ static void copy_to(int n)
         ui.copy_src = (uint8_t)src;
         if (n == src) {
             loop_name_l(n, q);
-            say(q, "IS THIS LOOP");
+            say(q, "IS THIS PROGRESSION");
         } else if (sloops.loop[n].bars)
             ask_loop("REPLACE ", n, do_copy_loop);
         else
@@ -2889,17 +2890,16 @@ static void copy_to(int n)
             slot_info_t si;
             pat_name(n, q);
             project_slot_info(n, &si, &scratch);
-            say(q, si.kind == SLOT_LOOPS || n == app.lpslot ? "HOLDS LOOPS" : "HOLDS LEAD NOTES");
+            say(q, si.kind == SLOT_LOOPS || n == app.lpslot ? "HOLDS PROGRESSIONS" : "HOLDS MELODY NOTES");
             return;
         }
         if (n != songs.song[proj.song].style[ui.tgt.slot] && !pattern_blank(n)) {
-            pat_name(n, cat_s(q, "REPLACE "));
-            cat_s(q + 11, "?");
+            cat_s(pat_name(n, cat_s(q, "REPLACE ")), "?");   /* "REPLACE MEMORY 7?" */
             ask(q, do_copy_pattern);
         } else
             do_copy_pattern();
     } else
-        say("COPY", "ON HOME, LOOP, SEQ");
+        say("COPY", "ON HOME, ARP, SEQ");
 }
 
 /* the record grid (Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
@@ -3081,7 +3081,7 @@ static void bars_to_loop(void)
         return;
     bars_set(eslot(), n);
     itoa_u((uint32_t)n, cat_s(a, "BARS "));
-    say(a, "AS THE LOOP");
+    say(a, "AS THE PROGRESSION");
 }
 #define MUTE_BURST_MS 150u                       /* detents closer than this: one turn */
 /* a track muted / unmuted: the song's (every section), live; not an edit of the pattern (a style's section stays
@@ -3089,7 +3089,7 @@ static void bars_to_loop(void)
 static void mute_toggle(int trk)
 {
     if (trk >= ARR_TRACKS && app.mode != ARR_SONG) {   /* a lead: in a song only (its rows' mutes, by hand) */
-        say("LEADS PLAY", "IN A SONG");
+        say("MELODIES PLAY", "IN A SONG");
         return;
     }
     if (app.mode == ARR_SONG) {
@@ -3694,7 +3694,7 @@ static void undo_name(int k, char *t)
         else if (trk >= 0 && !hdr && field <= 2)
             cat_s(cat_s(t, TRACK_NAME[trk & 7]), field == 0 ? " SOUND" : field == 1 ? " TYPE" : " MIXER");
         else
-            cat_s(t, "PATTERN");
+            cat_s(t, "GROOVE");
         return;
     }
     if (mask >> UR_LOOPS & 1u) {                 /* a loop: its chords, else its length, its name */
@@ -3715,7 +3715,7 @@ static void undo_name(int k, char *t)
                 lenf = 1;
         }
         if (lp < 0)
-            cat_s(t, "LOOPS");
+            cat_s(t, "PROGRESSIONS");
         else
             cat_s(loop_name_l(lp, t), chords ? (beat >= 0 ? " CHORD" : " CHORDS") : lenf ? " LENGTH" : " NAME");
         return;
@@ -3746,25 +3746,25 @@ static void undo_name(int k, char *t)
         switch (what) {
         case UN_ROW:
             if (row >= 0)
-                itoa_u((uint32_t)row + 1u, cat_s(t, "ROW "));
+                itoa_u((uint32_t)row + 1u, cat_s(t, "SECTION "));
             else
-                cat_s(t, "ROWS");
+                cat_s(t, "SECTIONS");
             break;
         case UN_STYLE:
             if (sect >= 0)
-                cat_s(cat_s(t, SECT_NAME[sect % ARR_NSECT + 1]), " PATTERN");
+                cat_s(cat_s(t, SECT_NAME[sect % ARR_NSECT + 1]), " STYLE");
             else
                 cat_s(t, "STYLE");
             break;
         case UN_TEMPO: cat_s(t, "TEMPO"); break;
         case UN_XPOSE: cat_s(t, "TRANSPOSE"); break;
         case UN_MUTES: cat_s(t, "MUTES"); break;
-        case UN_LEAD: cat_s(t, "LEAD SOUND"); break;
+        case UN_LEAD: cat_s(t, "MELODY SOUND"); break;
         default: cat_s(t, "SONG"); break;
         }
         return;
     }
-    cat_s(t, "LEAD NOTES");
+    cat_s(t, "MELODY NOTES");
 }
 
 /* HOME + REC (redo 0), HOME + PLAY (1): the step before (after) the state now taken back (put back), while playing
@@ -3851,7 +3851,7 @@ static void do_undo(int redo)
             if (leads.part[p].n && app.lslot[p] < 0) {
                 int f = pattern_free();
                 if (f < 0) {
-                    say_noslot("NO FREE SLOT", "LEADS NOT KEPT");
+                    say_noslot("MEMORY FULL", "MELODY NOT KEPT");
                     break;
                 }
                 app.lslot[p] = (int8_t)f;
@@ -3901,7 +3901,7 @@ void ui_frame(void)
             ui.rec_seen = 1;
         else if (ui.rec_seen) {
             ui.rec_want = ui.rec_seen = 0;
-            say("RECORD OFF", "section ended");
+            say("RECORD OFF", "the band moved on");
         }
     }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
