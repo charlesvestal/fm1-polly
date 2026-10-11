@@ -153,6 +153,10 @@ release HOME
 expect rows 3
 expect row_loop3 9
 expect msgtext_is_UNDO_SECTIONS 1
+# (undo takes the cursor to what came back: section 3; to the END row again)
+expect cursor 3
+turn K1 1
+expect cursor 4
 # an edit after an undo: what was undone can no longer be redone
 tapkey w3
 wait 1100

@@ -182,7 +182,27 @@ static struct {
     uint8_t click_sent;                              /* the click's mode and the app's REC as the engine has them (+1) */
     uint32_t count_sent;                             /* ... a free take's count-in (arr_count_in) */
     uint32_t slots_until;                            /* a NO FREE SLOT said: until then SEL opens SLOTS (the footer says) */
+    uint8_t pcur;                                    /* Band's cursor: a beat of the groove, 0.. (BAR / BEAT; the place
+                                                      * shown, note editing to come) */
 } ui;
+/* the edit lights up where it lands (docs/superpowers/specs/2026-10-11-visibility-design.md): flash_watch(), each frame
+ * before the drawing, watches what the page shows (cheap hashes) and what changed since the frame before flashes coral
+ * FLASH_MS: a progression's beats, the song's sections, a groove's instruments and the selected one's bars, a melody's
+ * sections and its section's bars. Knob, key, REC, an action, undo / redo alike. Another page, song, progression,
+ * section or instrument: watched afresh, nothing flashes */
+#define FLASH_MS 500u
+static struct {
+    uint32_t id, key;                                /* what is watched (the page's kind, song, progression ...), the
+                                                      * inputs it was hashed from (the same: nothing to hash again) */
+    uint8_t ok, n;                                   /* hashed; the sections then */
+    uint16_t ch[ARR_LOOP_BEATS];                     /* a progression's beats */
+    uint32_t h[ARR_ROWS + 1];                        /* the song's sections; a groove's instruments; a melody's sections */
+    uint32_t bh[32];                                 /* the bars: the selected instrument's, a melody's section's */
+    uint32_t t;                                      /* the flash: since when (0 none) */
+    uint64_t beats;                                  /* what flashes: a progression's beats (bit b beat b), */
+    uint32_t rows, bars;                             /* sections or instruments, bars */
+} fw;
+static int flash_on(void) { return fw.t && plat_ms() - fw.t < FLASH_MS; }
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
 static int song_page(void) { return song_pg(ui.page); }
@@ -690,9 +710,9 @@ static void home_strip(const place_t *pl, const loop_t *l, int intro, uint32_t *
             continue;
         if (k == bt)                                 /* the bar line */
             cv_rect(x - 4, y + 2, 1, 12, K_LINE);
-        if (cursor) {
-            cv_round(x - 1, y, cw, 16, 3, K_ACCENT);
-            cv_round(x, y + 1, cw - 2, 14, 2, K_BG);
+        if (cursor) {                                /* the cursor: a coral ring (2 px) */
+            cv_round(x - 2, y - 1, cw + 1, 18, 4, K_ACCENT);
+            cv_round(x, y + 1, cw - 3, 14, 2, K_BG);
         }
         if (v != LC_SAME) {                          /* its name, over the beats of no change after it (in its bar) */
             for (j = k + 1; j < bt * nb && j / bt == k / bt; j++) {
@@ -705,8 +725,8 @@ static void home_strip(const place_t *pl, const loop_t *l, int intro, uint32_t *
             cut_until = text_fit(x + 1, y - 1, &FONT_XS, t, room, playing ? K_TEAL : K_TEXT) + 2;
         } else if (x + 3 >= cut_until)
             cv_round(x + 3, y + 8, 3, 3, 1, idx < len ? K_DIM : K_LINE);
-        if (playing)
-            cv_rect(x, y + 15, cw - 3, 2, K_ACCENT);
+        if (playing)                                 /* the playhead: teal */
+            cv_round(x, y + 15, cw - 3, 3, 1, K_TEAL);
     }
     *hp = h;
 }
@@ -757,7 +777,6 @@ static uint32_t home_chord(void)                     /* the big chord HOME shows
 #define RG_Y 24                                      /* the bars' top */
 #define RG_X 8
 #define RG_CW 53                                     /* a bar's cell: four to a row, 4 px apart */
-#define FLASH_MS 450u
 /* HOME's eight tracks: lit as they play (bit i of lit), with their sounds; home_lit: those hit just now */
 static uint32_t home_lit(void)
 {
@@ -874,6 +893,8 @@ static void draw_home_rec(void)
     fl = wrote_flash(li);
     if (fl)
         fbar = ui.wrote_beat / bpb;
+    else if (flash_on() && fw.id == (1u | (uint32_t)proj.song << 4 | (uint32_t)li << 8) && fw.beats)
+        fbar = __builtin_ctzll(fw.beats) / bpb;      /* (another change: an undo's, its first bar) */
     h = hash(2166136261u, 0x5EC0u | (uint32_t)li << 16 | (uint32_t)take << 24 | (uint32_t)wait << 26 |
                               (uint32_t)cursor << 29);
     h = hash(h, (uint32_t)(focus + 1) | (uint32_t)fbeat << 8 | (uint32_t)shown << 12 | (uint32_t)cnt << 20 |
@@ -933,7 +954,7 @@ static void draw_home_rec(void)
         char nm[4][12];
         if (cur) {                                   /* the cursor: a coral ring */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
-            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, fill);
+            cv_round(x + 3, y + 3, RG_CW - 6, ch - 6, 3, fill);   /* (3 px: seen at arm's length) */
         } else if (out && !flash) {                  /* a bar to come: its outline */
             cv_round(x, y, RG_CW, ch, 5, K_LINE);
             cv_round(x + 1, y + 1, RG_CW - 2, ch - 2, 4, fill);
@@ -1118,13 +1139,14 @@ static void draw_loop(void)
 {
     const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4, len = loop_len(l), wrap = bpb >= 5, cbar = app.cbeat / bpb;
-    int bars = l->bars, rows, xp = xpose_now(), i, live, fbar, fl;
+    int bars = l->bars, rows, xp = xpose_now(), i, live, fbar, fl, shown;
     int n1 = wrap ? (bpb + 1) / 2 : bpb, cw = LG_W / n1;
     int32_t y0 = wrap ? 2 : 13, ch = 18, gap = wrap ? 6 : 2, rh = (wrap ? 2 * ch + 2 : ch) + gap;
     int32_t visible = (MAIN_H - y0 + gap) / rh, top;
+    uint64_t fm = flash_on() ? fw.beats : 0;
     place_t pl;
     uint32_t pbeat, h;
-    char t[16];
+    char t[24];
     place_read(&pl);
     pbeat = arr_playing && pl.loop == (int)(app.loop % ARR_LOOPS) ? pl.lbeat : 0xFFFFFFFFu;
     live = ui.rec_chords && pbeat != 0xFFFFFFFFu;    /* REC writing in time: the playhead, not the cursor */
@@ -1140,44 +1162,62 @@ static void draw_loop(void)
         top = 0;
     h = hash(2166136261u, (uint32_t)app.loop | (uint32_t)app.cbeat << 8 | (uint32_t)top << 16 | (uint32_t)rows << 24);
     h = hash(h, (uint32_t)bpb | (uint32_t)(xp + 64) << 8 | (uint32_t)ui.rec_chords << 15 | pbeat << 16);
-    h = hash(h, (uint32_t)(fbar + 1) | (uint32_t)live << 8);
+    h = hash(hash(hash(h, (uint32_t)(fbar + 1) | (uint32_t)live << 8), (uint32_t)fm), (uint32_t)(fm >> 32));
     for (i = 0; i < len && i < ARR_LOOP_BEATS; i++)
         h = hash(h, l->ch[i]);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    if (!wrap)                                       /* the beats' numbers */
+    if (!wrap)                                       /* the beats' numbers (the cursor's: on coral) */
         for (int k = 0; k < bpb; k++) {
+            int32_t cx = LG_X + k * cw + (cw - 3) / 2;
             itoa_u((uint32_t)k + 1u, t);
-            text_c(LG_X + k * cw + (cw - 3) / 2, 0, &FONT_XS, t, K_DIM);
+            if (!live && k == app.cbeat % bpb) {
+                cv_round(cx - 8, 0, 16, 12, 4, K_ACCENT);
+                text_c(cx, -2, &FONT_XS, t, K_BG);
+            } else
+                text_c(cx, -2, &FONT_XS, t, K_DIM);
         }
     for (i = top; i < rows && i < top + visible; i++) {
         int32_t y = y0 + (i - top) * rh;
         int ghost = i >= bars;                       /* the bar to come (the cursor at the loop's end) */
         itoa_u((uint32_t)i + 1u, t);
-        cv_text(LG_X - 5 - text_w(&FONT_XS, t), y + (wrap ? ch - 6 : 3), &FONT_XS, t,
-                i == cbar ? live ? K_TEAL : K_TEXT : K_DIM);
+        if (i == cbar) {                             /* the cursor's bar (writing in time: the bar playing): its number on
+                                                      * coral (teal) */
+            int32_t w = text_w(&FONT_XS, t) + 6;
+            cv_round(LG_X - 3 - w, y + (wrap ? ch - 5 : 3), w, 12, 4, live ? K_TEAL : K_ACCENT);
+            cv_text(LG_X - w, y + (wrap ? ch - 7 : 1), &FONT_XS, t, K_BG);
+        } else
+            cv_text(LG_X - 5 - text_w(&FONT_XS, t), y + (wrap ? ch - 6 : 3), &FONT_XS, t, K_DIM);
         for (int k = 0; k < bpb; k++) {
             int idx = i * bpb + k, line = wrap && k >= n1, col = line ? k - n1 : k;
             int32_t x = LG_X + col * cw, yy = y + (line ? ch + 2 : 0), w = cw - 3;
             uint16_t v = idx < len && idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME;
-            int cur = idx == app.cbeat && !live, plays = (uint32_t)idx == pbeat, flash = idx == fbar;
-            uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL_T : ghost ? K_BG : K_PANEL;
-            if (cur) {                               /* the cursor: a coral ring round the cell */
+            int cur = idx == app.cbeat && !live, plays = (uint32_t)idx == pbeat;
+            int flash = idx == fbar || (idx < ARR_LOOP_BEATS && (fm >> idx & 1u));
+            /* the playhead: teal; the cursor: a thick coral ring (round the playhead's teal when both); an edit: coral */
+            uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL : ghost ? K_BG : K_PANEL, fg = flash || plays ? K_BG : K_TEXT;
+            if (cur) {
                 cv_round(x, yy, w, ch, 4, K_ACCENT);
-                cv_round(x + 2, yy + 2, w - 4, ch - 4, 2, fill);
-            } else if (ghost) {                      /* a cell to come: its outline */
+                cv_round(x + 3, yy + 3, w - 6, ch - 6, 2, fill);
+            } else if (ghost && !flash && !plays) {  /* a cell to come: its outline */
                 cv_round(x, yy, w, ch, 4, K_LINE);
                 cv_round(x + 1, yy + 1, w - 2, ch - 2, 3, fill);
             } else
                 cv_round(x, yy, w, ch, 4, fill);
             if (v != LC_SAME) {
                 chord_name(chord_shift(lc_unpack(v), xp), t);
-                text_fit(x + 5, yy + 3, &FONT_XS, t, w - 8, flash ? K_BG : K_TEXT);
+                text_fit(x + 5, yy + 3, &FONT_XS, t, w - 9, fg);
             } else
-                cv_round(x + w / 2 - 2, yy + ch / 2 - 2, 4, 4, 1, flash ? K_BG : ghost ? K_LINE : K_DIM);
+                cv_round(x + w / 2 - 2, yy + ch / 2 - 2, 4, 4, 1, flash || plays ? K_BG : ghost ? K_LINE : K_DIM);
         }
+    }
+    shown = rows - top < visible ? rows - top : visible;
+    if (!live && y0 + shown * rh + 14 <= MAIN_H) {   /* where the cursor is, in words, under the grid */
+        char *e = itoa_u((uint32_t)cbar + 1u, cat_s(t, "bar "));
+        itoa_u((uint32_t)(app.cbeat % bpb) + 1u, cat_s(e, "|beat "));
+        segs(LG_X, y0 + shown * rh, &FONT_XS, t, K_ACCENT);
     }
     if (rows > visible) {                            /* the scroll bar: where the window is */
         int32_t th = MAIN_H - y0 - 4, bh = th * visible / rows, by = y0 + th * top / rows;
@@ -1185,7 +1225,7 @@ static void draw_loop(void)
         cv_round(236, by, 3, bh < 6 ? 6 : bh, 1, K_DIM);
     }
     if (!len)                                        /* an empty loop: what to do */
-        text_c(LG_X + LG_W / 2, y0 + rh + 8, &FONT_XS, ui.rec_chords ? "play a chord" : "REC, then play chords", K_DIM);
+        text_c(LG_X + LG_W / 2, y0 + rh + 18, &FONT_XS, ui.rec_chords ? "play a chord" : "REC, then play chords", K_DIM);
     cv_blit(0, MAIN_Y);
 }
 
@@ -1243,7 +1283,7 @@ static void draw_song(void)
     const song_t *g = csong();
     int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows, total = n < ARR_ROWS ? n + 1 : n, cur = app.row, pg = ui.page - P_SONG;
     int play = arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < n ? arr_row : -1, top, i, st;
-    uint32_t h;
+    uint32_t h, fm = flash_on() ? fw.rows : 0u;
     char t[40], stt[24];
     st = song_state(stt);
     if (st == SEC_INTRO || st == SEC_END)
@@ -1267,6 +1307,7 @@ static void draw_song(void)
         for (int c = 0; c < 8; c++)
             h = hash(h, (uint8_t)l->name[c]);
     }
+    h = hash(h, fm);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -1280,18 +1321,21 @@ static void draw_song(void)
     text_r(SG_KEY, 0, &FONT_XS, "TRANSP", pg == 1 ? K_TEXT : K_DIM);
     for (i = top; i < total && i < top + SG_SHOWN; i++) {
         int32_t y = SG_Y0 + (i - top) * SG_RH, ch = SG_RH - 2;
-        int on = i == cur, ghost = i >= n;
-        uint16_t fill = i == play ? K_TEAL_T : ghost ? K_BG : K_PANEL;
-        if (on) {                                    /* the cursor: a coral ring */
-            cv_round(2, y, 232, ch, 4, K_ACCENT);
+        int on = i == cur, ghost = i >= n, pl = i == play, fl = i < ARR_ROWS && (fm >> i & 1u);
+        /* the section playing filled teal, an edit coral a moment; the cursor a thick coral ring round it (into the
+         * gaps between the rows) */
+        uint16_t fill = fl ? K_ACCENT : pl ? K_TEAL : ghost ? K_BG : K_PANEL, fg = fl || pl ? K_BG : K_TEXT;
+        uint16_t dim = fl || pl ? K_BG : K_DIM;
+        if (on) {
+            cv_round(1, y - 1, 234, ch + 2, 5, K_ACCENT);
             cv_round(4, y + 2, 228, ch - 4, 2, fill);
         } else if (ghost) {                          /* the END row: a row to come */
             cv_round(2, y, 232, ch, 4, K_LINE);
             cv_round(3, y + 1, 230, ch - 2, 3, fill);
         } else
             cv_round(2, y, 232, ch, 4, fill);
-        if (i == play)
-            glyph_play(7, y + 3, K_TEAL);
+        if (pl)
+            glyph_play(7, y + 3, K_BG);
         if (ghost) {
             cv_text(SG_LOOP, y - 1, &FONT_XS, "END", on ? K_TEXT : K_DIM);
             if (!n)
@@ -1304,37 +1348,37 @@ static void draw_song(void)
             int32_t x;
             char *e;
             itoa_u((uint32_t)i + 1u, t);
-            text_r(23, y - 1, &FONT_XS, t, on || i == play ? K_TEXT : K_DIM);
+            text_r(23, y - 1, &FONT_XS, t, on || fl || pl ? fg : K_DIM);
             /* PROG: "P9" and its name ("empty" an empty loop) */
             itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(t, "P"));
-            x = cv_text(SG_LOOP, y - 1, &FONT_XS, t, K_DIM) + 3;
+            x = cv_text(SG_LOOP, y - 1, &FONT_XS, t, dim) + 3;
             loop_label(w->loop, t);
             for (e = t; *e && *e != ' '; e++)
                 ;
-            text_fit(x, y - 1, &FONT_XS, l->bars ? (*e ? e + 1 : e) : "empty", SG_SECT - 3 - x, l->bars ? K_TEXT : K_DIM);
+            text_fit(x, y - 1, &FONT_XS, l->bars ? (*e ? e + 1 : e) : "empty", SG_SECT - 3 - x, l->bars ? fg : dim);
             /* GROOVE: its colour, "A" / "B", "+fill" */
-            cv_round(SG_SECT, y + 3, 3, ch - 6, 1, sect_colour(row_main(w)));
-            x = cv_text(SG_SECT + 6, y - 1, &FONT_XS, row_main(w) == SEC_B ? "B" : "A", K_TEXT);
+            cv_round(SG_SECT, y + 3, 3, ch - 6, 1, fl || pl ? K_BG : sect_colour(row_main(w)));
+            x = cv_text(SG_SECT + 6, y - 1, &FONT_XS, row_main(w) == SEC_B ? "B" : "A", fg);
             if (row_fill(w))
-                cv_text(x + 3, y - 1, &FONT_XS, "+fill", K_ACCENT);
+                cv_text(x + 3, y - 1, &FONT_XS, "+fill", fl || pl ? K_BG : K_ACCENT);
             /* REPEAT: "x2" (x1 dim) */
             itoa_u(w->rep ? w->rep : 1u, cat_s(t, "x"));
-            text_r(SG_REP, y - 1, &FONT_XS, t, w->rep > 1 ? K_TEXT : K_DIM);
+            text_r(SG_REP, y - 1, &FONT_XS, t, w->rep > 1 ? fg : dim);
             /* MUTE: D1 D2 PC BA | C1 C2 C3 C4, M1 M2: plays filled (teal, the melodies plum), muted a coral outline */
             for (int k = 0; k < ARR_ALLTRK; k++) {
                 int32_t mx = k < ARR_TRACKS ? SG_MUTE + k * 5 + (k >= 4 ? 2 : 0) : SG_LMUTE + (k - ARR_TRACKS) * 5, my = y + 3;
                 int m = k < ARR_TRACKS ? w->mute >> k & 1u : w->lmute >> (k - ARR_TRACKS) & 1u;
                 if (m) {
-                    cv_rect(mx, my, 4, 8, K_ACCENT);
+                    cv_rect(mx, my, 4, 8, fl ? K_BG : K_ACCENT);
                     cv_rect(mx + 1, my + 1, 2, 6, fill);
                 } else
-                    cv_rect(mx, my, 4, 8, k < ARR_TRACKS ? K_TEAL : K_PLUM);
+                    cv_rect(mx, my, 4, 8, fl || pl ? (k < ARR_TRACKS ? K_BG : K_PLUM) : k < ARR_TRACKS ? K_TEAL : K_PLUM);
             }
             /* TRANSP: "+2", "-3" (0: nothing) */
             if (w->key) {
                 t[0] = w->key > 0 ? '+' : '-';
                 itoa_u((uint32_t)(w->key > 0 ? w->key : -w->key), t + 1);
-                text_r(SG_KEY, y - 1, &FONT_XS, t, K_TEXT);
+                text_r(SG_KEY, y - 1, &FONT_XS, t, fg);
             }
         }
     }
@@ -1343,17 +1387,21 @@ static void draw_song(void)
         cv_round(236, SG_Y0, 3, th, 1, K_PANEL);
         cv_round(236, by, 3, bh < 6 ? 6 : bh, 1, K_DIM);
     }
-    if (st) {                                        /* playing its Intro, a fill, its Ending: "Intro . then section 1" */
-        int32_t y = SG_Y0 + SG_SHOWN * SG_RH + 1, w = text_w(&FONT_XS, SECT_NAME[st]) + 12;   /* (a small pill) */
-        cv_round(8, y, w, 15, 5, sect_colour(st));
-        text_c(8 + w / 2, y - 1, &FONT_XS, SECT_NAME[st], K_BG);
-        cv_text(8 + w + 8, y - 1, &FONT_XS, stt, K_TEXT);
-    } else if (pg == 2) {                            /* the song: "Intro on . Ending on . at end: stop" */
-        char *e = cat_s(t, "Intro ");
-        e = cat_s(e, g->intro ? "on|Ending " : "off|Ending ");
-        e = cat_s(e, g->ending ? "on|at end: " : "off|at end: ");
-        cat_s(e, g->at_end ? "again" : "stop");
-        segs(8, SG_Y0 + SG_SHOWN * SG_RH, &FONT_XS, t, K_TEXT);
+    {   /* under the rows: the cursor's place in words, coral ("section 3 of 6", "end"); left of it, playing its
+         * Intro, a fill, its Ending: "Intro . then section 1" */
+        int32_t y = SG_Y0 + SG_SHOWN * SG_RH + 1;
+        *t = 0;
+        if (cur < n)                             /* (a pill on the left: only the numbers) */
+            itoa_u((uint32_t)n, cat_s(itoa_u((uint32_t)cur + 1u, cat_s(t, st ? "" : "section ")), " of "));
+        else if (n)
+            cat_s(t, st ? "end" : "the end: white keys add one");
+        text_r(232, y - 1, &FONT_XS, t, K_ACCENT);
+        if (st) {
+            int32_t w = text_w(&FONT_XS, SECT_NAME[st]) + 12;   /* (a small pill) */
+            cv_round(8, y, w, 15, 5, sect_colour(st));
+            text_c(8 + w / 2, y - 1, &FONT_XS, SECT_NAME[st], K_BG);
+            cv_text(8 + w + 8, y - 1, &FONT_XS, stt, K_TEXT);
+        }
     }
     cv_blit(0, MAIN_Y);
 }
@@ -1534,22 +1582,33 @@ static void pattern_head(int s, int win)
     else                                         /* (a long name with "(yours)": smaller) */
         text_fit(x, 2, &FONT_S, ln, 232 - text_w(&FONT_XS, t) - 6 - x, K_TEXT);
 }
-/* the 8 tracks as mini piano rolls over the pattern's length (up to 8 bars; a longer one by halves, the one the
- * playhead is in), the playhead, the mutes */
+/* the 8 tracks as mini piano rolls over the pattern's length (up to 8 bars; a longer one by halves: playing, the one the
+ * playhead is in; stopped, the cursor's), the mutes; the selected instrument's row tinted. The cursor (BAR / BEAT): a
+ * thick coral line down the instruments, its place under it ("bar 1 . beat 3" on coral); the playhead a teal line; an
+ * instrument whose notes or mute just changed: its row coral a moment */
+#define PAT_Y 21                                     /* the first instrument's row */
+#define PAT_RH 10                                    /* a row's pitch */
+static int pat_beats(int s) { return app.hdr[s].beats ? app.hdr[s].beats : 4; }
+static int pat_cur(int s)                            /* Band's cursor, kept in the groove */
+{
+    int n = (app.hdr[s].bars ? app.hdr[s].bars : 1) * pat_beats(s);
+    return ui.pcur < n ? ui.pcur : n - 1;
+}
 static void draw_pattern(void)
 {
-    int s = pslot(), play = arr_playing, i, nb = app.hdr[s].bars, win = -1, wbars = nb;
-    uint32_t blen = (uint32_t)app.hdr[s].beats * ARR_PPQ, len, w0 = 0, h, pos, bar, bt;
-    const int32_t X0 = 26, W = 208;
-    int32_t ph;
+    int s = pslot(), play = arr_playing, i, nb = app.hdr[s].bars, win = -1, wbars = nb, bpb = pat_beats(s), cur = pat_cur(s);
+    uint32_t blen = (uint32_t)bpb * ARR_PPQ, len, w0 = 0, h, pos, bar, bt, fm = flash_on() ? fw.rows : 0u;
+    const int32_t X0 = 26, W = 208, YB = PAT_Y + ARR_TRACKS * PAT_RH - 1;
+    int32_t ph, cx;
+    char t[24];
     view_refresh(s);
     do {
         bar = arr_bar;
         bt = arr_beat_tick;
     } while (bar != arr_bar);
     pos = bar * blen + bt;
-    if (nb > PAT_WIN) {                          /* the half the playhead is in (stopped: where it stopped) */
-        win = (int)(bar < (uint32_t)nb ? bar : 0u) / PAT_WIN;
+    if (nb > PAT_WIN) {                          /* the half the playhead is in (stopped: the cursor's) */
+        win = play ? (int)(bar < (uint32_t)nb ? bar : 0u) / PAT_WIN : cur / bpb / PAT_WIN;
         wbars = nb - win * PAT_WIN < PAT_WIN ? nb - win * PAT_WIN : PAT_WIN;
         w0 = (uint32_t)win * PAT_WIN * blen;
     }
@@ -1557,8 +1616,11 @@ static void draw_pattern(void)
     if (!len)
         len = 1;
     ph = play && pos >= w0 && pos < w0 + len ? X0 + (int32_t)((pos - w0) * (uint32_t)W / len) : -1;
+    cx = (uint32_t)cur * ARR_PPQ >= w0 && (uint32_t)cur * ARR_PPQ < w0 + len
+       ? X0 + (int32_t)(((uint32_t)cur * ARR_PPQ - w0) * (uint32_t)W / len) : -1;
     h = hash(hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)(ph + 1) << 8), vw.dirty);
-    h = hash(hash(h, vw.gen), arr_recording | (uint32_t)(win + 1) << 8);
+    h = hash(hash(h, vw.gen), arr_recording | (uint32_t)(win + 1) << 8 | (uint32_t)cur << 16);
+    h = hash(h, fm | (uint32_t)(cx + 1) << 8);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -1566,13 +1628,13 @@ static void draw_pattern(void)
     pattern_head(s, win);
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *tr = &view.trk[i];
-        int32_t y = 21 + i * 12, b;
-        int sel = i == sel_trk(), mute = trk_muted(i);
+        int32_t y = PAT_Y + i * PAT_RH, b;
+        int sel = i == sel_trk(), mute = trk_muted(i), fl = fm >> i & 1u;
         uint32_t n, e = (uint32_t)tr->first + tr->count, lo = 127, hi = 0;
-        cv_text(4, y - 2, &FONT_XS, TRACK_NAME[i], sel ? K_ACCENT : mute ? K_LINE : K_DIM);
-        cv_round(X0, y, W, 11, 3, sel ? (arr_recording ? RGB(246, 214, 204) : K_TEAL_T) : K_PANEL);
+        cv_text(4, y - 4, &FONT_XS, TRACK_NAME[i], sel ? K_ACCENT : mute ? K_LINE : K_DIM);
+        cv_round(X0, y, W, PAT_RH - 1, 3, fl ? K_ACCENT : sel ? (arr_recording ? RGB(246, 214, 204) : K_TEAL_T) : K_PANEL);
         for (b = 1; b < wbars; b++)              /* bar lines */
-            cv_rect(X0 + b * W / wbars, y + 1, 1, 9, K_LINE);
+            cv_rect(X0 + b * W / wbars, y + 1, 1, PAT_RH - 3, fl ? K_BG : K_LINE);
         if (e > view.nev)
             e = view.nev;
         for (n = tr->first; n < e; n++) {
@@ -1589,14 +1651,28 @@ static void draw_pattern(void)
             x = X0 + (int32_t)((uint32_t)(v->tick - w0) * (uint32_t)W / len);
             w = (int32_t)((uint32_t)v->len * (uint32_t)W / len);
             w = w < 2 ? 2 : w > X0 + W - x ? X0 + W - x : w;
-            yy = y + 7 - (hi > lo ? (int32_t)((v->note - lo) * 6u / (hi - lo)) : 3);
-            cv_rect(x, yy, w, 3, mute ? K_DIM : i < 3 ? K_ACCENT : K_TEAL);
+            yy = y + 5 - (hi > lo ? (int32_t)((v->note - lo) * 4u / (hi - lo)) : 2);
+            cv_rect(x, yy, w, 3, fl ? K_BG : mute ? K_DIM : i < 3 ? K_ACCENT : K_TEAL);
         }
         if (mute)
-            cv_text(X0 + W - text_w(&FONT_XS, "muted") - 4, y - 2, &FONT_XS, "muted", K_DIM);
+            cv_text(X0 + W - text_w(&FONT_XS, "muted") - 4, y - 4, &FONT_XS, "muted", fl ? K_BG : K_DIM);
     }
-    if (ph >= 0)
-        cv_rect(ph, 19, 1, 8 * 12, K_ACCENT);
+    if (ph >= 0)                                 /* the playhead: teal */
+        cv_rect(ph, PAT_Y - 2, 2, YB - PAT_Y + 3, K_TEAL);
+    {   /* the cursor: a thick coral line, its place under it on coral (off this half: the place alone, at the side) */
+        char *e = itoa_u((uint32_t)(cur / bpb) + 1u, cat_s(t, "bar "));
+        int32_t w, px;
+        itoa_u((uint32_t)(cur % bpb) + 1u, cat_s(e, "|beat "));
+        w = segs_w(&FONT_XS, t) + 10;
+        if (cx >= 0) {
+            cv_rect(cx - 1, PAT_Y - 2, 3, YB - PAT_Y + 3, K_ACCENT);
+            px = cx - w / 2;
+            px = px < 2 ? 2 : px > 238 - w ? 238 - w : px;
+        } else
+            px = cur * ARR_PPQ < (int)w0 ? 2 : 238 - w;
+        cv_round(px, YB + 1, w, 14, 4, K_ACCENT);
+        segs(px + 5, YB - 1, &FONT_XS, t, K_BG);
+    }
     cv_blit(0, MAIN_Y);
 }
 /* SEQ / EDIT while a track is recorded (REC on, or waiting for its bar line): the pattern as bars, HOME's recording
@@ -1612,13 +1688,14 @@ static int trk_rec_shown(void)
            (arr_recording || ui.rec_want);
 }
 #define TR_Y 36                                      /* the bars' top */
-static void draw_lead_rec(void);
+static void draw_lead(int rec);
+static void draw_lead_rec(void) { draw_lead(1); }
 static void draw_trk_rec(void)
 {
     int s = pslot(), trk = proj.trk & 7, nb = app.hdr[s].bars, bpb = app.hdr[s].beats, play = arr_playing;
     int wait = !arr_recording || arr_rec_wait, focus = -1, fbeat = 0, next = -1, cnt = 0, pass = 1, rows, ch, b, k;
     int ll = loop_longer(), lbar = -1, lbars = 0;
-    uint32_t blen, bar, bt, h, n, e, lo = 127, hi = 0;
+    uint32_t blen, bar, bt, h, n, e, lo = 127, hi = 0, fbars = 0;
     const arr_trk_t *tr;
     char t[48], *p;
     place_t pl;
@@ -1673,6 +1750,9 @@ static void draw_trk_rec(void)
     h = hash(h, (uint32_t)nb | (uint32_t)bpb << 8 | (uint32_t)pass << 12 | (uint32_t)ll << 20 | (uint32_t)(lbar + 1) << 25);
     h = hash(h, (uint32_t)lbars);
     h = hash(hash(hash(h, vw.dirty), vw.gen), tr->program | (uint32_t)proj.quant << 8);
+    if (flash_on() && (fw.id & 15u) == 3u)
+        fbars = fw.bars;                             /* (notes just recorded: their bars) */
+    h = hash(h, fbars);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -1714,17 +1794,17 @@ static void draw_trk_rec(void)
     }
     for (b = 0; b < nb; b++) {                       /* the bars */
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
-        int plays = b == focus, cin = b == next;
-        uint16_t fill = plays ? K_TEAL : K_PANEL, fg = plays ? K_BG : K_TEXT;
-        if (cin) {                                   /* the bar recording starts on: a coral ring */
+        int plays = b == focus, cin = b == next, fl = fbars >> b & 1u;
+        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL : K_PANEL, fg = plays || fl ? K_BG : K_TEXT;
+        if (cin) {                                   /* the bar recording starts on: a thick coral ring */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
-            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, plays ? K_TEAL : K_BG);
+            cv_round(x + 3, y + 3, RG_CW - 6, ch - 6, 3, plays ? K_TEAL : K_BG);
         } else
             cv_round(x, y, RG_CW, ch, 5, fill);
         itoa_u((uint32_t)b + 1u, t);
-        ax = ch >= 30 ? x + 4 : cv_text(x + 4, y + ch / 2 - 7, &FONT_XS, t, plays ? K_BG : K_DIM) + 3;
+        ax = ch >= 30 ? x + 4 : cv_text(x + 4, y + ch / 2 - 7, &FONT_XS, t, plays || fl ? K_BG : K_DIM) + 3;
         if (ch >= 30)
-            cv_text(x + 4, y, &FONT_XS, t, plays ? K_BG : cin ? K_ACCENT : K_DIM);
+            cv_text(x + 4, y, &FONT_XS, t, plays || fl ? K_BG : cin ? K_ACCENT : K_DIM);
         aw = x + RG_CW - 4 - ax;
         ay = ch >= 30 ? y + 16 : y + 3;
         ah = y + ch - 7 - ay;
@@ -1766,14 +1846,16 @@ static void draw_trk_rec(void)
  * lead's notes; the other lead's notes dim under this one's. REC while playing counts in to the next bar line (its
  * bar ringed, the beats left in it, big; the row's last bar: the next row's cell ringed) */
 #define LR_STRIP (MAIN_H - 16)                       /* the song's rows */
-static void draw_lead_rec(void)
+/* (rec 0: Sound with a melody selected, not recording: the same view, the sound over it, the cursor (SONG's section,
+ * from its bar 1: where PLAY and REC start) ringed coral and said in words, coral; playing, the place teal) */
+static void draw_lead(int rec)
 {
     static const char *const WHY[8] = {"", "in a song only", "no sections yet", "starts with PLAY", "after the Intro",
                                        "the song is ending", "from the bar line", "starts at the next bar"};
     const song_t *g = csong();
     int k = (app.lead ? app.lead - 1 : 0) % ARR_LEADS, n = g->nrows, play = arr_playing, r = 0, live, nb = 1, bpb, focus = -1, fbeat = 0;
     int win, wbars, lines, ch, b, why, cnt = 0, cin = -1, cbeats = 0, crow = -1;
-    uint32_t blen, rt = 0, h, i, i0 = 0, i1 = 0, lo = 127, hi = 0;
+    uint32_t blen, rt = 0, h, i, i0 = 0, i1 = 0, lo = 127, hi = 0, fbars = 0, frows = 0;
     const lead_trk_t *lt = &g->lead[k];
     char t[48], *p;
     if (n > ARR_ROWS)
@@ -1819,7 +1901,12 @@ static void draw_lead_rec(void)
     wbars = nb - win * 8 < 8 ? nb - win * 8 : 8;
     lines = (wbars + 3) / 4;
     ch = lines == 1 ? 64 : 31;
+    if (flash_on() && fw.id >> 12 == ((uint32_t)r | (uint32_t)bpb << 8) && (fw.id & 15u) == 4u) {
+        fbars = fw.bars;                             /* (what just changed: this section's) */
+        frows = fw.rows;
+    }
     h = hash(2166136261u, 0x1EADu | (uint32_t)k << 16 | (uint32_t)r << 17 | (uint32_t)live << 23 | (uint32_t)why << 24);
+    h = hash(hash(hash(h, fbars), frows), (uint32_t)rec);
     h = hash(h, (uint32_t)(focus + 1) | (uint32_t)fbeat << 8 | (uint32_t)nb << 12 | (uint32_t)win << 20 | (uint32_t)n << 24);
     h = hash(h, (uint32_t)(cin + 1) | (uint32_t)cbeats << 8 | (uint32_t)(crow + 1) << 12);
     h = hash(hash(h, leads.gen | (uint32_t)leads.n << 16), lt->program | (uint32_t)lt->chan << 8 | (uint32_t)proj.quant << 12 |
@@ -1828,7 +1915,34 @@ static void draw_lead_rec(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    {   /* the line: REC's dot, "REC M1 . section 3 . bar 2.3"; under it the sound, the grid, the row's notes */
+    if (!rec) {   /* the line: "M1  81 Square Lead"; under it where: "section 2 . bar 1" (the cursor, coral; playing,
+                   * "section 3 . bar 2.3", teal), the notes in the section */
+        int32_t x = pill(8, 0, 0, TRACK_NAME[ARR_LD1 + k], K_PLUM, K_BG);
+        if ((lt->chan & 15u) == 9u)
+            p = cat_s(t, "Drum kit");
+        else
+            p = cat_s(cat_s(itoa_u(lt->program + 1u, t), " "), GM_PROGRAM[lt->program & 127u]);
+        text_fit(x + 8, 2, &FONT_B, t, 232 - x - 8, K_TEXT);
+        if (!n)
+            cv_text(10, 20, &FONT_XS, "no sections yet (Song page)", K_DIM);
+        else {
+            p = itoa_u((uint32_t)r + 1u, cat_s(t, "section "));
+            if (live) {
+                p = itoa_u((uint32_t)focus + 1u, cat_s(p, "|bar "));
+                *p++ = '.';
+                itoa_u((uint32_t)fbeat + 1u, p);
+            } else
+                cat_s(p, "|bar 1");
+            x = segs(10, 20, &FONT_XS, t, live ? K_TEAL : K_ACCENT);
+            if (why == 1 || (why >= 4 && why <= 5))  /* (not in a song, the Intro, the Ending: why bar 1 is ringed) */
+                cat_s(cat_s(t, "|"), WHY[why]);
+            else {
+                p = itoa_u((uint32_t)cnt, cat_s(t, "|"));
+                cat_s(p, cnt == 1 ? " note here" : " notes here");
+            }
+            segs(x, 20, &FONT_XS, t, K_DIM);
+        }
+    } else {   /* the line: REC's dot, "REC M1 . section 3 . bar 2.3"; under it the sound, the grid, the row's notes */
         cv_round(8, 6, 10, 10, 5, RGB(214, 64, 52));
         p = cat_s(cat_s(t, "REC "), TRACK_NAME[ARR_LD1 + k]);
         if (why)
@@ -1853,17 +1967,19 @@ static void draw_lead_rec(void)
         }
     }
     for (b = 0; b < wbars; b++) {                    /* the row's bars (eight of them at most) */
-        int bi = win * 8 + b, plays = bi == focus, start = (why >= 3 && why < 7 && bi == 0) || bi == cin;
+        int bi = win * 8 + b, plays = bi == focus, start = ((rec ? why >= 3 : !live && n) && why < 7 && bi == 0) || bi == cin;
+        int fl = bi < 32 && (fbars >> bi & 1u);
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
-        uint16_t fg = plays ? K_BG : K_TEXT, other = plays ? K_TEAL_T : K_LINE;
+        uint16_t fg = plays || fl ? K_BG : K_TEXT, other = fl ? RGB(250, 196, 170) : plays ? K_TEAL_T : K_LINE;
+        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL : K_PANEL;
         uint32_t b0 = (uint32_t)bi * blen;
-        if (start) {                                 /* the bar it starts in: a coral ring */
+        if (start) {                                 /* the bar it starts in (the cursor): a thick coral ring */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
-            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, plays ? K_TEAL : K_PANEL);
+            cv_round(x + 3, y + 3, RG_CW - 6, ch - 6, 3, fill);
         } else
-            cv_round(x, y, RG_CW, ch, 5, plays ? K_TEAL : K_PANEL);
+            cv_round(x, y, RG_CW, ch, 5, fill);
         itoa_u((uint32_t)bi + 1u, t);
-        cv_text(x + 4, y, &FONT_XS, t, plays ? K_BG : start ? K_ACCENT : K_DIM);
+        cv_text(x + 5, y + (start ? 1 : 0), &FONT_XS, t, plays || fl ? K_BG : start ? K_ACCENT : K_DIM);
         if (bi == cin) {                             /* the count-in, big */
             itoa_u((uint32_t)cbeats, t);
             text_c(x + RG_CW / 2, y + (ch - 32) / 2, &FONT_L, t, K_ACCENT);
@@ -1904,18 +2020,19 @@ static void draw_lead_rec(void)
         int32_t pitch = 224 / n > 28 ? 28 : 224 / n, cw = pitch - 2;
         for (int j = 0; j < n; j++) {
             int32_t x = 8 + j * pitch, y = LR_STRIP;
-            int on = live && j == r, ring = (!live && why >= 3 && j == r) || j == crow;
+            int on = live && j == r, ring = (!live && (why >= 3 || !rec) && j == r) || j == crow, fl = frows >> j & 1u;
+            uint16_t fill = fl ? K_ACCENT : on ? K_TEAL : K_PANEL;
             if (ring) {
                 cv_round(x, y, cw, 16, 3, K_ACCENT);
-                cv_round(x + 1, y + 1, cw - 2, 14, 2, K_PANEL);
+                cv_round(x + 2, y + 2, cw - 4, 12, 2, fill);
             } else
-                cv_round(x, y, cw, 16, 3, on ? K_TEAL : K_PANEL);
+                cv_round(x, y, cw, 16, 3, fill);
             if (cw >= 13) {
                 itoa_u((uint32_t)j + 1u, t);
-                text_c(x + cw / 2, y - 1, &FONT_XS, t, on ? K_BG : K_DIM);
+                text_c(x + cw / 2, y - 1, &FONT_XS, t, on || fl ? K_BG : ring ? K_ACCENT : K_DIM);
             }
             if (leads_count(&leads, j, k))
-                cv_rect(x + cw / 2 - 2, y + 12, 4, 2, on ? K_BG : K_PLUM);
+                cv_rect(x + cw / 2 - 2, y + 12, 4, 2, on || fl ? K_BG : K_PLUM);
         }
     }
     cv_blit(0, MAIN_Y);
@@ -2359,6 +2476,8 @@ static void edit_knobs(knob_t *k)
     switch (ui.page) {
     case P_PATTERN:
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
+        kn(&k[1], "Bar", pat_cur(s) / pat_beats(s) + 1, app.hdr[s].bars ? app.hdr[s].bars : 1);   /* the cursor */
+        kn(&k[2], "Beat", pat_cur(s) % pat_beats(s) + 1, pat_beats(s));
         kv(&k[3], "Mute", trk_muted(sel_trk()) ? "on" : "off", trk_muted(sel_trk()), 0);
         break;
     case P_PATSET:
@@ -2688,13 +2807,10 @@ static void page_tag(char *t)
             cat_s(e, n ? "end" : "no sections");
         break;
     }
-    case P_LOOP: case P_LOOP2: {                     /* the progression and where it is (or the cursor):
-                                                      * "S1>P3 Verse|BAR 2.3", "S1>P10|BAR 1.1" */
-        place_t pl;
+    case P_LOOP: case P_LOOP2: {                     /* the progression and the cursor (as BAR, BEAT under it; the
+                                                      * playhead is the grid's teal): "S1>P3 Verse|BAR 2.3" */
         const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
-        uint32_t bt = l->beats ? l->beats : 4u, b = 0;
-        place_read(&pl);
-        b = arr_playing && pl.loop == app.loop ? pl.lbeat : app.cbeat;   /* (stopped: the cursor's beat) */
+        uint32_t bt = l->beats ? l->beats : 4u, b = app.cbeat;
         e = loop_label(app.loop, cat_s(crumb_song(t), ">"));
         e = itoa_u(b / bt + 1u, cat_s(e, "|BAR "));
         *e++ = '.';
@@ -2966,8 +3082,9 @@ static void draw_enc(void)
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Progression", "Your chords, 1-16 bars, going round. Play chords.",
      "REC writes them: at the cursor (BAR, BEAT), or in time."},
-    {B_SEQ, PG_ANY, "Band", "The groove's notes, instrument by instrument; SELECT: its length and name.", 0},
-    {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "Its sound; KNOB 4 the velocity its notes are recorded with.",
+    {B_SEQ, PG_ANY, "Band", "The groove's notes, instrument by instrument; BAR, BEAT: the cursor.",
+     "SELECT: its length and name."},
+    {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "Its sound, its notes in the section; KNOB 4: their velocity.",
      "SEL: QUANTISE to the grid. ALGORITHM: the instruments."},
     {B_EDIT, PG_ANY, "Sound", "The instrument's sound and range; SELECT: its high key, channel.",
      "ALGORITHM past C4: the melodies M1, M2."},
@@ -3275,6 +3392,183 @@ static void draw_list(void)
     cv_blit(0, MAIN_Y);
 }
 
+/* ------------------------------------------------------- the flashes --- */
+static void flash_add(uint64_t beats, uint32_t rows, uint32_t bars)
+{
+    if (!(beats | rows | bars))
+        return;
+    if (!flash_on())
+        fw.beats = 0, fw.rows = fw.bars = 0;
+    fw.beats |= beats;
+    fw.rows |= rows;
+    fw.bars |= bars;
+    fw.t = plat_ms() | 1u;
+}
+static uint32_t bytes_hash(uint32_t h, const void *p, uint32_t n)
+{
+    const uint8_t *b = (const uint8_t *)p;
+    while (n--)
+        h = hash(h, *b++);
+    return h;
+}
+/* the section a melody's view shows: the one playing, else SONG's cursor's (draw_lead_rec's) */
+static int lead_shown_row(void)
+{
+    int n = csong()->nrows > ARR_ROWS ? ARR_ROWS : csong()->nrows;
+    if (!n)
+        return 0;
+    return arr_playing ? (arr_row < n ? arr_row : n - 1) : lead_row();
+}
+static int lead_view_shown(void) { return app.lead && (ui.page == P_TRACK || trk_rec_shown()); }
+/* a frame: what the page shows, hashed; what changed flashes (the first look, or another thing: only hashed) */
+static void flash_watch(void)
+{
+    const song_t *g = csong();
+    uint32_t id, key, h[ARR_ROWS + 1], bh[32], rows = 0, bars = 0;
+    uint64_t beats = 0;
+    int i, n = 0, nb = 0, home = ui.page == P_HOME && (ui.take || ui.rec_chords);
+    if (ui.page == P_LOOP || ui.page == P_LOOP2 || home) {   /* a progression's beats (HOME recording chords: the
+                                                      * one its bars show, draw_home_rec's) */
+        place_t pl;
+        int li = app.loop % ARR_LOOPS, len;
+        const loop_t *l;
+        if (home) {
+            home_place(&pl);
+            li = ui.take ? ui.take_loop % ARR_LOOPS : arr_playing && pl.loop >= 0 ? pl.loop : li;
+        }
+        l = &sloops.loop[li];
+        len = loop_len(l);
+        id = 1u | (uint32_t)proj.song << 4 | (uint32_t)li << 8;
+        if (fw.ok && fw.id == id)
+            for (i = 0; i < ARR_LOOP_BEATS; i++)
+                if ((i < len ? l->ch[i] : LC_SAME) != fw.ch[i])
+                    beats |= (uint64_t)1 << i;
+        for (i = 0; i < ARR_LOOP_BEATS; i++)
+            fw.ch[i] = i < len ? l->ch[i] : LC_SAME;
+        fw.id = id;
+        fw.ok = 1;
+        flash_add(beats, 0, 0);
+        return;
+    }
+    if (song_page()) {                               /* the song's sections */
+        n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows;
+        id = 2u | (uint32_t)proj.song << 4;
+        for (i = 0; i <= ARR_ROWS; i++)
+            h[i] = i < n ? bytes_hash(2166136261u, &g->row[i], sizeof(row_t)) : 0u;
+        key = hash(bytes_hash(2166136261u, h, sizeof h), (uint32_t)n);
+        if (fw.ok && fw.id == id && fw.key != key) {
+            int f = 0;
+            while (f < ARR_ROWS && h[f] == fw.h[f])
+                f++;
+            int moved = 0;
+            if (n == fw.n + 1) {                     /* a section in: only it (those after it moved down) */
+                moved = 1;
+                for (i = f + 1; i < n && moved; i++)
+                    moved = h[i] == fw.h[i - 1];
+            } else if (n + 1 == fw.n) {              /* one out: the one in its place now (or the one before) */
+                moved = 1;
+                for (i = f; i < n && moved; i++)
+                    moved = h[i] == fw.h[i + 1];
+            }
+            if (moved)
+                rows = f < n ? 1u << f : f ? 1u << (f - 1) : 0u;
+            else
+                for (i = f; i < ARR_ROWS; i++)
+                    rows |= h[i] != fw.h[i] ? 1u << i : 0u;
+        }
+        memcpy(fw.h, h, sizeof h);
+        fw.n = (uint8_t)n;
+        fw.id = id;
+        fw.key = key;
+        fw.ok = 1;
+        flash_add(0, rows, 0);
+        return;
+    }
+    if (!app.lead && (ui.page == P_PATTERN || trk_rec_shown())) {   /* a groove: its instruments, the selected one's bars */
+        int s = pslot(), trk = proj.trk & 7;
+        uint32_t blen;
+        view_refresh(s);
+        id = 3u | (uint32_t)proj.song << 4 | (uint32_t)s << 8 | (uint32_t)trk << 12;   /* (another groove picked: its
+                                                      * instruments that differ flash) */
+        key = hash(hash(hash(2166136261u, vw.dirty), vw.gen), (app.mode == ARR_SONG ? arr_mutes : g->mute) & 0xFFu);
+        if (fw.ok && fw.id == id && fw.key == key)
+            return;
+        nb = app.hdr[s].bars < 1 ? 1 : app.hdr[s].bars > 16 ? 16 : app.hdr[s].bars;
+        blen = (uint32_t)(app.hdr[s].beats ? app.hdr[s].beats : 4) * ARR_PPQ;
+        for (i = 0; i < 32; i++)
+            bh[i] = 2166136261u;
+        for (i = 0; i < ARR_TRACKS; i++) {
+            const arr_trk_t *tr = &view.trk[i];
+            uint32_t e = (uint32_t)tr->first + tr->count, k, hh = hash(2166136261u, (uint32_t)trk_muted(i));
+            if (e > view.nev)
+                e = view.nev;
+            for (k = tr->first; k < e; k++) {
+                const arr_ev_t *v = &view.ev[k];
+                uint32_t x = hash(hash(v->tick, v->note), v->len);
+                hh = hash(hh, x);
+                if (i == trk && v->tick / blen < 32u)
+                    bh[v->tick / blen] = hash(bh[v->tick / blen], x);
+            }
+            h[i] = hh;
+        }
+        if (fw.ok && fw.id == id) {
+            for (i = 0; i < ARR_TRACKS; i++)
+                rows |= h[i] != fw.h[i] ? 1u << i : 0u;
+            for (i = 0; i < nb; i++)
+                bars |= bh[i] != fw.bh[i] ? 1u << i : 0u;
+        }
+        memcpy(fw.h, h, ARR_TRACKS * sizeof h[0]);
+        memcpy(fw.bh, bh, sizeof bh);
+        fw.id = id;
+        fw.key = key;
+        fw.ok = 1;
+        flash_add(0, rows, bars);
+        return;
+    }
+    if (lead_view_shown()) {                         /* a melody: its sections, its section's bars */
+        int k = (app.lead - 1) % ARR_LEADS, r = lead_shown_row(), bpb = app.hdr[pslot()].beats;
+        uint32_t blen, j;
+        n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows;
+        if (bpb < 2 || bpb > 7)
+            bpb = 4;
+        blen = (uint32_t)bpb * ARR_PPQ;
+        id = 4u | (uint32_t)proj.song << 4 | (uint32_t)k << 8 | (uint32_t)r << 12 | (uint32_t)bpb << 20;
+        key = hash(leads.gen, leads.n | (uint32_t)n << 16);
+        if (fw.ok && fw.id == id && fw.key == key)
+            return;
+        for (i = 0; i < 32; i++)
+            bh[i] = 2166136261u;
+        for (i = 0; i < n; i++) {
+            uint32_t hh = 2166136261u;
+            for (j = leads.row0[i]; j < leads.row0[i + 1] && j < leads.n; j++) {
+                const lead_ev_t *e = lead_at_c(&leads, j);
+                uint32_t x;
+                if (lead_trk(e) != k)
+                    continue;
+                x = hash(hash(lead_pos(e), e->note), lead_len(e));
+                hh = hash(hh, x);
+                if (i == r && lead_pos(e) / blen < 32u)
+                    bh[lead_pos(e) / blen] = hash(bh[lead_pos(e) / blen], x);
+            }
+            h[i] = hh;
+        }
+        if (fw.ok && fw.id == id && fw.n == n) {
+            for (i = 0; i < n; i++)
+                rows |= h[i] != fw.h[i] ? 1u << i : 0u;
+            for (i = 0; i < 32; i++)
+                bars |= bh[i] != fw.bh[i] ? 1u << i : 0u;
+        }
+        memcpy(fw.h, h, (uint32_t)n * sizeof h[0]);
+        memcpy(fw.bh, bh, sizeof bh);
+        fw.n = (uint8_t)n;
+        fw.id = id;
+        fw.key = key;
+        fw.ok = 1;
+        flash_add(0, rows, bars);
+        return;
+    }
+    fw.ok = 0;                                       /* (a page with nothing watched) */
+}
 static void draw_page(void)
 {
     if (ui.card)
@@ -3293,6 +3587,8 @@ static void draw_page(void)
         draw_pattern();
     else if (ui.page == P_PATSET)
         draw_patset();
+    else if (ui.page == P_TRACK && app.lead)
+        draw_lead(0);                                /* (a melody: where its notes are in the song) */
     else if (ui.page == P_TRACK || ui.page == P_TRACK2)
         draw_track();
     else if (ui.page == P_MIXER)

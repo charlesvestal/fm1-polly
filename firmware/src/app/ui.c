@@ -3259,7 +3259,15 @@ static void edit_knob(int k, int32_t e)
     case P_PATTERN:
         if (k == 0)
             grid_turn(e);                        /* the record grid */
-        else if (k == 3)
+        else if (k == 1 || k == 2) {             /* BAR, BEAT: the cursor (the beat kept; the bar's last at most) */
+            int bpb = pat_beats(s), nb = app.hdr[s].bars ? app.hdr[s].bars : 1, c = pat_cur(s);
+            int bar = c / bpb, p = c % bpb;
+            if (k == 1)
+                bar = clampi(bar + accel(EN_K2, e), 0, nb - 1);
+            else
+                p = clampi(p + accel(EN_K3, e), 0, bpb - 1);
+            ui.pcur = (uint8_t)(bar * bpb + p);
+        } else if (k == 3)
         {                                        /* a turn, either way: muted / plays; once a burst */
             uint32_t now = plat_ms();
             if (now - ui.mute_t >= MUTE_BURST_MS)
@@ -3859,10 +3867,23 @@ static void undo_name(int k, char *t)
  * copied, swapped and stored (arr_store_pattern: again when recorded into meanwhile), the slots whose pattern number
  * changed loaded again (the pattern a step took for a style's section: its notes swapped back in). What changed is
  * unsaved after, so autosave keeps it */
+/* each section's lead notes (both melodies), hashed: where an undo changed them */
+static void lead_rows_hash(uint32_t *h)
+{
+    for (int r = 0; r < ARR_ROWS; r++)
+        h[r] = 2166136261u;
+    for (uint32_t i = 0; i < leads.n; i++) {
+        const lead_ev_t *e = lead_at_c(&leads, i);
+        if (e->row < ARR_ROWS)
+            h[e->row] = hash(hash(h[e->row], lead_pos(e) | (uint32_t)lead_trk(e) << 24), e->note | lead_len(e) << 8);
+    }
+}
 static void do_undo(int redo)
 {
     int k, mask, s = -1;
     song_t was;
+    uint16_t lwas[ARR_LOOP_BEATS];
+    uint32_t lh[ARR_ROWS];
     char t[24];
     edits_flush();
     undo_commit();                               /* what was just done is a step too */
@@ -3903,6 +3924,9 @@ static void do_undo(int redo)
         app.edited[s] = 1;                       /* (saved: into its user pattern, if it plays one) */
     }
     was = *csong();
+    memcpy(lwas, sloops.loop[app.loop % ARR_LOOPS].ch, sizeof lwas);
+    if (mask >> UR_LEADS & 1u)
+        lead_rows_hash(lh);
     if (mask & (1u << UR_SONG | 1u << UR_LOOPS | 1u << UR_LEADS)) {
         songs_write(1);                          /* (the rows, the loops and the lead notes: the render reads them) */
         uj_apply(&uj, k, UR_SONG, (uint8_t *)csong(), (uint8_t *)&uj_song);
@@ -3914,6 +3938,34 @@ static void do_undo(int redo)
         songs_write(0);
     }
     uj_moved(&uj, redo);
+    {   /* the view goes where it changed (the page's flash shows it there): the progression's cursor to the first beat
+         * that came back, SONG's cursor to the first section (a melody's notes: their section) */
+        const song_t *g = csong();
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
+        int f = -1, j;
+        for (j = 0; j < ARR_LOOP_BEATS && f < 0; j++)
+            if (l->ch[j] != lwas[j])
+                f = j;
+        if (f >= 0) {
+            app.cbeat = (uint8_t)f;
+            cursor_clamp();
+        }
+        f = -1;
+        for (j = 0; j < ARR_ROWS && f < 0; j++)
+            if ((j < g->nrows) != (j < was.nrows) || (j < g->nrows && memcmp(&g->row[j], &was.row[j], sizeof(row_t))))
+                f = j;
+        if (f < 0 && (mask >> UR_LEADS & 1u)) {
+            uint32_t now[ARR_ROWS];
+            lead_rows_hash(now);
+            for (j = 0; j < ARR_ROWS && f < 0; j++)
+                if (now[j] != lh[j])
+                    f = j;
+        }
+        if (f >= 0) {
+            app.row = (uint8_t)(f < g->nrows ? f : g->nrows);
+            ui.row_follow = 0;
+        }
+    }
     {
         song_t *g = csong();
         for (int j = 0; j < ARR_NSECT; j++)      /* a slot given another pattern: loaded (the style's again) */
@@ -4042,6 +4094,7 @@ void ui_frame(void)
     keep_poll();                                 /* (before the autosave: hidden chords are never in a loop) */
     undo_tick();
     autosave();
+    flash_watch();                               /* (what changed this frame: lit where it landed) */
     draw_header();
     draw_page();
     draw_tag();

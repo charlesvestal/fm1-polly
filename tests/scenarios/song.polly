@@ -464,14 +464,14 @@ spin K1 1
 spin K3 1
 expect row_sect2 3
 expect row_sect1 2
-# ---- PLAY from row 1 (INTRO off): its row marked playing (the triangle, teal) from the start
+# ---- PLAY from row 1 (INTRO off): its row marked playing (filled teal, inside the cursor's ring) from the start
 spin K1 -1
 expect cursor 1
-expect teal_7_41 0
+expect teal_12_44 0
 tap PLAY
 wait 300
 expect row 1
-expect teal_7_41 1
+expect teal_12_44 1
 wait 50
 shot song_row1_playing.png
 tap PLAY

@@ -638,6 +638,10 @@ static int expect(const char *what, const char *val)
         int x = atoi(what + 5), y = strchr(what + 5, '_') ? atoi(strchr(what + 5, '_') + 1) : 0;
         uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_TEAL;
         got = p == t || p == (uint16_t)(t >> 8 | t << 8);
+    } else if (!strncmp(what, "coral_", 6)) {     /* coral_X_Y: the screen's pixel X, Y is K_ACCENT (a cursor, a flash) */
+        int x = atoi(what + 6), y = strchr(what + 6, '_') ? atoi(strchr(what + 6, '_') + 1) : 0;
+        uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_ACCENT;
+        got = p == t || p == (uint16_t)(t >> 8 | t << 8);
     } else if (!strncmp(what, "msgtext_is_", 11)) {   /* msgtext_is_WORDS: the message, both parts, exactly ("_": a space) */
         char w[64], t[64];
         int i;
@@ -734,6 +738,14 @@ static int expect(const char *what, const char *val)
         printf("%s loop_name%d == \"%s\" (got \"%s\")\n", ok ? "  ok" : "FAIL", atoi(what + 9), val, nm);
         return !ok;
     }
+    else if (!strcmp(what, "pcur"))               /* Band's cursor: a beat of the groove shown, 0.. */
+        got = pat_cur(sect_slot(arr_sect));
+    else if (!strcmp(what, "flash_beats"))        /* flashing now (an edit landed): a progression's beats (bit b beat b, */
+        got = flash_on() ? (int)(uint32_t)fw.beats : 0;   /* the first 32) */
+    else if (!strcmp(what, "flash_rows"))         /* ... the song's sections, a groove's instruments, a melody's sections */
+        got = flash_on() ? (int)fw.rows : 0;
+    else if (!strcmp(what, "flash_bars"))         /* ... the selected instrument's bars, a melody's section's bars */
+        got = flash_on() ? (int)fw.bars : 0;
     else if (!strcmp(what, "cstep"))              /* the cursor's step: 0 beat, 1 half, 2 bar */
         got = app.cstep;
     else if (!strcmp(what, "rows"))             /* the song's rows */

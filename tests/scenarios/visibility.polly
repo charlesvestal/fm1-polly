@@ -1,0 +1,260 @@
+# POLLY, see where you are and where an edit lands (docs/superpowers/specs/2026-10-11-visibility-design.md): each
+# editing screen stopped, playing, right after an edit and after undo. The cursor a thick coral ring or line (where the
+# knobs and keys write), the playhead teal, never the same; what changed flashes coral FLASH_MS (500 ms); the place in
+# words by the cursor. Pages: 0 Home, 1 Song, 4 Progression, 6 Band, 8 Sound.
+# Keys: F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14. Pop at 120 BPM: a beat is 500 ms. Chords: root * 100 + CH_*.
+wait 300
+spin K2 15
+expect tempo 120
+# ---- a progression: P9, Am F C G, a chord a bar (step writing on Progression, stopped)
+press HOME
+tapkey w8
+release HOME
+expect app_loop 9
+tap ARP
+expect page 4
+tap REC
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 50
+key 0 down
+key 4 down
+key 7 down
+wait 50
+key 0 up
+key 4 up
+key 7 up
+wait 50
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+tap REC
+expect loop_bars9 4
+expect loop_ch9_4 500
+# ---- Progression, stopped: the cursor (bar 2 beat 3) ringed coral, its bar and beat numbers on coral, "bar 2 . beat 3"
+turn K1 -2
+turn K2 2
+expect cbeat 6
+wait 1100
+expect flash_beats 0
+shot prog_stopped.png
+# an edit: ROOT at the cursor writes a chord there; it flashes
+turn K3 2
+expect loop_ch9_6 700
+expect flash_beats 64
+shot prog_edit.png
+wait 1100
+expect flash_beats 0
+# undo with the cursor elsewhere: the cursor goes back to it (bar 2 beat 3), it flashes
+turn K1 2
+expect cbeat 14
+press HOME
+tap REC
+release HOME
+expect loop_ch9_6 -1
+expect cbeat 6
+expect flash_beats 64
+expect msgtext_is_UNDO_P9_CHORD 1
+shot prog_undo.png
+# playing: the playhead teal (the beat playing), the cursor still ringed
+tap PLAY
+wait 1300
+expect playing 1
+shot prog_playing.png
+tap PLAY
+wait 300
+# ---- Band: the cursor (BAR, BEAT on KNOBs 2, 3) a coral line down the instruments, "bar 2 . beat 3" under it
+tap SEQ
+expect page 6
+expect pcur 0
+turn K2 1
+turn K3 2
+expect pcur 6
+wait 600
+shot band_stopped.png
+# an edit: MUTE (KNOB 4) the selected instrument (C1): its row flashes
+expect track 5
+turn K4 1
+expect trk5_mute 1
+expect flash_rows 16
+shot band_edit.png
+wait 600
+expect flash_rows 0
+press HOME
+tap REC
+release HOME
+expect trk5_mute 0
+expect flash_rows 16
+expect msgtext_is_UNDO_MUTES 1
+shot band_undo.png
+# playing: the playhead a teal line, the cursor stays
+tap PLAY
+wait 1300
+shot band_playing.png
+tap PLAY
+wait 300
+# recording C1 (REC, PLAY: from the next bar line): a note recorded flashes its bar; undo flashes C1's row on Band
+tap REC
+tap PLAY
+wait 2300
+expect recording 1
+tapkey 7
+wait 20
+expect flash_bars >0
+shot band_rec.png
+wait 1000
+tap REC
+tap PLAY
+wait 1100
+expect slot1_trk5_count 22
+press HOME
+tap REC
+release HOME
+expect slot1_trk5_count 21
+expect flash_rows 16
+shot band_rec_undo.png
+wait 600
+# ---- Song: three sections of P9; the cursor ringed coral (thick), "section 2 of 3"
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w8
+tapkey w8
+tapkey w8
+expect rows 3
+turn K1 -2
+expect cursor 2
+wait 1100
+shot song_stopped.png
+# an edit: REPEAT x2 on section 2; the section flashes
+turn K4 1
+expect row_rep2 2
+expect flash_rows 2
+shot song_edit.png
+wait 1100
+turn K1 1
+expect cursor 3
+press HOME
+tap REC
+release HOME
+expect row_rep2 1
+expect cursor 2
+expect flash_rows 2
+shot song_undo.png
+wait 600
+# playing: the section playing filled teal, inside the cursor's ring while the cursor follows it; the cursor moved off it
+tap PLAY
+wait 4500
+expect playing 1
+expect sect 2
+expect row 1
+shot song_playing.png
+turn K1 2
+expect cursor 3
+shot song_playing2.png
+tap PLAY
+wait 300
+# ---- Melodies: Sound with M1: the section's bars shown, stopped too; the cursor (the section's bar 1) ringed coral
+turn K1 -2
+expect cursor 1
+tap EDIT
+expect page 8
+turn ALGO 4
+expect lead_sel 1
+wait 300
+shot melody_stopped.png
+# recording: section 1 from PLAY on Song, then REC here; a note recorded flashes its bar
+tap HOME
+tap PLAY
+wait 200
+tap EDIT
+tap REC
+wait 4000
+expect recording 1
+expect rec_wait 0
+tapkey 7
+wait 300
+tapkey 11
+expect lead_notes 2
+expect flash_bars >0
+shot melody_edit.png
+wait 1000
+tap REC
+tap PLAY
+wait 600
+expect lead_notes 2
+shot melody_stopped2.png
+# undo: the take's section flashes
+press HOME
+tap REC
+release HOME
+expect lead_notes 0
+expect flash_rows 1
+shot melody_undo.png
+press HOME
+tap PLAY
+release HOME
+expect lead_notes 2
+wait 600
+# playing: the bar playing teal, the place teal ("section 1 . bar 2.1")
+tap PLAY
+wait 6200
+expect sect 2
+shot melody_playing.png
+tap PLAY
+wait 300
+# ---- Home: stopped, playing (the playing beat underlined teal), stepping with REC (the cursor ringed; from bar 2 beat
+# 3, where Progression left it): a chord written flashes its bar, undo flashes it again and takes the cursor back
+tap HOME
+tap HOME
+expect page 0
+press HOME
+tapkey w8
+release HOME
+expect mode 1
+wait 300
+shot home_stopped.png
+tap PLAY
+wait 1300
+shot home_playing.png
+tap PLAY
+wait 300
+tap REC
+expect rec_chords 1
+key 9 down
+key 13 down
+key 16 down
+wait 50
+key 9 up
+key 13 up
+key 16 up
+wait 20
+expect flash_beats 64
+shot home_edit.png
+wait 1100
+expect cbeat 8
+press HOME
+tap REC
+release HOME
+expect cbeat 6
+expect flash_beats 64
+shot home_undo.png
+tap REC

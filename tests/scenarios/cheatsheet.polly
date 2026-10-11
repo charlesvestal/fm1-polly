@@ -116,6 +116,7 @@ tapkey w8
 expect rows 3
 expect row_loop1 9
 expect row_loop2 3
+wait 600
 shot song.png
 # ---- Mute an instrument in one section only: on the Song page, its black key (1: D1; on END: the last section's)
 tapkey b0
@@ -170,6 +171,12 @@ expect track 1
 wait 1400
 turn K4 1
 expect trk1_mute 1
+expect flash_rows 1
+# (the cursor, for the figure: KNOB 2 Bar 2, KNOB 3 Beat 3; the flash gone)
+turn K2 1
+turn K3 2
+expect pcur 6
+wait 600
 shot band.png
 wait 300
 turn K4 1
