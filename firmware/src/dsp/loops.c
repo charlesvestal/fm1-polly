@@ -95,9 +95,12 @@ void loop_set_beats(loop_t *l, int beats)
 void loops_song_clear(song_t *g)
 {
     uint16_t style[ARR_NSECT], sty = g->sty;
+    lead_trk_t lead[ARR_LEADS];
     memcpy(style, g->style, sizeof style);
+    memcpy(lead, g->lead, sizeof lead);
     memset(g, 0, sizeof *g);
     memcpy(g->style, style, sizeof style);
+    memcpy(g->lead, lead, sizeof lead);
     g->sty = sty;
     g->intro = g->ending = 1;
     g->tempo = 120;

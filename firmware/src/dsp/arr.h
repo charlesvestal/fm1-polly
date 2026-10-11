@@ -78,6 +78,91 @@ typedef struct {
     uint8_t rsv[2];
     uint16_t ch[ARR_LOOP_BEATS];          /* beat i of the loop: lc_pack, or LC_SAME */
 } loop_t;
+/* ---- the lead tracks LD1, LD2: a song's melodies, linear along its rows, playing only in SONG. A note belongs to
+ * a row and keeps its pitch as played with the root of the chord sounding when it was played; it plays moved by
+ * how far the root sounding has moved since, folded to -6..+5 (lead_shift: same chord, as played; TRANSPOSE and a
+ * row's KEY move the root sounding, so they move it too). The chord's quality is not followed. */
+#define ARR_LEADS 2
+#define ARR_LD1 ARR_TRACKS                /* LD1, LD2 as track numbers: arr_record, arr_track_mute, arr_mutes' bits */
+#define ARR_ALLTRK (ARR_TRACKS + ARR_LEADS)
+#define LEAD_PART_NOTES 420               /* a part (one shared slot) */
+#define LEAD_PARTS 2
+#define LEAD_MAX (LEAD_PART_NOTES * LEAD_PARTS)
+typedef struct {                          /* 9 bytes, byte-aligned (lead_* below read and write it) */
+    uint8_t row;                          /* 0..ARR_ROWS-1 */
+    uint8_t pos[3];                       /* its place in the row, beat * ARR_PPQ + tick from the row's first downbeat,
+                                           * linear across the row's REPEAT passes (8 x 64 beats: 245,760 at most) */
+    uint8_t len[2];                       /* ticks, 1..65535 */
+    uint8_t note, vel;                    /* as played, 1..127 */
+    uint8_t tr;                           /* bit 7: LD2 (else LD1); bits 0-3: the root sounding when it was played */
+} lead_ev_t;
+static inline uint32_t lead_pos(const lead_ev_t *e) { return e->pos[0] | (uint32_t)e->pos[1] << 8 | (uint32_t)e->pos[2] << 16; }
+static inline uint32_t lead_len(const lead_ev_t *e) { return e->len[0] | (uint32_t)e->len[1] << 8; }
+static inline int lead_trk(const lead_ev_t *e) { return e->tr >> 7; }
+static inline int lead_root(const lead_ev_t *e) { return e->tr & 15; }
+static inline void lead_set(lead_ev_t *e, int row, uint32_t pos, uint32_t len, int note, int vel, int trk, int root)
+{
+    len = len < 1u ? 1u : len > 0xFFFFu ? 0xFFFFu : len;
+    e->row = (uint8_t)row;
+    e->pos[0] = (uint8_t)pos;
+    e->pos[1] = (uint8_t)(pos >> 8);
+    e->pos[2] = (uint8_t)(pos >> 16);
+    e->len[0] = (uint8_t)len;
+    e->len[1] = (uint8_t)(len >> 8);
+    e->note = (uint8_t)(note & 127);
+    e->vel = (uint8_t)(vel & 127);
+    e->tr = (uint8_t)((trk ? 0x80u : 0u) | ((unsigned)root % 12u));
+}
+/* a recorded root's move to the root now, folded to -6..+5 (C to F: +5, up a fourth; C to G: -5, down a fourth) */
+static inline int lead_shift(int now, int rec)
+{
+    int d = ((now - rec) % 12 + 12) % 12;
+    return d > 5 ? d - 12 : d;
+}
+/* a lead track's sound and mixer, as a pattern's track's (bright and reso stored XOR 64: 0 is the neutral 64) */
+typedef struct {
+    uint8_t program, chan, vol, pan, rev, cho, bright, reso;
+} lead_trk_t;
+/* a lead part as stored in a shared slot (plat.h OBJ_PAT0..): the header, then n notes (saved: 12 + 9 n bytes). The
+ * slots hold user patterns too: a pattern is a bare pattern_t (no header: as patterns were stored before), a lead part
+ * starts with LEAD_MAGIC (bytes A5 A5 44 4C: never a pattern's name, which is text) */
+#define LEAD_MAGIC 0x4C44A5A5u
+#define LEAD_KIND 1u
+typedef struct {
+    uint32_t magic;                       /* LEAD_MAGIC */
+    uint8_t kind;                         /* LEAD_KIND (another kind of slot: room for it) */
+    uint8_t song, part;                   /* the song it is of (0..ARR_SONGS-1), its part (0, 1) */
+    uint8_t rsv;
+    uint16_t n;                           /* notes in it (0: the slot is free) */
+    uint16_t rsv2;
+    lead_ev_t ev[LEAD_PART_NOTES];
+} lead_part_t;
+typedef struct {                          /* a lead part's header alone (the slots looked at) */
+    uint32_t magic;
+    uint8_t kind, song, part, rsv;
+    uint16_t n, rsv2;
+} lead_hdr_t;
+#define LEAD_HDR 12u
+/* the selected song's lead notes in RAM (the app's, in the pool; the engine reads it, arr_leads): one ordered list
+ * (row, place, track, note) kept in the two parts as they are stored, part 0 full before part 1 holds any
+ * (lead_at). row0: each row's first note (row r: row0[r] .. row0[r + 1] - 1). trk: the sounds playing (the app's
+ * copy of the song's lead[]). The app writes it inside arr_edit(1) .. arr_edit(0) and counts gen up before it
+ * lets go; the render reads it only when not busy, and finds its place again when gen moved. */
+typedef struct {
+    lead_part_t part[LEAD_PARTS];
+    uint16_t n;
+    uint16_t row0[ARR_ROWS + 1];
+    lead_trk_t trk[ARR_LEADS];
+    volatile uint16_t gen;
+} leads_t;
+static inline lead_ev_t *lead_at(leads_t *l, uint32_t i)
+{
+    return i < LEAD_PART_NOTES ? &l->part[0].ev[i] : &l->part[1].ev[i - LEAD_PART_NOTES];
+}
+static inline const lead_ev_t *lead_at_c(const leads_t *l, uint32_t i)
+{
+    return i < LEAD_PART_NOTES ? &l->part[0].ev[i] : &l->part[1].ev[i - LEAD_PART_NOTES];
+}
 enum { ROW_A, ROW_A_FILL, ROW_B, ROW_B_FILL, ROW_NSECT };   /* a row's section (+ a fill in its last bar) */
 typedef struct {
     uint8_t loop;                        /* 0..ARR_LOOPS-1 */
@@ -85,7 +170,7 @@ typedef struct {
     uint8_t rep;                         /* plays 1..8 times */
     uint8_t mute;                        /* tracks muted, bit t track t */
     int8_t key;                          /* -6..+5 semitones over the song's transpose */
-    uint8_t rsv;
+    uint8_t lmute;                       /* the lead tracks muted, bit 0 LD1, bit 1 LD2 (was rsv) */
 } row_t;
 typedef struct {
     uint16_t style[ARR_NSECT];           /* the pattern for each section (as before) */
@@ -97,6 +182,7 @@ typedef struct {
     uint8_t mute;                        /* the tracks muted in FREE and LOOP */
     uint8_t flags;                       /* SONG_F_*: was rsv (0 in songs saved before) */
     row_t row[ARR_ROWS];
+    lead_trk_t lead[ARR_LEADS];          /* LD1, LD2's sounds (their notes: leads_t, in the shared slots) */
 } song_t;
 #define SONG_F_TEMPO 1u                  /* its tempo was set by hand: a style picked keeps it */
 typedef struct {
@@ -131,6 +217,10 @@ static inline uint8_t arr_reso(const arr_trk_t *t) { return (uint8_t)((t->reso ^
 static inline uint8_t arr_xor64(int v) { return (uint8_t)(((unsigned)v & 127u) ^ 64u); }
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
 _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
+_Static_assert(sizeof(lead_ev_t) == 9 && sizeof(lead_trk_t) == 8, "a lead note 9 bytes, a lead track's sound 8");
+_Static_assert(sizeof(lead_part_t) == LEAD_HDR + 9 * LEAD_PART_NOTES && sizeof(lead_part_t) <= 3840, "a lead part fits a slot");
+_Static_assert(sizeof(lead_hdr_t) == LEAD_HDR, "a lead part's header: 12 bytes, as its notes' offset");
+_Static_assert((sizeof(pattern_t) - LEAD_HDR) % 9 != 0, "a lead part's length is never a pattern's");
 
 /* ---- the engine. Threads as Life's: the sequencer runs inside the audio render (gm_render calls arr_block
  * before each EAS block); everything else posts commands, drained at the start of a block.
@@ -225,7 +315,8 @@ void arr_mode_loop(int i);
  * song). Leaving SONG, the app sends its mutes again (arr_track_mute). */
 void arr_mode_song(const song_t *s, int r);
 extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row), its pass (0..rep-1) */
-extern volatile uint8_t arr_mutes;                /* the tracks muted now (rows and hand mutes), bit t track t */
+extern volatile uint16_t arr_mutes;               /* the tracks muted now (rows and hand mutes), bit t track t; bits 8, 9
+                                                   * LD1, LD2 (ARR_LD1 + k) */
 /* -6..+5: loops and songs (not the keys' chords). The chord sounding moves at once by the difference (a chord
  * from the keys stays; the Intro's and the Ending's held chord moves too; during a write, at the first block
  * after it); the next chords come transposed */
@@ -241,7 +332,8 @@ extern volatile uint32_t arr_beats;              /* beats since PLAY (REC in FRE
  * than 3 pitch classes, or no type fits): the chord stays as it was. The app calls arr_keys_held(0, 0) when
  * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
-/* a track muted (live, in every slot, until unmuted; the app keeps them per song): its notes end at once */
+/* a track muted (live, in every slot, until unmuted; the app keeps them per song): its notes end at once. trk
+ * ARR_LD1, ARR_LD1 + 1: a lead track (in SONG by hand, until the next row, whose lmute then plays) */
 void arr_track_mute(int trk, int on);
 /* ---- loop recording, into the playing pattern (its slot's copy here: arr_pattern_copy reads it back).
  * arr_key: a key played (vel 0 or on 0: released), from the main loop. It sounds at once on the selected track's
@@ -284,9 +376,42 @@ uint16_t arr_pattern_copy(int slot, pattern_t *out);
  *     do { d = arr_pattern_copy(s, &p); edit(&p); } while (!arr_store_pattern(s, &p, d));
  * (arr_load_pattern is for another pattern: it overwrites whatever was recorded) */
 int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect);
-extern volatile uint8_t arr_full, arr_recording;  /* recording: on, until arr_record(.., 0) or a section change */
+extern volatile uint8_t arr_full, arr_recording;  /* recording: on, until arr_record(.., 0) or (a pattern's track) a
+                                                    * section change */
 extern volatile uint16_t arr_dirty[ARR_NSECT];
 void arr_midi_out_on(int on);
+/* ---- the lead tracks (LD1, LD2; their data: leads_t above). In SONG, while a row plays (not in the song's Intro or
+ * Ending), its lead notes play at their places (the row's ticks since its first downbeat, linear across its REPEAT
+ * passes: a row of x2 has two passes' worth), each moved by lead_shift(the root sounding then, its root), on its lead
+ * track's channel with its sounds (sent to the synth when SONG plays and when they change; MIDI out as the
+ * patterns' sounds), after the patterns' notes of the same tick (the note-ons a block: MAX_ONS for all). Note-offs
+ * and MIDI out as the patterns' notes. Notes sounding at a row change play to their end; a chord change does not
+ * move a note sounding. The row's mutes (row_t.lmute) and hand mutes (arr_track_mute ARR_LD1 + k) silence a track
+ * (its notes sounding end). The notes are read with the busy rule (arr_edit): the row playing's range (row0) is
+ * taken when not busy and again whenever gen moved, from the first place not yet played (a write during a block:
+ * its notes due play at the first block after, late, never twice). MIDI clock catch-up: the place jumps on, the
+ * notes jumped over are not played (as the patterns'). Leads in a row shortened past its notes: those don't play. */
+void arr_leads(const leads_t *l);                /* at init: the app's lead notes (it stays put) */
+/* Recording: arr_record(ARR_LD1 + k, on) selects lead k (the keys play it: arr_key, on its channel with its sounds,
+ * in any mode) and arms it (on: 1 or ARR_REC_BAR, the same: no bar to wait for). It records while a song's row plays:
+ * each key played becomes a note of the row playing, at its place (the nearest tick to its block, to the nearest
+ * line of the grid, arr_set_quant: a key just before a row's end lands on the next row's tick 0), its length to
+ * its release (one grid step at least), its root the chord's sounding at its place (a key a little early, before
+ * a beat line: the chord on that beat). Not while stopped, nor in FREE / LOOP, the song's Intro or Ending: the key
+ * only sounds. A section change does not end it (leads run along the song). The engine writes nothing of the
+ * app's: a note, once released and its place played, is handed over (arr_lead_take) and the app inserts it into
+ * its leads_t (leads.c: the same note at the same place replaces), so the render never moves the app's data and the
+ * note is never played twice (its place is behind the player's: it sounds from the next time the row plays).
+ * A stop, recording off or another track: the keys held end their notes there (one whose place has not played
+ * yet: dropped). A full hand-over ring (never, at the app's rate): the note is dropped and arr_lead_lost counts. */
+typedef struct {
+    uint8_t row, trk, note, vel;         /* trk: 0 LD1, 1 LD2 */
+    uint8_t root, rsv[3];                /* the root sounding at its place, 0..11 */
+    uint32_t pos, len;                   /* its place in the row (lead_ev_t pos), its length in ticks (1..65535) */
+} arr_lnote_t;
+int arr_lead_take(arr_lnote_t *n);              /* 1 = a recorded note (main loop) */
+extern volatile uint8_t arr_lead_lost;
+extern volatile uint32_t arr_row_tick;           /* the row playing's place (lead_ev_t pos): for the screen */
 /* MIDI clock in: F8, FA (a start, as PLAY), FB (on from where it stopped; after an Ending or a song's end
  * stopped it: a start, as PLAY), FC */
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };
@@ -318,5 +443,5 @@ static inline chord_t arr_chord_unpack(uint32_t v)
     chord_t c = {(uint8_t)(v & 0xFFu), (uint8_t)(v >> 8 & 0xFFu), (uint8_t)(v >> 16 & 0xFFu)};
     return c;
 }
-extern volatile uint32_t arr_track_hit[ARR_TRACKS];  /* render ticks of each track's last note-on */
+extern volatile uint32_t arr_track_hit[ARR_ALLTRK];  /* render ticks of each track's last note-on (8, 9: LD1, LD2) */
 extern volatile uint32_t arr_ticks;                  /* render ticks since arr_init */

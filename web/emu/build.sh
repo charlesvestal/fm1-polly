@@ -10,7 +10,7 @@ mkdir -p build/gen build/emu
 emcc -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable \
     -DGM_HOST -DGM_WEB "-DGM_VERSION=\"$(printf %s "${GM_VERSION:-DEV}" | tr a-z A-Z)\"" -Ifirmware/src -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -Ibuild/gen \
     --no-entry -sSTANDALONE_WASM -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=33554432 -sFILESYSTEM=0 \
-    -o build/emu/polly.wasm web/emu/polly_web.c firmware/src/dsp/gm.c firmware/src/dsp/chords.c firmware/src/dsp/xpose.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c $(ls firmware/src/dsp/eas/*.c | grep -v "wt_22khz\|wt_200k_samples")
+    -o build/emu/polly.wasm web/emu/polly_web.c firmware/src/dsp/gm.c firmware/src/dsp/chords.c firmware/src/dsp/xpose.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c $(ls firmware/src/dsp/eas/*.c | grep -v "wt_22khz\|wt_200k_samples")
 # the page, with the controls list taken from the firmware's own (ui.c's header comment), so it stays current;
 # the QY70 bank builder: the worker, its entry point and Polly's tools (GPL code, no Yamaha data: the tester's
 # own ROM is read in their browser)

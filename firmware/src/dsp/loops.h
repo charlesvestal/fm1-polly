@@ -15,7 +15,7 @@ chord_t loop_chord_at(const loop_t *l, int b);    /* the chord sounding on beat 
 void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; the beats past the end cleared (LC_SAME) */
 void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats; past the end cleared */
 void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM;
-                                                   * keeps its style */
+                                                   * keeps its style and its lead tracks' sounds */
 /* white key `loop` tapped on the SONG screen at row r: row r is set (r the END row, one after the last: a new row
  * at the end; never a REPEAT + 1, REPEAT is the knob's), its section the one this loop had in an earlier row, else
  * Main A; returns the row; -1 when full */
