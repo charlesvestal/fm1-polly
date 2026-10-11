@@ -758,7 +758,7 @@ static void home_bars(const bars_t *v)
 {
     const loop_t *l = v->l;
     int bpb = v->bpb, len = v->len, ch = v->ch;
-    char t[40], *e;
+    char t[64], *e;                                  /* (four slash chords in a bar: 51) */
     for (int b = v->top * 4; b < (v->top + v->vis) * 4 && b < v->n; b++) {
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = v->y0 + (b / 4 - v->top) * (ch + 2), nx;
         int plays = b == v->focus && !v->cursor, cur = b == v->focus && v->cursor, out = b >= v->out_from;
@@ -892,7 +892,7 @@ static void draw_home_rec(void)
     const loop_t *l;
     int take = ui.take, li, ghost = 0, wait = 0, hint;
     uint32_t h;
-    char t[40], *e;
+    char t[48], *e;                                  /* ("REC P16 <name>|starts at the next bar": 40) */
     bars_t v;
     memset(&v, 0, sizeof v);
     v.focus = v.start = -1;
@@ -2175,7 +2175,7 @@ static void draw_track(void)
     const arr_trk_t *t = sel_arr(&lb);
     int drums = (t->chan & 15u) == 9u, lead = app.lead != 0;
     uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)k2 << 8);
-    char a[24], b[16];
+    char a[40], b[16];                               /* ("roots above C#: an octave down": 31) */
     h = hash(h, t->program | (uint32_t)t->chan << 8 | (uint32_t)t->x.type << 16 | (uint32_t)t->x.hikey << 24);
     h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8 | (uint32_t)t->flags << 16);
     if (h == ui.sig[1])

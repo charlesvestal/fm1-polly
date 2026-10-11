@@ -2760,7 +2760,7 @@ static void do_free_slot(void)
 {
     int i = ui.tgt.free % ARR_USER_PATTERNS;
     slot_who_t w;
-    char a[16], b[24];
+    char a[16], b[32];                               /* ("S1 S2 S3 S4 BACK TO STYLE": 26) */
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
         say("FREE", "STOP FIRST");
         return;
