@@ -45,7 +45,7 @@ expect tag_is_S1>P9|bar_1.1 1
 turn PRESET -8
 expect tag_is_S1>P1_Pop|bar_1.1 1
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
-expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT+:_SKIP 1
+expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_CURSOR 1
 tap SEL
 expect list_open 1
 spin SELECT 20

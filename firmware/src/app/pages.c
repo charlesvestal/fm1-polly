@@ -2803,7 +2803,7 @@ static void page_footer(char *t)
                  : app.mode == ARR_FREE ? "KEYS: CHORDS|REC: NEW PROGRESSION" : "KEYS: CHORDS|REC: WRITE");
         break;
     case P_LOOP: case P_LOOP2:
-        cat_s(t, ui.rec_chords ? "KEYS: CHORDS|REC: STOP|OCT+: SKIP" : "KEYS: CHORDS|REC: WRITE|OCT+: SKIP");
+        cat_s(t, ui.rec_chords ? "KEYS: CHORDS|REC: STOP|OCT: CURSOR" : "KEYS: CHORDS|REC: WRITE|OCT: CURSOR");
         break;
     case P_SONG: case P_SONG2: case P_SONG3:
         cat_s(t, ui.song_rec ? "HOME + KEYS: SECTIONS|REC: STOP" : "WHITE: PROGRESSION|BLACK: MUTES");
@@ -2991,8 +2991,8 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_REC, PG_ANY, "Record", "Nothing to record on this page.", "HOME + REC: undo."},
     {B_PLAY, PG_ANY, "Play", "Start and stop. On Song: the song from section 1 (from a progression: at the next bar).",
      "HOME + PLAY: redo."},
-    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT-: back a step. OCT+: skips a step (the chord goes on).", 0},
-    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT+ skips a step (the chord goes on); OCT-: back a step.", 0},
+    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor: OCT- back a step, OCT+ on a step (the chords stay as they are).", 0},
+    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor: OCT+ on a step, OCT- back a step (the chords stay as they are).", 0},
     {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Both held 5 s: update mode."},
     {B_OCTUP, PG_ANY, "Octave", "The keys an octave up.", "Both held 5 s: update mode."},
 };
