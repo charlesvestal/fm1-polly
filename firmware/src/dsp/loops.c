@@ -41,6 +41,28 @@ void loop_from_template(loop_t *l, int t)
     for (int b = 0; b < m->nbars; b++)
         l->ch[b * m->beats] = lc_pack(m->bars[b]);
 }
+void loops_default_one(loop_t *l, int i)
+{
+    if (i < 8)
+        loop_from_template(l, FACTORY_LOOP[i]);
+    else
+        loop_clear(l, i);
+}
+void loops_default(loop_t *t)
+{
+    for (int i = 0; i < ARR_LOOPS; i++)
+        loops_default_one(&t[i], i);
+}
+int loops_is_default(const loop_t *t)
+{
+    loop_t d;
+    for (int i = 0; i < ARR_LOOPS; i++) {
+        loops_default_one(&d, i);
+        if (memcmp(&d, &t[i], sizeof d))
+            return 0;
+    }
+    return 1;
+}
 int loop_write(loop_t *l, int b, chord_t c)
 {
     int bpb = l->beats ? l->beats : 4;

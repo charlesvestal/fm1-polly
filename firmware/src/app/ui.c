@@ -246,23 +246,25 @@ static void slot_load(int s, int style)
     app.edited[s] = (uint8_t)(folded && style < ARR_USER_PATTERNS);   /* saved again, its mutes moved out */
     app.edit_pend &= (uint8_t)~(1u << s);
 }
-/* ---- the shared slots (user patterns and lead parts, project.c) */
-/* the slots the song's lead parts hold or have taken (not saved into yet): no pattern takes them */
-static uint32_t lead_reserved(void)
+/* ---- the shared slots (user patterns, lead parts, the songs' loops: project.c) */
+/* the slots the song's lead parts and loops hold or have taken (not saved into yet): no pattern takes them */
+static uint32_t slots_reserved(void)
 {
     uint32_t m = 0;
     for (int k = 0; k < LEAD_PARTS; k++)
         if (app.lslot[k] >= 0 && app.lslot[k] < ARR_USER_PATTERNS)
             m |= 1u << app.lslot[k];
+    if (app.lpslot >= 0 && app.lpslot < ARR_USER_PATTERNS)
+        m |= 1u << app.lpslot;
     return m;
 }
-/* slot p holds lead notes (any song's, or the song's taken): never a pattern's */
-static int slot_has_leads(int p) { return (lead_reserved() >> p & 1u) || project_slot_leads(p); }
-/* a slot holding nothing: never saved, or saved without notes (a pattern looked at in scratch), not the leads' */
-static int pattern_blank(int p) { return !(lead_reserved() >> p & 1u) && project_slot_blank(p, &scratch); }
+/* slot p holds lead notes or a song's loops (any song's, or the song's taken): never a pattern's */
+static int slot_held(int p) { return (slots_reserved() >> p & 1u) || project_slot_held(p); }
+/* a slot holding nothing: never saved, or saved without notes (a pattern looked at in scratch), not the song's own */
+static int pattern_blank(int p) { return !(slots_reserved() >> p & 1u) && project_slot_blank(p, &scratch); }
 /* the slot the copy-on-write (and a lead part) takes: one no song plays and that holds nothing (a pattern or a lead
  * part with notes is never taken, played or not); -1 none */
-static int pattern_free(void) { return project_slot_free(&songs, lead_reserved(), &scratch); }
+static int pattern_free(void) { return project_slot_free(&songs, slots_reserved(), &scratch); }
 /* copy-on-write: before slot s's pattern is changed (recorded into, edited, erased, cleared), a slot playing a
  * style's section gets a user pattern of its own: the first free one (pattern_free) takes the section as it
  * plays now, saved at the next save (or autosave). 0: the slot plays a user pattern; -1: none free (the change
@@ -363,6 +365,58 @@ static void leads_poll(void)                     /* the notes the engine recorde
     arr_lnote_t n;
     while (arr_lead_take(&n))
         lead_add(&n);
+}
+/* ---- the song's loops (sloops): its own 16, loaded with it, saved at rest when they changed; a slot of their own
+ * once they differ from the defaults */
+static uint32_t loops_sum(void)                  /* FNV-1a over the 16 loops: did they change since loaded or saved */
+{
+    const uint8_t *b = (const uint8_t *)sloops.loop;
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < sizeof sloops.loop; i++)
+        h = (h ^ b[i]) * 16777619u;
+    return h;
+}
+static void loops_load(void)                     /* the selected song's (its changes were saved first) */
+{
+    arr_edit(1);
+    project_loops_load(proj.song, &sloops, &app.lpslot);
+    arr_edit(0);
+    app.lpsum = loops_sum();
+    app.lpdirty = 0;
+}
+/* the loops changed and are not the defaults: a slot for them, if they have none (NO FREE SLOT: they play, not
+ * kept). 0: they have one (or need none) */
+static int loops_slot_take(void)
+{
+    int p;
+    if (app.lpslot >= 0 || loops_is_default(sloops.loop))
+        return 0;
+    if ((p = pattern_free()) < 0) {
+        say("NO FREE SLOT", "LOOPS NOT KEPT");
+        app.lpsum = loops_sum();                 /* (said once: again at their next change) */
+        return -1;
+    }
+    app.lpslot = (int8_t)p;
+    return 0;
+}
+/* save_all's part: the loops, when they changed (their slot let go when they are the defaults again). A song's loops
+ * with no slot free are not kept (said), never a failed save (a song change would be refused) */
+static int loops_save(void)
+{
+    uint32_t sum = loops_sum();
+    if (sum == app.lpsum) {
+        app.lpdirty = 0;
+        return 0;
+    }
+    if (loops_slot_take() != 0) {
+        app.lpdirty = 0;
+        return 0;
+    }
+    if (project_loops_save(proj.song, &sloops, &app.lpslot) != 0)
+        return -1;
+    app.lpsum = sum;
+    app.lpdirty = 0;
+    return 0;
 }
 
 /* MODE: FREE (the keys' chords only), LOOP (app.loop goes round), SONG (the song's rows: from app.row stopped,
@@ -465,6 +519,8 @@ static int save_all(void)
         else
             rc = -1;
     }
+    if (app.lpdirty && loops_save() != 0)        /* the song's loops (the defaults again: their slot let go) */
+        rc = -1;
     if (app.ldirty) {                            /* the lead parts changed (a part emptied: its slot let go) */
         if (project_leads_save(proj.song, &leads, app.lslot, app.ldirty) == 0)
             app.ldirty = 0;
@@ -527,7 +583,8 @@ void app_start(void)
     qbuf[0].index = qbuf[1].index = -1;
     qb_mount();                                  /* the QY70 style bank, if one is installed */
     project_songs_load(&songs);
-    arr_loops(songs.loop);                       /* the engine reads the loops from here (writes: arr_edit) */
+    arr_loops(sloops.loop);                      /* the engine reads the song's loops from here (writes: arr_edit) */
+    loops_load();
     arr_leads(&leads);                           /* ... and the song's lead notes */
     leads_load();
     arr_set_quant(proj.quant);
@@ -550,13 +607,18 @@ static void song_touched(void)
     app.chg++;
     ui.act_t = plat_ms();
 }
-/* every write into the loops (songs.loop[]) or a song's rows: the render reads them on beat and bar lines,
- * arr_edit(1) holds it off; done (0), the songs are unsaved */
+/* every write into the loops (sloops.loop[]) or a song's rows: the render reads them on beat and bar lines,
+ * arr_edit(1) holds it off; done (0), the songs and the song's loops are unsaved (the loops take a slot when they
+ * first differ from the defaults: NO FREE SLOT said then) */
 static void songs_write(int on)
 {
     arr_edit(on);
-    if (!on)
+    if (!on) {
         song_touched();
+        app.lpdirty = 1;
+        if (app.lpslot < 0 && loops_sum() != app.lpsum)
+            loops_slot_take();
+    }
 }
 /* the song's tempo; by hand (KNOB 2, HOME + SELECT) it is the song's own from then on (SONG_F_TEMPO): a style picked
  * after keeps it. A style picked before that brings its tempo (style_tempo_follow) */
@@ -682,7 +744,7 @@ static void take_end(void);
 /* the cursor's step: a beat, half a bar (at least a beat), a bar of app.loop */
 static int step_beats(void)
 {
-    const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4;
     return app.cstep == 0 ? 1 : app.cstep == 1 ? (bpb / 2 > 1 ? bpb / 2 : 1) : bpb;
 }
@@ -693,7 +755,7 @@ static int step_beats(void)
  * FULL at the limit). REC off: round the loop. Back past beat 0: the last bar's last grid point */
 static void cursor_move(int d)
 {
-    loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int len = loop_len(l), s = step_beats(), bpb = l->beats ? l->beats : 4;
     int bar = app.cbeat / bpb, p = app.cbeat % bpb, b;
     char t[8];
@@ -728,7 +790,7 @@ static void cursor_move(int d)
  * (a ROOT / TYPE / BASS turn writes there: never past the end, growing the loop) */
 static void cursor_clamp(void)
 {
-    int len = loop_len(&songs.loop[app.loop % ARR_LOOPS]), m = ui.rec_chords ? len : len > 0 ? len - 1 : 0;
+    int len = loop_len(&sloops.loop[app.loop % ARR_LOOPS]), m = ui.rec_chords ? len : len > 0 ? len - 1 : 0;
     if (app.cbeat > m)
         app.cbeat = (uint8_t)m;
 }
@@ -744,7 +806,7 @@ static int chord_write(int i, int b, chord_t c)
     int r;
     char t[8];
     songs_write(1);
-    r = loop_write(&songs.loop[i], b, chord_shift(c, -xpose_now()));
+    r = loop_write(&sloops.loop[i], b, chord_shift(c, -xpose_now()));
     songs_write(0);
     if (r < 0) {
         loop_name_l(i, t);
@@ -809,7 +871,7 @@ static void chord_played(const uint8_t *n, int cnt)
         return;
     }
     if (arr_playing) {                           /* in time: the nearest beat */
-        int len = loop_len(&songs.loop[l]);
+        int len = loop_len(&sloops.loop[l]);
         if (arr_sect == SEC_INTRO) {
             say("WRITE", "after the Intro");     /* (the loop has not started) */
             return;
@@ -818,7 +880,7 @@ static void chord_played(const uint8_t *n, int cnt)
             say("WRITE", "from the bar line");
             return;
         }
-        b = live_beat(&songs.loop[l]);
+        b = live_beat(&sloops.loop[l]);
         if (b == prev && len > 0)
             b = (b + 1) % len;                   /* a change on the same beat: the next one */
         ui.centry = (int8_t)(chord_write(l, b, ch) == 0 ? b : -1);
@@ -862,7 +924,7 @@ static void loop_rec_toggle(void)
     ui.clifted = 0;
     if (!ui.rec_chords) {                        /* off at the loop's end: the start of the last bar written (a knob
                                                   * there changes that bar's chord, OCT- walks back by bars) */
-        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int len = loop_len(l), bpb = l->beats ? l->beats : 4;
         if (len > 0 && app.cbeat >= len)
             app.cbeat = (uint8_t)((len - 1) / bpb * bpb);
@@ -887,7 +949,7 @@ static void free_take_toggle(void)
         take_end();
         return;
     }
-    for (i = 0; i < ARR_LOOPS && songs.loop[i].bars; i++)
+    for (i = 0; i < ARR_LOOPS && sloops.loop[i].bars; i++)
         ;
     if (i == ARR_LOOPS) {
         say("NO EMPTY LOOP", "CLEAR ONE (SEL)");
@@ -897,9 +959,9 @@ static void free_take_toggle(void)
     ui.take_any = 0;
     ui.take_last = -1;
     ui.centry = -1;
-    if (songs.loop[i].beats != bpb) {
+    if (sloops.loop[i].beats != bpb) {
         songs_write(1);
-        loop_set_beats(&songs.loop[i], bpb);
+        loop_set_beats(&sloops.loop[i], bpb);
         songs_write(0);
     }
     if (arr_playing) {                           /* from the next downbeat of the pattern playing */
@@ -919,7 +981,7 @@ static void free_take_toggle(void)
 /* the take ends: its loop rounded to whole bars and said; 1 = kept (a chord written), 0 = no loop */
 static int take_finish(void)
 {
-    loop_t *l = &songs.loop[ui.take_loop % ARR_LOOPS];
+    loop_t *l = &sloops.loop[ui.take_loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4, n = ui.take == 2 && arr_playing ? take_beat() : ui.take_pos;
     char t[8];
     ui.take = 0;
@@ -961,7 +1023,7 @@ static void take_poll(void)
         ui.take_b0 = 0;
         ui.take_pos = 0;
     } else if (ui.take == 2) {
-        const loop_t *l = &songs.loop[ui.take_loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[ui.take_loop % ARR_LOOPS];
         int bpb = l->beats ? l->beats : 4;
         if (!arr_playing)
             take_end();
@@ -1202,7 +1264,7 @@ static int song_rec_loop(int w)
     }
     if (n && arr_loop_now >= 0 && r < n && arr_sect != SEC_END) {   /* (the Ending: the rows are done, a row added) */
         const row_t *cw = &g->row[r];
-        const loop_t *l = &songs.loop[cw->loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[cw->loop % ARR_LOOPS];
         int per = loop_len(l) > 0 ? loop_len(l) : 4, len = per * (cw->rep ? cw->rep : 1);
         int bpb = clampi(app.hdr[eslot()].beats, 1, 7), el, left;
         uint32_t lb, tk, rp;
@@ -1342,7 +1404,7 @@ static void arp_open(void)
     int i;
     if (app.picked || (arr_playing && arr_loop_now >= 0))
         return;
-    for (i = 0; i < ARR_LOOPS && songs.loop[i].bars; i++)
+    for (i = 0; i < ARR_LOOPS && sloops.loop[i].bars; i++)
         ;
     if (i < ARR_LOOPS)
         app_loop_set(i);
@@ -1553,6 +1615,7 @@ static void song_change(int s)
     }
     proj.song = (uint8_t)s;
     app.row = 0;
+    loops_load();                                /* its own loops (stopped: the engine reads them from the next PLAY) */
     song_load();
     leads_load();
     mark_dirty();
@@ -1570,7 +1633,7 @@ static int style_step(int s, int st, int d)
     int si = style_index(st), i = si >= 0 ? ARR_USER_PATTERNS + si : st < ARR_USER_PATTERNS ? st : 0, was = i;
     int top = ARR_USER_PATTERNS + styles_n() - 1;
     i = clampi(i + d, 0, top);
-    while (i != was && i < ARR_USER_PATTERNS && slot_has_leads(i))   /* (a slot holding lead notes: passed over) */
+    while (i != was && i < ARR_USER_PATTERNS && slot_held(i))   /* (a slot holding lead notes or loops: passed over) */
         i = i + (d > 0 ? 1 : -1) < 0 ? was : i + (d > 0 ? 1 : -1);
     return i < ARR_USER_PATTERNS ? i : style_number(i - ARR_USER_PATTERNS, s);
 }
@@ -1709,7 +1772,7 @@ static void song_page_knob(int k, int32_t e)
         break;
     case P_LOOP: {                               /* ROOT, TYPE ("·" one below maj: loop_unwrite), BASS, STEP */
         int l = app.loop % ARR_LOOPS, has, b = app.cbeat;
-        chord_t c = chord_shift(cursor_chord(&songs.loop[l], b, &has), xpose_now());
+        chord_t c = chord_shift(cursor_chord(&sloops.loop[l], b, &has), xpose_now());
         if (k == 3) {                             /* STEP: beat, half, bar (no write) */
             app.cstep = (uint8_t)(((int)app.cstep + d) % 3 + 3) % 3;
             break;
@@ -1724,7 +1787,7 @@ static void song_page_knob(int k, int32_t e)
                 t = -1;
             if (t < 0) {
                 songs_write(1);
-                loop_unwrite(&songs.loop[l], b);
+                loop_unwrite(&sloops.loop[l], b);
                 songs_write(0);
                 break;
             }
@@ -1742,7 +1805,7 @@ static void song_page_knob(int k, int32_t e)
         break;
     }
     case P_LOOP2: {                              /* LENGTH, BEATS ("LENGTH 9: 64 BEATS MAX" when it shrank), NAME */
-        loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int bpb = l->beats ? l->beats : 4, step = accel(EN_K1 + k, e);
         if (k == 0) {
             int m = loop_max_bars(bpb), to = clampi((l->bars ? l->bars : 1) + step, 1, m);
@@ -1842,7 +1905,7 @@ static void do_load_prog(void)
     int t = ui.tgt.prog % NTEMPLATES, l = ui.tgt.loop % ARR_LOOPS;
     char a[16], b[16];
     songs_write(1);
-    loop_from_template(&songs.loop[l], t);
+    loop_from_template(&sloops.loop[l], t);
     songs_write(0);
     loop_name_l(l, cat_s(b, "INTO "));
     cat_s(a, TEMPLATES[t].name);
@@ -1851,7 +1914,7 @@ static void do_load_prog(void)
 static void act_load_progression(void)
 {
     char q[32];
-    if (!songs.loop[ui.tgt.loop].bars) {
+    if (!sloops.loop[ui.tgt.loop].bars) {
         do_load_prog();
         return;
     }
@@ -1864,7 +1927,7 @@ static void do_clear_loop(void)
     char t[8];
     int l = ui.tgt.loop % ARR_LOOPS;
     songs_write(1);
-    loop_clear(&songs.loop[l], l);
+    loop_clear(&sloops.loop[l], l);
     songs_write(0);
     loop_name_l(l, t);
     say("CLEARED", t);
@@ -1872,7 +1935,7 @@ static void do_clear_loop(void)
 static void act_clear_loop(void)
 {
     char t[8];
-    if (!songs.loop[ui.tgt.loop].bars) {
+    if (!sloops.loop[ui.tgt.loop].bars) {
         loop_name_l(ui.tgt.loop, t);
         say(t, "IS EMPTY");
     } else
@@ -1971,13 +2034,16 @@ static void act_clear_song(void)
     cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR SONG ")), "?");
     ask(q, do_clear_song);
 }
-/* COPY SONG TO: the song (its rows, settings, styles) into another; its user patterns into ones of the target's */
+/* COPY SONG TO: the song (its rows, settings, styles, loops) into another; its user patterns into ones of the
+ * target's; its loops into the target's slot (a free one; the defaults: none, the target's let go) */
 static void do_copy_song(void)
 {
     song_t *g = csong();
-    int to = ui.tgt.song % ARR_SONGS;
+    int to = ui.tgt.song % ARR_SONGS, deflt = loops_is_default(sloops.loop);
     song_t *d = &songs.song[to];
     uint16_t st[ARR_NSECT];
+    uint32_t mine = slots_reserved();
+    int8_t lp = -1;
     char a[16];
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
         say("COPY", "STOP FIRST");
@@ -1986,6 +2052,14 @@ static void do_copy_song(void)
     edits_flush();
     if (copy_patterns_pick(to, st) != 0) {
         say("NOT COPIED", "NO FREE PATTERN");
+        return;
+    }
+    for (int i = 0; i < ARR_NSECT; i++)
+        if (st[i] < ARR_USER_PATTERNS)
+            mine |= 1u << st[i];
+    if (!deflt && (lp = (int8_t)project_loops_slot(to)) < 0 &&
+        (lp = (int8_t)project_slot_free(&songs, mine, &scratch)) < 0) {   /* the loops' slot: the target's, else free */
+        say("NOT COPIED", "NO FREE SLOT");
         return;
     }
     for (int i = 0; i < ARR_NSECT; i++) {        /* the patterns' contents, as they play now; the song after */
@@ -1999,6 +2073,10 @@ static void do_copy_song(void)
     }
     if (project_leads_free(to) != 0) {          /* the target's lead notes go with its rows (the source's: not copied) */
         say("FLASH ERROR", "song unchanged");
+        return;
+    }
+    if (deflt ? project_loops_free(to) != 0 : project_loops_save(to, &sloops, &lp) != 0) {
+        say("FLASH ERROR", "song unchanged");    /* (the header in RAM says `to` now: the song's next save sets it back) */
         return;
     }
     songs_write(1);                              /* (not the song playing: no need, but every row write goes so) */
@@ -2167,7 +2245,7 @@ static void do_copy_loop(void)
 {
     char a[8], b[20];
     songs_write(1);
-    songs.loop[ui.copy_to % ARR_LOOPS] = songs.loop[ui.copy_src % ARR_LOOPS];
+    sloops.loop[ui.copy_to % ARR_LOOPS] = sloops.loop[ui.copy_src % ARR_LOOPS];
     songs_write(0);
     loop_name_l(ui.copy_src, a);
     loop_name_l(ui.copy_to, cat_s(b, "COPIED TO "));
@@ -2222,7 +2300,7 @@ static void copy_to(int n)
         if (n == src) {
             loop_name_l(n, q);
             say(q, "IS THIS LOOP");
-        } else if (songs.loop[n].bars)
+        } else if (sloops.loop[n].bars)
             ask_loop("REPLACE ", n, do_copy_loop);
         else
             do_copy_loop();
@@ -2231,9 +2309,11 @@ static void copy_to(int n)
             say("COPY", "STOP FIRST");
             return;
         }
-        if (slot_has_leads(n)) {                 /* a slot holding lead notes: never a pattern's */
+        if (slot_held(n)) {                      /* a slot holding lead notes or a song's loops: never a pattern's */
+            slot_info_t si;
             pat_name(n, q);
-            say(q, "HOLDS LEAD NOTES");
+            project_slot_info(n, &si, &scratch);
+            say(q, si.kind == SLOT_LOOPS || n == app.lpslot ? "HOLDS LOOPS" : "HOLDS LEAD NOTES");
             return;
         }
         if (n != songs.song[proj.song].style[ui.tgt.slot] && !pattern_blank(n)) {

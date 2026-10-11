@@ -395,6 +395,7 @@ static int key_of(const char *s)
  * pattern_t and songs_t are too big for a stack frame. */
 static pattern_t dbg_pat;
 static songs_t dbg_songs;
+static loops_part_t dbg_loops;
 
 static int expect(const char *what, const char *val)
 {
@@ -525,18 +526,18 @@ static int expect(const char *what, const char *val)
     else if (!strcmp(what, "mutes"))              /* the engine's muted tracks now, bit t track t + 1 */
         got = arr_mutes;
     else if (!strncmp(what, "loop_bars", 9))      /* loop_barsN: loop N's bars (0: empty) */
-        got = songs.loop[(atoi(what + 9) - 1) & 15].bars;
+        got = sloops.loop[(atoi(what + 9) - 1) & 15].bars;
     else if (!strncmp(what, "loop_beats", 10))    /* loop_beatsN: loop N's beats a bar */
-        got = songs.loop[(atoi(what + 10) - 1) & 15].beats;
+        got = sloops.loop[(atoi(what + 10) - 1) & 15].beats;
     else if (!strncmp(what, "loop_ch", 7)) {      /* loop_chN_B: loop N's beat B, root*100 + type, -1 "." */
         int l = (atoi(what + 7) - 1) & 15, b = strrchr(what, '_') ? atoi(strrchr(what, '_') + 1) : 0;
-        uint16_t v = songs.loop[l].ch[b % ARR_LOOP_BEATS];
+        uint16_t v = sloops.loop[l].ch[b % ARR_LOOP_BEATS];
         got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
     } else if (!strncmp(what, "loop_name_i", 11))   /* loop_name_iN: loop N's name, the NAME list index (8: "Loop N" / custom) */
-        got = loop_name_index(&songs.loop[(atoi(what + 11) - 1) & 15]);
+        got = loop_name_index(&sloops.loop[(atoi(what + 11) - 1) & 15]);
     else if (!strncmp(what, "loop_name", 9) && (what[9] >= '0' && what[9] <= '9')) {
         /* loop_nameN VAL: loop N's name, exactly (its own string, not "_is_"'s 0/1: "Loop 10" has a space) */
-        const loop_t *l = &songs.loop[(atoi(what + 9) - 1) & 15];
+        const loop_t *l = &sloops.loop[(atoi(what + 9) - 1) & 15];
         char nm[9];
         int i, ok;
         for (i = 0; i < 8 && l->name[i]; i++)
@@ -618,6 +619,8 @@ static int expect(const char *what, const char *val)
         got = (int)trk_hits[(unsigned)(atoi(what + 10) - 1) % ARR_ALLTRK];
     else if (!strcmp(what, "lead_notes"))         /* the song's lead notes (both tracks) */
         got = leads.n;
+    else if (!strcmp(what, "loops_slot"))         /* the song's loops' slot, 1..16, 0 none (the defaults) */
+        got = app.lpslot + 1;
     else if (!strncmp(what, "lead_slot", 9))      /* lead_slotK (1, 2): part K's slot, 1..16, 0 none */
         got = app.lslot[(atoi(what + 9) - 1) & 1] + 1;
     else if (!strcmp(what, "lead_dirty"))         /* the lead parts unsaved (bit k part k + 1) */
@@ -647,7 +650,7 @@ static int expect(const char *what, const char *val)
         const lead_ev_t *e = i >= 0 && i < leads.n ? lead_at_c(&leads, (uint32_t)i) : 0;
         got = !e ? -1 : !strcmp(f, "row") ? e->row + 1 : !strcmp(f, "pos") ? (int)lead_pos(e) : !strcmp(f, "note") ? e->note
             : !strcmp(f, "root") ? lead_root(e) : !strcmp(f, "trk") ? lead_trk(e) + 1 : !strcmp(f, "len") ? (int)lead_len(e) : -1;
-    } else if (!strncmp(what, "slot_kind", 9)) {  /* slot_kindN (1..16): SLOT_NONE 0, PATTERN 1, LEAD 2, OTHER 3 */
+    } else if (!strncmp(what, "slot_kind", 9)) {  /* slot_kindN (1..16): SLOT_NONE 0, PATTERN 1, LEAD 2, OTHER 3, LOOPS 4 */
         slot_info_t si;
         got = project_slot_info((atoi(what + 9) - 1) & 15, &si, &dbg_pat);
     }
@@ -706,10 +709,11 @@ static int expect(const char *what, const char *val)
     } else if (!strcmp(what, "song0_rows")) {      /* song 0's rows, as saved */
         project_songs_load(&dbg_songs);
         got = dbg_songs.song[0].nrows;
-    } else if (!strcmp(what, "loop9_ch0")) {       /* loop 9's beat 0, as saved: root*100 + type, -1 "." */
-        project_songs_load(&dbg_songs);
-        got = dbg_songs.loop[8].ch[0] == LC_SAME ? -1 : lc_unpack(dbg_songs.loop[8].ch[0]).root * 100 +
-                                                            lc_unpack(dbg_songs.loop[8].ch[0]).type;
+    } else if (!strcmp(what, "loop9_ch0")) {       /* song 1's loop 9's beat 0, as saved: root*100 + type, -1 "." */
+        int8_t sl;
+        project_loops_load(0, &dbg_loops, &sl);
+        got = dbg_loops.loop[8].ch[0] == LC_SAME ? -1 : lc_unpack(dbg_loops.loop[8].ch[0]).root * 100 +
+                                                            lc_unpack(dbg_loops.loop[8].ch[0]).type;
     } else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);
@@ -962,11 +966,14 @@ int main(int argc, char **argv)
             songs_defaults(&dbg_songs);
             dbg_songs.song[0].tempo = 100;
             dbg_songs.song[0].nrows = 2;
-            {
-                chord_t am7 = {9, CH_MIN7, CH_NOBASS};          /* L9's first beat: A m7 */
-                loop_write(&dbg_songs.loop[8], 0, am7);
-            }
             project_songs_save(&dbg_songs);
+            {
+                chord_t am7 = {9, CH_MIN7, CH_NOBASS};          /* song 1's L9's first beat: A m7 (its loops in P16) */
+                int8_t sl = 15;
+                loops_default(dbg_loops.loop);
+                loop_write(&dbg_loops.loop[8], 0, am7);
+                project_loops_save(0, &dbg_loops, &sl);
+            }
         } else if (!strcmp(cmd, "poke_bad_style")) {   /* host-only: songs with pattern numbers past the styles */
             songs_defaults(&dbg_songs);
             dbg_songs.song[0].style[SEC_A - 1] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles());

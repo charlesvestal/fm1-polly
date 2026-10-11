@@ -323,19 +323,39 @@ expect loop_now 9
 tap PLAY
 wait 300
 expect playing 0
-# ---- REC on SONG: song 2 (empty), INTRO off, 120 BPM
+# ---- song 2 starts from song 1's loops (each song has its own): COPY SONG TO Song 2 (empty: no question), then on
+# song 2 CLEAR SONG (its rows go, the loops stay)
+tap SEL
+spin SELECT 20
+expect list_sel 13
+tap SEL
+expect asking 0
+expect msg2_is_copied 1
+# ---- REC on SONG: song 2 (emptied), INTRO off, 120 BPM
 turn SELECT 1
 turn SELECT 1
 expect page 3
 spin K4 1
 expect song 2
+expect rows 4
+expect loop_bars9 4
+expect loop_ch9_0 916
+turn SELECT -2
+expect page 1
+tap SEL
+spin SELECT 20
+spin SELECT -1
+expect list_sel 12
+tap SEL
+expect asking 1
+tap SEL
 expect rows 0
+expect loop_bars10 4
+turn SELECT 2
+expect page 3
 expect cursor 1
 spin K1 -1
 expect song_intro 0
-press HOME
-spin SELECT 15
-release HOME
 expect tempo 120
 # HOME in SONG with no rows says so
 tap HOME

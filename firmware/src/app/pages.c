@@ -65,6 +65,9 @@ static const char *const LOOP_NAME_LIST[] = {"Verse", "Chorus", "Bridge", "Pre",
 enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
 
 static songs_t songs EN_POOL;                        /* the four songs (the selected one plays) */
+/* the selected song's 16 loops (each song has its own: loaded with it, stored in a slot when not the defaults); the
+ * engine reads sloops.loop (arr_loops). Written inside songs_write (arr_edit) */
+static loops_part_t sloops EN_POOL;
 static pattern_t scratch EN_POOL;                    /* a pattern being loaded, saved or edited */
 /* the selected song's lead notes (arr.h leads_t, two parts as stored: 7.6 KB) and its leads' sounds; the engine
  * reads it (arr_leads). Written inside arr_edit, gen counted (ui.c lead_write) */
@@ -87,7 +90,12 @@ static struct {
     uint8_t edit_pend;                               /* slots with edits not yet stored into the arranger (bits) */
     uint32_t edit_t;                                 /* when the first of them was made */
     uint32_t gen;                                    /* counts the app's loads and stores (the Pattern page's view) */
-    uint8_t songs_dirty;                             /* the songs object changed (loops, a song, a slot's pattern) */
+    uint8_t songs_dirty;                             /* the songs object changed (a song, a slot's pattern) */
+    uint8_t lpdirty;                                 /* the song's loops may have changed (songs_write): saved when
+                                                      * they differ from what was loaded or saved (lpsum) */
+    int8_t lpslot;                                   /* the slot the song's loops are saved in (taken when they first
+                                                      * differ from the defaults), -1 none */
+    uint32_t lpsum;                                  /* the loops' checksum when loaded or saved */
     uint16_t saved[ARR_NSECT];                       /* each slot's arr_dirty when it was last loaded or saved */
     uint16_t seen[ARR_NSECT];                        /* each slot's arr_dirty as last seen, and when it moved: */
     uint32_t take_t[ARR_NSECT];                      /* the slot's latest take */
@@ -197,7 +205,7 @@ static int trk_muted(int t)
 /* anything not saved: the project, or a user pattern recorded into */
 static int unsaved(void)
 {
-    if (app.dirty || app.songs_dirty || app.ldirty)
+    if (app.dirty || app.songs_dirty || app.ldirty || app.lpdirty)
         return 1;
     for (int s = 0; s < ARR_NSECT; s++)
         if (songs.song[proj.song].style[s] < ARR_USER_PATTERNS &&
@@ -338,7 +346,7 @@ static int next_chord(const place_t *pl, chord_t *out)
     int n, i;
     if (pl->loop < 0)
         return 0;
-    l = &songs.loop[pl->loop];
+    l = &sloops.loop[pl->loop];
     n = loop_len(l);
     for (i = 1; i <= n; i++) {
         uint16_t v = l->ch[(pl->lbeat + (uint32_t)i) % (uint32_t)n];
@@ -431,7 +439,7 @@ static void draw_header(void)
     for (int k = 0; k < ARR_NSECT; k++)              /* the sections on user patterns ("Pop, A user") */
         h = hash(h, songs.song[proj.song].style[k] < ARR_USER_PATTERNS);
     if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* "L3 Verse   in 3 rows" */
-        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         h = hash(h, (uint32_t)app.loop | (uint32_t)loop_rows_using(csong(), app.loop % ARR_LOOPS) << 8);
         for (int i = 0; i < 8; i++)
             h = hash(h, (uint8_t)l->name[i]);
@@ -527,7 +535,7 @@ static int loop_name_default(const loop_t *l, int i)
 }
 static char *loop_label(int i, char *t)
 {
-    const loop_t *l = &songs.loop[i % ARR_LOOPS];
+    const loop_t *l = &sloops.loop[i % ARR_LOOPS];
     char *e = itoa_u((uint32_t)(i % ARR_LOOPS) + 1u, cat_s(t, "L"));
     if (loop_name_default(l, i % ARR_LOOPS))
         return e;
@@ -665,8 +673,8 @@ static int home_place(place_t *pl)
                                                       * first; in SONG row 1's, in its key), not the last one heard (PLAY
                                                       * ends a chord from the keys in LOOP and SONG) */
         const song_t *g = csong();
-        const loop_t *l0 = app.mode == ARR_LOOP ? &songs.loop[app.loop % ARR_LOOPS]
-                         : g->nrows ? &songs.loop[g->row[0].loop % ARR_LOOPS] : 0;
+        const loop_t *l0 = app.mode == ARR_LOOP ? &sloops.loop[app.loop % ARR_LOOPS]
+                         : g->nrows ? &sloops.loop[g->row[0].loop % ARR_LOOPS] : 0;
         chord_t c0;
         if (l0 && (c0 = loop_chord_at(l0, 0)).type != CH_NONE) {
             pl->chord = arr_chord_pack(chord_shift(c0, g->transpose + (app.mode == ARR_SONG ? g->row[0].key : 0)));
@@ -753,7 +761,7 @@ static void draw_home_rec(void)
     if (home_place(&pl))
         ovr = 0;
     li = take ? ui.take_loop % ARR_LOOPS : arr_playing && pl.loop >= 0 ? pl.loop : (int)(app.loop % ARR_LOOPS);
-    l = &songs.loop[li];
+    l = &sloops.loop[li];
     bpb = l->beats ? l->beats : 4;
     len = loop_len(l);
     shown = l->bars;
@@ -929,7 +937,7 @@ static void draw_home(void)
         draw_home_rec();
         return;
     }
-    l = pl.loop >= 0 ? &songs.loop[pl.loop] : 0;
+    l = pl.loop >= 0 ? &sloops.loop[pl.loop] : 0;
     bt = l && l->beats ? l->beats : 4u;
     intro = l && play && sect == SEC_INTRO;          /* an Intro holds its chord: the loop starts after it */
     fresh = mode == ARR_FREE && !app.played;         /* nothing heard yet: "Play a chord" */
@@ -945,7 +953,7 @@ static void draw_home(void)
     h = hash(hash(h, has_next ? arr_chord_pack(nc) : 0xFFFFFFu), (uint32_t)xpose_now() & 31u);
     h = hash(h, (uint32_t)arr_row | (uint32_t)arr_rep << 8 | (uint32_t)csong()->nrows << 16 | (uint32_t)ui.take_loop << 24);
     {
-        uint32_t tbt = songs.loop[ui.take_loop % ARR_LOOPS].beats ? songs.loop[ui.take_loop % ARR_LOOPS].beats : 4u;
+        uint32_t tbt = sloops.loop[ui.take_loop % ARR_LOOPS].beats ? sloops.loop[ui.take_loop % ARR_LOOPS].beats : 4u;
         h = hash(h, (uint32_t)(tb < 0 ? -1 : tb / (int32_t)tbt));
     }
     h = hash(h, l ? (uint32_t)l->bars | (uint32_t)app.hdr[slot].bars << 8 : app.hdr[slot].bars);
@@ -1002,7 +1010,7 @@ static void draw_home(void)
         else if (tb < 0)
             cat_s(e, ": from the next bar");
         else
-            itoa_u((uint32_t)tb / (songs.loop[ui.take_loop % ARR_LOOPS].beats ? songs.loop[ui.take_loop % ARR_LOOPS].beats : 4u) + 1u,
+            itoa_u((uint32_t)tb / (sloops.loop[ui.take_loop % ARR_LOOPS].beats ? sloops.loop[ui.take_loop % ARR_LOOPS].beats : 4u) + 1u,
                    cat_s(e, ": bar "));
         cv_text(8, STRIP_Y, &FONT_XS, t, K_ACCENT);
     } else
@@ -1035,7 +1043,7 @@ static void draw_home(void)
 #define LG_W 210                                     /* the cells' width (a scroll bar after it) */
 static void draw_loop(void)
 {
-    const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+    const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4, len = loop_len(l), wrap = bpb >= 5, cbar = app.cbeat / bpb;
     int bars = l->bars, rows, xp = xpose_now(), i, live, fbar, fl;
     int n1 = wrap ? (bpb + 1) / 2 : bpb, cw = LG_W / n1;
@@ -1152,7 +1160,7 @@ static void draw_song(void)
     h = hash(h, (uint32_t)g->intro | (uint32_t)g->ending << 1 | (uint32_t)g->at_end << 2 | (uint32_t)ui.song_rec << 3);
     for (i = top; i < n && i < top + SG_SHOWN; i++) {
         const row_t *w = &g->row[i];
-        const loop_t *l = &songs.loop[w->loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[w->loop % ARR_LOOPS];
         h = hash(h, w->loop | (uint32_t)w->sect << 5 | (uint32_t)w->rep << 8 | (uint32_t)w->mute << 12 |
                         (uint32_t)(uint8_t)w->key << 20 | (uint32_t)(l->bars != 0) << 28 | (uint32_t)(w->lmute & 3u) << 29);
         for (int c = 0; c < 8; c++)
@@ -1191,7 +1199,7 @@ static void draw_song(void)
         }
         {
             const row_t *w = &g->row[i];
-            const loop_t *l = &songs.loop[w->loop % ARR_LOOPS];
+            const loop_t *l = &sloops.loop[w->loop % ARR_LOOPS];
             int32_t x;
             char *e;
             itoa_u((uint32_t)i + 1u, t);
@@ -1630,7 +1638,7 @@ static void draw_lead_rec(void)
         r = arr_row < n ? arr_row : n - 1;           /* (stopped: PLAY here starts row 1) */
     if (n) {                                         /* the row: its loop's beats (empty: a bar of 4) x REPEAT, to bars */
         const row_t *w = &g->row[r];
-        int per = loop_len(&songs.loop[w->loop % ARR_LOOPS]);
+        int per = loop_len(&sloops.loop[w->loop % ARR_LOOPS]);
         uint32_t len = (uint32_t)(per > 0 ? per : 4) * (w->rep ? w->rep : 1u) * ARR_PPQ;
         nb = (int)((len + blen - 1) / blen);
         i0 = leads.row0[r];
@@ -2064,7 +2072,7 @@ static void draw_home_held(void)
     int q = app.mode == ARR_LOOP && ln != app.loop ? app.loop : -1;
     uint32_t h = hash(2166136261u, 32768u + (uint32_t)cur + ((uint32_t)(uint8_t)ln << 8) + ((uint32_t)(uint8_t)q << 16));
     for (i = 0; i < ARR_LOOPS; i++)
-        h = hash(h, songs.loop[i].bars | (uint32_t)(uint8_t)songs.loop[i].name[0] << 8);
+        h = hash(h, sloops.loop[i].bars | (uint32_t)(uint8_t)sloops.loop[i].name[0] << 8);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -2080,7 +2088,7 @@ static void draw_home_held(void)
     }
     for (i = 0; i < ARR_LOOPS; i++) {                /* two columns, down then across */
         int32_t x = 6 + (i / 8) * 116, y = 28 + (i % 8) * 13;
-        const loop_t *l = &songs.loop[i];
+        const loop_t *l = &sloops.loop[i];
         char t[16], *e;
         if (i == ln || i == q) {
             cv_round(x, y, 112, 13, 4, i == ln ? K_TEAL : K_ACCENT);
@@ -2268,7 +2276,7 @@ static void song_page_knobs(knob_t *k)
         kn(&k[3], "Song", proj.song + 1, ARR_SONGS);
         break;
     case P_LOOP: {
-        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int has, b = app.cbeat;
         chord_t c = chord_shift(cursor_chord(l, b, &has), xpose_now());
         kv(&k[0], "Root", KEY_NAME[c.root % 12u], c.root, 11);
@@ -2281,7 +2289,7 @@ static void song_page_knobs(knob_t *k)
         break;
     }
     case P_LOOP2: {
-        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int bpb = l->beats ? l->beats : 4;
         char v[9];
         kn(&k[0], "Length", l->bars ? l->bars : 1, loop_max_bars(bpb));
@@ -2450,7 +2458,7 @@ static void page_tag(char *t)
     }
     case P_LOOP: case P_LOOP2: {                     /* the loop and where it is (or the cursor): "L3|BAR 2.3", the STEP */
         place_t pl;
-        const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         uint32_t bt = l->beats ? l->beats : 4u, b = 0;
         place_read(&pl);
         b = arr_playing && pl.loop == app.loop ? pl.lbeat : app.cbeat;   /* (stopped: the cursor's beat) */
@@ -2712,7 +2720,7 @@ static int list_loops(void) { return ui.page == P_HOME || ui.page == P_LOOP || u
 static char *list_name(void)
 {
     if (ui.page == P_LOOP || ui.page == P_LOOP2)
-        return songs.loop[app.loop % ARR_LOOPS].name;
+        return sloops.loop[app.loop % ARR_LOOPS].name;
     if (ui.page == P_PATTERN || ui.page == P_PATSET)
         return app.hdr[pslot()].name;
     return 0;

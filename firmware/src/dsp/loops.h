@@ -7,6 +7,9 @@ int loop_len(const loop_t *l);                    /* its beats: bars * beats */
 int loop_max_bars(int beats);                     /* ARR_LOOP_BEATS / beats, at most ARR_LOOP_BARS */
 void loop_clear(loop_t *l, int i);                /* empty (0 bars of 4), named "Loop <i+1>" */
 void loop_from_template(loop_t *l, int t);        /* TEMPLATES[t]: a chord a bar, its beats, its name */
+void loops_default_one(loop_t *l, int i);         /* loop i as a song starts with it: L1..L8 the factory's, else empty */
+void loops_default(loop_t *t);                    /* a song's ARR_LOOPS loops as it starts with them */
+int loops_is_default(const loop_t *t);            /* 1: all ARR_LOOPS as loops_default makes them (no slot needed) */
 /* chord c on beat b: the loop grows (bar by bar) to hold it. 0 = written, -1 = past ARR_LOOP_BEATS */
 int loop_write(loop_t *l, int b, chord_t c);
 void loop_unwrite(loop_t *l, int b);              /* beat b back to LC_SAME */

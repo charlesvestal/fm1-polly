@@ -13,7 +13,7 @@
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
 #define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 7u                  /* 7: songs with their lead tracks' sounds (older: reset; Polly is prerelease) */
+#define SONGS_FORMAT 8u                  /* 8: no loops (each song's are in a slot); older: reset (Polly is prerelease) */
 
 typedef struct {
     uint32_t magic, format;
@@ -46,14 +46,14 @@ int project_pattern_save(int i, const pattern_t *p);
 int project_songs_load(songs_t *s);
 int project_songs_save(const songs_t *s);
 /* the 16 shared slots (OBJ_PAT0 + i): each a user pattern (a bare pattern_t, as stored before), a lead part (arr.h
- * lead_part_t, LEAD_MAGIC first), or nothing */
-enum { SLOT_NONE, SLOT_PATTERN, SLOT_LEAD, SLOT_OTHER };   /* OTHER: unreadable as either (an old format): counts free */
+ * lead_part_t, LEAD_MAGIC first), a song's loops (arr.h loops_part_t, the same header, LOOPS_KIND), or nothing */
+enum { SLOT_NONE, SLOT_PATTERN, SLOT_LEAD, SLOT_OTHER, SLOT_LOOPS };   /* OTHER: unreadable as any (an old format): free */
 typedef struct {
-    uint8_t kind, song, part;            /* a lead part's song and part */
-    uint16_t n;                          /* a pattern's notes (nev), a lead part's */
+    uint8_t kind, song, part;            /* a lead part's song and part; a song's loops' song */
+    uint16_t n;                          /* a pattern's notes (nev), a lead part's; a song's loops: ARR_LOOPS (0: free) */
 } slot_info_t;
 int project_slot_info(int i, slot_info_t *si, pattern_t *buf);   /* buf: a pattern looked at (its notes counted) */
-int project_slot_blank(int i, pattern_t *buf);    /* nothing, or a pattern or lead part with no notes, or OTHER */
+int project_slot_blank(int i, pattern_t *buf);    /* nothing, a pattern or lead part with no notes, freed loops, OTHER */
 /* the first slot none of the songs plays as a pattern, not in `reserved` (bit i: slot i, the leads' own in RAM), and
  * blank; -1 none. The user patterns' copy-on-write and the lead parts both take slots here */
 int project_slot_free(const songs_t *s, uint32_t reserved, pattern_t *buf);
@@ -66,8 +66,17 @@ int project_leads_load(int song, leads_t *l, int8_t *slot);
  * -1. 0 = saved; -1 a flash error; -2 a part with notes and no slot */
 int project_leads_save(int song, leads_t *l, int8_t *slot, unsigned dirty);
 int project_leads_free(int song);                 /* every slot holding a part of song n: free (CLEAR / COPY SONG) */
-/* a slot a pattern must not be saved into: it holds a lead part with notes */
-int project_slot_leads(int i);
+/* a slot a pattern must not be saved into: it holds a lead part with notes, or a song's loops */
+int project_slot_held(int i);
+/* a song's loops (each song has its own 16; the defaults take no slot). project_loops_slot: the slot holding song n's,
+ * -1 none. load: song n's into p (the defaults when none is stored; -1 then, 0 loaded, put in range), *slot its slot
+ * (-1 none). save: the defaults: their slot let go (*slot -1); else into *slot (the caller took it: project_slot_free);
+ * 0 saved, -1 a flash error, -2 no slot. free: every slot holding song n's let go (COPY SONG of default loops).
+ * The caller holds the engine off (arr_edit) while p is the engine's table */
+int project_loops_slot(int song);
+int project_loops_load(int song, loops_part_t *p, int8_t *slot);
+int project_loops_save(int song, loops_part_t *p, int8_t *slot);
+int project_loops_free(int song);
 void pattern_empty(pattern_t *p);
 void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */
 int song_style_valid(int st);                          /* a pattern number a song may hold */

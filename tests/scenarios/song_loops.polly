@@ -1,0 +1,108 @@
+# POLLY, each song owns its loops: song 1's L9 and song 2's L9 are different loops. The defaults (L1-L8 the factory's,
+# L9-L16 empty) take no slot; a song's loops take one when first changed. Two songs with different L9 chords,
+# switched, rebooted: both kept; a third song still has the defaults.
+# Keys: A3 4, C4 7, E4 11 (A minor); D4 9, F#4 13, A4 16 (D major). Chords: root * 100 + CH_* (maj 0, min 16).
+wait 300
+expect song 1
+expect loops_slot 0
+expect loop_bars9 0
+# ---- song 1: L9 A m (LOOP page, stopped: REC writes at the cursor)
+press HOME
+tapkey w8
+release HOME
+expect app_loop 9
+tap ARP
+expect page 4
+tap REC
+expect rec_chords 1
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 50
+tap REC
+expect loop_ch9_0 916
+expect loops_slot 1
+wait 5000
+expect dirty 0
+expect slot_kind1 4
+shot song1_l9.png
+# ---- song 2 (HOME + PRESETS): its own loops, the defaults: L9 empty, L1 the factory's, no slot
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+expect loop_bars9 0
+expect loop_bars1 4
+expect loops_slot 0
+# song 2: L9 D
+press HOME
+tapkey w8
+release HOME
+tap ARP
+expect page 4
+tap REC
+key 9 down
+key 13 down
+key 16 down
+wait 50
+key 9 up
+key 13 up
+key 16 up
+wait 50
+tap REC
+expect loop_ch9_0 200
+expect loops_slot 2
+shot song2_l9.png
+# it plays song 2's L9
+tap PLAY
+wait 300
+expect loop_now 9
+expect chord_root 2
+expect chord_type 0
+tap PLAY
+wait 300
+# ---- back to song 1 (its changes saved first): its own L9
+press HOME
+turn PRESET -1
+release HOME
+expect song 1
+expect loop_ch9_0 916
+expect loops_slot 1
+tap PLAY
+wait 300
+expect chord_root 9
+expect chord_type 16
+tap PLAY
+wait 300
+# ---- song 3: the defaults still
+press HOME
+turn PRESET 2
+release HOME
+expect song 3
+expect loop_bars9 0
+expect loops_slot 0
+press HOME
+turn PRESET -1
+release HOME
+expect song 2
+expect loop_ch9_0 200
+wait 5000
+expect dirty 0
+# ---- off and on: both kept
+reboot
+expect song 2
+expect loop_ch9_0 200
+expect loops_slot 2
+press HOME
+turn PRESET -1
+release HOME
+expect song 1
+expect loop_ch9_0 916
+expect loops_slot 1
+expect slot_kind1 4
+expect slot_kind2 4
+expect slot_kind3 0

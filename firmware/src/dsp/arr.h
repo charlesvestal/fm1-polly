@@ -130,7 +130,7 @@ typedef struct {
 #define LEAD_KIND 1u
 typedef struct {
     uint32_t magic;                       /* LEAD_MAGIC */
-    uint8_t kind;                         /* LEAD_KIND (another kind of slot: room for it) */
+    uint8_t kind;                         /* LEAD_KIND (LOOPS_KIND: a song's loops, loops_part_t) */
     uint8_t song, part;                   /* the song it is of (0..ARR_SONGS-1), its part (0, 1) */
     uint8_t rsv;
     uint16_t n;                           /* notes in it (0: the slot is free) */
@@ -185,11 +185,25 @@ typedef struct {
     lead_trk_t lead[ARR_LEADS];          /* LD1, LD2's sounds (their notes: leads_t, in the shared slots) */
 } song_t;
 #define SONG_F_TEMPO 1u                  /* its tempo was set by hand: a style picked keeps it */
+/* the four songs' settings and rows (OBJ_SONGS); each song's 16 loops are its own: in RAM the selected song's
+ * (loops_part_t), stored in a shared slot only when they are not the defaults */
 typedef struct {
     uint32_t magic, format;
-    loop_t loop[ARR_LOOPS];
     song_t song[ARR_SONGS];
 } songs_t;
+/* a song's loops as stored in a shared slot (and as the app keeps the selected song's in RAM: the engine reads its
+ * loop[], arr_loops): the slots' header (as a lead part's: LEAD_MAGIC, kind LOOPS_KIND, its song, n ARR_LOOPS, 0:
+ * the slot is free), then the 16 loops. A song whose loops are the defaults (L1..L8 the factory's, L9..L16 empty)
+ * takes no slot */
+#define LOOPS_KIND 2u
+typedef struct {
+    uint32_t magic;                       /* LEAD_MAGIC */
+    uint8_t kind;                         /* LOOPS_KIND */
+    uint8_t song, part, rsv;              /* the song they are of; part 0 */
+    uint16_t n;                           /* ARR_LOOPS (0: the slot is free) */
+    uint16_t rsv2;
+    loop_t loop[ARR_LOOPS];
+} loops_part_t;
 static inline int row_main(const row_t *r) { return r->sect >= ROW_B ? SEC_B : SEC_A; }
 static inline int row_fill(const row_t *r) { return r->sect == ROW_A_FILL || r->sect == ROW_B_FILL; }
 
@@ -221,6 +235,8 @@ _Static_assert(sizeof(lead_ev_t) == 9 && sizeof(lead_trk_t) == 8, "a lead note 9
 _Static_assert(sizeof(lead_part_t) == LEAD_HDR + 9 * LEAD_PART_NOTES && sizeof(lead_part_t) <= 3840, "a lead part fits a slot");
 _Static_assert(sizeof(lead_hdr_t) == LEAD_HDR, "a lead part's header: 12 bytes, as its notes' offset");
 _Static_assert((sizeof(pattern_t) - LEAD_HDR) % 9 != 0, "a lead part's length is never a pattern's");
+_Static_assert(sizeof(loops_part_t) == LEAD_HDR + ARR_LOOPS * sizeof(loop_t) && sizeof(loops_part_t) != sizeof(pattern_t),
+               "a song's loops: the header, then the loops; never a pattern's length");
 
 /* ---- the engine. Threads as Life's: the sequencer runs inside the audio render (gm_render calls arr_block
  * before each EAS block); everything else posts commands, drained at the start of a block.
@@ -285,7 +301,7 @@ int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
 void arr_section(int sec);
 /* ---- the chord source. FREE: the keys' chords only (held: fingered). LOOP: a loop of the app's table goes
  * round, transposed; SONG: the rows of a song (arr_mode_song). The app's table and song stay put (they are the app's
- * songs_t): the render reads them on beat and bar lines. The app brackets every write into them with
+ * loops_part_t, songs_t): the render reads them on beat and bar lines. The app brackets every write into them with
  * arr_edit(1) / arr_edit(0); a beat line that finds them busy takes its chord at the first block after. */
 enum { ARR_FREE, ARR_LOOP, ARR_SONG };
 void arr_loops(const loop_t *table);             /* at init: the app's ARR_LOOPS loops */

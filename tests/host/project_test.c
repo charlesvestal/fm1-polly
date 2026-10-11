@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* project.c: songs format 7 (16 loops, songs of rows, per-song tempo and transpose, the lead tracks' sounds),
- * defaults, old-format reset, and load's clamping; the shared slots (user patterns and lead parts: what each holds,
- * the free one, a pattern never saved over a lead part) and the lead parts saved and loaded. plat_store_load/save
+/* project.c: songs format 8 (songs of rows, per-song tempo and transpose, the lead tracks' sounds; no loops),
+ * defaults, old-format reset, and load's clamping; the shared slots (user patterns, lead parts and songs' loops: what
+ * each holds, the free one, a pattern never saved over a lead part or loops), the lead parts saved and loaded, and
+ * each song's own loops (the defaults take no slot; edited, one; per song; copied; NO FREE SLOT). plat_store_load/save
  * are an in-memory object table (no real flash). */
 #include <stdio.h>
 #include <string.h>
@@ -41,11 +42,9 @@ static void test_defaults(void)
 {
     static songs_t s;
     CHECK(project_songs_load(&s) != 0, "nothing stored: defaults");
-    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 7u, "format 7");
+    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 8u, "format 8");
     CHECK(s.song[2].lead[0].program == 80 && s.song[2].lead[0].chan == 6 && s.song[2].lead[1].program == 48 &&
               s.song[2].lead[1].chan == 7 && s.song[2].lead[1].vol == 100, "the lead tracks: LD1 GM 81 on 7, LD2 GM 49 on 8");
-    CHECK(strcmp(s.loop[0].name, "Pop") == 0 && s.loop[4].bars == 12 && strcmp(s.loop[7].name, "Canon") == 0, "L1 Pop, L5 Blues, L8 Canon");
-    CHECK(s.loop[8].bars == 0 && strcmp(s.loop[8].name, "Loop 9") == 0 && strcmp(s.loop[15].name, "Loop 16") == 0, "L9..L16 empty");
     CHECK(s.song[0].nrows == 0 && s.song[0].intro && s.song[0].ending && s.song[0].tempo == arr_style_tempo(0), "an empty song at its style's tempo");
 }
 static void test_old_format(void)
@@ -55,27 +54,19 @@ static void test_old_format(void)
     s.magic = SONGS_MAGIC;
     s.format = 5;
     project_songs_save(&s);
-    CHECK(project_songs_load(&s) != 0 && s.loop[0].bars == 4, "format 5: defaults");
+    CHECK(project_songs_load(&s) != 0 && s.song[0].tempo == arr_style_tempo(0), "format 5: defaults");
     memset(&s, 0, sizeof s);
     s.magic = SONGS_MAGIC;
-    s.format = 6;                                       /* (prerelease: no migration) */
+    s.format = 7;                                       /* (prerelease: no migration) */
     s.song[0].nrows = 3;
     project_songs_save(&s);
-    CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0 && s.song[0].lead[0].program == 80, "format 6: defaults");
+    CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0 && s.song[0].lead[0].program == 80, "format 7: defaults");
 }
 static void test_clamp(void)
 {
     static songs_t s;
-    char name3[8], name4[8];
-    chord_t bad = {15, CH_MAJ, CH_NOBASS};              /* root 15: invalid */
 
     project_songs_load(&s);
-    s.loop[1].bars = 20;                                /* too many bars for its beats: cleared */
-    s.loop[2].beats = 9;                                /* out of 2..7: cleared */
-    memcpy(name4, s.loop[3].name, 8);                    /* untouched by either clear: kept for comparison */
-    s.loop[4].ch[0] = lc_pack(bad);                      /* a chord this firmware can't play: that beat only */
-    uint16_t kept4 = s.loop[4].ch[4];
-
     s.song[1].nrows = 40;
     s.song[1].row[0].loop = 30;
     s.song[1].row[0].rep = 0;
@@ -97,14 +88,6 @@ static void test_clamp(void)
 
     project_songs_save(&s);
     project_songs_load(&s);
-
-    memcpy(name3, s.loop[1].name, 8);
-    CHECK(s.loop[1].bars == 0 && strncmp(name3, "Loop 2", 8) == 0, "bars too big for its beats: that loop cleared");
-    memcpy(name3, s.loop[2].name, 8);
-    CHECK(s.loop[2].bars == 0 && strncmp(name3, "Loop 3", 8) == 0, "beats out of 2..7: that loop cleared");
-    CHECK(memcmp(s.loop[3].name, name4, 8) == 0 && s.loop[3].bars != 0, "another loop untouched");
-    CHECK(s.loop[4].ch[0] == LC_SAME, "a chord this firmware can't play: that beat set to no change");
-    CHECK(s.loop[4].ch[4] == kept4, "the loop's other chords kept");
 
     CHECK(s.song[1].nrows == 32, "nrows clamped to ARR_ROWS");
     CHECK(s.song[1].row[0].loop == 0, "a row's loop >= ARR_LOOPS clamped");
@@ -171,7 +154,7 @@ static void test_slots(void)
     s.song[3].style[2] = 1;                              /* a song plays it: taken */
     CHECK(project_slot_free(&s, 0, &pb) == 3, "slot 2 played by a song: the empty lead part's slot");
     CHECK(project_slot_free(&s, 1u << 3 | 1u << 4, &pb) == 5, "slots 4, 5 reserved (the leads' own): slot 6");
-    CHECK(project_slot_leads(2) && !project_slot_leads(3) && !project_slot_leads(0), "a slot holding leads");
+    CHECK(project_slot_held(2) && !project_slot_held(3) && !project_slot_held(0), "a slot holding leads");
     CHECK(project_pattern_save(2, &pb) == -2 && project_slot_info(2, &si, &pb) == SLOT_LEAD, "a pattern never over a lead part");
     CHECK(project_pattern_save(3, &pb) == 0, "over an empty lead part: yes");
     CHECK(project_pattern_load(2, &pb) != 0 && pb.nev == 0, "a lead part's slot loads as an empty pattern");
@@ -229,6 +212,93 @@ static void test_leads(void)
     CHECK(project_leads_free(3) == 0 && project_slot_blank(11, &pb) && project_slot_blank(12, &pb) && !project_slot_blank(13, &pb),
           "song 4's parts free, song 2's kept");
 }
+/* ------------------------------------------------------------ a song's loops --- */
+static loops_part_t LP, LG;
+static void test_loops(void)
+{
+    static songs_t s;
+    slot_info_t si;
+    int8_t sl, gs;
+    chord_t am = {9, CH_MIN, CH_NOBASS}, d7 = {2, CH_7, CH_NOBASS}, bad = {15, CH_MAJ, CH_NOBASS};
+    store_reset();
+    project_songs_load(&s);
+    /* the defaults: L1..L8 the factory's, L9..L16 empty; no slot taken, none stored */
+    CHECK(project_loops_load(0, &LP, &sl) == -1 && sl == -1, "nothing stored: the defaults, no slot");
+    CHECK(strcmp(LP.loop[0].name, "Pop") == 0 && LP.loop[4].bars == 12 && strcmp(LP.loop[7].name, "Canon") == 0,
+          "L1 Pop, L5 Blues, L8 Canon");
+    CHECK(LP.loop[8].bars == 0 && strcmp(LP.loop[8].name, "Loop 9") == 0 && strcmp(LP.loop[15].name, "Loop 16") == 0, "L9..L16 empty");
+    CHECK(loops_is_default(LP.loop), "the defaults are the defaults");
+    CHECK(project_loops_save(0, &LP, &sl) == 0 && sl == -1, "the defaults saved: no slot needed");
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)
+        CHECK(len[OBJ_PAT0 + i] == 0, "slot %d untouched by default loops", i + 1);
+    /* an edited loop needs a slot: none given, -2; given, stored (header + 16 loops) */
+    loop_write(&LP.loop[8], 0, am);
+    CHECK(!loops_is_default(LP.loop), "L9 with a chord: not the defaults");
+    CHECK(project_loops_save(0, &LP, &sl) == -2, "no slot: -2");
+    sl = (int8_t)project_slot_free(&s, 0, &pb);
+    CHECK(sl == 0, "the first free slot");
+    CHECK(project_loops_save(0, &LP, &sl) == 0 && sl == 0 && len[OBJ_PAT0] == (int)sizeof(loops_part_t), "song 1's loops in slot 1");
+    CHECK(project_slot_info(0, &si, &pb) == SLOT_LOOPS && si.song == 0 && si.n == ARR_LOOPS, "slot 1: song 1's loops");
+    CHECK(project_slot_held(0) && !project_slot_blank(0, &pb), "held, never blank");
+    CHECK(project_slot_free(&s, 0, &pb) == 1, "the next free: slot 2");
+    /* song 2, another L9 */
+    loops_default(LP.loop);
+    loop_write(&LP.loop[8], 0, d7);
+    loop_write(&LP.loop[8], 4, am);
+    gs = 5;
+    CHECK(project_loops_save(1, &LP, &gs) == 0, "song 2's loops in slot 6");
+    /* each song's loops back (switching songs: loaded each time) */
+    CHECK(project_loops_load(0, &LG, &gs) == 0 && gs == 0 && LG.loop[8].ch[0] == lc_pack(am) && LG.loop[8].bars == 1,
+          "song 1: L9 A m, slot 1");
+    CHECK(project_loops_load(1, &LG, &gs) == 0 && gs == 5 && LG.loop[8].ch[0] == lc_pack(d7) && LG.loop[8].ch[4] == lc_pack(am) &&
+              LG.loop[8].bars == 2, "song 2: L9 D7 A m, slot 6");
+    CHECK(!memcmp(LG.loop, LP.loop, sizeof LP.loop), "the same 16 loops");
+    CHECK(project_loops_load(2, &LG, &gs) == -1 && gs == -1 && loops_is_default(LG.loop), "song 3: the defaults");
+    CHECK(project_loops_slot(0) == 0 && project_loops_slot(1) == 5 && project_loops_slot(3) == -1, "each song's slot");
+    /* COPY SONG 2 -> 4: its loops into a slot of the target's */
+    project_loops_load(1, &LG, &gs);                     /* (the song playing: song 2) */
+    gs = (int8_t)project_slot_free(&s, 1u << 5, &pb);
+    CHECK(gs == 1 && project_loops_save(3, &LG, &gs) == 0 && gs == 1, "a copy: song 4's loops in slot 2");
+    project_loops_load(1, &LP, &sl);
+    CHECK(project_loops_load(3, &LG, &gs) == 0 && gs == 1 && !memcmp(LG.loop, LP.loop, sizeof LP.loop), "song 4: song 2's loops");
+    /* back to the defaults: the slot let go */
+    loops_default(LG.loop);
+    CHECK(project_loops_save(3, &LG, &gs) == 0 && gs == -1 && project_slot_blank(1, &pb) && !project_slot_held(1), "song 4: defaults again, slot 2 free");
+    CHECK(project_slot_info(1, &si, &pb) == SLOT_LOOPS && si.n == 0, "slot 2: freed loops");
+    CHECK(project_loops_load(3, &LG, &gs) == -1 && gs == -1, "song 4: the defaults (its freed slot not found)");
+    /* COPY SONG of default loops: the target's let go */
+    CHECK(project_loops_free(1) == 0 && project_loops_slot(1) == -1 && project_slot_blank(5, &pb), "song 2's loops freed");
+    CHECK(project_loops_slot(0) == 0, "song 1's kept");
+    /* never overwritten by a pattern, never taken by a lead part */
+    pattern_empty(&pb);
+    CHECK(project_pattern_save(0, &pb) == -2 && project_slot_info(0, &si, &pb) == SLOT_LOOPS, "a pattern never over a song's loops");
+    CHECK(project_pattern_load(0, &pb) != 0 && pb.nev == 0, "a loops slot loads as an empty pattern");
+    {
+        static leads_t got;
+        int8_t ls[2];
+        CHECK(project_leads_load(0, &got, ls) == -1 && ls[0] == -1, "a loops slot is no lead part");
+    }
+    for (int i = 1; i < ARR_USER_PATTERNS; i++)
+        put_lead_part(i, 2, i & 1, 1);
+    CHECK(project_slot_free(&s, 0, &pb) < 0, "the rest held by leads: NO FREE SLOT (-1)");
+    CHECK(project_loops_load(0, &LG, &gs) == 0 && gs == 0 && LG.loop[8].ch[0] == lc_pack(am), "song 1's loops still there");
+    /* damaged loops in range when loaded */
+    LG.loop[1].bars = 20;                                /* too many bars for its beats: cleared */
+    LG.loop[2].beats = 9;                                /* out of 2..7: cleared */
+    LG.loop[4].ch[0] = lc_pack(bad);                     /* a chord this firmware can't play: that beat only */
+    uint16_t kept4 = LG.loop[4].ch[4];
+    char name4[8];
+    memcpy(name4, LG.loop[3].name, 8);
+    CHECK(project_loops_save(0, &LG, &gs) == 0, "saved as they are");
+    project_loops_load(0, &LG, &gs);
+    CHECK(LG.loop[1].bars == 0 && strncmp(LG.loop[1].name, "Loop 2", 8) == 0, "bars too big for its beats: that loop cleared");
+    CHECK(LG.loop[2].bars == 0 && strncmp(LG.loop[2].name, "Loop 3", 8) == 0, "beats out of 2..7: that loop cleared");
+    CHECK(memcmp(LG.loop[3].name, name4, 8) == 0 && LG.loop[3].bars != 0, "another loop untouched");
+    CHECK(LG.loop[4].ch[0] == LC_SAME && LG.loop[4].ch[4] == kept4, "a bad chord: that beat no change, the others kept");
+    /* a short (damaged) loops object: the defaults, its slot kept for the next save */
+    len[OBJ_PAT0] -= 2;
+    CHECK(project_loops_load(0, &LG, &gs) == -1 && gs == 0 && loops_is_default(LG.loop), "damaged: the defaults, slot 1 kept");
+}
 int main(void)
 {
     test_defaults();
@@ -236,6 +306,7 @@ int main(void)
     test_clamp();
     test_slots();
     test_leads();
+    test_loops();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;
