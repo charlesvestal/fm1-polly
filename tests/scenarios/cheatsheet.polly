@@ -1,0 +1,255 @@
+# POLLY, the cheat sheet: MANUAL.md's "How do I..." table, each row pressed as written there (its words as headings
+# below), and a screenshot of every page in the screen's words (docs/superpowers/specs/2026-10-11-vocabulary-design.md).
+# Pages: 0 Home, 1-3 Song, 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2, 10 Mixer, 11 Mixer tone,
+# 12 Effects, 13-14 Style, 15 Setup, 16 Panel. White keys w0..w15 are the manual's 1..16, black keys b0..b10 its 1..11.
+# Funk at 100 BPM: a bar is 2400 ms. Chords: root * 100 + CH_* (maj 0), -1 no change.
+wait 300
+expect page 0
+shot home.png
+# ---- Pick a style: on Home, turn KNOB 1
+turn K1 1
+expect songtext_is_Funk 1
+expect tempo 100
+# ---- Play a progression: hold HOME, press white key 3 (P3 goes round)
+press HOME
+wait 500
+expect home_shown 1
+shot home_held.png
+tapkey w2
+release HOME
+expect mode 1
+expect app_loop 3
+expect tag_is_S1>P3_Fifties 1
+# ---- Change the groove: hold HOME, press black key 3 (Groove B, from the next bar)
+tap PLAY
+wait 300
+press HOME
+wait 100
+tapkey b2
+release HOME
+expect next_sect 3
+wait 2600
+expect sect 3
+shot home_playing.png
+tap PLAY
+wait 300
+# ---- Write a progression: Prog "-" (KNOB 4: free), REC, PLAY, a chord a bar (C, then F), REC
+turn K4 -9
+expect mode 0
+tap REC
+expect take 1
+expect tag_is_S1>new_P9 1
+tap PLAY
+wait 100
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 2200
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+key 7 up
+wait 1000
+tap REC
+wait 50
+expect take 0
+expect mode 1
+expect app_loop 9
+expect loop_bars9 2
+expect loop_ch9_0 0
+expect loop_ch9_4 500
+expect msgtext_is_NEW_PROGRESSION_P9 1
+tap PLAY
+wait 300
+# ---- Fix a chord: ARP, OCT+ to its bar (the cursor), turn KNOB 1 (Root)
+tap ARP
+expect page 4
+expect app_loop 9
+tap OCT+
+expect cbeat 4
+turn K1 1
+expect loop_ch9_4 600
+turn K1 -1
+expect loop_ch9_4 500
+wait 1400
+shot progression.png
+# ---- Lengthen a progression: ARP, SELECT to page 2, turn KNOB 1 (Length)
+turn SELECT 1
+expect page 5
+turn K1 2
+expect loop_bars9 4
+shot progression2.png
+# ---- Add sections to the song: HOME, SELECT (Song), a white key a section (9: P9, 3: P3, 9: P9)
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w8
+tapkey w2
+tapkey w8
+expect rows 3
+expect row_loop1 9
+expect row_loop2 3
+shot song.png
+# ---- Mute an instrument in one section only: on the Song page, its black key (1: D1; on END: the last section's)
+tapkey b0
+expect row_mute3 1
+expect msgtext_is_D1_MUTED 1
+tapkey b0
+expect row_mute3 0
+turn SELECT 1
+expect page 2
+shot song2.png
+turn SELECT 1
+expect page 3
+shot song3.png
+turn SELECT -2
+expect page 1
+# ---- Play from section 3: Song, KNOB 1 (Section) to 3, SEL (the list opens on PLAY FROM SECTION 3), SEL
+turn K1 -1
+expect cursor 3
+tap SEL
+expect list_open 1
+shot song_list.png
+tap SEL
+wait 100
+expect playing 1
+expect mode 2
+wait 1000
+expect row 3
+shot song_playing.png
+tap PLAY
+wait 300
+# ---- Change an instrument's sound: EDIT, ALGORITHM to it (C1), turn KNOB 1 (Program)
+tap EDIT
+expect page 8
+expect track 5
+expect trk5_program 8
+turn K1 1
+expect trk5_program 9
+expect msgtext_is_GROOVE_A_NOW_YOURS 1
+expect songtext_is_Funk|Groove_A_(yours) 1
+shot sound_yours.png
+wait 1500
+shot sound.png
+turn SELECT 1
+expect page 9
+shot sound2.png
+turn SELECT -1
+# ---- Mute an instrument: SEQ, ALGORITHM to it (D1), turn KNOB 4 (Mute; again: it plays)
+tap SEQ
+expect page 6
+turn ALGO -4
+expect track 1
+wait 1400
+turn K4 1
+expect trk1_mute 1
+shot band.png
+wait 300
+turn K4 1
+expect trk1_mute 0
+turn ALGO 4
+expect track 5
+wait 1400
+# (recording an instrument: SEQ, REC, PLAY, play; REC again stops; for the manual's figure)
+tap REC
+tap PLAY
+wait 2500
+tapkey 7
+wait 600
+tapkey 11
+wait 3600
+expect rec_pass 2
+shot recording.png
+tap REC
+tap PLAY
+wait 1400
+turn SELECT 1
+expect page 7
+shot groove_length.png
+# ---- the other pages: Mixer (2), Effects, Style (2), Setup (2)
+tap LFO
+expect page 10
+wait 1400
+shot mixer.png
+turn SELECT 1
+expect page 11
+shot mixer_tone.png
+tap FX
+expect page 12
+shot effects.png
+tap ENV
+expect page 13
+shot style.png
+turn SELECT 1
+expect page 14
+shot style2.png
+tap GLO
+expect page 15
+shot setup.png
+turn SELECT 1
+expect page 16
+shot panel.png
+# ---- what fills the memory: SEQ, SEL, SELECT to MEMORY (the list's last row), SEL
+tap SEQ
+tap SEL
+expect list_open 1
+shot band_list.png
+turn SELECT 9
+tap SEL
+expect slots_list 1
+shot memory.png
+tap HOME
+tap HOME
+expect list_open 0
+# ---- Record a melody: Song page, PLAY; EDIT, ALGORITHM past C4 to M1, REC (it waits for the Intro, then counts in to
+# the next bar line), play, REC
+tap HOME
+turn SELECT 1
+expect page 1
+turn K1 -2
+expect cursor 1
+tap PLAY
+wait 200
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 5000
+expect recording 1
+expect row 1
+tapkey 7
+wait 500
+tapkey 11
+wait 500
+tapkey 14
+wait 300
+shot melody_rec.png
+tap REC
+wait 50
+expect lead_notes 3
+tap PLAY
+wait 300
+# ---- Undo, redo: hold HOME, press REC (undo) / PLAY (redo)
+press HOME
+tap REC
+release HOME
+expect msgtext_is_UNDO_TAKE_M1 1
+expect lead_notes 0
+press HOME
+tap PLAY
+release HOME
+expect msgtext_is_REDO_TAKE_M1 1
+expect lead_notes 3
+expect playing 0
+# ---- Save: SAVE
+tap SAVE
+expect dirty 0
+# ---- Back up: on a computer, tools/polly_backup.py backup (here: the simulator's backup of the same stream)
+backup out:cheatsheet.plb

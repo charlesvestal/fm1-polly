@@ -8,26 +8,30 @@ Try it in the browser at <https://charles.pizza/qy/> (an internal test build, un
 
 ## Quick start
 
-1. Switch on: the HOME page. Turn **KNOB 1** to pick a style (the header shows it).
-2. Press **PLAY**. Main A plays, over C until you give it a chord.
+The words, in one line each: a **song** is a list of **sections**; a section plays a **progression** (your chords,
+P1–P16) with a **groove** (Groove A or B of the song's **style**), so many times; the style's **instruments** (D1 D2
+PC BA C1–C4) play it; **melodies** M1, M2 run along the sections. MANUAL.md's cheat sheet has the picture.
+
+1. Switch on: the Home page. Turn **KNOB 1** to pick a style (the header shows it).
+2. Press **PLAY**. Groove A plays, over C until you give it a chord.
 3. Play a chord: three keys or more. The band follows, and keeps the chord after you let go. Inversions
    work (E G C is C); the lowest note is the bass, so a note under the chord that isn't its root, 3rd or
    5th makes a slash chord (D under C E G: C/D; B♭ under C E G: C/B♭).
-4. Hold **HOME** and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill, 5 Ending, from the next bar.
+4. Hold **HOME** and press a black key: 1 Intro, 2 Groove A, 3 Groove B, 4 Fill, 5 Ending, from the next bar.
    The Ending plays out and stops.
-5. Hold **HOME** and press a white key: one of 16 loops plays, from the next bar (L1–L8 factory
-   progressions, L9–L16 your own). With no loop playing (KNOB 4 "–"), **REC**, chords a bar each,
-   **REC** again: a new loop of yours. Holding HOME shows the loops and sections on the screen.
-6. **HOME**, **SELECT**: the SONG page. Each white key adds a row of that loop; **PLAY** there plays the
-   song (Intro, rows with fills, Ending). MANUAL.md's "Writing a song" walks it through.
+5. Hold **HOME** and press a white key: one of 16 progressions plays, from the next bar (P1–P8 ready-made,
+   P9–P16 your own). With none playing (KNOB 4 "–": free), **REC**, chords a bar each, **REC** again: a new
+   progression of yours. Holding HOME shows the progressions and the grooves on the screen.
+6. **HOME**, **SELECT**: the Song page. Each white key adds a section playing that progression; **PLAY** there plays
+   the song (Intro, sections with fills, Ending). MANUAL.md's "Writing a song" walks it through.
 7. Press **SAVE**. It's lit while something isn't saved; Polly also saves by itself after a few seconds
    at rest, stopped.
 
-**Your parts and the style.** Record into a section (SEQ, REC) and it plays your own user pattern from
-then on. The Style knob changes only the sections still playing the style, so your part stays; the
-header says which are yours ("Pop, A user"). To put a section back to the style: **SEL** on the Pattern
-page, **BACK TO STYLE**. Mutes (SEQ, KNOB 4) are the song's: a muted track is muted in every section,
-and muting never makes a user pattern.
+**Your grooves and the style.** Record into a groove (SEQ, REC) and it plays your own copy from then on, "(yours)"
+on the screen. The Style knob changes only what still plays the style, so your copy stays; the header says which
+are yours ("Pop · Groove A (yours)"). To give a groove back to the style: **SEL** on the Band page, **BACK TO
+STYLE**. Mutes (SEQ, KNOB 4) are the song's: a muted instrument is muted in every groove, and muting never makes a
+copy.
 
 **Your QY70 styles.** Polly can play the QY70's 128 preset styles, built from your own QY70 main ROM
 (MAME's `qy70main.bin`); nothing of Yamaha's is in Polly. In the browser: press **Load QY70 ROM** on the
@@ -39,23 +43,24 @@ then follow Polly's 16 styles on the Style knob, marked "QY".
 
 | Control | |
 |---|---|
-| PLAY / REC | start / stop (on SONG: the song from row 1); REC writes what the keys play here: chords into the loop, a new loop (HOME, no loop playing), the selected track (SEQ, EDIT), rows (SONG) |
-| SEL | the page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, PLAY FROM ROW, INSERT ROW, BACK TO STYLE…) |
-| HOME held | the shortcuts on screen: + white key 1-16 a loop; + black key 1-5 Intro, Main A, Main B, Fill, Ending (from the next bar); + SELECT the tempo; + PRESETS the song |
-| HOME | HOME: KNOB 1 style, 2 tempo, 3 transpose, 4 loop ("–": free, the band follows your chords); SELECT: SONG (rows: loop, section, repeat, mutes, key; intro, ending, at end, song) |
-| ARP | LOOP: the loop's chords, a chord a beat (root, type, bass, step); page 2 length, beats, name |
-| SEQ | Pattern (the 8 tracks; KNOB 1 the grid, KNOB 4 mute: the song's, every section); page 2 its length, beats, name |
-| EDIT | Track: program, type, range; page 2 high key, channel |
+| PLAY / REC | start / stop (on Song: the song from section 1); REC writes what the keys play here: chords into the progression, a new progression (Home, free), the selected instrument (Band, Sound), a melody (Sound, in a song), sections (Song) |
+| SEL | the page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR PROGRESSION, PLAY FROM SECTION, INSERT SECTION, BACK TO STYLE…) |
+| HOME held | the shortcuts on screen: + white key 1-16 a progression; + black key 1-5 Intro, Groove A, Groove B, Fill, Ending (from the next bar); + SELECT the tempo; + PRESETS the song; + REC undo, + PLAY redo |
+| HOME | Home: KNOB 1 style, 2 tempo, 3 transpose, 4 prog ("–": free, the band follows your chords); SELECT: Song (sections: prog, groove, repeat, mutes, transpose; intro, ending, at end, song) |
+| ARP | Progression: its chords, a chord a beat (root, type, bass, step); page 2 length, beats, name |
+| SEQ | Band (the groove's 8 instruments; KNOB 1 the grid, KNOB 4 mute: the song's, every groove); page 2 Groove length (its length, beats, name) |
+| EDIT | Sound: program, type, range; page 2 high key, channel |
 | LFO | Mixer (volume, pan, sends); page 2 tone (bright, reso) |
-| FX | Master FX |
-| ENV | Style: the song's six patterns, KNOB 4 the style (two pages) |
-| GLO | Setup: clock, MIDI out, lights (and the QY70 bank's state); page 2 Panel (CPU, voices, version) |
-| SAVE | saves (lit: something to save; it also saves by itself at rest); held + a white key: copy the loop (HOME, LOOP) or the pattern (SEQ) there |
-| SELECT / ALGORITHM | the page (a list: up / down) / the track |
-| OCT- / OCT+ | the keys' octave (LOOP: the cursor) |
+| FX | Effects (reverb, chorus) |
+| ENV | Style: which style each groove and extra plays, KNOB 4 the song's style (two pages) |
+| GLO | Setup: clock, MIDI out, lights, click (and the QY70 bank's state); page 2 Panel (CPU, voices, version) |
+| SAVE | saves (lit: something to save; it also saves by itself at rest); held + a white key: copy the progression (Home, Progression) or the groove (Band) there |
+| SELECT / ALGORITHM | the page (a list: up / down) / the instrument (D1…C4, then the melodies M1, M2) |
+| OCT- / OCT+ | the keys' octave (Progression: the cursor) |
 
-A button with more pages shows which one by the dots over the knobs; holding any button a second shows what it does there. MIDI in (USB, TRS) plays all 16 channels;
-its clock can drive the arranger (Setup).
+A button with more pages shows which one by the dots over the knobs, and the line over the knobs says where you are
+("S1 › Pop › Groove A › C1 Piano"); holding any button a second shows what it does there. MIDI in (USB, TRS) plays
+all 16 channels; its clock can drive the arranger (Setup).
 
 ## Building
 
