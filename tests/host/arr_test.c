@@ -3966,6 +3966,103 @@ static void test_lead_record_restart(void)
     arr_leads(0);
 }
 
+/* a lead armed with ARR_REC_BAR while a row plays: counted in to the next bar line (arr_rec_wait; a key before it only
+ * sounds), then recorded; one landing on the bar line a little early records */
+static void test_lead_countin(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    int k;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(30 * FPT));                /* row 1 (a bar), beat 2 */
+    arr_record(ARR_LD1, ARR_REC_BAR);
+    run_blocks(1);
+    CHECK(arr_recording && arr_rec_wait, "armed: waiting for the bar line");
+    key_at(40.f, 64, 1);                         /* beat 2: only sounds */
+    key_at(50.f, 64, 0);
+    run_to((uint32_t)(60 * FPT));
+    CHECK(take_all(n, 4) == 0 && arr_rec_wait, "a key before the bar line: not recorded");
+    key_at(95.f, 67, 1);                         /* a little early, onto bar 2's line */
+    key_at(105.f, 67, 0);
+    run_to((uint32_t)(110 * FPT));
+    CHECK(!arr_rec_wait, "the bar line: recording");
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].row == 1 && n[0].pos == 0 && n[0].note == 67, "the early key: bar 2's downbeat, row 2's 0 (%d: %d %u)",
+          k, k ? n[0].row : -1, k ? n[0].pos : 0);
+    key_at(120.f, 69, 1);
+    key_at(126.f, 69, 0);
+    run_blocks(10);
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].note == 69, "and after it (%d)", k);
+    arr_play(0);
+    run_blocks(1);
+    arr_record(4, 0);
+    run_blocks(1);
+    arr_leads(0);
+}
+
+/* the pattern playing given more (or fewer) bars while a loop plays: its bar is the loop's again (the bars since the
+ * loop's beat 0, modulo its bars), the place in the bar kept */
+static void test_bars_realign(void)
+{
+    static const chord_t c4[4] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}, {9, CH_MIN, CH_NOBASS}, {5, CH_MAJ, CH_NOBASS}};
+    uint16_t d;
+    reset();
+    loops_reset();
+    load_slots(4);
+    load_slot(SA, 2, 4);
+    loop_bars(0, 4, 4, c4);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(2 * BAR + 30 * FPT));      /* the loop's bar 3, beat 2: the pattern's bar 1 */
+    CHECK(arr_bar == 0, "2 bars: the pattern's bar 1 (%d)", arr_bar);
+    d = arr_pattern_copy(SA, &P);
+    P.bars = 4;
+    CHECK(arr_store_pattern(SA, &P, d), "4 bars");
+    run_blocks(2);
+    CHECK(arr_bar == 2 && arr_beat_tick / ARR_PPQ == 1, "4 bars: the loop's bar 3, beat 2 (%d %d)", arr_bar,
+          arr_beat_tick / ARR_PPQ);
+    run_to((uint32_t)(3 * BAR + 10 * FPT));
+    CHECK(arr_bar == 3, "then bar 4 (%d)", arr_bar);
+    d = arr_pattern_copy(SA, &P);
+    P.bars = 3;
+    CHECK(arr_store_pattern(SA, &P, d), "3 bars");
+    run_blocks(2);
+    CHECK(arr_bar == 0, "3 bars at the loop's bar 4: the pattern's bar 1 (%d)", arr_bar);
+    arr_play(0);
+    run_blocks(1);
+}
+
+/* stopped by its own end (an Ending played out; a song's last row): the section is what PLAY starts with again (a song's
+ * row 1's Main, else Main A), at bar 1 */
+static void test_ended_section(void)
+{
+    static const int lo[1] = {0}, se[1] = {ROW_B}, re[1] = {1};
+    static const chord_t c[1] = {{0, CH_MAJ, CH_NOBASS}};
+    reset();
+    loops_reset();
+    load_slots(4);
+    arr_play(1);
+    run_to((uint32_t)(BAR / 2));
+    arr_section(SEC_END);
+    run_to((uint32_t)(4 * BAR));                 /* the Ending: 2 bars, then the stop */
+    CHECK(!arr_playing && arr_ended && arr_sect == SEC_A && arr_bar == 0, "after the Ending: Main A, bar 1 (%d %d %d)",
+          arr_playing, arr_sect, arr_bar);
+    loop_bars(0, 4, 1, c);
+    song_rows(1, lo, se, re);
+    SG.ending = 1;
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(4 * BAR + 4 * BAR));       /* row 1 (Main B), the Ending, the stop */
+    CHECK(!arr_playing && arr_sect == SEC_B, "a song: row 1's Main B (%d %d)", arr_playing, arr_sect);
+}
+
 /* ---- the click: a woodblock on channel 16 on each beat line (high on the bar's first), not muted by the tracks,
  * MIDI out as the notes; off: nothing, except the count-in (a track waiting for its bar line, arr_count_in) */
 static int clicks(const stub_msg_t *log, int n, int from, int note)   /* note-ons on channel 16 (note -1: any) */
@@ -4178,6 +4275,9 @@ int main(void)
     test_lead_record_play();
     test_lead_record_busy();
     test_lead_record_restart();
+    test_lead_countin();
+    test_bars_realign();
+    test_ended_section();
     test_record_pickup();
     test_record_as_played_fold();
     test_record_from_bar();

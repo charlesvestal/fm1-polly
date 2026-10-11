@@ -232,6 +232,7 @@ typedef struct {
 static track_t tk[ARR_ALLTRK];                     /* the patterns' tracks, then LD1, LD2 (their notes held) */
 static uint8_t cur;                                /* the slot playing */
 static uint32_t pos;                               /* ticks into the pattern */
+static uint32_t cur_plen, cur_blen;                /* its length and its bar's as last played (sync: changed, realigned) */
 /* the work a tick: most of 480 a beat have nothing due, and only move the place on */
 static uint32_t next_end;                          /* the earliest note end (render ticks): never later than it */
 static uint32_t next_ev;                           /* the earliest next event of the tracks (pattern ticks) */
@@ -637,14 +638,36 @@ static void seek(void)                             /* each track's next event, f
     }
     wake = 1;
 }
+/* the bars the chord source has played since its bar 1, at the bar of the tick about to play: a loop's from its beat 0,
+ * a song's row's from its first downbeat, else (FREE, a song's Intro or no rows) the section's from its start */
+static uint32_t src_bars(uint32_t bl)
+{
+    uint32_t bpb = bl / ARR_PPQ, b;
+    if ((mode == ARR_LOOP && arr_sect != SEC_INTRO) || (mode == ARR_SONG && rows_live)) {
+        uint32_t o = mode == ARR_LOOP ? lp_origin : row_b0;
+        b = bar_beat0 >= o && bpb ? (bar_beat0 - o) / bpb : 0;
+    } else
+        b = sec_bars;
+    if (pos % bl == 0 && !first_tick)
+        b++;                                       /* (pos: the next bar's downbeat, its bar line not played yet) */
+    return b;
+}
 static void sync(void)                             /* the playing slot reloaded: its places, its sounds */
 {
+    uint32_t L, bl;
     if (busy[cur] || seen[cur] == gen[cur])
         return;
     seen[cur] = gen[cur];
     ctl_reset();                                   /* another style's phrases: nothing left bent */
-    if (pos >= pat_len(&pat[cur]))                 /* shortened past its place: wrapped within the new length, */
-        pos %= pat_len(&pat[cur]);                 /* in step with the bars (a jump to 0 would be a bar line) */
+    L = pat_len(&pat[cur]);
+    bl = bar_len(&pat[cur]);
+    if (arr_playing && L != cur_plen && bl == cur_blen && (arr_sect == SEC_A || arr_sect == SEC_B))
+        pos = src_bars(bl) % (L / bl) * bl + pos % bl;   /* longer or shorter (its bars the same): its bar is the
+                                                          * source's again (a loop's bar 3: the pattern's bar 3) */
+    else if (pos >= L)                             /* shortened past its place: wrapped within the new length, */
+        pos %= L;                                  /* in step with the bars (a jump to 0 would be a bar line) */
+    cur_plen = L;
+    cur_blen = bl;
     for (int t = 0; t < ARR_TRACKS; t++)           /* a track muted in the pattern: its notes end now too */
         if (pat[cur].trk[t].mute)
             track_off(&tk[t]);
@@ -1183,6 +1206,8 @@ static void lead_press(int key, int vel)           /* a key on a lead, recording
         kt -= m;
         kabs -= m;
     }
+    if (rec_wait && (kt % bar_len(&pat[cur]) != 0 || (int32_t)(kabs - arr_ticks) < 0))
+        return;                                    /* counting in to the bar line: only a key landing on it */
     len = row_ticks();
     if (kt >= len) {                               /* just before the next row: its tick 0 */
         if (row + 1 < sn.nrows)
@@ -1430,6 +1455,8 @@ static void transport_start(void)
     }
     arr_sect = (uint8_t)(cur + 1);
     seen[cur] = gen[cur];
+    cur_plen = pat_len(&pat[cur]);
+    cur_blen = bar_len(&pat[cur]);
     seek();
     setup();
     arr_playing = 1;
@@ -1454,6 +1481,25 @@ static void stop_ours(void)                        /* a stop of ours (PLAY, an e
     clk_out = 0;
 }
 
+/* stopped by the source's own end (an Ending played out, a song's last row, an Ending with no notes): what PLAY starts
+ * with shows again, the pattern pages' section with it: a song's row 1's Main (its Intro is PLAY's to add), else Main A */
+static void ended(void)
+{
+    uint8_t s = SEC_A;
+    stop_ours();
+    arr_ended = 1;
+    if (mode == ARR_SONG && sg && !edit_busy && sg->nrows)
+        s = (uint8_t)row_main(&sg->row[0]);
+    cur = (uint8_t)(s - 1);
+    arr_sect = s;
+    arr_next_sect = SEC_SAME;
+    sec_bars = 0;
+    pos = 0;
+    arr_bar = arr_beat_tick = 0;
+    cur_plen = pat_len(&pat[cur]);
+    cur_blen = bar_len(&pat[cur]);
+    seek();
+}
 static void chord_change(chord_t c, int restrike);
 static int follows_chord(uint8_t type) { return type == XT_CHORD1 || type == XT_CHORD2 || type == XT_BASS; }
 /* a section from its start, now (on a bar line). Notes still sounding from the section before are never
@@ -1479,6 +1525,8 @@ static void switch_to(uint8_t sec)
     sec_bars = 0;
     pos = 0;
     seen[cur] = gen[cur];
+    cur_plen = pat_len(&pat[cur]);
+    cur_blen = bar_len(&pat[cur]);
     seek();
     setup();
 }
@@ -1517,8 +1565,7 @@ static int song_bar(int fresh, int hand, uint8_t *mark)
             *mark = SEC_END;
             return 2;
         } else {
-            stop_ours();
-            arr_ended = 1;
+            ended();
             return 0;
         }
     }
@@ -1572,8 +1619,7 @@ static int bar_line(void)
         else if (arr_sect == SEC_INTRO && pos == 0 && mark != SEC_INTRO)
             next = SEC_A;                          /* the intro played once */
         else if (arr_sect == SEC_END && pos == 0) {    /* the ending played once */
-            stop_ours();
-            arr_ended = 1;
+            ended();
             return 0;
         }
     }
@@ -1582,8 +1628,7 @@ static int bar_line(void)
         uint8_t to = fill_to, asked = next;
         next = resolve(next, &to);
         if (next == SEC_STOP) {                    /* an Ending without notes: the end is here */
-            stop_ours();
-            arr_ended = 1;
+            ended();
             return 0;
         }
         if (next && (next != arr_sect || (pos != 0 && next == asked))) {   /* (a fallback to the section
@@ -2080,8 +2125,6 @@ static void drain(void)
                 rec_wait = 0;
             if (b && !rec_on)
                 arr_rec_bars = 0;
-            if (rec_trk >= ARR_TRACKS)             /* a lead: no bar line to wait for (it records while a row plays) */
-                rec_wait = 0;
             arr_rec_wait = rec_wait;
             rec_on = (uint8_t)(b != 0);
             break;

@@ -288,7 +288,9 @@ int arr_bank_pattern(const qb_style_t *s, int k, pattern_t *p);
  * the one before). Either stays until the section ends; the source changes it again from the next section. A
  * chord on the loop's beat 0 is a change there (the Intro's first beat, Main A's first beat after it): it ends a
  * chord from the keys, as any change of the loop does. Chords the player sets (the keys, arr_set_chord, the
- * transpose moved) change the held chord at once, also in the Intro and the Ending.
+ * transpose moved) change the held chord at once, also in the Intro and the Ending. Stopped by its own end (an
+ * Ending played out, a song's last row): the section is what PLAY starts with again (a song's row 1's Main, else Main
+ * A), arr_sect and arr_bar with it.
  * SEC_INTRO..SEC_END, or SEC_FILL: from the next bar (arr_next_sect shows it meanwhile, SEC_FILL as asked).
  * The Intro plays once, then Main A. Fill AB plays one bar, then Main B; Fill BA one bar, then Main A; SEC_FILL
  * is Fill BA from Main B, else Fill AB (from Main A); a fill during a fill adds a bar; SEC_FILL during the Intro
@@ -394,6 +396,9 @@ uint16_t arr_pattern_copy(int slot, pattern_t *out);
  *     do { d = arr_pattern_copy(s, &p); edit(&p); } while (!arr_store_pattern(s, &p, d));
  * (arr_load_pattern is for another pattern: it overwrites whatever was recorded) */
 int arr_store_pattern(int slot, const pattern_t *p, uint16_t expect);
+/* (the slot playing given another length, its bars as long as before, in Main A or B: its bar is the chord source's
+ * again, the bars since a loop's beat 0, a song's row's first downbeat, else the section's start, modulo its bars; the
+ * place in the bar kept. Else a place past a shortened length wraps into it) */
 extern volatile uint8_t arr_full, arr_recording;  /* recording: on, until arr_record(.., 0) or (a pattern's track) a
                                                     * section change */
 extern volatile uint16_t arr_dirty[ARR_NSECT];
@@ -411,7 +416,8 @@ void arr_midi_out_on(int on);
  * notes jumped over are not played (as the patterns'). Leads in a row shortened past its notes: those don't play. */
 void arr_leads(const leads_t *l);                /* at init: the app's lead notes (it stays put) */
 /* Recording: arr_record(ARR_LD1 + k, on) selects lead k (the keys play it: arr_key, on its channel with its sounds,
- * in any mode) and arms it (on: 1 or ARR_REC_BAR, the same: no bar to wait for). It records while a song's row plays:
+ * in any mode) and arms it (on: 1 at once; ARR_REC_BAR from the next bar line, counted in by the click as a track's,
+ * only a key landing on that bar line recording before it; stopped: from PLAY's downbeat). It records while a song's row plays:
  * each key played becomes a note of the row playing, at its place (the nearest tick to its block, to the nearest
  * line of the grid, arr_set_quant: a key just before a row's end lands on the next row's tick 0), its length to
  * its release (one grid step at least), its root the chord's sounding at its place (a key a little early, before
