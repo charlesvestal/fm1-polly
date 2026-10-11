@@ -102,6 +102,9 @@ next thing.
 - **SELECT**: a button's next page; in a list, up and down. **ALGORITHM**: the instrument (or melody). **PRESETS**: the
   next one of what the page shows. **KNOB 1–4**: the four values at the bottom of the screen.
 
+The line over the footer always says what SELECT, ALGORITHM and PRESETS do on the page you're on: "SELECT page 1/2 ·
+ALGO C1 · PRESETS family".
+
 Hold any button for a second and its card says what it does on the page you're on.
 
 ## Writing a song
@@ -176,6 +179,11 @@ The screen has these bands:
   Grand" (Band, Sound, Mixer), "S1 › P9 Verse · bar 2.1" (Progression), "S1 › section 3" (Song), "S1 › M1 Square
   Lead" (a melody). A long one loses its first steps.
 - **The knobs**: what KNOB 1–4 do here, with their values. The knob you turned last shows in coral.
+- **The encoders' line**: what SELECT, ALGORITHM and PRESETS do here: "SELECT page 2/4 · ALGO C1 · PRESETS
+  section". SELECT turns the button's pages ("page 1/2"; nothing where a button has one page), ALGORITHM names the
+  instrument selected, PRESETS what it steps through: the progression (Home, Progression), the section (Song), the
+  groove (Band), the family of eight sounds (Sound), the style (Style). In a list: "SELECT move", and ALGORITHM
+  "change", "pick" or "letter" on a row it changes; HOME held: "SELECT tempo", "PRESETS song".
 - **The footer**: what the keys and REC do here ("KEYS: CHORDS · REC: WRITE"); while something records,
   "REC: STOP".
 
@@ -287,7 +295,7 @@ changes it at once.
 
 ### Tempo
 
-Turn **KNOB 2** on Home, or hold **HOME** and turn **SELECT** (held, the footer says "SELECT: TEMPO"): 40 to
+Turn **KNOB 2** on Home, or hold **HOME** and turn **SELECT** (held, the line over the footer says "SELECT tempo"): 40 to
 240 BPM. The tempo is shown at the top right. When Polly follows MIDI clock, it shows "ext" instead.
 
 ## Chords

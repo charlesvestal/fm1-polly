@@ -3962,6 +3962,7 @@ void ui_frame(void)
     draw_page();
     draw_tag();
     draw_knobs();
+    draw_enc();
     draw_footer();
     leds();
     ui.frame++;

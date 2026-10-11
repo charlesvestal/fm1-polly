@@ -292,6 +292,6 @@ static int mr_ctl_send(const uint8_t *p, uint32_t n)
 #include "app/main_fm1.c"
 static void mr_redraw(void)                         /* every band drawn again at the next frame (pages.c) */
 {
-    for (uint32_t k = 0; k < 5u; k++)
+    for (uint32_t k = 0; k < 6u; k++)
         ui.sig[k] = ~ui.sig[k];
 }

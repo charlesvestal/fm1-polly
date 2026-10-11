@@ -231,7 +231,7 @@ static int mr_ctl_send(const uint8_t *p, uint32_t n)
 }
 static void mr_redraw(void)
 {
-    for (uint32_t k = 0; k < 5u; k++)
+    for (uint32_t k = 0; k < 6u; k++)
         ui.sig[k] = ~ui.sig[k];
 }
 static void host_mirror_ms(void)                 /* one millisecond of USB */
@@ -623,6 +623,17 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (%s: \"%s\")\n", f ? "footer" : "tag", t);
+    } else if (!strncmp(what, "enc_is_", 7)) {   /* enc_is_WORDS: the encoders' line over the footer, exactly ("_": a
+                                                  * space, "|": between the encoders; "enc_is_" alone: no line) */
+        char w[96], t[96];
+        int i;
+        for (i = 0; i < 95 && what[7 + i]; i++)
+            w[i] = what[7 + i] == '_' ? ' ' : what[7 + i];
+        w[i] = 0;
+        enc_line(t);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (encoders: \"%s\")\n", t);
     } else if (!strncmp(what, "teal_", 5)) {      /* teal_X_Y: the screen's pixel X, Y is K_TEAL (a mark drawn) */
         int x = atoi(what + 5), y = strchr(what + 5, '_') ? atoi(strchr(what + 5, '_') + 1) : 0;
         uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_TEAL;
