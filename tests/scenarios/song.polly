@@ -112,7 +112,7 @@ tap HOME
 expect page 0
 turn SELECT 1
 expect page 1
-expect tag_is_S1>no_sections 1
+expect tag_is_S1 1
 expect footer_is_WHITE:_PROGRESSION|BLACK:_MUTES 1
 wait 50
 shot song_empty.png
@@ -133,7 +133,7 @@ expect rows 2
 expect row_loop2 10
 expect row_sect2 0
 expect cursor 3
-expect tag_is_S1>end 1
+expect tag_is_S1 1
 # REPEAT only by its knob: row 1 x2
 spin K1 -2
 expect cursor 1
@@ -141,7 +141,7 @@ spin K4 1
 expect row_rep1 2
 # row 2's SECTION: Main B (later chorus rows follow)
 spin K1 1
-expect tag_is_S1>section_2 1
+expect cursor 2
 spin K3 2
 expect row_sect2 2
 spin K1 1
@@ -199,7 +199,7 @@ expect row_rep5 1
 expect row_rep4 2
 expect row_sect5 2
 expect cursor 6
-expect tag_is_S1>end 1
+expect tag_is_S1 1
 tapkey b4
 expect row_mute5 16
 expect black_dim 16
@@ -207,27 +207,25 @@ expect msg_is_C1 1
 spin K1 -1
 expect cursor 5
 tap SEL
-expect list_sel 9
+expect list_sel 8
 spin SELECT 2
 tap SEL
 expect rows 4
 expect msg_is_DELETED 1
-# row 4: page 2, KEY +2
-expect tag_is_S1>section_4 1
+# row 4: page 2, TRANSPOSE +2 (the section's own)
+expect cursor 4
 turn SELECT 1
 expect page 2
-spin K2 2
+spin K1 2
 expect row_key4 2
 wait 50
 shot song2.png
-# page 3: INTRO off (for the timing here), ENDING on (off, on again), AT END stop
-turn SELECT 1
-expect page 3
-spin K1 -1
-expect song_intro 0
+# page 2 too: INTRO off (for the timing here), ENDING on (off, on again), AT END stop
 spin K2 -1
+expect song_intro 0
+spin K3 -1
 expect song_ending 0
-spin K2 1
+spin K3 1
 expect song_ending 1
 expect song_at_end 0
 wait 50
@@ -250,8 +248,6 @@ expect loop_now 10
 expect cursor 2
 wait 50
 shot song_play.png
-turn SELECT -1
-expect page 2
 wait 50
 shot song_play2.png
 turn SELECT -1
@@ -283,11 +279,11 @@ expect row 1
 tap PLAY
 wait 300
 expect playing 0
-# PLAY FROM ROW (SEL's list opens on it, row 9): from the cursor's row, row 3
+# PLAY FROM ROW (SEL's list opens on it, row 8): from the cursor's row, row 3
 spin K1 2
 expect cursor 3
 tap SEL
-expect list_sel 9
+expect list_sel 8
 wait 50
 shot song_list.png
 tap SEL
@@ -327,34 +323,32 @@ expect playing 0
 # song 2 CLEAR SONG (its rows go, the loops stay)
 tap SEL
 spin SELECT 20
-expect list_sel 13
+expect list_sel 12
 tap SEL
 expect asking 0
 expect msg2_is_copied 1
-# ---- REC on SONG: song 2 (emptied), INTRO off, 120 BPM
-turn SELECT 1
-turn SELECT 1
-expect page 3
-spin K4 1
+# ---- REC on SONG: song 2 (emptied), INTRO off, 120 BPM (the song: HOME + PRESETS)
+press HOME
+spin PRESET 1
+release HOME
 expect song 2
 expect rows 4
 expect loop_bars9 4
 expect loop_ch9_0 916
-turn SELECT -2
 expect page 1
 tap SEL
 spin SELECT 20
 spin SELECT -1
-expect list_sel 12
+expect list_sel 11
 tap SEL
 expect asking 1
 tap SEL
 expect rows 0
 expect loop_bars10 4
-turn SELECT 2
-expect page 3
+turn SELECT 1
+expect page 2
 expect cursor 1
-spin K1 -1
+spin K2 -1
 expect song_intro 0
 expect tempo 120
 # HOME in SONG with no rows says so

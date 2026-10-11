@@ -1,0 +1,311 @@
+# POLLY, the screens: every page in its states, shot for reading (each element: what is it for, is it needed here, is it
+# said twice; each colour one meaning: docs/superpowers/specs/2026-10-11-visibility-design.md), and the screen audit's
+# bugs, each an expect: (1) HOME held rang a progression teal ("playing") after the stop; (2) a help card's words ran
+# past its box (the simulator fails on that by itself); (3) Song's TRANSP heading sat over the melodies' mute squares
+# (the simulator fails on columns over each other); (4) Effects' list offered the grooves' actions; (5) MEMORY's rows
+# were named three ways; (6) HOME's list offered CLEAR PROGRESSION while free; (7) the first footer hid REC's job.
+# Pages: 0 Home, 1-2 Song, 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2, 10 Mixer, 11 Mixer tone,
+# 12 Effects, 13-14 Style, 15 Setup, 16 Status.
+wait 300
+# ---- (7) the first screen: REC's job in the footer, and where the rest is said
+expect footer_is_REC:_NEW_PROG|HOLD_A_BUTTON:_HELP 1
+shot home_first.png
+# ---- (6) HOME's list, free: nothing of its own to clear
+tap SEL
+expect list_open 1
+expect list_has_CLEAR_PROGRESSION 0
+expect list_has_LOAD_PROGRESSION 1
+shot list_home_free.png
+tap HOME
+expect list_open 0
+expect footer_is_KEYS:_CHORDS|REC:_NEW_PROGRESSION 1
+expect enc_is_SELECT_page|PRE_prog 1
+expect tag_is_S1>free 1
+# free: a chord played, then playing (the groove's bar at the right, the chord teal while the band plays it)
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 300
+shot home_free.png
+tap PLAY
+wait 1300
+shot home_free_playing.png
+tap PLAY
+wait 300
+# ---- (1) HOME held after a stop: nothing rings teal; the progression PLAY starts ringed ink
+press HOME
+tapkey w2
+release HOME
+expect mode 1
+expect app_loop 3
+expect tag_is_S1>P3_Fifties 1
+tap SEL
+expect list_has_CLEAR_PROGRESSION 1
+tap HOME
+shot home_loop.png
+tap PLAY
+wait 2600
+expect loop_now 3
+shot home_loop_playing.png
+press HOME
+wait 600
+expect home_shown 1
+expect held_ring3 1
+expect enc_is_SELECT_tempo|PRE_song 1
+tapkey w1
+expect held_ring2 2
+expect held_ring3 1
+shot home_held_playing.png
+release HOME
+wait 2600
+expect loop_now 2
+tap PLAY
+wait 600
+expect playing 0
+press HOME
+wait 600
+expect held_ring2 3
+expect held_ring3 0
+tapkey w0
+expect held_ring1 3
+expect held_ring2 0
+shot home_held_stopped.png
+release HOME
+wait 300
+# a chord over the progression: yours, coral, till its next change
+tap PLAY
+wait 1200
+key 9 down
+key 13 down
+key 16 down
+wait 200
+expect override 1
+shot home_override.png
+key 9 up
+key 13 up
+key 16 up
+tap PLAY
+wait 300
+# ---- the Progression page: stopped, playing, writing
+tap ARP
+expect page 4
+expect tag_is_S1>P1_Pop 1
+expect enc_is_SELECT_page|PRE_prog 1
+shot prog.png
+turn SELECT 1
+shot prog2.png
+turn SELECT -1
+tap PLAY
+wait 1300
+shot prog_playing.png
+tap PLAY
+wait 300
+tap REC
+wait 100
+shot prog_rec.png
+tap REC
+wait 1500
+tap SEL
+shot list_prog.png
+tap HOME
+# ---- HOME recording a new progression (free: Prog "-")
+tap HOME
+turn K4 -16
+expect mode 0
+tap REC
+expect take 1
+shot home_rec_wait.png
+tap PLAY
+wait 2600
+shot home_rec_take.png
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 2400
+shot home_rec_written.png
+tap REC
+tap PLAY
+wait 600
+# ---- the Song page: sections, the two pages, playing
+turn SELECT 1
+expect page 1
+expect tag_is_S1 1
+expect enc_is_SELECT_page|PRE_section 1
+shot song_empty.png
+tapkey w0
+tapkey w2
+tapkey w3
+expect rows 3
+turn K1 -2
+turn K4 1
+turn SELECT 1
+expect page 2
+turn K1 2
+expect row_key2 2
+wait 600
+shot song2.png
+turn K3 1
+expect song_ending 1
+turn SELECT 1
+expect page 0
+turn SELECT 1
+expect page 1
+wait 600
+shot song.png
+tap SEL
+expect list_has_COPY_SONG_TO 1
+shot list_song.png
+tap HOME
+tap PLAY
+wait 3000
+shot song_playing.png
+tap HOME
+wait 600
+shot home_song_playing.png
+tap PLAY
+wait 300
+shot home_song.png
+# ---- Band: stopped, playing, recording; Groove length
+tap SEQ
+expect page 6
+expect enc_is_SELECT_page|ALG_instrument|PRE_groove 1
+shot band.png
+tap PLAY
+wait 1300
+shot band_playing.png
+tap REC
+wait 2000
+shot band_rec.png
+tap REC
+tap PLAY
+wait 300
+tap SEL
+shot list_band.png
+tap HOME
+turn SELECT 1
+expect page 7
+shot groove_length.png
+# ---- Sound: an instrument (C1), drums (D1), its page 2; a melody (one page)
+tap EDIT
+expect page 8
+shot sound.png
+turn SELECT 1
+expect page 9
+shot sound2.png
+turn ALGO -4
+expect track 1
+shot sound2_drums.png
+turn SELECT 1
+shot sound_drums.png
+turn ALGO 8
+expect lead_sel 1
+expect page 8
+turn SELECT 1
+expect page 8
+shot sound_melody.png
+tap SEL
+shot list_melody.png
+tap HOME
+turn ALGO -4
+expect track 5
+# ---- (5) MEMORY: a groove of yours, the song's progressions; every row the same way round
+# (the song's Intro is yours: recorded into on Band, the song starting with it)
+tap SEL
+turn SELECT 12
+tap SEL
+expect slots_list 1
+expect slottext2_is_S1|Intro_(yours)|Pop 1
+expect slottext1_is_S1|progressions 1
+expect slottext3_is_free 1
+shot memory.png
+tap HOME
+tap HOME
+# ---- the Mixer, its tone; Effects; (4) Effects' list: its knobs only
+tap LFO
+expect page 10
+shot mixer.png
+turn SELECT 1
+shot mixer_tone.png
+tap FX
+expect page 12
+expect enc_is_ 1
+expect footer_is_ 1
+shot effects.png
+tap SEL
+expect list_open 1
+expect list_has_CLEAR_C1 0
+expect list_has_BACK_TO_STYLE 0
+expect list_has_CLEAR_GROOVE_A 0
+expect list_has_MEMORY 0
+shot list_effects.png
+tap HOME
+# ---- Style; Setup (the knob turned, in words); Status
+tap ENV
+expect page 13
+shot style.png
+turn SELECT 1
+shot style2.png
+tap SEL
+shot list_style.png
+tap HOME
+tap GLO
+expect page 15
+shot setup.png
+turn K4 1
+shot setup_click.png
+turn SELECT 1
+expect page 16
+expect knobs_shown 0
+shot status.png
+# ---- (2) the help cards: each button held alone (the simulator fails on words past the box)
+tap EDIT
+press EDIT
+wait 1200
+expect card 5
+shot card_edit.png
+release EDIT
+turn ALGO 4
+expect lead_sel 1
+press EDIT
+wait 1200
+shot card_melody.png
+release EDIT
+turn ALGO -4
+tap HOME
+turn SELECT 1
+press SEL
+wait 1200
+shot card_sel.png
+release SEL
+press SAVE
+wait 1200
+shot card_save_song.png
+release SAVE
+tap GLO
+press GLO
+wait 1200
+shot card_glo.png
+release GLO
+tap ARP
+press REC
+wait 1200
+shot card_rec_prog.png
+release REC
+# ---- a question
+tap HOME
+turn SELECT 1
+tap SEL
+turn SELECT 3
+tap SEL
+expect asking 1
+shot question.png
+tap HOME
+expect asking 0

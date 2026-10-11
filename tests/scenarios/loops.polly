@@ -374,7 +374,7 @@ spin K1 1
 expect cbeat 12
 spin K1 8
 expect cbeat 44
-expect tag_is_S1>P10_Verse|BAR_12.1 1
+expect tag_is_S1>P10_Verse 1
 wait 50
 shot loop16.png
 # BEAT within the bar (12.4, no further); BAR keeps the beat (11.4); OCT+ a beat on, over the bar line (12.1), OCT- a
@@ -385,7 +385,7 @@ spin K2 2
 expect cbeat 47
 spin K1 -1
 expect cbeat 43
-expect tag_is_S1>P10_Verse|BAR_11.4 1
+expect tag_is_S1>P10_Verse 1
 tap OCT+
 expect cbeat 44
 tap OCT-
@@ -524,13 +524,13 @@ wait 100
 shot list_step.png
 tap HOME
 expect list_open 0
-expect tag_is_S1>P10_Verse|BAR_1.4 1
+expect tag_is_S1>P10_Verse 1
 press HOME
 tapkey w14
 release HOME
 expect app_loop 15
 expect cstep 2
-expect tag_is_S1>P15|BAR_1.1 1
+expect tag_is_S1>P15 1
 # its default name: "L15" alone (not "L15 Loop 15"); messages in upper case
 expect msgtext_is_PROGRESSION_P15 1
 # step writing 4 bars a bar a step: Am F Em G, each heard while its keys are held (C1's sound), silent after

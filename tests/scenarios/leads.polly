@@ -14,12 +14,12 @@ tapkey w0
 tapkey w0
 tapkey w0
 expect rows 4
-turn SELECT 2
-expect page 3
+turn SELECT 1
+expect page 2
 expect song_intro 1
-turn K1 -1
+turn K2 -1
 expect song_intro 0
-turn SELECT -2
+turn SELECT -1
 expect page 1
 # ---- EDIT: ALGORITHM past C4 to LD1 (its sound: GM 81, the song's)
 tap EDIT
@@ -28,14 +28,13 @@ expect track 5
 turn ALGO 4
 expect lead_sel 1
 expect tag_is_S1>M1_Square_Lead 1
-expect footer_is_KEYS:_M1_SQUARE_LEAD|REC:_RECORD 1
+expect footer_is_KEYS:_M1|REC:_RECORD 1
 expect lsnd1_prog 81
 wait 1500
 shot track_ld1.png
 turn SELECT 1
-expect page 9
-shot track2_ld1.png
-turn SELECT -1
+expect page 8
+wait 80
 # playing in FREE a lead does not record (stopped, REC would put the song on: below)
 expect mode 0
 tap PLAY
@@ -162,7 +161,7 @@ expect lead_sel 1
 expect cursor 3
 tap SEL
 expect list_open 1
-expect list_sel 4
+expect list_sel 3
 wait 100
 shot lead_list.png
 tap SEL
@@ -178,7 +177,7 @@ expect lead_notes 7
 # ERASE LD1 (the whole song's): asked, HOME says no
 tap SEL
 turn SELECT 1
-expect list_sel 5
+expect list_sel 4
 tap SEL
 expect asking 1
 tap HOME
@@ -223,7 +222,7 @@ tapkey b9
 expect row_lmute1 0
 tap SEL
 spin SELECT 2
-expect list_sel 11
+expect list_sel 10
 tap SEL
 expect asking 1
 wait 100
@@ -330,7 +329,7 @@ expect quant 2
 tap EDIT
 tap SEL
 spin SELECT 2
-expect list_sel 6
+expect list_sel 5
 wait 100
 shot lead_quantise_list.png
 tap SEL

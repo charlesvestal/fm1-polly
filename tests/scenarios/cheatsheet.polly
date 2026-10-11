@@ -1,7 +1,7 @@
 # POLLY, the cheat sheet: MANUAL.md's "How do I..." table, each row pressed as written there (its words as headings
 # below), and a screenshot of every page in the screen's words (docs/superpowers/specs/2026-10-11-vocabulary-design.md).
-# Pages: 0 Home, 1-3 Song, 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2, 10 Mixer, 11 Mixer tone,
-# 12 Effects, 13-14 Style, 15 Setup, 16 Panel. White keys w0..w15 are the manual's 1..16, black keys b0..b10 its 1..11.
+# Pages: 0 Home, 1-2 Song (3: none now), 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2, 10 Mixer, 11 Mixer tone,
+# 12 Effects, 13-14 Style, 15 Setup, 16 Status. White keys w0..w15 are the manual's 1..16, black keys b0..b10 its 1..11.
 # Funk at 100 BPM: a bar is 2400 ms. Chords: root * 100 + CH_* (maj 0), -1 no change.
 wait 300
 expect page 0
@@ -11,6 +11,7 @@ turn K1 1
 expect songtext_is_Funk 1
 expect tempo 100
 # ---- Play a progression: hold HOME, press white key 3 (P3 goes round)
+wait 1200
 press HOME
 wait 500
 expect home_shown 1
@@ -74,7 +75,7 @@ expect page 4
 expect app_loop 9
 turn K1 1
 expect cbeat 4
-expect tag_is_S1>P9|BAR_2.1 1
+expect tag_is_S1>P9 1
 turn K3 1
 expect loop_ch9_4 600
 turn K3 -1
@@ -83,7 +84,6 @@ expect loop_ch9_4 500
 turn K1 -1
 turn K2 2
 expect cbeat 2
-expect tag_is_S1>P9|BAR_1.3 1
 # ---- Delete a chord: SEL, CLEAR CHORD (the list opens on it), SEL (here: F on bar 2, then undone)
 turn K1 1
 turn K2 -2
@@ -127,10 +127,7 @@ expect row_mute3 0
 turn SELECT 1
 expect page 2
 shot song2.png
-turn SELECT 1
-expect page 3
-shot song3.png
-turn SELECT -2
+turn SELECT -1
 expect page 1
 # ---- Play from section 3: Song, KNOB 1 (Section) to 3, SEL (the list opens on PLAY FROM SECTION 3), SEL
 turn K1 -1
@@ -147,7 +144,7 @@ expect row 3
 shot song_playing.png
 tap PLAY
 wait 300
-# ---- Change an instrument's sound: EDIT, ALGORITHM to it (C1), turn KNOB 1 (Program)
+# ---- Change an instrument's sound: EDIT, ALGORITHM to it (C1), turn KNOB 1 (Sound)
 tap EDIT
 expect page 8
 expect track 5

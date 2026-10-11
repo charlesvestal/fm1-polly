@@ -180,11 +180,11 @@ turn K1 2
 expect cursor 4
 turn SELECT 1
 expect page 2
-turn K2 2
+turn K1 2
 expect row_key4 2
 wait 50
 shot 5_key.png
-turn K1 -1
+turn PRESET -1
 expect cursor 3
 tapkey b0
 tapkey b1

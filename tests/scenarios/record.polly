@@ -30,7 +30,7 @@ shot rec_follows.png
 tap REC
 wait 50
 expect recording 0
-expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
+expect footer_is_KEYS:_C1|REC:_RECORD 1
 # said once: REC again, no hint
 tap REC
 wait 50

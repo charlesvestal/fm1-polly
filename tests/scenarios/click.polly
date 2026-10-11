@@ -9,7 +9,7 @@ expect tempo 120
 tap GLO
 expect page 15
 expect click 1
-expect footer_is_KNOBS:_CLOCK,_MIDI_OUT,_LIGHTS,_CLICK 1
+expect footer_is_ 1
 wait 100
 shot setup_click.png
 # ON: every beat while playing (a bar and a beat: 5)

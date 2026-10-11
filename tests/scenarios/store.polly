@@ -29,11 +29,13 @@ expect song2_style5 37
 reboot
 expect song 1
 tap HOME
-turn SELECT 3
-expect page 3
-spin K4 1
+press HOME
+spin PRESET 1
+release HOME
 expect song 2
-spin K4 -1
+press HOME
+spin PRESET -1
+release HOME
 expect song 1
 wait 2000
 reboot

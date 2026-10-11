@@ -1,10 +1,10 @@
 # POLLY, lists: SEL opens the screen as a list (its knobs' values, MORE, the actions); a button held alone shows
 # its help card; an action that loses chords asks first (SEL yes, HOME no); SAVE + a white key copies here.
-# Pages: 0 HOME, 1-3 SONG, 4-5 LOOP, 6 Pattern, 7 Pattern setup. Cards: the button + 1 (ARP 9, SAVE 8)
+# Pages: 0 Home, 1-2 Song, 4-5 Progression, 6 Band, 7 Groove length. Cards: the button + 1 (ARP 9, SAVE 8)
 wait 300
 # the tag and the footer before any button: FREE, the hint
 expect tag_is_S1>free 1
-expect footer_is_HOLD_ANY_BUTTON:_WHAT_IT_DOES 1
+expect footer_is_REC:_NEW_PROG|HOLD_A_BUTTON:_HELP 1
 # HOME's list: it opens on its first action (LOAD PROGRESSION, row 4: Style, Tempo, Transpose, Loop above it);
 # SELECT moves (not the page) up to the knobs' rows, ALGORITHM changes the row's value, HOME backs out
 expect list_open 0
@@ -41,11 +41,11 @@ expect page 0
 # ARP with no loop picked yet: the first empty loop (L9), never a factory one; PRESETS back to L1
 tap ARP
 expect page 4
-expect tag_is_S1>P9|BAR_1.1 1
+expect tag_is_S1>P9 1
 turn PRESET -8
-expect tag_is_S1>P1_Pop|BAR_1.1 1
+expect tag_is_S1>P1_Pop 1
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
-expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_BEAT 1
+expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_CURSOR 1
 tap SEL
 expect list_open 1
 # (it opens on CLEAR CHORD, its first action: under the eight knobs, MORE and Letters; STEP after it)
@@ -120,13 +120,13 @@ wait 600
 release HOME
 expect page 0
 expect loop_bars3 4
-# SONG: its list opens on PLAY FROM ROW (9); INSERT ROW (one down) while playing: STOP FIRST; stopped: a row
+# SONG: its list opens on PLAY FROM ROW (8); INSERT ROW (one down) while playing: STOP FIRST; stopped: a row
 turn SELECT 1
 expect page 1
 tap PLAY
 wait 200
 tap SEL
-expect list_sel 9
+expect list_sel 8
 turn SELECT 1
 tap SEL
 expect msg2_is_STOP_FIRST 1
@@ -227,7 +227,7 @@ tap SEL
 expect rows 1
 tap SEL
 spin SELECT 20
-expect list_sel 13
+expect list_sel 12
 spin ALGO 1
 tap SEL
 expect asking 0

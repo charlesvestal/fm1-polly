@@ -76,11 +76,11 @@ expect page 1
 tapkey w0
 tapkey w0
 expect rows 2
-turn SELECT 2
-expect page 3
-turn K1 -1
+turn SELECT 1
+expect page 2
+turn K2 -1
 expect song_intro 0
-turn SELECT -2
+turn SELECT -1
 tap HOME
 turn SELECT 1
 tap PLAY

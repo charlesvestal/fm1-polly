@@ -818,6 +818,8 @@ static void set_track(int t)
     ui.follow_hint = 0;
     if (t >= ARR_TRACKS) {                       /* a lead: proj.trk stays the pattern's track */
         app.lead = (uint8_t)(t - ARR_TRACKS + 1);
+        if (ui.page == P_TRACK2)
+            ui.page = P_TRACK;                   /* (a melody's Sound is one page) */
         if (rec && app.mode != ARR_SONG) {
             arr_record(t, 0);
             ui.rec_want = ui.rec_seen = 0;
@@ -977,6 +979,7 @@ static int chord_write(int i, int b, chord_t c)
         ui.wrote_t = plat_ms();
         ui.wrote_loop = (uint8_t)i;
         ui.wrote_beat = (uint8_t)b;
+        ui.rec_wrote = 1;                        /* (HOME's "chords land ..." goes) */
     }
     return r;
 }
@@ -1152,6 +1155,7 @@ static void loop_rec_toggle(void)
     ui.centry = -1;
     ui.clifted = 0;
     ui.lw_abs = -1;                              /* (nothing written yet this REC: live_beat) */
+    ui.rec_wrote = 0;
     if (!ui.rec_chords) {                        /* off at the loop's end: the start of the last bar written (a knob
                                                   * there changes that bar's chord, OCT- walks back by bars) */
         const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
@@ -1187,6 +1191,7 @@ static void free_take_toggle(void)
     }
     ui.take_loop = (uint8_t)i;
     ui.take_any = 0;
+    ui.rec_wrote = 0;
     ui.take_last = -1;
     ui.centry = -1;
     if (sloops.loop[i].beats != bpb) {
@@ -1553,19 +1558,16 @@ static void song_rec_toggle(void)
     ui.song_rec = 1;
     say("REC SECTIONS", arr_playing ? "HOME + keys" : "PLAY, HOME + keys");
 }
-/* SONG's knobs: ROW (the END row after the last), LOOP, SECTION, REPEAT; ROW, KEY; INTRO, ENDING, AT END, SONG */
+/* SONG's knobs: SECTION (the cursor; the END row after the last), PROG, GROOVE, REPEAT; page 2: TRANSPOSE (the cursor
+ * section's own; PRESETS steps the sections), the song's INTRO, ENDING, AT END (the song itself: HOME + PRESETS) */
 static void song_knob(int k, int32_t e)
 {
     song_t *g = csong();
     row_t *w = app.row < g->nrows ? &g->row[app.row] : 0;
     int d = e > 0 ? 1 : -1, v = 0, to = 0;
     uint8_t *f = 0;
-    if (ui.page == P_SONG3) {
-        if (k == 3) {
-            song_pick(d);
-            return;
-        }
-        f = k == 0 ? &g->intro : k == 1 ? &g->ending : &g->at_end;
+    if (ui.page == P_SONG2 && k > 0) {           /* the song's INTRO, ENDING, AT END */
+        f = k == 1 ? &g->intro : k == 2 ? &g->ending : &g->at_end;
         if (*f == (uint8_t)(d > 0))
             return;
         songs_write(1);
@@ -1573,16 +1575,14 @@ static void song_knob(int k, int32_t e)
         songs_write(0);
         return;
     }
-    if (k == 0) {                                /* ROW: the cursor (it stops following the song) */
+    if (k == 0 && ui.page == P_SONG) {           /* SECTION: the cursor (it stops following the song) */
         app.row = (uint8_t)clampi(app.row + accel(EN_K1, e), 0, g->nrows);
         ui.row_follow = 0;
         return;
     }
     if (!w)
         return;                                  /* the END row: nothing to turn */
-    if (ui.page == P_SONG2) {
-        if (k != 1)
-            return;
+    if (ui.page == P_SONG2) {                    /* TRANSPOSE: the cursor's section's (PRESETS steps the sections) */
         v = w->key;
         to = clampi(v + (int)e, -6, 5);   /* (12 steps: no acceleration) */
     } else if (k == 1) {
@@ -1642,7 +1642,7 @@ static void arp_open(void)
 }
 static void page_turn(int d)
 {
-    int g = page_group(ui.page), f = PAGE_BTN[g].first, n = PAGE_BTN[g].n;
+    int g = page_group(ui.page), f = PAGE_BTN[g].first, n = group_n(g);
     ui.page = (uint8_t)(f + ((ui.page - f + d) % n + n) % n);
     ui.touched = -1;
 }
@@ -1866,7 +1866,7 @@ static void song_change(int s)
     mark_dirty();
     save_all();                                  /* the song picked, kept now: a power-off comes back on it (stopped:
                                                   * the save before already paused nothing that plays) */
-    itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
+    itoa_u((uint32_t)s + 1u, cat_s(t, "SONG S"));
     say(t, 0);
 }
 
@@ -2003,7 +2003,7 @@ static void song_pick(int d)
         return;
     if (arr_playing) {
         app.song_pend = (uint8_t)(s == proj.song ? 0 : s + 1);
-        itoa_u((uint32_t)s + 1u, cat_s(t, "SONG "));
+        itoa_u((uint32_t)s + 1u, cat_s(t, "SONG S"));
         say(t, s == proj.song ? "stays" : "after the stop");
     } else
         song_change(s);
@@ -2296,7 +2296,7 @@ static void act_clear_song(void)
         do_clear_song();
         return;
     }
-    cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR SONG ")), "?");
+    cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR S")), "?");
     ask(q, do_clear_song);
 }
 /* COPY SONG TO: the song (its rows, settings, styles, loops) into another; its user patterns into ones of the
@@ -2348,7 +2348,7 @@ static void do_copy_song(void)
     *d = *g;
     memcpy(d->style, st, sizeof st);
     songs_write(0);
-    itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "SONG ")), " > "));
+    itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "S")), " > S"));
     say(a, "copied");
 }
 static void act_copy_song(void)
@@ -2382,7 +2382,7 @@ static void do_erase_lead(void)
 {
     int before = leads.n, n;
     char t[24];
-    cat_s(cat_s(t, "ERASE "), TRACK_NAME[ARR_LD1 + ui.tgt.ltrk % ARR_LEADS]);
+    cat_s(cat_s(t, "CLEAR "), TRACK_NAME[ARR_LD1 + ui.tgt.ltrk % ARR_LEADS]);
     undo_hint(t);
     lead_write(1);
     n = leads_erase(&leads, ui.tgt.lrow == 255u ? -1 : ui.tgt.lrow, ui.tgt.ltrk % ARR_LEADS);
@@ -2390,7 +2390,7 @@ static void do_erase_lead(void)
     if (n)
         lead_changed(0, before);
     lead_erase_what(t);
-    say("ERASED", t);
+    say("CLEARED", t);
 }
 static void act_erase_lead(int in_row)
 {
@@ -2402,7 +2402,7 @@ static void act_erase_lead(int in_row)
         say(t, "HAS NO NOTES");
         return;
     }
-    cat_s(cat_s(cat_s(q, "ERASE "), t), "?");
+    cat_s(cat_s(cat_s(q, "CLEAR "), t), "?");
     ask(q, do_erase_lead);
 }
 /* ERASE TRACK: the selected track's notes in the pattern playing (a style's section: a user pattern first) */
@@ -2410,16 +2410,16 @@ static void do_erase_track(void)
 {
     int t = ui.tgt.trk & 7;
     if (eslot() != ui.tgt.slot) {                /* the engine erases in the section playing: another now */
-        say("NOT ERASED", "GROOVE CHANGED");
+        say("NOT CLEARED", "GROOVE CHANGED");
         return;
     }
     char h[16];
     edits_flush();
-    cat_s(cat_s(h, "ERASE "), TRACK_NAME[t]);
+    cat_s(cat_s(h, "CLEAR "), TRACK_NAME[t]);
     undo_hint(h);
     slot_own(ui.tgt.slot);
     arr_erase_track(t);
-    say("ERASED", TRACK_NAME[t]);
+    say("CLEARED", TRACK_NAME[t]);
 }
 static void act_erase_track(void)
 {
@@ -2430,7 +2430,7 @@ static void act_erase_track(void)
         say(TRACK_NAME[t], "HAS NO NOTES");
         return;
     }
-    cat_s(cat_s(cat_s(q, "ERASE "), TRACK_NAME[t]), "?");
+    cat_s(cat_s(cat_s(q, "CLEAR "), TRACK_NAME[t]), "?");
     ask(q, do_erase_track);
 }
 /* CLEAR PATTERN: every note gone, its sounds kept */
@@ -2668,9 +2668,10 @@ static int songs_n(uint8_t plays)
         k += plays >> n & 1u;
     return k;
 }
-/* what memory place i holds, in the screen's words: "Pop|Groove A (yours)|S1" (a user pattern: its name, the section
- * the song selected plays it as, the songs playing it), "Pop (yours)|no song", "S2 melodies 1/2" (a song's lead notes,
- * part 1 of 2), "S1 progressions" (a song's own loops), "free" */
+/* what memory place i holds, in the screen's words, each the same way: the song(s) first, then what, then its name:
+ * "S1|Groove A (yours)|Funk" (a user pattern: the section it plays as, the songs playing it, its name if it has one),
+ * "no song|groove (yours)|Funk", "S2|melodies 1/2" (a song's lead notes, part 1 of 2), "S1|progressions" (a song's
+ * own), "free" */
 static void slot_text(int i, char *t)
 {
     slot_who_t w;
@@ -2678,35 +2679,32 @@ static void slot_text(int i, char *t)
     slot_who(i, &w);
     slot_kind[i] = w.kind;
     *t = 0;
-    if (w.kind == SLOT_LEAD) {
+    if (w.kind == SLOT_LEAD || w.kind == SLOT_LOOPS) {
         e = cat_s(t, "S");
         *e++ = (char)('1' + w.song);
         *e = 0;
-        e = cat_s(e, " melodies ");
-        *e++ = (char)('1' + w.part);
-        cat_s(e, "/2");
-    } else if (w.kind == SLOT_LOOPS) {
-        e = cat_s(t, "S");
-        *e++ = (char)('1' + w.song);
-        *e = 0;
-        cat_s(e, " progressions");
+        if (w.kind == SLOT_LEAD) {
+            e = cat_s(e, "|melodies ");
+            *e++ = (char)('1' + w.part);
+            cat_s(e, "/2");
+        } else
+            cat_s(e, "|progressions");
     } else if (w.kind == SLOT_PATTERN) {
         char nm[12];
+        int sect = w.sect;
         nm[0] = 0;
         if (w.sect >= 0)
             pat_name8(app.hdr[w.sect].name, nm);
         else if (project_pattern_load(i, &scratch) == 0)
             pat_name8(scratch.name, nm);
-        e = t;
-        if (nm[0])                               /* "Pop|", "Pop " */
-            e = cat_s(cat_s(e, nm), w.sect >= 0 ? "|" : " ");
-        if (w.sect >= 0)                         /* "Groove A " */
-            e = cat_s(cat_s(e, SECT_NAME[w.sect % ARR_NSECT + 1]), " ");
-        e = cat_s(e, "(yours)|");
-        if (w.plays)
-            song_list(w.plays, e);
-        else
-            cat_s(e, "no song");
+        for (int n = 0; sect < 0 && n < ARR_SONGS; n++)   /* (another song's: the section it plays it as) */
+            for (int k = 0; k < ARR_NSECT && sect < 0; k++)
+                if (songs.song[n].style[k] == i)
+                    sect = k;
+        e = w.plays ? song_list(w.plays, t) : cat_s(t, "no song");
+        e = cat_s(cat_s(cat_s(e, "|"), sect >= 0 ? SECT_NAME[sect % ARR_NSECT + 1] : "groove"), " (yours)");
+        if (nm[0])
+            cat_s(cat_s(e, "|"), nm);
     } else
         cat_s(t, "free");
 }
@@ -2806,7 +2804,7 @@ static void do_free_slot(void)
         }
         app.ldirty = (1u << LEAD_PARTS) - 1u;
         save_all();
-        cat_s(b, "MELODY NOTES ERASED");
+        cat_s(b, "MELODY NOTES CLEARED");
     } else if (w.kind == SLOT_LOOPS && w.song == proj.song) {
         undo_hint("PROGS FACTORY");
         songs_write(1);
@@ -2846,9 +2844,9 @@ static void act_free_slot(int i)
         else if (w.plays)
             cat_s(song_list(w.plays, e), " BACK TO STYLE");
         else
-            cat_s(e, "NOTES ERASED");
+            cat_s(e, "NOTES CLEARED");
     } else if (w.kind == SLOT_LEAD) {
-        e = cat_s(q, "ERASE S");
+        e = cat_s(q, "CLEAR S");
         *e++ = (char)('1' + w.song);
         e = cat_s(e, " MELODIES ");
         *e++ = (char)('1' + w.part);
@@ -3210,27 +3208,21 @@ static void lsnd_set(uint8_t *v, int to, int lo, int hi)
     lead_sounds_sync();
     song_touched();
 }
-/* EDIT's and the Mixer's knobs with a lead selected: PROGRAM, VELOCITY; CHANNEL; VOLUME, PAN, REVERB, CHORUS; BRIGHT, RESO. Its type
- * (as played), range (all) and high key (off) are fixed: said */
+/* EDIT's and the Mixer's knobs with a lead selected: SOUND, CHANNEL, VELOCITY; VOLUME, PAN, REVERB, CHORUS; BRIGHT,
+ * RESO. Its type (as played), range (all) and high key (off) are fixed: no knobs for them */
 static void lead_knob(int k, int32_t e)
 {
     lead_trk_t *l = sel_lead();
     int d = e > 0 ? 1 : -1;
     switch (ui.page) {
-    case P_TRACK:
+    case P_TRACK:                                /* SOUND, CHANNEL, -, VELOCITY (one page) */
         if (k == 0) {
             if ((l->chan & 15u) != 9u)
                 lsnd_set(&l->program, l->program + accel(EN_K1, e), 0, 127);
-        } else if (k == 3)                       /* VELOCITY: the notes recorded from now on */
-            lsnd_set(&l->vel, l->vel + accel(EN_K4, e), 1, 127);
-        else
-            say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
-        break;
-    case P_TRACK2:
-        if (k == 1)
+        } else if (k == 1)
             lsnd_set(&l->chan, l->chan + d, 0, ARR_CHAN_MAX);   /* (16 is the click's) */
-        else if (k == 0)
-            say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
+        else if (k == 3)                         /* VELOCITY: the notes recorded from now on */
+            lsnd_set(&l->vel, l->vel + accel(EN_K4, e), 1, 127);
         break;
     case P_MIXER: {
         uint8_t *v = k == 0 ? &l->vol : k == 1 ? &l->pan : k == 2 ? &l->rev : &l->cho;
@@ -4097,9 +4089,11 @@ void ui_frame(void)
     flash_watch();                               /* (what changed this frame: lit where it landed) */
     draw_header();
     draw_page();
-    draw_tag();
-    draw_knobs();
-    draw_enc();
+    if (!(lst.open && !ui.card && !home_shown())) {   /* (a list covers the tag, the knobs and the encoders' line) */
+        draw_tag();
+        draw_knobs();
+        draw_enc();
+    }
     draw_footer();
     leds();
     ui.frame++;

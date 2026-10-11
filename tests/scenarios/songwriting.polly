@@ -36,7 +36,7 @@ shot rec_bars_done.png
 tap REC
 wait 50
 expect recording 0
-expect footer_is_KEYS:_C1_CLAVINET|REC:_RECORD 1
+expect footer_is_KEYS:_C1|REC:_RECORD 1
 # ---- BARS while the loop plays: at the loop's bar 3 the pattern is at its bar 3; shorter (2): its bar 1; longer again
 # (the notes kept past the end come back, nothing repeated over them): bar 4 at the loop's bar 4
 tap PLAY
@@ -158,11 +158,11 @@ spin K1 -2
 expect cursor 1
 spin K3 2
 expect row_sect1 2
-turn SELECT 2
-spin K1 -1
+turn SELECT 1
+spin K2 -1
 expect song_intro 0
 expect song_ending 1
-turn SELECT -2
+turn SELECT -1
 tap PLAY
 wait 19500
 expect sect 6
@@ -230,11 +230,11 @@ wait 100
 expect cursor 1
 # ---- SEL's list (on its first action: ERASE LD1 IN ROW 1): COPY LD1 TO ROW 1 from row 2 (it has a note: asked)
 tap SEL
-expect list_sel 4
+expect list_sel 3
 wait 100
 shot lead_list.png
 spin SELECT 3
-expect list_sel 7
+expect list_sel 6
 tap SEL
 expect asking 1
 wait 100

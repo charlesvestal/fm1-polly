@@ -912,6 +912,32 @@ static int expect(const char *what, const char *val)
         got = slot_kind[(atoi(what + 10) - 1) & 15];
     else if (!strcmp(what, "list_open"))          /* SEL's list on screen */
         got = lst.open;
+    else if (!strncmp(what, "list_has_", 9)) {    /* list_has_WORDS: the open list has a row named WORDS ("_": a space) */
+        char w[48];
+        int i;
+        for (i = 0; i < 47 && what[9 + i]; i++)
+            w[i] = what[9 + i] == '_' ? ' ' : what[9 + i];
+        w[i] = 0;
+        list_build();
+        got = 0;
+        for (i = 0; i < lst.n; i++)
+            got |= !strcmp(lst.row[i].name, w);
+    } else if (!strncmp(what, "slottext", 8) && strstr(what, "_is_")) {
+        /* slottextN_is_WORDS: MEMORY's row N (1..16) as it reads ("_": a space, "|": a dot) */
+        char w[48];
+        const char *s = strstr(what, "_is_") + 4;
+        int i, n = (atoi(what + 8) - 1) & 15;
+        for (i = 0; i < 47 && s[i]; i++)
+            w[i] = s[i] == '_' ? ' ' : s[i];
+        w[i] = 0;
+        got = !strcmp(slot_txt[n], w);
+        if (!got)
+            printf("  (memory %d: \"%s\")\n", n + 1, slot_txt[n]);
+    } else if (!strncmp(what, "held_ring", 9))    /* held_ringN (1..16): HOME held, progression N's ring: 0 none, 1 teal
+                                                   * (playing), 2 coral (asked for), 3 ink (PLAY starts it) */
+        got = held_ring((atoi(what + 9) - 1) & 15);
+    else if (!strcmp(what, "knobs_shown"))        /* the knob strip has a knob in it */
+        got = knobs_shown();
     else if (!strcmp(what, "list_sel"))           /* the list's row picked, 0.. */
         got = lst.sel;
     else if (!strcmp(what, "card"))               /* a help card on screen: its button + 1 (B_*), 0 none */

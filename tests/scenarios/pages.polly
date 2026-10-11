@@ -1,7 +1,7 @@
 # POLLY, pages: the X0X page map (a button always opens its first page; SELECT, and only SELECT, turns them), the
 # keys by screen, HOME held + a key / SELECT / PRESETS, HOME's LOOP knob, the song's tempo and transpose.
-# Pages: 0 HOME, 1-3 SONG, 4-5 LOOP, 6 Pattern, 7 Pattern setup, 8 Track, 9 Track keys, 10 Mixer, 11 Tone,
-# 12 Master FX, 13-14 Style, 15 Setup, 16 Panel
+# Pages: 0 Home, 1-2 Song (3: no longer shown), 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2,
+# 10 Mixer, 11 Mixer tone, 12 Effects, 13-14 Style, 15 Setup, 16 Status
 wait 300
 expect page 0
 tap HOME
@@ -10,13 +10,11 @@ turn SELECT 1
 expect page 1
 turn SELECT 1
 expect page 2
-turn SELECT 1
-expect page 3
-shot song3_dots.png
+shot song2_dots.png
 turn SELECT 1
 expect page 0
 turn SELECT -1
-expect page 3
+expect page 2
 tap HOME
 expect page 0
 turn SELECT 2
