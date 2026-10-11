@@ -2237,7 +2237,7 @@ static void edit_knobs(knob_t *k)
             b[(b[1] == '#' || b[1] == 'b') ? 2 : 1] = 0;
             kv(&k[0], "High key", b, t->x.hikey, 11);
         }
-        kn(&k[1], "Channel", (t->chan & 15) + 1, 16);
+        kn(&k[1], "Channel", (t->chan & 15) + 1, ARR_CHAN_MAX + 1);
         break;
     case P_MIXER:
         kn(&k[0], "Volume", t->vol, 127);

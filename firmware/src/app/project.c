@@ -135,8 +135,11 @@ int project_pattern_load(int i, pattern_t *p)
         return -1;
     }
     n = plat_store_load((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
-    if (n == (int)sizeof *p && pattern_valid(p))
+    if (n == (int)sizeof *p && pattern_valid(p)) {
+        for (int t = 0; t < ARR_TRACKS; t++)         /* channel 16 is the click's: stored ones play on 15 */
+            p->trk[t].chan = arr_chan_fix(p->trk[t].chan);
         return 0;
+    }
     pattern_empty(p);
     return -1;
 }
@@ -261,7 +264,7 @@ int project_songs_load(songs_t *s)
         for (int k = 0; k < ARR_LEADS; k++) {       /* the lead tracks' sounds: in MIDI's ranges */
             lead_trk_t *t = &g->lead[k];
             t->program &= 127u;
-            t->chan &= 15u;
+            t->chan = arr_chan_fix(t->chan);        /* (16 is the click's) */
             t->vol &= 127u;
             t->pan &= 127u;
             t->rev &= 127u;

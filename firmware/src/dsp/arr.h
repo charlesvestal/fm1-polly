@@ -440,6 +440,12 @@ extern volatile uint32_t arr_row_tick;           /* the row playing's place (lea
  * free take waiting for its bar; 0: none) */
 enum { ARR_CLICK_OFF, ARR_CLICK_REC, ARR_CLICK_ON };
 #define ARR_CLICK_CHAN 15
+#define ARR_CHAN_MAX (ARR_CLICK_CHAN - 1)          /* the tracks' and leads' channels: 1..15, 16 is the click's */
+static inline uint8_t arr_chan_fix(uint32_t c)  /* a channel loaded (stored, a bank's): 16 becomes 15 */
+{
+    c &= 15u;
+    return (uint8_t)(c == ARR_CLICK_CHAN ? ARR_CHAN_MAX : c);
+}
 #define ARR_CLICK_PROG 115
 #define ARR_CLICK_HI 84
 #define ARR_CLICK_LO 77

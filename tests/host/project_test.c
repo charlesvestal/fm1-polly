@@ -81,6 +81,7 @@ static void test_clamp(void)
     s.song[2].sty = 9999;
 
     s.song[3].lead[1].chan = 0x9A;
+    s.song[3].lead[0].chan = ARR_CLICK_CHAN;           /* channel 16: the click's */
     s.song[3].lead[1].program = 200;
     s.song[3].row[4].lmute = 0xFF;
     s.song[3].intro = 5;
@@ -106,6 +107,7 @@ static void test_clamp(void)
     CHECK(s.song[3].ending == 0, "ending forced to 0/1 (already 0)");
     CHECK(s.song[3].at_end == 1, "at_end forced to 0/1");
     CHECK(s.song[3].lead[1].chan == 10 && s.song[3].lead[1].program == 72, "a lead's channel and program in range");
+    CHECK(s.song[3].lead[0].chan == ARR_CHAN_MAX, "a lead stored on channel 16 (the click's) loads on 15");
     CHECK(s.song[3].row[4].lmute == 3, "a row's lead mutes: two bits");
 }
 /* ------------------------------------------------------------ the shared slots --- */
@@ -138,7 +140,19 @@ static void test_slots(void)
     pattern_empty(&pb);
     pb.ev[0].tick = 0, pb.ev[0].len = 120, pb.ev[0].note = 60, pb.ev[0].vel = 100;
     pb.nev = 1, pb.trk[4].first = 0, pb.trk[4].count = 1;
+    pb.trk[5].chan = ARR_CLICK_CHAN;                     /* channel 16: the click's */
     CHECK(project_pattern_save(0, &pb) == 0, "a pattern with a note into slot 1");
+    {
+        static pattern_t q;
+        int ok = 1;
+        CHECK(project_pattern_load(0, &q) == 0 && q.trk[5].chan == ARR_CHAN_MAX && q.trk[4].chan == pb.trk[4].chan,
+              "a track stored on channel 16 (the click's) loads on 15, the others as stored");
+        for (int i = 0; i < arr_styles() * ARR_NSECT; i++)
+            if (arr_factory_pattern(ARR_FACTORY0 + i, &q) == 0)
+                for (int t = 0; t < ARR_TRACKS; t++)
+                    ok &= q.trk[t].chan != ARR_CLICK_CHAN;
+        CHECK(ok, "no factory style's track on channel 16 (the click's)");
+    }
     pattern_empty(&pb);
     CHECK(project_pattern_save(1, &pb) == 0, "an empty pattern into slot 2");
     put_lead_part(2, 1, 0, 30);                          /* song 2's leads */

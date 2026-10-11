@@ -2885,7 +2885,7 @@ static void lead_knob(int k, int32_t e)
         break;
     case P_TRACK2:
         if (k == 1)
-            lsnd_set(&l->chan, l->chan + d, 0, 15);
+            lsnd_set(&l->chan, l->chan + d, 0, ARR_CHAN_MAX);   /* (16 is the click's) */
         else if (k == 0)
             say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
         break;
@@ -2959,7 +2959,7 @@ static void edit_knob(int k, int32_t e)
         if (k == 0)
             trk_set(&t->x.hikey, t->x.hikey + d, 0, XT_NOKEY);
         else if (k == 1)
-            trk_set(&t->chan, t->chan + d, 0, 15);
+            trk_set(&t->chan, t->chan + d, 0, ARR_CHAN_MAX);
         break;
     case P_MIXER: {
         uint8_t *v = k == 0 ? &t->vol : k == 1 ? &t->pan : k == 2 ? &t->rev : &t->cho;

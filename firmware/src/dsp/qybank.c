@@ -165,6 +165,8 @@ static int header(const uint8_t *h, uint32_t n, qb_style_t *s)
         if (p + 7 > n)
             return -1;
         r->chan = h[p] & 15u;
+        if (r->chan == 15u)                        /* channel 16 is the click's (arr.h ARR_CLICK_CHAN): 15 */
+            r->chan = 14u;
         r->drum = h[p] >> 7;
         r->prog = h[p + 1] & 127u;
         r->vol = h[p + 2] & 127u;

@@ -64,6 +64,8 @@ int main(int argc, char **argv)
             CHECK(rc == 0 && st.index == i, "style %d (%s) decodes: %d", i, qb_name(i), rc);
             CHECK(!strcmp(st.name, qb_name(i)), "its name %s / %s", st.name, qb_name(i));
             CHECK(st.beats >= 2 && st.beats <= 7, "%s: %d beats", st.name, st.beats);
+            for (int t = 0; t < 8; t++)
+                CHECK(st.trk[t].chan != 15, "%s: track %d on channel 16 (the click's)", st.name, t);
             for (int k = 0; k < 6; k++)
                 for (int t = 0; t < 8; t++)
                     if (st.use[k][t] != 0xFF) {

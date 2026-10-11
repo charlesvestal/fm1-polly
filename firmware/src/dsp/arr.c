@@ -2358,7 +2358,7 @@ int arr_factory_pattern(int n, pattern_t *p)
         const sty_trk_t *s = &f->trk[t];
         arr_trk_t *k = &p->trk[t];
         k->program = s->program;
-        k->chan = s->chan;
+        k->chan = arr_chan_fix(s->chan);
         k->x.type = s->type;
         k->x.lo = s->lo;
         k->x.hi = s->hi;
@@ -2421,7 +2421,7 @@ int arr_bank_pattern(const qb_style_t *S, int k, pattern_t *p)
         const qb_trk_t *q = &S->trk[t];
         uint32_t u = S->use[k][t];
         const qy_phrase_t *P = u < S->nph ? &S->ph[u] : 0;
-        r->chan = q->chan & 15u;
+        r->chan = arr_chan_fix(q->chan);
         r->program = q->drum ? 0 : S->prog[k][t] & 127u;
         r->vol = q->vol;
         r->pan = q->pan;
