@@ -575,7 +575,9 @@ section's melody, clear it first (**SEL**: the list opens on **CLEAR M1 IN SECTI
 - **Quantise:** **SEL**'s **QUANTISE M1 IN SECTION 3** moves that section's M1 notes to the nearest line of the
   Band page's grid (shown at the right: 16, 8T, ...). Record with the grid off to play freely, then quantise.
   HOME + REC undoes it in one step.
-- **Sound:** a melody's Sound is one page: **KNOB 1** its sound, **KNOB 2** its channel, **KNOB 4 Velocity** how
+- **Sound:** a melody's Sound is one page, its sound's family at the top ("M1 Synth Lead", plum). Turning
+  **KNOB 1** (or **PRESETS**, a family) shows the family's eight sounds there for a moment, the sound ringed, as for
+  an instrument. **KNOB 1** its sound, **KNOB 2** its channel, **KNOB 4 Velocity** how
   hard the notes you record from then on are (the keys have no velocity; 100 at first). It always plays "as
   played" over the whole keyboard: no type, range or high key to set. The Mixer and Mixer tone pages have its strip
   (black keys 9 and 10 pick M1, M2).
@@ -596,11 +598,15 @@ instrument.
 
 ![The Sound page](docs/img/manual/sound.png)
 
-The page shows the instrument's sound big ("Celesta"), its family and General MIDI number small ("Chromatic",
-"GM 9"), and the range it plays in, over the whole MIDI keyboard.
+The page is a browser: the sound's General MIDI family of eight as its heading ("Chromatic"), the family's
+sounds in two columns of four (Celesta to Dulcimer), the sound the instrument plays ringed coral, its General
+MIDI number small at the right ("GM 9"). Turning KNOB 1, the ring moves through the family, so you see where
+you are going. Under them, the range it plays in (its low and high ends at the sides), over the whole MIDI
+keyboard.
 
 - **KNOB 1** the sound: the 128 General MIDI sounds, by name. **PRESETS** jumps a family of eight
-  (pianos, organs, guitars, basses...). A drum instrument plays the drum kit (no range, no Low or High).
+  (pianos, organs, guitars, basses...). A drum instrument plays the drum kit: the page shows "Drums" and the kit,
+  no family, no range, no Low or High.
 - **KNOB 2** the type: how the instrument follows the chords ("as played" once Polly has switched it so).
 - **KNOB 3, KNOB 4** the low and high limits. A note outside them moves by octaves until it fits.
 

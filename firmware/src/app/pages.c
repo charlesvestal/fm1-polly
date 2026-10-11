@@ -1759,6 +1759,7 @@ static int trk_rec_shown(void)
 }
 #define TR_Y 36                                      /* the bars' top */
 static void draw_lead(int rec);
+static void sound_head(const char *trk, uint32_t prog, int drums, int lead);
 static void draw_lead_rec(void) { draw_lead(1); }
 static void draw_trk_rec(void)
 {
@@ -1973,15 +1974,10 @@ static void draw_lead(int rec)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    if (!rec) {   /* the line: "M1  81 Square Lead"; under it where: "section 2 . bar 1" (the cursor, coral; playing,
+    if (!rec) {   /* the line: "M1  Synth Lead  GM 81" (Sound's head); under it where: "section 2 . bar 1" (the cursor, coral; playing,
                    * "section 3 . bar 2.3", teal), the notes in the section */
-        int32_t x = pill(8, 0, 0, TRACK_NAME[ARR_LD1 + k], K_PLUM, K_BG), gx = 232;
-        if ((lt->chan & 15u) != 9u) {                /* its General MIDI number, small, at the right */
-            itoa_u(lt->program + 1u, cat_s(t, "GM "));
-            gx -= text_w(&FONT_XS, t);
-            cv_text(gx, 3, &FONT_XS, t, K_DIM);
-        }
-        text_fit(x + 8, 2, &FONT_B, (lt->chan & 15u) == 9u ? "Drum kit" : GM_PROGRAM[lt->program & 127u], gx - 8 - x - 8, K_TEXT);
+        int32_t x;                                   /* (the head: Sound's, its family; the sound: the knob's value) */
+        sound_head(TRACK_NAME[ARR_LD1 + k], lt->program & 127u, (lt->chan & 15u) == 9u, 1);
         if (!n)
             cv_text(10, 20, &FONT_XS, "no sections yet (Song page)", K_DIM);
         else {
@@ -2136,15 +2132,48 @@ static void draw_patset(void)
     }
     cv_blit(0, MAIN_Y);
 }
-/* the selected instrument's sound (Sound): its pill, the sound's name big, its family and General MIDI number small, the
- * keys it plays over (the range over the whole MIDI keyboard; drums: none, a sound on each key). Sound 2: what the high
- * key does, as a picture: an octave, the roots above the high key an octave down (Chord 1 and Bass only) */
+/* Sound's browser: the family of eight around the sound, two columns of four (1-4, 5-8), the sound the cursor (a coral
+ * ring; the knob's value, the tag's name: the same sound, named once more here as where you are among its family) */
+#define SB_Y 24                                      /* the list's top; a row 17 px */
+#define SB_RH 17
+#define SB_CW 110                                    /* a column (the longest name, "Tango Accordion": 98 px) */
+static void sound_list(uint32_t prog)
+{
+    uint32_t f = prog & 120u, i;
+    for (i = 0; i < 8u; i++) {
+        int32_t x = 8 + (int32_t)(i / 4u) * (SB_CW + 4), y = SB_Y + (int32_t)(i % 4u) * SB_RH;
+        if (f + i == prog) {
+            cv_round(x, y, SB_CW, SB_RH - 1, 4, K_ACCENT);
+            cv_round(x + 2, y + 2, SB_CW - 4, SB_RH - 5, 3, K_BG);
+        }
+        text_fit(x + 6, y - 1, &FONT_S, GM_PROGRAM[f + i], SB_CW - 10, K_TEXT);
+    }
+}
+/* the Sound page's head: the instrument's pill (a melody's plum), the family's name (the list's heading; a melody's
+ * plum), the sound's General MIDI number small at the right ("GM 9"); drums: "Drums", no number */
+static void sound_head(const char *trk, uint32_t prog, int drums, int lead)
+{
+    char a[12];
+    int32_t x = lead ? pill(8, 0, 0, trk, K_PLUM, K_BG) : pill_o(8, 0, 0, trk, K_TEXT, K_TEXT), gx = 232;
+    if (!drums) {
+        itoa_u(prog + 1u, cat_s(a, "GM "));
+        gx -= text_w(&FONT_XS, a);
+        cv_text(gx, 3, &FONT_XS, a, K_DIM);
+    }
+    text_fit(x + 8, 2, &FONT_B, drums ? "Drums" : GM_FAMILY[(prog & 127u) / 8u], gx - 8 - x - 8, lead ? K_PLUM : K_TEXT);
+}
+/* a melody's Sound page while its Sound knob turns (or PRE steps the families): the browser, over the song view */
+static int sound_browsing(void) { return app.lead && ui.touched == 0 && plat_ms() < ui.touch_until; }
+/* the selected instrument's sound (Sound): the head (its family, the General MIDI number), the family's eight sounds
+ * (the browser), the keys it plays over (the range over the whole MIDI keyboard; drums: the kit, a sound on each key;
+ * a melody: no range, its browser only while the Sound knob turns). Sound 2: what the high key does, as a picture:
+ * an octave, the roots above the high key an octave down (Chord 1 and Bass only) */
 static void draw_track(void)
 {
     int s = pslot(), k2 = ui.page == P_TRACK2;
     arr_trk_t lb;
     const arr_trk_t *t = sel_arr(&lb);
-    int drums = (t->chan & 15u) == 9u;
+    int drums = (t->chan & 15u) == 9u, lead = app.lead != 0;
     uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)k2 << 8);
     char a[24], b[16];
     h = hash(h, t->program | (uint32_t)t->chan << 8 | (uint32_t)t->x.type << 16 | (uint32_t)t->x.hikey << 24);
@@ -2153,15 +2182,15 @@ static void draw_track(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    {   /* the pill; the General MIDI number, small, at the right ("GM 9") */
+    if (k2) {   /* the pill; the General MIDI number, small, at the right ("GM 9"); the sound's name by the pill */
         int32_t x = pill_o(8, 0, 0, TRACK_NAME[sel_trk()], K_TEXT, K_TEXT);
         if (!drums) {
             itoa_u(t->program + 1u, cat_s(a, "GM "));
             cv_text(232 - text_w(&FONT_XS, a), 3, &FONT_XS, a, K_DIM);
         }
-        if (k2)                                      /* (Sound 2: the sound's name by the pill, small) */
-            text_fit(x + 8, 2, &FONT_B, drums ? "Drum kit" : GM_PROGRAM[t->program & 127u], 180 - x, K_TEXT);
-    }
+        text_fit(x + 8, 2, &FONT_B, drums ? "Drum kit" : GM_PROGRAM[t->program & 127u], 180 - x, K_TEXT);
+    } else
+        sound_head(TRACK_NAME[sel_trk()], t->program & 127u, drums, lead);
     if (k2) {   /* the high key: an octave C..B, the roots above it shaded (an octave down), it marked */
         static const uint8_t BLK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
         int hk = t->x.hikey, works = t->x.type == XT_CHORD1 || t->x.type == XT_BASS;
@@ -2188,45 +2217,23 @@ static void draw_track(void)
         cv_blit(0, MAIN_Y);
         return;
     }
-    if (drums) {
-        cv_text(10, 28, &FONT_L, "Drum kit", K_TEXT);
-        cv_text(10, 64, &FONT_S, "Channel 10: a sound on each key", K_DIM);
+    if (drums) {   /* the kit: one entry, no family (nothing to step through), ink: it stays */
+        cv_round(8, SB_Y, SB_CW, SB_RH - 1, 4, K_TEXT);
+        cv_round(9, SB_Y + 1, SB_CW - 2, SB_RH - 3, 3, K_BG);
+        cv_text(14, SB_Y - 1, &FONT_S, "Drum kit", K_TEXT);
+        cv_text(10, SB_Y + SB_RH + 6, &FONT_S, "Channel 10: a sound on each key", K_DIM);
     } else {
-        int two = 0;
-        const char *nm = GM_PROGRAM[t->program & 127u];
-        int32_t nx = 10;
-        if (text_w(&FONT_L, nm) <= 230 - nx)         /* the name big: "Clavinet"; too long, on two lines ("Tango" /
-                                                      * "Accordion"; the family line gives way), else smaller */
-            cv_text(nx, 24, &FONT_L, nm, K_TEXT);
-        else {
-            char l1[24];
-            uint32_t i, sp = 0;
-            for (i = 0; nm[i] && i < sizeof l1 - 1u; i++)
-                if ((l1[i] = nm[i]) == ' ') {
-                    l1[i] = 0;
-                    if (text_w(&FONT_L, l1) <= 230 - nx)
-                        sp = i;
-                    l1[i] = ' ';
-                }
-            if (sp && text_w(&FONT_L, nm + sp + 1) <= 230 - nx) {
-                l1[sp] = 0;
-                cv_text(nx, 20, &FONT_L, l1, K_TEXT);
-                cv_text(nx, 50, &FONT_L, nm + sp + 1, K_TEXT);
-                two = 1;
-            } else
-                text_fit(nx, 32, &FONT_B, nm, 230 - nx, K_TEXT);
-        }
-        if (!two)
-            cv_text(10, 60, &FONT_S, GM_FAMILY[(t->program & 127u) / 8u], K_DIM);
-        {   /* the range over the whole MIDI keyboard */
-            int32_t x0 = 10, w = 220, y = 88, lx = x0 + t->x.lo * w / 127, hx = x0 + t->x.hi * w / 127;
-            cv_round(x0, y, w, 10, 4, K_PANEL);
-            cv_round(lx, y, hx - lx < 4 ? 4 : hx - lx, 10, 4, K_DIM);
+        sound_list(t->program & 127u);
+        if (!lead) {   /* the range over the whole MIDI keyboard, its two ends at its sides ("G3 ==== G5") */
+            int32_t y = SB_Y + 4 * SB_RH + 6, x0 = 38, w = 164, lx, hx;
             note_name(t->x.lo, a);
             note_name(t->x.hi, b);
-            cv_text(x0, y + 12, &FONT_XS, a, K_DIM);
-            cv_text(x0 + w - text_w(&FONT_XS, b), y + 12, &FONT_XS, b, K_DIM);
-            cv_text(120 - text_w(&FONT_XS, "range") / 2, y + 12, &FONT_XS, "range", K_DIM);
+            lx = x0 + t->x.lo * w / 127;
+            hx = x0 + t->x.hi * w / 127;
+            cv_round(x0, y + 5, w, 6, 3, K_PANEL);
+            cv_round(lx, y + 5, hx - lx < 6 ? 6 : hx - lx, 6, 3, K_DIM);
+            cv_text(x0 - 6 - text_w(&FONT_XS, a), y, &FONT_XS, a, K_DIM);
+            cv_text(x0 + w + 6, y, &FONT_XS, b, K_DIM);
         }
     }
     cv_blit(0, MAIN_Y);
@@ -3735,7 +3742,7 @@ static void draw_page(void)
         draw_pattern();
     else if (ui.page == P_PATSET)
         draw_patset();
-    else if (ui.page == P_TRACK && app.lead)
+    else if (ui.page == P_TRACK && app.lead && !sound_browsing())
         draw_lead(0);                                /* (a melody: where its notes are in the song) */
     else if (ui.page == P_TRACK || ui.page == P_TRACK2)
         draw_track();

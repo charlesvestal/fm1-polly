@@ -197,6 +197,23 @@ shot groove_length.png
 tap EDIT
 expect page 8
 shot sound.png
+# the browser: the Sound knob turned (its value coral, the cursor one down the family), PRE a family (Synth Pad: the
+# longest names), then Ethnic; back to the piano
+turn K1 1
+shot sound_turned.png
+wait 1500
+turn PRESET 11
+expect tag_is_S1>Pop>Intro_(yours)>C1_New_Age_Pad 1
+turn K1 2
+wait 1500
+shot sound_pads.png
+turn PRESET 2
+wait 1500
+shot sound_ethnic.png
+turn PRESET -13
+turn K1 -1
+expect tag_is_S1>Pop>Intro_(yours)>C1_Acoustic_Grand 1
+wait 1500
 turn SELECT 1
 expect page 9
 shot sound2.png
@@ -211,6 +228,12 @@ expect page 8
 turn SELECT 1
 expect page 8
 shot sound_melody.png
+# its Sound knob turned: the browser over the song view (plum: the melody's), back after a moment
+turn K1 1
+shot sound_melody_turned.png
+turn K1 -1
+wait 1500
+expect tag_is_S1>M1_Square_Lead 1
 tap SEL
 shot list_melody.png
 tap HOME
