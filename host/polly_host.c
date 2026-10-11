@@ -624,6 +624,22 @@ static int expect(const char *what, const char *val)
         got = app.ldirty;
     else if (!strcmp(what, "lead_rowtick"))       /* the row playing's place, ticks (arr_row_tick) */
         got = (int)arr_row_tick;
+    else if (!strcmp(what, "lead_sel"))           /* the lead track selected: 1 LD1, 2 LD2, 0 none (a pattern's track) */
+        got = app.lead;
+    else if (!strncmp(what, "lead_count", 10))    /* lead_countK_R: lead K's (1, 2) notes in row R (1..; 0: all rows) */
+        got = leads_count(&leads, atoi(strrchr(what, '_') + 1) - 1, (what[10] - '1') & 1);
+    else if (!strncmp(what, "lsnd", 4) && strchr(what, '_')) {
+        /* lsndK_prog / _chan / _vol / _pan / _rev / _cho / _bright: lead K's (1, 2) sound, the song's (prog 1..128, chan 1..16);
+         * engsndK_prog: the engine's copy (leads.trk) */
+        const lead_trk_t *l = &csong()->lead[(what[4] - '1') & 1];
+        const char *f = strchr(what, '_') + 1;
+        got = !strcmp(f, "prog") ? l->program + 1 : !strcmp(f, "chan") ? l->chan + 1 : !strcmp(f, "vol") ? l->vol
+            : !strcmp(f, "pan") ? l->pan : !strcmp(f, "rev") ? l->rev : !strcmp(f, "cho") ? l->cho
+            : !strcmp(f, "bright") ? (l->bright ^ 64) & 127 : -1;
+    } else if (!strncmp(what, "engsnd", 6) && strstr(what, "_prog"))
+        got = leads.trk[(what[6] - '1') & 1].program + 1;
+    else if (!strncmp(what, "row_lmute", 9))      /* row_lmuteN: row N's lead mutes, bit 0 LD1, bit 1 LD2 */
+        got = csong()->row[(atoi(what + 9) - 1) % ARR_ROWS].lmute;
     else if (!strncmp(what, "lead", 4) && strchr(what, '_') && what[4] >= '0' && what[4] <= '9') {
         /* leadI_row / _pos / _note / _root / _trk / _len: lead note I (1..) of the list; -1 none */
         int i = atoi(what + 4) - 1;
@@ -877,9 +893,10 @@ int main(int argc, char **argv)
                     dbg_songs.song[n].style[k] = (uint16_t)(n * ARR_NSECT + k);
             project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_lead_rec")) {   /* host-only: poke_lead_rec K: lead K (1, 2) selected and armed (the keys
-                                                       * play it, a song's rows record it; 0: back to the track, off), until
-                                                       * EDIT's ALGORITHM selects the leads */
+                                                       * play it, a song's rows record it; 0: back to the track, off), as
+                                                       * ALGORITHM past C4 and REC do */
             int k = atoi(a);
+            app.lead = (uint8_t)(k >= 1 && k <= 2 ? k : 0);
             arr_record(k >= 1 && k <= 2 ? ARR_LD1 + k - 1 : proj.trk, k >= 1 && k <= 2);
             run_ms(20);
         } else if (!strcmp(cmd, "poke_row")) {        /* host-only: poke_row L: a row of loop L (1..16) at the song's end

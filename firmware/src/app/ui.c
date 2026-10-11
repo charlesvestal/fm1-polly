@@ -23,7 +23,7 @@
  *                   black keys), nothing (FX, ENV, GLO)
  *   SAVE            saves (lit: something to save); held + white key n: copy here (HOME, LOOP: the loop to Ln; SEQ:
  *                   the pattern to P(n))                                    OCT- / OCT+   the keys' octave (LOOP: the cursor)
- *   SELECT          the button's next / previous page      ALGORITHM   the track       PRESETS   per page
+ *   SELECT          the button's next / previous page      ALGORITHM   the track (D1..C4, LD1, LD2)   PRESETS   per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 
 static void say(const char *a, const char *b)
@@ -534,7 +534,7 @@ void app_start(void)
     arr_midi_out_on(proj.mout);                  /* the tracks out on their channels */
     fx_apply();
     song_load();                                 /* (the song's tempo and transpose) */
-    arr_record(proj.trk, 0);                     /* the keys play the selected track */
+    arr_record(sel_trk(), 0);                    /* the keys play the selected track */
 }
 
 /* ------------------------------------------------------------ controls --- */
@@ -625,11 +625,30 @@ static int follows_told(int trk)
     ui.follow_hint = 1;
     return 1;
 }
+/* ALGORITHM (and the Mixer's black keys): the track, D1 .. C4, then the song's lead tracks LD1, LD2 (round). REC on goes
+ * on into the track picked; a lead records only in a song (in FREE / LOOP: REC off, said) */
 static void set_track(int t)
 {
-    int r;
-    proj.trk = (uint8_t)(t & 7);
+    int r, rec = arr_recording || ui.rec_want;
+    t = (t % ARR_ALLTRK + ARR_ALLTRK) % ARR_ALLTRK;
     ui.follow_hint = 0;
+    if (t >= ARR_TRACKS) {                       /* a lead: proj.trk stays the pattern's track */
+        app.lead = (uint8_t)(t - ARR_TRACKS + 1);
+        if (rec && app.mode != ARR_SONG) {
+            arr_record(t, 0);
+            ui.rec_want = ui.rec_seen = 0;
+            say("LEADS RECORD", "IN A SONG");
+            return;
+        }
+        arr_trk_t lb;
+        arr_record(t, rec);                      /* (a lead: no bar line to wait for) */
+        say(TRACK_NAME[t], trk_sound(sel_arr(&lb)));
+        return;
+    }
+    if (app.lead && rec)
+        slot_own(eslot());                       /* from a lead to a pattern's track, recording: a user pattern first */
+    app.lead = 0;
+    proj.trk = (uint8_t)t;
     if (arr_recording && (r = rec_as_played(eslot(), proj.trk)) != 0) {
         char m[24];
         arr_record(proj.trk, ARR_REC_BAR);       /* recording goes on, into this track */
@@ -1054,8 +1073,8 @@ static void key_down(int k)
         arr_key(ui.knote[k], 1, 100);            /* the selected track's sound; recorded when recording */
     } else if (r == KR_PICK && song_page())
         song_key(k);                             /* SONG: white the row's loop, black its mutes */
-    else if (r == KR_PICK && b >= 0 && b < ARR_TRACKS)
-        set_track(b);                            /* the mixer: black key i, track i */
+    else if (r == KR_PICK && b >= 0 && b < ARR_ALLTRK)
+        set_track(b);                            /* the mixer: black key i, track i (9, 10: LD1, LD2) */
 }
 static void key_up(int k)
 {
@@ -1102,7 +1121,7 @@ static void rec_follow_keys(void)
         return;
     ui.role_was = (uint8_t)r;
     if (r != KR_TRACK && (ui.rec_want || arr_recording)) {
-        arr_record(proj.trk, 0);
+        arr_record(sel_trk(), 0);
         ui.rec_want = ui.rec_seen = 0;
         say("RECORD OFF", 0);
     }
@@ -1118,8 +1137,8 @@ static void rec_follow_keys(void)
 }
 
 /* ---- SONG (HOME's next pages): the song's rows. White key n: the row at the cursor plays Ln (row_tap: on the END row
- * a row is added; never a REPEAT, that is the REPEAT knob's), the cursor to the row after; black keys 1-8: the row's
- * mutes (D1 D2 PC BA C1 C2 C3 C4; the row playing: heard at once; on the END row: the last row's, the one just
+ * a row is added; never a REPEAT, that is the REPEAT knob's), the cursor to the row after; black keys 1-10: the row's
+ * mutes (D1 D2 PC BA C1 C2 C3 C4, LD1 LD2; the row playing: heard at once; on the END row: the last row's, the one just
  * added). Every write to the rows goes through songs_write (the render reads them at each block's start). Rows are
  * only set or added here, never moved (INSERT / DELETE ROW: stopped only), so the row playing keeps its index */
 static void song_tap(int w)
@@ -1149,8 +1168,8 @@ static void song_key(int k)
         song_tap(w);
         return;
     }
-    if (b < 0 || b >= ARR_TRACKS)
-        return;                                  /* black keys 9-11: nothing */
+    if (b < 0 || b >= ARR_ALLTRK)
+        return;                                  /* black key 11: nothing */
     if (!g->nrows) {
         say("NO ROWS", "WHITE KEYS FIRST");
         return;
@@ -1158,9 +1177,12 @@ static void song_key(int k)
     if (r >= g->nrows)
         r = g->nrows - 1;                        /* the END row: the last row (the one just added) */
     songs_write(1);
-    g->row[r].mute ^= (uint8_t)(1u << b);
+    if (b >= ARR_TRACKS)                         /* 9, 10: the lead tracks' */
+        g->row[r].lmute ^= (uint8_t)(1u << (b - ARR_TRACKS));
+    else
+        g->row[r].mute ^= (uint8_t)(1u << b);
     songs_write(0);
-    on = g->row[r].mute >> b & 1u;
+    on = b >= ARR_TRACKS ? g->row[r].lmute >> (b - ARR_TRACKS) & 1u : g->row[r].mute >> b & 1u;
     if (arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && r == arr_row)
         arr_track_mute(b, on);                   /* the row playing: heard now (its next start would anyway) */
     say(TRACK_NAME[b], on ? "muted" : "plays");
@@ -1360,6 +1382,25 @@ static void song_play_from(int r)
         arr_play(1);
 }
 static void song_rec_toggle(void);
+/* REC with a lead track selected (SEQ, EDIT): armed in a song (it records while the song's rows play: PLAY here starts
+ * row 1, PLAY FROM ROW on SONG punches in); in FREE / LOOP not (leads play only in a song) */
+static void lead_rec_button(int on)
+{
+    char a[16];
+    if (on && app.mode != ARR_SONG) {
+        say("LEADS RECORD", "IN A SONG");
+        return;
+    }
+    arr_record(sel_trk(), on);
+    ui.rec_want = (uint8_t)on;
+    ui.rec_seen = 0;
+    if (!on)
+        say("RECORD OFF", 0);
+    else {
+        cat_s(cat_s(a, "RECORD "), TRACK_NAME[sel_trk()]);
+        say(a, arr_playing ? "INTO THE SONG" : "FROM PLAY");
+    }
+}
 static void button_down(int b)                   /* PLAY: at once; REC: at its release (button_up) */
 {
     switch (b) {
@@ -1393,6 +1434,10 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         }
         if (on && r != KR_TRACK) {               /* REC records what the keys play: a track on SEQ, EDIT */
             say("REC", "not here");
+            break;
+        }
+        if (app.lead) {                          /* a lead track: into the song's rows as they play */
+            lead_rec_button(on);
             break;
         }
         if (on)
@@ -1498,12 +1543,12 @@ static void song_change(int s)
 {
     char t[12];
     int rec = arr_recording;
-    arr_record(proj.trk, 0);
+    arr_record(sel_trk(), 0);
     ui.rec_want = 0;
     if (unsaved() && save_all() != 0) {
         say("NOT SAVED", "SONG KEPT");
         if (rec)
-            arr_record(proj.trk, ARR_REC_BAR);   /* as it was */
+            arr_record(sel_trk(), ARR_REC_BAR);  /* as it was */
         return;
     }
     proj.song = (uint8_t)s;
@@ -1833,26 +1878,51 @@ static void act_clear_loop(void)
     } else
         ask_loop("CLEAR ", ui.tgt.loop, do_clear_loop);
 }
-/* INSERT ROW, DELETE ROW: at the SONG screen's row; stopped only (the rows after the one playing would move) */
-static void act_row(int ins)
+/* INSERT ROW, DELETE ROW: at the SONG screen's row (row: app.row, or the one a question asked about); stopped only (the
+ * rows after the one playing would move). A row with lead notes asks first ("ROW 3 HAS LEAD NOTES: DELETE?") */
+static int row_change(int ins, int row)
 {
     song_t *g = csong();
-    char t[12];
     if (arr_playing) {
         say(ins ? "INSERT ROW" : "DELETE ROW", "STOP FIRST");
-        return;
+        return -1;
     }
     if (ins && g->nrows >= ARR_ROWS) {
         say("SONG FULL", "32 ROWS");
-        return;
+        return -1;
     }
-    if (!ins && app.row >= g->nrows) {
+    if (!ins && row >= g->nrows) {
         say("DELETE ROW", "NO ROW HERE");
+        return -1;
+    }
+    return 0;
+}
+static void row_do(int ins, int row);
+static void do_delete_row(void)
+{
+    if (row_change(0, ui.tgt.lrow) == 0)
+        row_do(0, ui.tgt.lrow);
+}
+static void act_row(int ins)
+{
+    char q[32];
+    if (row_change(ins, app.row) != 0)
+        return;
+    if (!ins && leads_count(&leads, app.row, -1)) {
+        ui.tgt.lrow = app.row;
+        cat_s(itoa_u(app.row + 1u, cat_s(q, "ROW ")), " HAS LEAD NOTES: DELETE?");
+        ask(q, do_delete_row);
         return;
     }
-    itoa_u(app.row + 1u, cat_s(t, "ROW "));
+    row_do(ins, app.row);
+}
+static void row_do(int ins, int row)
+{
+    song_t *g = csong();
+    char t[12];
+    itoa_u((uint32_t)row + 1u, cat_s(t, "ROW "));
     {
-        int r = ins ? (app.row > g->nrows ? g->nrows : app.row) : app.row, before = leads.n;
+        int r = ins ? (row > g->nrows ? g->nrows : row) : row, before = leads.n;
         songs_write(1);                          /* (the rows and the lead notes in one write: their rows move together) */
         if (ins) {
             row_insert(g, r);
@@ -1957,6 +2027,39 @@ static void act_copy_song(void)
     cat_s(itoa_u((uint32_t)to + 1u, cat_s(q, "REPLACE SONG ")), "?");
     ask(q, do_copy_song);
 }
+/* ERASE LD1 IN ROW n (the row playing, else SONG's cursor), ERASE LD1 (the whole song's): the lead's notes, asked
+ * first. tgt.lrow 255: every row */
+static void lead_erase_what(char *t)            /* "LD1 IN ROW 3", "LD1" */
+{
+    char *e = cat_s(t, TRACK_NAME[ARR_LD1 + ui.tgt.ltrk % ARR_LEADS]);
+    if (ui.tgt.lrow != 255u)
+        itoa_u(ui.tgt.lrow + 1u, cat_s(e, " IN ROW "));
+}
+static void do_erase_lead(void)
+{
+    int before = leads.n, n;
+    char t[24];
+    lead_write(1);
+    n = leads_erase(&leads, ui.tgt.lrow == 255u ? -1 : ui.tgt.lrow, ui.tgt.ltrk % ARR_LEADS);
+    lead_write(0);
+    if (n)
+        lead_changed(0, before);
+    lead_erase_what(t);
+    say("ERASED", t);
+}
+static void act_erase_lead(int in_row)
+{
+    char q[32], t[24];
+    ui.tgt.ltrk = (uint8_t)((app.lead ? app.lead - 1 : 0) % ARR_LEADS);
+    ui.tgt.lrow = (uint8_t)(in_row ? lead_row() : 255);
+    lead_erase_what(t);
+    if (!leads_count(&leads, in_row ? ui.tgt.lrow : -1, ui.tgt.ltrk)) {
+        say(t, "HAS NO NOTES");
+        return;
+    }
+    cat_s(cat_s(cat_s(q, "ERASE "), t), "?");
+    ask(q, do_erase_lead);
+}
 /* ERASE TRACK: the selected track's notes in the pattern playing (a style's section: a user pattern first) */
 static void do_erase_track(void)
 {
@@ -2037,7 +2140,7 @@ static void action_run(int a)
     ui.tgt.loop = app.loop;                      /* what it acts on: now (a question's yes: still this) */
     ui.tgt.prog = ui.pick_prog;
     ui.tgt.song = ui.pick_song;
-    ui.tgt.trk = proj.trk;
+    ui.tgt.trk = proj.trk;                       /* (a pattern's track: a lead's actions take their own) */
     ui.tgt.slot = (uint8_t)eslot();
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
@@ -2050,6 +2153,8 @@ static void action_run(int a)
     case A_ERASE_TRACK: act_erase_track(); break;
     case A_CLEAR_PATTERN: act_clear_pattern(); break;
     case A_BACK_TO_STYLE: act_back_to_style(); break;
+    case A_ERASE_LEAD_ROW: act_erase_lead(1); break;
+    case A_ERASE_LEAD: act_erase_lead(0); break;
     default: break;
     }
     if (!ui.ask)                                 /* done (or said why not): back to the page */
@@ -2197,13 +2302,21 @@ static void trk_set(uint8_t *v, int to, int lo, int hi)
  * the style's). In SONG by hand only, until the next row (the rows' mutes are theirs) */
 static void mute_toggle(int trk)
 {
+    if (trk >= ARR_TRACKS && app.mode != ARR_SONG) {   /* a lead: in a song only (its rows' mutes, by hand) */
+        say("LEADS PLAY", "IN A SONG");
+        return;
+    }
     if (app.mode == ARR_SONG) {
-        int t = trk & 7, on = !(arr_mutes >> t & 1u);
+        int t = trk < ARR_ALLTRK ? trk : 0, on = !(arr_mutes >> t & 1u);
         song_t *g = csong();
         arr_track_mute(t, on);
         if (ui.song_rec && arr_playing && arr_loop_now >= 0 && arr_row < g->nrows) {   /* REC: into the row playing */
+            row_t *w = &g->row[arr_row];
             songs_write(1);
-            g->row[arr_row].mute = (uint8_t)((g->row[arr_row].mute & ~(1u << t)) | (uint32_t)on << t);
+            if (t >= ARR_TRACKS)
+                w->lmute = (uint8_t)((w->lmute & ~(1u << (t - ARR_TRACKS))) | (uint32_t)on << (t - ARR_TRACKS));
+            else
+                w->mute = (uint8_t)((w->mute & ~(1u << t)) | (uint32_t)on << t);
             songs_write(0);
         }
         ui.act_t = plat_ms();
@@ -2216,10 +2329,59 @@ static void mute_toggle(int trk)
     app.gen++;
     ui.act_t = plat_ms();
 }
+/* a lead track's sound or mixer setting moved (the song's: saved with the songs), to the engine's copy */
+static void lsnd_set(uint8_t *v, int to, int lo, int hi)
+{
+    to = clampi(to, lo, hi);
+    if (*v == (uint8_t)to)
+        return;
+    *v = (uint8_t)to;
+    lead_sounds_sync();
+    song_touched();
+}
+/* EDIT's and the Mixer's knobs with a lead selected: PROGRAM; CHANNEL; VOLUME, PAN, REVERB, CHORUS; BRIGHT, RESO. Its type
+ * (as played), range (all) and high key (off) are fixed: said */
+static void lead_knob(int k, int32_t e)
+{
+    lead_trk_t *l = sel_lead();
+    int d = e > 0 ? 1 : -1;
+    switch (ui.page) {
+    case P_TRACK:
+        if (k == 0) {
+            if ((l->chan & 15u) != 9u)
+                lsnd_set(&l->program, l->program + accel(EN_K1, e), 0, 127);
+        } else
+            say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
+        break;
+    case P_TRACK2:
+        if (k == 1)
+            lsnd_set(&l->chan, l->chan + d, 0, 15);
+        else if (k == 0)
+            say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
+        break;
+    case P_MIXER: {
+        uint8_t *v = k == 0 ? &l->vol : k == 1 ? &l->pan : k == 2 ? &l->rev : &l->cho;
+        lsnd_set(v, *v + accel(EN_K1 + k, e), 0, 127);
+        break;
+    }
+    case P_TONE:                                 /* brightness, resonance: stored XOR 64 (0 neutral) */
+        if (k < 2) {
+            uint8_t *v = k == 0 ? &l->bright : &l->reso;
+            int to = clampi((*v ^ 64) + accel(EN_K1 + k, e), 0, 127);
+            lsnd_set(v, to ^ 64, 0, 127);
+        }
+        break;
+    default: break;
+    }
+}
 static void edit_knob(int k, int32_t e)
 {
     int s = eslot(), d = e > 0 ? 1 : -1;
     arr_trk_t *t = &app.trk[s][proj.trk];
+    if (app.lead && (ui.page == P_TRACK || ui.page == P_TRACK2 || ui.page == P_MIXER || ui.page == P_TONE)) {
+        lead_knob(k, e);
+        return;
+    }
     switch (ui.page) {
     case P_PATTERN:
         if (k == 0)
@@ -2228,7 +2390,7 @@ static void edit_knob(int k, int32_t e)
         {                                        /* a turn, either way: muted / plays; once a burst */
             uint32_t now = plat_ms();
             if (now - ui.mute_t >= MUTE_BURST_MS)
-                mute_toggle(proj.trk);
+                mute_toggle(sel_trk());
             ui.mute_t = now;
         }
         break;
@@ -2335,6 +2497,12 @@ static void presets(int32_t e)
     else if (ui.page == P_STYLE || ui.page == P_STYLE2) {   /* the style browser: all six from the next style */
         style_turn(d);
         touch(3);
+    } else if (ui.page == P_TRACK && app.lead) {  /* (a lead's) */
+        lead_trk_t *l = sel_lead();
+        if ((l->chan & 15u) != 9u) {
+            lsnd_set(&l->program, (l->program / 8 + d) * 8, 0, 127);
+            touch(0);
+        }
     } else if (ui.page == P_TRACK) {             /* a family of eight, as the GM module */
         arr_trk_t *t = &app.trk[eslot()][proj.trk];
         if ((t->chan & 15u) != 9u) {
@@ -2549,7 +2717,7 @@ static void input(void)
         if (lst.open)
             list_change(e);                      /* a list: the value */
         else
-            set_track(proj.trk + (e > 0 ? 1 : -1));
+            set_track(sel_trk() + (e > 0 ? 1 : -1));   /* (C4, LD1, LD2, D1, ...) */
     }
     if ((e = ev[EN_PRESET]) != 0)
         presets(e);
@@ -2586,8 +2754,8 @@ static void leds(void)
             k = ui.keys;
         if (song_page() && g->nrows) {           /* SONG: the row's muted tracks' black keys glow dim (END: the last's) */
             const row_t *w = &g->row[app.row < g->nrows ? app.row : g->nrows - 1];
-            for (i = 0; i < ARR_TRACKS; i++)
-                if (w->mute >> i & 1u)
+            for (i = 0; i < ARR_ALLTRK; i++)
+                if ((i < ARR_TRACKS ? w->mute >> i : w->lmute >> (i - ARR_TRACKS)) & 1u)
                     dim |= 1u << BLACK_K[i];
         }
     }

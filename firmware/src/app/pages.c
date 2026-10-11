@@ -40,7 +40,8 @@ static int page_group(int p)                         /* the PAGE_BTN entry page 
             return (int)i;
     return 0;
 }
-static const char *const TRACK_NAME[ARR_TRACKS] = {"D1", "D2", "PC", "BA", "C1", "C2", "C3", "C4"};
+/* the tracks: a pattern's eight, then the song's two lead tracks (ARR_LD1, ARR_LD1 + 1) */
+static const char *const TRACK_NAME[ARR_ALLTRK] = {"D1", "D2", "PC", "BA", "C1", "C2", "C3", "C4", "LD1", "LD2"};
 /* SEC_* (SEC_FILL: the Fill asked for, AB or BA by the Main playing) */
 static const char *const SECT_NAME[SEC_FILL + 1] = {"", "Intro", "Main A", "Main B", "Fill AB", "Fill BA", "Ending", "Fill"};
 static const char *const KEY_NAME[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -106,6 +107,8 @@ static struct {
     int8_t lslot[LEAD_PARTS];                        /* the slot each lead part of the song is saved in (taken when the
                                                       * part is first needed: no pattern takes it meanwhile), -1 none */
     uint8_t ldirty;                                  /* the lead parts changed since loaded or saved (bit k: part k) */
+    uint8_t lead;                                    /* a lead track selected (ALGORITHM past C4): 1 LD1, 2 LD2; 0 none,
+                                                      * proj.trk's (proj.trk keeps the pattern's track meanwhile) */
 } app;
 
 /* the input's and the screen's state */
@@ -129,7 +132,7 @@ static struct {
     void (*ask_yes)(void);                           /* what SEL does */
     uint8_t copy_to, copy_src;                       /* SAVE + white key: the loop / pattern asked about, the loop copied */
     /* what an action acts on, taken when it is asked for (a question's yes acts on what it asked about) */
-    struct { uint8_t loop, prog, song, trk, slot; } tgt;
+    struct { uint8_t loop, prog, song, trk, slot, lrow, ltrk; } tgt;   /* lrow: a row (255 all), ltrk: a lead 0, 1 */
     uint8_t pick_prog, pick_song;                    /* the lists' choices: LOAD PROGRESSION, COPY SONG TO */
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint32_t mute_t;                                 /* the mute knob's last detent */
@@ -162,15 +165,17 @@ static struct {
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
 static int song_page(void) { return song_pg(ui.page); }
+/* the track selected: the keys play it, REC records into it, EDIT and the Mixer show it (0..7, or ARR_LD1 + k) */
+static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEADS : proj.trk & 7; }
 
 /* SEL: the screen as a list. Its knobs' values (each page of its button: KNOB rows), then MORE (settings on no
  * page) and the actions (ACTION: do it, PICK: a choice first). Built afresh to draw it; sel and top stay */
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
-       A_CLEAR_PATTERN, A_BACK_TO_STYLE, NACTIONS };
+       A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR LOOP", "PLAY FROM ROW", "INSERT ROW", "DELETE ROW",
                                                   "CLEAR SONG", "COPY SONG TO", "ERASE TRACK", "CLEAR PATTERN",
-                                                  "BACK TO STYLE"};
+                                                  "BACK TO STYLE", "ERASE LD IN ROW", "ERASE LD"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 7                                 /* rows on screen */
 static struct {
@@ -180,9 +185,12 @@ static struct {
 
 static void song_head(const char *what);
 /* track t muted: in SONG the engine's (the row's, or by hand until the next row); else the song's mute (every
- * section; ui.c gives it to the engine) */
+ * section; ui.c gives it to the engine). A lead track (ARR_LD1 + k): the engine's in SONG, else never (leads play
+ * only in a song) */
 static int trk_muted(int t)
 {
+    if (t >= ARR_TRACKS)
+        return app.mode == ARR_SONG && (arr_mutes >> (t < ARR_ALLTRK ? t : ARR_LD1) & 1u);
     return (app.mode == ARR_SONG ? arr_mutes : songs.song[proj.song].mute) >> (t & 7) & 1u;
 }
 
@@ -349,6 +357,36 @@ static const char *trk_sound(const arr_trk_t *t)
 {
     return (t->chan & 15u) == 9u ? "Drums" : GM_PROGRAM[t->program & 127u];
 }
+/* the lead track selected (app.lead): its sound and mixer, the song's */
+static lead_trk_t *sel_lead(void) { return &csong()->lead[(app.lead ? app.lead - 1 : 0) % ARR_LEADS]; }
+/* a lead track's sound and mixer as a pattern's track's, for the pages that draw one: type "as played" (Parallel), the
+ * whole keyboard, no high key */
+static void lead_as_arr(const lead_trk_t *l, arr_trk_t *t)
+{
+    memset(t, 0, sizeof *t);
+    t->program = l->program & 127u;
+    t->chan = l->chan & 15u;
+    t->x.type = XT_PARALLEL;
+    t->x.lo = 0;
+    t->x.hi = 127;
+    t->x.hikey = XT_NOKEY;
+    t->vol = l->vol;
+    t->pan = l->pan;
+    t->rev = l->rev;
+    t->cho = l->cho;
+    t->bright = l->bright;
+    t->reso = l->reso;
+    t->flags = ARR_TF_ASPLAYED;
+}
+/* the row a lead's erase acts on, and its recording shows: the row playing (a song's rows playing), else SONG's cursor */
+static int lead_row(void)
+{
+    const song_t *g = csong();
+    int n = g->nrows;
+    if (arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < n)
+        return arr_row;
+    return app.row < n ? app.row : n ? n - 1 : 0;
+}
 /* "C#4" (C4 = 60) */
 static char *note_name(int n, char *b)
 {
@@ -410,7 +448,10 @@ static void draw_header(void)
     cv_begin(240, HDR_H, K_BG);
     if (ask) {                                       /* the question, over all */
         cv_round(0, 0, 240, HDR_H, 0, K_ACCENT);
-        text_fit(8, 4, &FONT_B, ui.ask_q, 224, K_BG);
+        if (text_w(&FONT_B, ui.ask_q) <= 224)
+            cv_text(8, 4, &FONT_B, ui.ask_q, K_BG);
+        else                                         /* a long one ("ROW 3 HAS LEAD NOTES: DELETE?"): smaller, whole */
+            text_fit(8, 5, &FONT_S, ui.ask_q, 228, K_BG);
     } else if (msg) {
         int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
         text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
@@ -655,7 +696,7 @@ static uint32_t home_chord(void)                     /* the big chord HOME shows
 static uint32_t home_lit(void)
 {
     uint32_t lit = 0, now = arr_ticks;
-    for (uint32_t i = 0; i < ARR_TRACKS; i++) {
+    for (uint32_t i = 0; i < ARR_ALLTRK; i++) {      /* (8, 9: the leads') */
         uint32_t hit = arr_track_hit[i];
         if (arr_playing && hit && now - hit < 8u)    /* (stopped: nothing plays, nothing lit) */
             lit |= 1u << i;
@@ -664,7 +705,7 @@ static uint32_t home_lit(void)
 }
 static uint32_t home_tracks_hash(uint32_t h, uint32_t slot, uint32_t lit)
 {
-    h = hash(h, lit | (uint32_t)proj.trk << 8);
+    h = hash(h, lit | (uint32_t)sel_trk() << 12);
     for (uint32_t i = 0; i < ARR_TRACKS; i++)
         h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)trk_muted((int)i) << 12);
     return h;
@@ -673,7 +714,7 @@ static void home_tracks(uint32_t slot, uint32_t lit)
 {
     for (uint32_t i = 0; i < ARR_TRACKS; i++) {
         int32_t x = 6 + (int32_t)(i / 4u) * 116, y = 87 + (int32_t)(i % 4u) * 11;
-        int on = (int)(lit >> i & 1u), sel = i == proj.trk, mute = trk_muted((int)i);
+        int on = (int)(lit >> i & 1u), sel = (int)i == sel_trk(), mute = trk_muted((int)i);
         uint16_t fg = on ? K_BG : sel ? K_ACCENT : mute ? K_LINE : K_TEXT;
         const char *name = trk_sound(&app.trk[slot][i]);
         if (on)
@@ -682,6 +723,19 @@ static void home_tracks(uint32_t slot, uint32_t lit)
             cv_round(x, y, 112, 11, 3, K_PANEL);
         cv_text(x + 4, y - 2, &FONT_XS, TRACK_NAME[i], on ? K_BG : K_DIM);
         text_fit(x + 26, y - 2, &FONT_XS, mute ? "muted" : name, 84, fg);
+    }
+}
+/* HOME in SONG: LD1 and LD2 at the right of the song's line, lit as they play (the selected one coral); muted: dim */
+static void home_leads(uint32_t lit)
+{
+    for (int k = 0; k < ARR_LEADS; k++) {
+        int32_t x = 150 + k * 42, y = STRIP_Y + 15;
+        int t = ARR_LD1 + k, on = (int)(lit >> t & 1u), sel = t == sel_trk(), mute = trk_muted(t);
+        if (on)
+            cv_round(x, y, 40, 11, 3, sel ? K_ACCENT : K_TEAL);
+        else if (!mute)
+            cv_round(x, y, 40, 11, 3, K_PANEL);
+        text_c(x + 20, y - 2, &FONT_XS, TRACK_NAME[t], on ? K_BG : mute ? K_LINE : sel ? K_ACCENT : K_TEXT);
     }
 }
 static int wrote_flash(int li)
@@ -885,7 +939,7 @@ static void draw_home(void)
     h = hash(2166136261u, pl.chord);
     lit = home_lit();
     h = hash(h, (uint32_t)sect | (uint32_t)next << 4 | (uint32_t)play << 8 | (uint32_t)(next ? blink : 0) << 9 |
-                    lit << 10 | (uint32_t)proj.trk << 18 | (uint32_t)ovr << 21 | (uint32_t)mode << 22 |
+                    (lit & 255u) << 10 | (uint32_t)ovr << 21 | (uint32_t)mode << 22 |
                     (uint32_t)fresh << 24 | (uint32_t)intro << 25 | (uint32_t)take << 26);
     h = hash(h, pl.bar << 8 | pl.beat | (uint32_t)(uint8_t)pl.loop << 16 | pl.lbeat << 24);
     h = hash(hash(h, has_next ? arr_chord_pack(nc) : 0xFFFFFFu), (uint32_t)xpose_now() & 31u);
@@ -895,6 +949,8 @@ static void draw_home(void)
         h = hash(h, (uint32_t)(tb < 0 ? -1 : tb / (int32_t)tbt));
     }
     h = hash(h, l ? (uint32_t)l->bars | (uint32_t)app.hdr[slot].bars << 8 : app.hdr[slot].bars);
+    h = hash(h, (uint32_t)sel_trk() | lit >> 8 << 4 | (uint32_t)(leads.n != 0) << 6 | (uint32_t)trk_muted(ARR_LD1) << 7 |
+                    (uint32_t)trk_muted(ARR_LD1 + 1) << 8);
     for (i = 0; i < ARR_TRACKS; i++)
         h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)trk_muted((int)i) << 12);
     if (l)
@@ -961,6 +1017,8 @@ static void draw_home(void)
         } else
             cat_s(t, "no rows yet|SELECT: the SONG page");
         segs(8, STRIP_Y + 14, &FONT_XS, t, K_DIM);
+        if (g->nrows && leads.n)                     /* the song's lead tracks (it has lead notes): lit as they play */
+            home_leads(lit);
     }
     home_tracks(slot, lit);                          /* the eight tracks: lit as they play, with their sounds */
     cv_blit(0, MAIN_Y);
@@ -1053,16 +1111,17 @@ static void draw_loop(void)
 /* ---------------------------------------------------------- SONG page --- */
 /* the song's rows (the spec's Screens): a row a line, # / LOOP / SECTION / REPEAT / MUTES / KEY; the cursor row in a
  * coral ring (white keys write there), the row playing tinted teal with a mark; after the last row the END row (taps
- * there add rows), outlined as a row to come. MUTES: eight squares D1 D2 PC BA | C1 C2 C3 C4, filled teal = plays,
- * outlined = muted. KEY only when not 0. The columns the page's knobs turn: their headings dark. Page 3 also says
+ * there add rows), outlined as a row to come. MUTES: eight squares D1 D2 PC BA | C1 C2 C3 C4, then the lead tracks
+ * LD1 LD2 (plum) after a gap, filled = plays, outlined = muted. KEY only when not 0. The columns the page's knobs turn: their headings dark. Page 3 also says
  * the song's Intro, Ending and end. Six rows show, scrolled to the cursor (a scroll bar when more) */
 #define SG_Y0 14                                     /* the first row (the headings over it) */
 #define SG_RH 16                                     /* a row's pitch */
 #define SG_SHOWN 6
 #define SG_LOOP 27                                   /* the columns: LOOP's left */
-#define SG_SECT 90                                   /* SECTION's colour chip, its name after */
-#define SG_REP 168                                   /* REPEAT's right edge */
-#define SG_MUTE 173                                  /* the mutes' first square */
+#define SG_SECT 86                                   /* SECTION's colour chip, its name after */
+#define SG_REP 160                                   /* REPEAT's right edge */
+#define SG_MUTE 163                                  /* the mutes' first square (D1; LD1, LD2 after a gap: SG_LMUTE) */
+#define SG_LMUTE (SG_MUTE + 8 * 5 + 2 + 2)
 #define SG_KEY 234                                   /* KEY's right edge */
 static const char *const ROW_SECT_NAME[ROW_NSECT] = {"Main A", "Main A + fill", "Main B", "Main B + fill"};
 static void glyph_play(int32_t x, int32_t y, uint16_t c)    /* the row playing: a small triangle */
@@ -1095,7 +1154,7 @@ static void draw_song(void)
         const row_t *w = &g->row[i];
         const loop_t *l = &songs.loop[w->loop % ARR_LOOPS];
         h = hash(h, w->loop | (uint32_t)w->sect << 5 | (uint32_t)w->rep << 8 | (uint32_t)w->mute << 12 |
-                        (uint32_t)(uint8_t)w->key << 20 | (uint32_t)(l->bars != 0) << 28);
+                        (uint32_t)(uint8_t)w->key << 20 | (uint32_t)(l->bars != 0) << 28 | (uint32_t)(w->lmute & 3u) << 29);
         for (int c = 0; c < 8; c++)
             h = hash(h, (uint8_t)l->name[c]);
     }
@@ -1154,12 +1213,20 @@ static void draw_song(void)
             text_r(SG_REP, y - 1, &FONT_XS, t, w->rep > 1 ? K_TEXT : K_DIM);
             /* MUTES: D1 D2 PC BA | C1 C2 C3 C4 */
             for (int k = 0; k < ARR_TRACKS; k++) {
-                int32_t mx = SG_MUTE + k * 5 + (k >= 4 ? 3 : 0), my = y + 3;
+                int32_t mx = SG_MUTE + k * 5 + (k >= 4 ? 2 : 0), my = y + 3;
                 if (w->mute >> k & 1u) {
                     cv_rect(mx, my, 4, 8, K_DIM);
                     cv_rect(mx + 1, my + 1, 2, 6, fill);
                 } else
                     cv_rect(mx, my, 4, 8, K_TEAL);
+            }
+            for (int k = 0; k < ARR_LEADS; k++) {    /* LD1 LD2 */
+                int32_t mx = SG_LMUTE + k * 5, my = y + 3;
+                if (w->lmute >> k & 1u) {
+                    cv_rect(mx, my, 4, 8, K_DIM);
+                    cv_rect(mx + 1, my + 1, 2, 6, fill);
+                } else
+                    cv_rect(mx, my, 4, 8, K_PLUM);
             }
             /* KEY: "+2", "-3" (0: nothing) */
             if (w->key) {
@@ -1203,6 +1270,22 @@ static void draw_coming(void)
 static pattern_t view EN_POOL;                       /* the pattern drawn (its notes), copied when it changed */
 static struct { uint8_t slot; uint16_t dirty; uint32_t gen; uint8_t ok; } vw;
 static int pslot(void) { return sect_slot(arr_sect); }   /* the slot the pattern pages show: the section playing */
+/* the selected track's sounds as the pages draw them: the pattern's track, or the lead's (into buf) */
+static const arr_trk_t *sel_arr(arr_trk_t *buf)
+{
+    if (!app.lead)
+        return &app.trk[pslot()][proj.trk & 7];
+    lead_as_arr(sel_lead(), buf);
+    return buf;
+}
+/* track i's sounds for the Mixer's strips (0..7 the pattern's, 8, 9 the leads') */
+static const arr_trk_t *strip_trk(int i, arr_trk_t *buf)
+{
+    if (i < ARR_TRACKS)
+        return &app.trk[pslot()][i];
+    lead_as_arr(&csong()->lead[(i - ARR_TRACKS) % ARR_LEADS], buf);
+    return buf;
+}
 static void view_refresh(int s)
 {
     uint16_t d = arr_dirty[s];
@@ -1339,7 +1422,7 @@ static void draw_pattern(void)
     if (!len)
         len = 1;
     ph = play && pos >= w0 && pos < w0 + len ? X0 + (int32_t)((pos - w0) * (uint32_t)W / len) : -1;
-    h = hash(hash(2166136261u, (uint32_t)s | (uint32_t)proj.trk << 4 | (uint32_t)(ph + 1) << 8), vw.dirty);
+    h = hash(hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)(ph + 1) << 8), vw.dirty);
     h = hash(hash(h, vw.gen), arr_recording | (uint32_t)(win + 1) << 8);
     if (h == ui.sig[1])
         return;
@@ -1349,7 +1432,7 @@ static void draw_pattern(void)
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *tr = &view.trk[i];
         int32_t y = 20 + i * 14, b;
-        int sel = i == proj.trk, mute = trk_muted(i);
+        int sel = i == sel_trk(), mute = trk_muted(i);
         uint32_t n, e = (uint32_t)tr->first + tr->count, lo = 127, hi = 0;
         cv_text(4, y - 2, &FONT_XS, TRACK_NAME[i], sel ? K_ACCENT : mute ? K_LINE : K_DIM);
         cv_round(X0, y, W, 12, 3, sel ? (arr_recording ? RGB(246, 214, 204) : K_TEAL_T) : K_PANEL);
@@ -1394,6 +1477,7 @@ static int trk_rec_shown(void)
            (arr_recording || ui.rec_want);
 }
 #define TR_Y 36                                      /* the bars' top */
+static void draw_lead_rec(void);
 static void draw_trk_rec(void)
 {
     int s = pslot(), trk = proj.trk & 7, nb = app.hdr[s].bars, bpb = app.hdr[s].beats, play = arr_playing;
@@ -1401,6 +1485,10 @@ static void draw_trk_rec(void)
     uint32_t blen, bar, bt, h, n, e, lo = 127, hi = 0;
     const arr_trk_t *tr;
     char t[48], *p;
+    if (app.lead) {                                  /* a lead track: the song's row */
+        draw_lead_rec();
+        return;
+    }
     if (nb < 1)
         nb = 1;
     if (bpb < 1)
@@ -1512,6 +1600,155 @@ static void draw_trk_rec(void)
     }
     cv_blit(0, MAIN_Y);
 }
+/* SEQ / EDIT while a lead track is recorded (REC on): where you are in the song. A line "REC LD1 . row 3 . bar 2.3"
+ * (the row playing, its bar and beat from the row's first downbeat; else why nothing records yet: "starts with PLAY",
+ * "after the Intro", "in a song only" in FREE / LOOP), under it the lead's sound, the grid and its notes in the row;
+ * then the row as bars, four to a line (eight show: a longer row by eights, the playing one's), the bar playing teal
+ * with its beats along its foot, the lead's notes in the row as ticks (by place and pitch); at the foot the song's
+ * rows, a cell each, the one playing teal (waiting: the one it starts in, a coral ring), a dot in those holding this
+ * lead's notes. No count-in: a lead records in the row playing at once */
+#define LR_STRIP 114                                 /* the song's rows */
+static void draw_lead_rec(void)
+{
+    static const char *const WHY[7] = {"", "in a song only", "the song has no rows", "starts with PLAY", "after the Intro",
+                                       "the song is ending", "from the bar line"};
+    const song_t *g = csong();
+    int k = (app.lead ? app.lead - 1 : 0) % ARR_LEADS, n = g->nrows, play = arr_playing, r = 0, live, nb = 1, bpb, focus = -1, fbeat = 0;
+    int win, wbars, lines, ch, b, why, cnt = 0;
+    uint32_t blen, rt = 0, h, i, i0 = 0, i1 = 0, lo = 127, hi = 0;
+    const lead_trk_t *lt = &g->lead[k];
+    char t[48], *p;
+    if (n > ARR_ROWS)
+        n = ARR_ROWS;
+    bpb = app.hdr[pslot()].beats;
+    if (bpb < 2 || bpb > 7)
+        bpb = 4;
+    blen = (uint32_t)bpb * ARR_PPQ;
+    live = play && arr_mode == ARR_SONG && n && arr_loop_now >= 0 && arr_sect != SEC_INTRO && arr_sect != SEC_END;
+    why = app.mode != ARR_SONG ? 1 : !n ? 2 : !play ? 3 : arr_sect == SEC_INTRO ? 4 : arr_sect == SEC_END ? 5 : !live ? 6 : 0;
+    if (play && n)
+        r = arr_row < n ? arr_row : n - 1;           /* (stopped: PLAY here starts row 1) */
+    if (n) {                                         /* the row: its loop's beats (empty: a bar of 4) x REPEAT, to bars */
+        const row_t *w = &g->row[r];
+        int per = loop_len(&songs.loop[w->loop % ARR_LOOPS]);
+        uint32_t len = (uint32_t)(per > 0 ? per : 4) * (w->rep ? w->rep : 1u) * ARR_PPQ;
+        nb = (int)((len + blen - 1) / blen);
+        i0 = leads.row0[r];
+        i1 = leads.row0[r + 1];
+    }
+    if (live) {
+        rt = arr_row_tick;
+        focus = (int)(rt / blen);
+        fbeat = (int)(rt % blen / ARR_PPQ);
+        if (focus >= nb)
+            focus = nb - 1;
+    }
+    for (i = i0; i < i1 && i < leads.n; i++) {       /* this lead's notes in the row: their pitches' span */
+        const lead_ev_t *e = lead_at_c(&leads, i);
+        if (lead_trk(e) != k)
+            continue;
+        cnt++;
+        lo = e->note < lo ? e->note : lo;
+        hi = e->note > hi ? e->note : hi;
+    }
+    win = focus > 0 ? focus / 8 : 0;
+    wbars = nb - win * 8 < 8 ? nb - win * 8 : 8;
+    lines = (wbars + 3) / 4;
+    ch = lines == 1 ? 72 : 36;
+    h = hash(2166136261u, 0x1EADu | (uint32_t)k << 16 | (uint32_t)r << 17 | (uint32_t)live << 23 | (uint32_t)why << 24);
+    h = hash(h, (uint32_t)(focus + 1) | (uint32_t)fbeat << 8 | (uint32_t)nb << 12 | (uint32_t)win << 20 | (uint32_t)n << 24);
+    h = hash(hash(h, leads.gen | (uint32_t)leads.n << 16), lt->program | (uint32_t)lt->chan << 8 | (uint32_t)proj.quant << 12 |
+                                                                (uint32_t)cnt << 16);
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    {   /* the line: REC's dot, "REC LD1 . row 3 . bar 2.3"; under it the sound, the grid, the row's notes */
+        cv_round(8, 6, 10, 10, 5, RGB(214, 64, 52));
+        p = cat_s(cat_s(t, "REC "), TRACK_NAME[ARR_LD1 + k]);
+        if (why)
+            cat_s(cat_s(p, "|"), WHY[why]);
+        else {
+            p = itoa_u((uint32_t)r + 1u, cat_s(p, "|row "));
+            p = itoa_u((uint32_t)focus + 1u, cat_s(p, "|bar "));
+            *p++ = '.';
+            itoa_u((uint32_t)fbeat + 1u, p);
+        }
+        segs(24, 2, &FONT_B, t, K_TEXT);
+        if (why == 1)
+            cv_text(24, 20, &FONT_XS, "On SONG: PLAY, then REC here", K_ACCENT);
+        else {
+            p = cat_s(cat_s(t, (lt->chan & 15u) == 9u ? "Drums" : GM_PROGRAM[lt->program & 127u]), "|grid ");
+            p = cat_s(p, GRID_NAME[proj.quant % ARR_NQ]);
+            if (n) {
+                p = itoa_u((uint32_t)cnt, cat_s(p, "|"));
+                itoa_u((uint32_t)r + 1u, cat_s(p, cnt == 1 ? " note in row " : " notes in row "));
+            }
+            segs(24, 20, &FONT_XS, t, K_DIM);
+        }
+    }
+    for (b = 0; b < wbars; b++) {                    /* the row's bars (eight of them at most) */
+        int bi = win * 8 + b, plays = bi == focus, start = why >= 3 && bi == 0;
+        int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
+        uint16_t fg = plays ? K_BG : K_TEXT;
+        uint32_t b0 = (uint32_t)bi * blen;
+        if (start) {                                 /* the bar it starts in: a coral ring */
+            cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
+            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, K_PANEL);
+        } else
+            cv_round(x, y, RG_CW, ch, 5, plays ? K_TEAL : K_PANEL);
+        itoa_u((uint32_t)bi + 1u, t);
+        cv_text(x + 4, y, &FONT_XS, t, plays ? K_BG : start ? K_ACCENT : K_DIM);
+        ax = x + 4;
+        aw = RG_CW - 8;
+        ay = y + 16;
+        ah = y + ch - 7 - ay;
+        nh = ah >= 24 ? 3 : 2;
+        for (i = i0; i < i1 && i < leads.n; i++) {   /* the lead's notes in this bar: ticks */
+            const lead_ev_t *e = lead_at_c(&leads, i);
+            uint32_t pos = lead_pos(e), len = lead_len(e);
+            int32_t nx, nw, ny;
+            if (lead_trk(e) != k || pos < b0 || pos >= b0 + blen)
+                continue;
+            nx = ax + (int32_t)((pos - b0) * (uint32_t)aw / blen);
+            nw = (int32_t)(len * (uint32_t)aw / blen);
+            nw = nw < 2 ? 2 : nw > ax + aw - nx ? ax + aw - nx : nw;
+            ny = ay + ah - nh - (hi > lo ? (int32_t)((e->note - lo) * (uint32_t)(ah - nh) / (hi - lo)) : (ah - nh) / 2);
+            cv_rect(nx, ny, nw, nh, fg);
+        }
+        if (plays) {                                 /* its beats along its foot: the one now (and those before) lit */
+            int32_t sw = (RG_CW - 10) / bpb;
+            for (int q = 0; q < bpb; q++)
+                cv_rect(x + 5 + q * sw, y + ch - 4, sw - 2, 2, q <= fbeat ? K_BG : K_TEAL_T);
+        }
+    }
+    if (nb > 8) {                                    /* a longer row: which eight ("9-16 of 24"), over the bars' right */
+        p = itoa_u((uint32_t)win * 8u + 1u, t);
+        *p++ = '-';
+        p = itoa_u((uint32_t)(win * 8 + wbars), p);
+        itoa_u((uint32_t)nb, cat_s(p, " of "));
+        cv_text(232 - text_w(&FONT_XS, t), 20, &FONT_XS, t, K_DIM);
+    }
+    if (n) {                                         /* the song's rows: the one playing teal, a dot where this lead has notes */
+        int32_t pitch = 224 / n > 28 ? 28 : 224 / n, cw = pitch - 2;
+        for (int j = 0; j < n; j++) {
+            int32_t x = 8 + j * pitch, y = LR_STRIP;
+            int on = live && j == r, ring = !live && why >= 3 && j == r;
+            if (ring) {
+                cv_round(x, y, cw, 16, 3, K_ACCENT);
+                cv_round(x + 1, y + 1, cw - 2, 14, 2, K_PANEL);
+            } else
+                cv_round(x, y, cw, 16, 3, on ? K_TEAL : K_PANEL);
+            if (cw >= 13) {
+                itoa_u((uint32_t)j + 1u, t);
+                text_c(x + cw / 2, y - 1, &FONT_XS, t, on ? K_BG : K_DIM);
+            }
+            if (leads_count(&leads, j, k))
+                cv_rect(x + cw / 2 - 2, y + 12, 4, 2, on ? K_BG : K_PLUM);
+        }
+    }
+    cv_blit(0, MAIN_Y);
+}
 /* the pattern's length, beats and name */
 static void draw_patset(void)
 {
@@ -1544,12 +1781,13 @@ static void draw_patset(void)
     }
     cv_blit(0, MAIN_Y);
 }
-/* the selected track's sound and transposition */
+/* the selected track's sound and transposition (a lead track: its sound, "as played" over the whole keyboard, fixed) */
 static void draw_track(void)
 {
     int s = pslot(), k2 = ui.page == P_TRACK2;
-    const arr_trk_t *t = &app.trk[s][proj.trk];
-    uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)proj.trk << 4 | (uint32_t)k2 << 8);
+    arr_trk_t lb;
+    const arr_trk_t *t = sel_arr(&lb);
+    uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)k2 << 8);
     char a[16], b[16];
     h = hash(h, t->program | (uint32_t)t->chan << 8 | (uint32_t)t->x.type << 16 | (uint32_t)t->x.hikey << 24);
     h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8 | (uint32_t)t->flags << 16);
@@ -1558,10 +1796,10 @@ static void draw_track(void)
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
     {
-        int32_t x = pill(8, 0, 0, TRACK_NAME[proj.trk], K_TEAL, K_BG);
-        x = cv_text(x + 8, 2, &FONT_B, TYPE_NAME[t->x.type % NXT], K_DIM);
+        int32_t x = pill(8, 0, 0, TRACK_NAME[sel_trk()], app.lead ? K_PLUM : K_TEAL, K_BG);
+        x = cv_text(x + 8, 2, &FONT_B, app.lead ? "Lead track" : TYPE_NAME[t->x.type % NXT], K_DIM);
         if (t->x.type == XT_PARALLEL && (t->flags & ARR_TF_ASPLAYED))   /* (switched at its first REC: notes as
-                                                  * played, moved by the root's move, -6..+5) */
+                                                  * played, moved by the root's move, -6..+5; a lead's always) */
             cv_text(x + 6, 3, &FONT_XS, "as played", K_TEAL);
     }
     if ((t->chan & 15u) == 9u) {
@@ -1606,13 +1844,22 @@ static void draw_track(void)
     }
     cv_blit(0, MAIN_Y);
 }
-/* the 8 tracks' strips: volume, pan, the sends; the selected one outlined */
+/* the ten tracks' strips (the pattern's eight, the song's two leads after a gap, plum): volume, pan, the sends (reverb,
+ * then chorus, as the knobs); the selected one tinted */
+#define MX_PITCH 23
+#define MX_W 21
+static int32_t strip_x(int i) { return 3 + i * MX_PITCH + (i >= ARR_TRACKS ? 4 : 0); }
+static uint16_t strip_colour(int i)
+{
+    return trk_muted(i) ? K_LINE : i >= ARR_TRACKS ? K_PLUM : i < 3 ? K_ACCENT : K_TEAL;
+}
 static void draw_mixer(void)
 {
     int s = pslot(), i;
-    uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)proj.trk << 4);
-    for (i = 0; i < ARR_TRACKS; i++) {
-        const arr_trk_t *t = &app.trk[s][i];
+    arr_trk_t lb;
+    uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4);
+    for (i = 0; i < ARR_ALLTRK; i++) {
+        const arr_trk_t *t = strip_trk(i, &lb);
         h = hash(h, t->vol | (uint32_t)t->pan << 8 | (uint32_t)t->rev << 16 | (uint32_t)t->cho << 24);
         h = hash(h, (uint32_t)trk_muted(i));
     }
@@ -1620,24 +1867,22 @@ static void draw_mixer(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    for (i = 0; i < ARR_TRACKS; i++) {
-        const arr_trk_t *t = &app.trk[s][i];
-        int32_t x = 4 + i * 29, w = 27, sel = i == proj.trk, vh = 66 * t->vol / 127;
-        uint16_t c = trk_muted(i) ? K_LINE : i < 3 ? K_ACCENT : K_TEAL;
+    for (i = 0; i < ARR_ALLTRK; i++) {
+        const arr_trk_t *t = strip_trk(i, &lb);
+        int32_t x = strip_x(i), w = MX_W, sel = i == sel_trk(), vh = 66 * t->vol / 127;
+        uint16_t c = strip_colour(i);
+        char r[6];
         cv_round(x, 0, w, MAIN_H, 5, sel ? K_TEAL_T : K_PANEL);
         text_c(x + w / 2, 0, &FONT_XS, TRACK_NAME[i], sel ? K_TEXT : K_DIM);
-        cv_round(x + 8, 18, 11, 68, 4, K_BG);   /* volume */
+        cv_round(x + 5, 18, 11, 68, 4, K_BG);   /* volume */
         if (vh > 0)
-            cv_round(x + 8, 18 + 68 - vh - 1, 11, vh, 4, c);
+            cv_round(x + 5, 18 + 68 - vh - 1, 11, vh, 4, c);
         cv_rect(x + 3, 94, w - 6, 2, K_LINE);   /* pan */
         cv_round(x + 3 + (w - 10) * t->pan / 127, 91, 4, 8, 2, K_TEXT);
-        {                                        /* the sends: R reverb, C chorus */
-            char r[6];
-            itoa_u(t->rev, cat_s(r, "R"));
-            text_c(x + w / 2, 99, &FONT_XS, r, K_DIM);
-            itoa_u(t->cho, cat_s(r, "C"));
-            text_c(x + w / 2, 113, &FONT_XS, r, K_DIM);
-        }
+        itoa_u(t->rev, r);                       /* the sends: reverb, chorus */
+        text_c(x + w / 2, 99, &FONT_XS, r, t->rev ? K_TEXT : K_DIM);
+        itoa_u(t->cho, r);
+        text_c(x + w / 2, 113, &FONT_XS, r, t->cho ? K_TEXT : K_DIM);
     }
     cv_blit(0, MAIN_Y);
 }
@@ -1645,30 +1890,33 @@ static void draw_mixer(void)
 static void draw_tone(void)
 {
     int s = pslot(), i;
-    uint32_t h = hash(2166136261u, 0x70000u | (uint32_t)s | (uint32_t)proj.trk << 4);
-    for (i = 0; i < ARR_TRACKS; i++)
-        h = hash(h, app.trk[s][i].bright | (uint32_t)app.trk[s][i].reso << 8 | (uint32_t)trk_muted(i) << 16);
+    arr_trk_t lb;
+    uint32_t h = hash(2166136261u, 0x70000u | (uint32_t)s | (uint32_t)sel_trk() << 4);
+    for (i = 0; i < ARR_ALLTRK; i++) {
+        const arr_trk_t *t = strip_trk(i, &lb);
+        h = hash(h, t->bright | (uint32_t)t->reso << 8 | (uint32_t)trk_muted(i) << 16);
+    }
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    for (i = 0; i < ARR_TRACKS; i++) {
-        const arr_trk_t *t = &app.trk[s][i];
-        int32_t x = 4 + i * 29, w = 27, sel = i == proj.trk, b = arr_bright(t), r = arr_reso(t);
+    for (i = 0; i < ARR_ALLTRK; i++) {
+        const arr_trk_t *t = strip_trk(i, &lb);
+        int32_t x = strip_x(i), w = MX_W, sel = i == sel_trk(), b = arr_bright(t), r = arr_reso(t);
         int32_t bh = 66 * b / 127, rh = 66 * r / 127;
         char v[6];
         cv_round(x, 0, w, MAIN_H, 5, sel ? K_TEAL_T : K_PANEL);
         text_c(x + w / 2, 0, &FONT_XS, TRACK_NAME[i], sel ? K_TEXT : K_DIM);
-        cv_round(x + 5, 18, 7, 68, 3, K_BG);    /* brightness */
-        cv_round(x + 15, 18, 7, 68, 3, K_BG);   /* resonance */
+        cv_round(x + 3, 18, 6, 68, 3, K_BG);    /* brightness */
+        cv_round(x + 12, 18, 6, 68, 3, K_BG);   /* resonance */
         if (bh > 0)
-            cv_round(x + 5, 18 + 68 - bh - 1, 7, bh, 3, trk_muted(i) ? K_LINE : K_TEAL);
+            cv_round(x + 3, 18 + 68 - bh - 1, 6, bh, 3, trk_muted(i) ? K_LINE : i >= ARR_TRACKS ? K_PLUM : K_TEAL);
         if (rh > 0)
-            cv_round(x + 15, 18 + 68 - rh - 1, 7, rh, 3, trk_muted(i) ? K_LINE : K_AMBER);
-        cv_rect(x + 3, 18 + 68 - 34, w - 6, 1, K_DIM); /* 64: neutral */
-        itoa_u((uint32_t)b, cat_s(v, "B"));
+            cv_round(x + 12, 18 + 68 - rh - 1, 6, rh, 3, trk_muted(i) ? K_LINE : K_AMBER);
+        cv_rect(x + 2, 18 + 68 - 34, w - 4, 1, K_DIM); /* 64: neutral */
+        itoa_u((uint32_t)b, v);                  /* brightness, resonance (as the knobs) */
         text_c(x + w / 2, 94, &FONT_XS, v, b == 64 ? K_DIM : K_TEXT);
-        itoa_u((uint32_t)r, cat_s(v, "R"));
+        itoa_u((uint32_t)r, v);
         text_c(x + w / 2, 110, &FONT_XS, v, r == 64 ? K_DIM : K_TEXT);
     }
     cv_blit(0, MAIN_Y);
@@ -1913,12 +2161,13 @@ static void home_knobs(knob_t *k)
 static void edit_knobs(knob_t *k)
 {
     int s = pslot();
-    const arr_trk_t *t = &app.trk[s][proj.trk];
+    arr_trk_t lb;
+    const arr_trk_t *t = sel_arr(&lb);
     char b[8];
     switch (ui.page) {
     case P_PATTERN:
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
-        kv(&k[3], "Mute", trk_muted(proj.trk) ? "on" : "off", trk_muted(proj.trk), 0);
+        kv(&k[3], "Mute", trk_muted(sel_trk()) ? "on" : "off", trk_muted(sel_trk()), 0);
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);
@@ -1933,7 +2182,10 @@ static void edit_knobs(knob_t *k)
             kv(&k[0], "Program", "kit", 0, 0);
         else
             kn(&k[0], "Program", t->program + 1, 128);
-        kv(&k[1], "Type", TYPE_SHORT[t->x.type % NXT], t->x.type, NXT - 1);
+        if (app.lead)                            /* a lead: as played, always */
+            kv(&k[1], "Type", "as played", 0, 0);
+        else
+            kv(&k[1], "Type", TYPE_SHORT[t->x.type % NXT], t->x.type, NXT - 1);
         note_name(t->x.lo, b);
         kv(&k[2], "Low", b, t->x.lo, 127);
         note_name(t->x.hi, b);
@@ -2164,10 +2416,11 @@ static char *upcase(char *s)
             *c = (char)(*c - 32);
     return s;
 }
-/* "C1 PIANO": the selected track and its sound */
+/* "C1 PIANO", "LD1 SQUARE LEAD": the selected track and its sound */
 static char *track_tag(char *t)
 {
-    cat_s(cat_s(cat_s(t, TRACK_NAME[proj.trk]), " "), trk_sound(&app.trk[pslot()][proj.trk]));
+    arr_trk_t lb;
+    cat_s(cat_s(cat_s(t, TRACK_NAME[sel_trk()]), " "), trk_sound(sel_arr(&lb)));
     return upcase(t);
 }
 /* the tag over the knobs: whose they are (the spec's Screens) */
@@ -2213,7 +2466,7 @@ static void page_tag(char *t)
         track_tag(t);
         break;
     case P_MIXER: case P_TONE:
-        cat_s(cat_s(t, "MIXER: "), TRACK_NAME[proj.trk]);
+        cat_s(cat_s(t, "MIXER: "), TRACK_NAME[sel_trk()]);
         break;
     case P_MASTER:
         cat_s(t, "MASTER");
@@ -2354,10 +2607,14 @@ static void draw_footer(void)
 #define PG(p) (1u << (p))
 #define PG_ANY 0xFFFFFFFFu
 #define PG_SONG (PG(P_SONG) | PG(P_SONG2) | PG(P_SONG3))
+#define PG_TRACK (PG(P_PATTERN) | PG(P_PATSET) | PG(P_TRACK) | PG(P_TRACK2))
+#define CF_LEAD (1u << 31)                           /* (pages past NPAGES) only with a lead track selected */
+#define CF_NOLEAD (1u << 30)                         /* only without (PG_ANY: both, either) */
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Loops", "Your chord loops. Play chords.", "REC writes them: at the cursor, or in time."},
     {B_SEQ, PG_ANY, "Pattern", "The section's eight tracks; SELECT: its length and name.", 0},
-    {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; SELECT: its keys.", 0},
+    {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; SELECT: its keys.",
+     "ALGORITHM past C4: the lead tracks LD1, LD2."},
     {B_LFO, PG_ANY, "Mixer", "Volume, pan and sends; SELECT: the tone. Black keys pick the track.", 0},
     {B_FX, PG_ANY, "Master FX", "The reverb and the chorus every track sends to.", 0},
     {B_ENV, PG_ANY, "Style", "The six sections' patterns. PRESETS: the next style.", 0},
@@ -2367,8 +2624,9 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
     {B_REC, PG(P_HOME) | PG(P_LOOP) | PG(P_LOOP2), "Write chords",
      "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop."},
-    {B_REC, PG(P_PATTERN) | PG(P_PATSET) | PG(P_TRACK) | PG(P_TRACK2), "Record the track",
-     "What the keys play goes into the selected track.", 0},
+    {B_REC, PG_TRACK | CF_NOLEAD, "Record the track", "What the keys play goes into the selected track.", 0},
+    {B_REC, PG_TRACK | CF_LEAD, "Record the lead", "While the song plays, what the keys play goes into the row playing.",
+     "PLAY here starts the song; SEL: PLAY FROM ROW on SONG."},
     {B_REC, PG_SONG, "Record the rows", "With PLAY: the loops and sections you pick with HOME + keys,",
      "and the mutes you change."},
     {B_REC, PG_ANY, "Record", "Nothing to record on this page.", 0},
@@ -2382,7 +2640,8 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
 static int card_find(int btn)                        /* the card for btn on this page, -1 none */
 {
     for (uint32_t i = 0; i < NCARDS; i++)
-        if (CARD[i].btn == btn && (CARD[i].pages >> ui.page & 1u))
+        if (CARD[i].btn == btn && (CARD[i].pages >> ui.page & 1u) &&
+            (CARD[i].pages & (CF_LEAD | CF_NOLEAD)) != (app.lead ? CF_NOLEAD : CF_LEAD))
             return (int)i;
     return -1;
 }
@@ -2417,7 +2676,7 @@ static int32_t wrap(int32_t x, int32_t y, int32_t w, const felucca_font_t *f, co
 static void draw_card(void)
 {
     int i = card_find(ui.card - 1);
-    uint32_t h = hash(2166136261u, 0xCA000u + ui.card + ((uint32_t)ui.page << 8));
+    uint32_t h = hash(2166136261u, 0xCA000u + ui.card + ((uint32_t)ui.page << 8) + ((uint32_t)app.lead << 16));
     int32_t x, y;
     if (h == ui.sig[1])
         return;
@@ -2507,7 +2766,15 @@ static void list_build(void)
         list_add(ACTION_NAME[A_CLEAR_SONG], 0, LK_ACTION, A_CLEAR_SONG);
         list_add(ACTION_NAME[A_COPY_SONG], v, LK_PICK, A_COPY_SONG);
     } else if (keep >= P_PATTERN && keep <= P_MASTER) {
-        list_add(ACTION_NAME[A_ERASE_TRACK], 0, LK_ACTION, A_ERASE_TRACK);
+        if (app.lead) {                              /* a lead: its notes in a row ("the cursor's / playing"), all */
+            static char er[24], ea[16];
+            char *e = cat_s(cat_s(cat_s(er, "ERASE "), TRACK_NAME[sel_trk()]), " IN ROW ");
+            itoa_u((uint32_t)lead_row() + 1u, e);
+            cat_s(cat_s(ea, "ERASE "), TRACK_NAME[sel_trk()]);
+            list_add(er, 0, LK_ACTION, A_ERASE_LEAD_ROW);
+            list_add(ea, 0, LK_ACTION, A_ERASE_LEAD);
+        } else
+            list_add(ACTION_NAME[A_ERASE_TRACK], 0, LK_ACTION, A_ERASE_TRACK);
         list_add(ACTION_NAME[A_CLEAR_PATTERN], 0, LK_ACTION, A_CLEAR_PATTERN);
         list_add(ACTION_NAME[A_BACK_TO_STYLE], 0, LK_ACTION, A_BACK_TO_STYLE);
     }
@@ -2535,6 +2802,8 @@ static void draw_list(void)
     h = hash(h, lst.n);
     for (i = 0; i < lst.n; i++) {
         h = hash(h, lst.row[i].kind | (uint32_t)lst.row[i].id << 4);
+        for (const char *c = lst.row[i].name; *c; c++)   /* ("ERASE LD1 IN ROW 3": the row in the name) */
+            h = hash(h, (uint8_t)*c);
         for (const char *c = lst.row[i].val; *c; c++)
             h = hash(h, (uint8_t)*c);
     }
