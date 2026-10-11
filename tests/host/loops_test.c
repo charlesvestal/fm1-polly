@@ -148,16 +148,84 @@ static void test_shrink(void)
     CHECK(l.ch[12] == LC_SAME, "LENGTH shorter: the beats past the end cleared");
     loop_set_bars(&l, 4);
     CHECK(l.ch[12] == LC_SAME && l.ch[0] != LC_SAME, "growing again: no stale chord comes back");
-    loop_write(&l, 60, g);
+    loop_write(&l, 60, g);                        /* bar 16 beat 1 */
+    loop_write(&l, 33, g);                        /* bar 9 beat 2 */
     loop_set_beats(&l, 7);                        /* 16 bars of 7 > 64: 9 bars, 63 beats */
-    CHECK(l.bars == 9 && l.ch[60] != LC_SAME, "BEATS 7: 9 bars, beat 60 still in");
+    CHECK(l.bars == 9 && l.ch[8 * 7 + 1] != LC_SAME && l.ch[60] == LC_SAME,
+          "BEATS 7: 9 bars, bar 9 beat 2 kept in its bar, bar 16 gone");
     loop_set_beats(&l, 3);
-    CHECK(l.ch[60] == LC_SAME, "BEATS 3 (27 beats): beat 60 cleared");
+    CHECK(l.bars == 9 && l.ch[8 * 3 + 1] != LC_SAME && l.ch[0] != LC_SAME, "BEATS 3: bar 9 beat 2 still bar 9 beat 2");
+}
+/* BEATS re-maps by bar: a chord at bar b beat k stays at bar b beat k (4/4 -> 3/4 never moves one over a bar line) */
+static void test_beats_by_bar(void)
+{
+    loop_t l;
+    chord_t c = {0, CH_MAJ, CH_NOBASS}, f = {5, CH_MAJ, CH_NOBASS}, gm = {7, CH_MAJ, CH_NOBASS}, a = {9, CH_MIN, CH_NOBASS};
+    loop_clear(&l, 8);
+    loop_write(&l, 0, c);                         /* bar 1 beat 1: C */
+    loop_write(&l, 2, f);                         /* bar 1 beat 3: F */
+    loop_write(&l, 4, gm);                        /* bar 2 beat 1: G */
+    loop_write(&l, 7, a);                         /* bar 2 beat 4: Am */
+    loop_set_beats(&l, 3);
+    CHECK(l.beats == 3 && l.bars == 2 && loop_len(&l) == 6, "4/4 -> 3/4: 2 bars of 3");
+    CHECK(l.ch[0] == lc_pack(c) && l.ch[2] == lc_pack(f) && l.ch[3] == lc_pack(gm), "C 1.1, F 1.3, G 2.1: in their bars");
+    CHECK(l.ch[1] == LC_SAME && l.ch[4] == LC_SAME && l.ch[5] == LC_SAME, "Am (2.4) dropped, nothing moved over");
+    loop_set_beats(&l, 5);
+    CHECK(l.ch[0] == lc_pack(c) && l.ch[2] == lc_pack(f) && l.ch[5] == lc_pack(gm) && l.ch[8] == LC_SAME && l.ch[9] == LC_SAME,
+          "3 -> 5: G at 2.1 (beat 5), the new beats empty");
+    loop_set_beats(&l, 0);
+    CHECK(l.beats == 2 && l.ch[0] == lc_pack(c) && l.ch[2] == lc_pack(gm), "beats clamped to 2: C 1.1, G 2.1");
+    loop_clear(&l, 8);
+    loop_set_beats(&l, 3);
+    CHECK(l.bars == 0 && l.beats == 3, "an empty loop stays empty");
+}
+/* the Progression pages: LENGTH and BEATS hide what does not fit (kept, out of the loop), back when it fits again */
+static void test_keep(void)
+{
+    loop_t l;
+    loop_keep_t k;
+    chord_t c = {0, CH_MAJ, CH_NOBASS}, gm = {7, CH_MAJ, CH_NOBASS}, a = {9, CH_MIN, CH_NOBASS}, f = {5, CH_MAJ, CH_NOBASS};
+    loop_clear(&l, 8);
+    loop_write(&l, 0, c);
+    loop_write(&l, 4, gm);
+    loop_write(&l, 8, a);
+    loop_write(&l, 12, f);
+    loop_write(&l, 15, c);                        /* 4 bars: C G Am F, C on 4.4 */
+    loop_keep_init(&k, &l);
+    CHECK(loop_hidden(&l, &k) == 0, "nothing hidden at first");
+    loop_relayout(&l, &k, 1, 4);
+    CHECK(l.bars == 1 && l.ch[4] == LC_SAME && l.ch[12] == LC_SAME && loop_hidden(&l, &k) == 4,
+          "LENGTH 1: bars 2-4 out of the loop (never played, never saved), 4 chords hidden");
+    loop_relayout(&l, &k, 4, 4);
+    CHECK(l.bars == 4 && l.ch[4] == lc_pack(gm) && l.ch[8] == lc_pack(a) && l.ch[12] == lc_pack(f) && l.ch[15] == lc_pack(c),
+          "4 -> 1 -> 4: they come back");
+    loop_relayout(&l, &k, -1, 3);
+    CHECK(l.beats == 3 && l.bars == 4 && l.ch[9] == lc_pack(f) && l.ch[11] == LC_SAME && loop_hidden(&l, &k) == 1,
+          "BEATS 3: F at 4.1, C (4.4) hidden");
+    loop_relayout(&l, &k, -1, 4);
+    CHECK(l.ch[15] == lc_pack(c) && loop_hidden(&l, &k) == 0, "BEATS 4 again: C back on 4.4");
+    loop_relayout(&l, &k, 16, 4);
+    CHECK(l.bars == 16, "16 bars of 4");
+    loop_relayout(&l, &k, -1, 7);
+    CHECK(l.bars == 9, "BEATS 7: 9 bars fit");
+    loop_relayout(&l, &k, -1, 4);
+    CHECK(l.bars == 16, "BEATS 4 again: the 16 bars asked");
+    loop_relayout(&l, &k, 2, 4);                  /* bars 3, 4 hidden */
+    l.ch[4] = lc_pack(c);                         /* a write meanwhile (inside): the loop's counts */
+    loop_relayout(&l, &k, 4, 4);
+    CHECK(l.ch[4] == lc_pack(c) && l.ch[8] == lc_pack(a), "a chord changed while short: kept; the hidden ones back");
+    loop_relayout(&l, &k, 1, 4);
+    l.bars = 4;                                   /* an undo back to 4 bars (its chords with it) */
+    l.ch[8] = lc_pack(gm);
+    loop_relayout(&l, &k, -1, 4);
+    CHECK(l.bars == 4 && l.ch[8] == lc_pack(gm), "changed meanwhile (an undo): its length and chords are the loop's");
 }
 int main(void)
 {
     test_shift();
     test_shrink();
+    test_beats_by_bar();
+    test_keep();
     test_pack();
     test_write();
     test_factory();

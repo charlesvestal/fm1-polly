@@ -107,12 +107,58 @@ void loop_set_bars(loop_t *l, int bars)
     l->bars = (uint8_t)(bars < 1 ? 1 : bars > m ? m : bars);
     clear_past(l);
 }
+static int in_loop(const loop_t *l, int b, int k)  /* bar b's beat k is a beat of l */
+{
+    int bpb = l->beats ? l->beats : 4;
+    return b < l->bars && k < bpb && b * bpb + k < ARR_LOOP_BEATS;
+}
+static void keep_take(const loop_t *l, loop_keep_t *k)   /* the cells inside l: l's */
+{
+    int bpb = l->beats ? l->beats : 4;
+    for (int b = 0; b < ARR_LOOP_BARS; b++)
+        for (int i = 0; i < 7; i++)
+            if (in_loop(l, b, i))
+                k->c[b][i] = l->ch[b * bpb + i];
+}
+void loop_keep_init(loop_keep_t *k, const loop_t *l)
+{
+    for (int b = 0; b < ARR_LOOP_BARS; b++)
+        for (int i = 0; i < 7; i++)
+            k->c[b][i] = LC_SAME;
+    keep_take(l, k);
+    k->bars = k->got = l->bars;
+}
+void loop_relayout(loop_t *l, loop_keep_t *k, int bars, int beats)
+{
+    int m;
+    if (l->bars != k->got)                       /* (changed since: an undo, a write growing it) */
+        k->bars = l->bars;
+    keep_take(l, k);
+    if (bars >= 0)
+        k->bars = (uint8_t)(bars > ARR_LOOP_BARS ? ARR_LOOP_BARS : bars);
+    l->beats = (uint8_t)(beats < 2 ? 2 : beats > 7 ? 7 : beats);
+    m = loop_max_bars(l->beats);
+    l->bars = (uint8_t)(k->bars > m ? m : k->bars);
+    for (int b = 0; b < ARR_LOOP_BEATS; b++)
+        l->ch[b] = LC_SAME;
+    for (int b = 0; b < l->bars; b++)
+        for (int i = 0; i < l->beats; i++)
+            l->ch[b * l->beats + i] = k->c[b][i];
+    k->got = l->bars;
+}
+int loop_hidden(const loop_t *l, const loop_keep_t *k)
+{
+    int n = 0;
+    for (int b = 0; b < ARR_LOOP_BARS; b++)
+        for (int i = 0; i < 7; i++)
+            n += k->c[b][i] != LC_SAME && !in_loop(l, b, i);
+    return n;
+}
 void loop_set_beats(loop_t *l, int beats)
 {
-    l->beats = (uint8_t)(beats < 2 ? 2 : beats > 7 ? 7 : beats);
-    if (l->bars > loop_max_bars(l->beats))
-        l->bars = (uint8_t)loop_max_bars(l->beats);
-    clear_past(l);
+    loop_keep_t k;
+    loop_keep_init(&k, l);
+    loop_relayout(l, &k, l->bars, beats);
 }
 void loops_song_clear(song_t *g)
 {

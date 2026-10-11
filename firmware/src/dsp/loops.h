@@ -16,7 +16,22 @@ void loop_unwrite(loop_t *l, int b);              /* beat b back to LC_SAME */
 chord_t loop_chord_at(const loop_t *l, int b);    /* the chord sounding on beat b (the latest at or before
                                                    * it, round from the end); CH_NONE type if it has none */
 void loop_set_bars(loop_t *l, int bars);          /* 1..loop_max_bars; the beats past the end cleared (LC_SAME) */
-void loop_set_beats(loop_t *l, int beats);        /* 2..7: the bars shrink to fit 64 beats; past the end cleared */
+/* 2..7, each chord kept in its bar (bar b beat k stays bar b beat k; beats past the new bar's end dropped); the bars
+ * shrink to fit 64 beats; past the end cleared */
+void loop_set_beats(loop_t *l, int beats);
+/* a loop's chords by bar and beat, kept while the Progression pages change its LENGTH and BEATS: what a shorter loop
+ * (or shorter bars) leaves out is kept here, out of the loop (not played, never saved), and comes back when it fits
+ * again. The cells inside the loop are the loop's (read from it at each change: an undo or a write meanwhile counts) */
+typedef struct {
+    uint8_t bars;                                 /* the length asked for (BEATS may have cut it: back when it fits) */
+    uint8_t got;                                  /* the bars the last change left (another since: that is asked) */
+    uint16_t c[ARR_LOOP_BARS][7];                 /* bar, beat: lc_pack, or LC_SAME */
+} loop_keep_t;
+void loop_keep_init(loop_keep_t *k, const loop_t *l);   /* from l as it is, nothing hidden */
+/* l to `bars` (< 0: the length asked before) of `beats`, from k: each chord in its bar and beat; what does not fit
+ * stays in k */
+void loop_relayout(loop_t *l, loop_keep_t *k, int bars, int beats);
+int loop_hidden(const loop_t *l, const loop_keep_t *k); /* the chords k holds outside l */
 void loops_song_clear(song_t *g);                 /* no rows; Intro and Ending on; stop at the end; 120 BPM;
                                                    * keeps its style and its lead tracks' sounds */
 /* white key `loop` tapped on the SONG screen at row r: row r is set (r the END row, one after the last: a new row
