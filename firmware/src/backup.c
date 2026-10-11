@@ -43,11 +43,13 @@
  *   rs_ask()              the question on the screen: 1 yes, 0 no (HOME, 60 s, PLAY)
  *   rs_reload()           the project and songs from the flash again
  *   rs_rec_erase() rs_rec_prog(off, p, n) rs_rec_read(off, p, n)   the journal record's sector (RS_REC)
- *   bu_room()             a frame fits the TX ring now (it is empty)
+ *   bu_room()             a frame fits the TX ring now (it is empty): 1; not yet: 0; USB gone (unplugged,
+ *                         suspended, not configured): -1, the backup given up
  *   bu_send(p, n)         one F0..F7 message to the host
  *   bu_flush()            stopped: what is unsaved saved (the autosave's save)
  *   bu_hold(on)           the autosave held (1) / free again (0)
- * and storage.c's st_read / st_erase / st_prog, st_current, st_sector. */
+ * and storage.c's st_read / st_erase / st_prog, st_current, st_sector; ota.c's ota_now_ms for the stall limit
+ * (BU_STALL_MS without a frame going out: the backup given up, the autosave free again). */
 #define RS_REQ 0x41u                                  /* the host's requests (ota.c framing) */
 #define BU_REQ 0x42u
 #define BU_END 0x43u
@@ -60,6 +62,7 @@
 #define BU_HEAD 16u
 #define BU_REC 8u
 #define BU_CHUNK 128u                                 /* a backup frame's data */
+#define BU_STALL_MS 2000u                             /* no frame out for this long: the backup given up */
 #define BU_MAXIMG (BU_HEAD + BU_NOBJ * (BU_REC + ST_PAYLOAD_MAX) + 4u)
 #define RS_REC 0x000E1000u                            /* the journal record: the update's staging area's 2nd sector */
 #define RS_REC_MAGIC 0x31534C50u                      /* "PLS1" */
@@ -108,6 +111,7 @@ enum { BU_S_HEAD, BU_S_REC, BU_S_BODY, BU_S_TAIL, BU_S_END };
 static struct {
     uint8_t on, state, i, flags;
     uint32_t off, crc;                                /* bytes sent, their CRC-32 */
+    uint32_t last;                                    /* ota_now_ms() of the start / the last frame out */
     const uint8_t *p;                                 /* the segment being sent */
     uint32_t n, len;
     uint8_t seg[BU_HEAD];
@@ -194,7 +198,14 @@ static void bu_start(int playing)
     bu.flags = (uint8_t)(playing != 0);
     bu.off = bu.crc = 0;
     bu.n = 0;
+    bu.last = ota_now_ms();
     bu_hold(1);
+}
+
+static void bu_stop(void)
+{
+    bu.on = 0;
+    bu_hold(0);
 }
 
 /* the main loop: the next frame when the ring has room for it (one frame a pass) */
@@ -202,8 +213,15 @@ static void bu_step(void)
 {
     uint8_t b[4 + BU_CHUNK];
     uint32_t n = 0;
-    if (!bu.on || !bu_room())
+    int r;
+    if (!bu.on)
         return;
+    r = bu_room();
+    if (r <= 0) {                                     /* a cut cable: the ring never drains; USB gone: at once */
+        if (r < 0 || ota_now_ms() - bu.last > BU_STALL_MS)
+            bu_stop();
+        return;
+    }
     while (n < BU_CHUNK) {
         uint32_t k;
         if (!bu.n) {
@@ -223,6 +241,7 @@ static void bu_step(void)
         bu_wr32(b, bu.off);
         bu_frame(BU_REQ, b, 4u + n);                  /* (a frame lost on a cable cut: the host sees the gap) */
         bu.off += n;
+        bu.last = ota_now_ms();
         return;
     }
     bu_wr32(b, bu.off);                               /* the end: the length and the whole image's CRC-32 */
@@ -230,8 +249,7 @@ static void bu_step(void)
     b[8] = 0;
     b[9] = bu.flags;
     bu_frame(BU_END, b, 10);
-    bu.on = 0;
-    bu_hold(0);
+    bu_stop();
 }
 
 /* ------------------------------------------------------------ restore --- */

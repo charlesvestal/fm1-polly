@@ -252,7 +252,12 @@ static void rs_reload(void)
 static int rs_rec_erase(void) { return ota_erase(RS_REC); }
 static int rs_rec_prog(uint32_t off, const void *src, uint32_t n) { return ota_prog(RS_REC + off, src, n); }
 static int rs_rec_read(uint32_t off, void *dst, uint32_t n) { return ota_fread(RS_REC + off, dst, n); }
-static int bu_room(void) { return usb.config && so_w == so_r; }   /* the SysEx ring empty: a frame goes in whole */
+static int bu_room(void)                            /* the SysEx ring empty: a frame goes in whole; -1: USB gone */
+{
+    if (!usb.config || usb.suspended)
+        return -1;
+    return so_w == so_r;
+}
 static int bu_send(const uint8_t *p, uint32_t n) { return ota_wire_send(p, n); }
 static void bu_flush(void) { app_flush(); }
 static void bu_hold(int on) { app_hold_saves(on); }

@@ -70,7 +70,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 static int ota_wire_send(const uint8_t *p, uint32_t n) { (void)p; (void)n; return -1; }
 static int ota_frame_get(const uint8_t **p, uint32_t *n) { (void)p; (void)n; return 0; }
 static void ota_frame_done(void) {}
-static uint32_t ota_now_ms(void) { return 0; }
+static uint32_t t_ms;                             /* the clock (the backup's stall limit) */
+static uint32_t ota_now_ms(void) { return t_ms; }
 static void ota_idle(void) {}
 static int ota_erase(uint32_t off) { (void)off; return -1; }
 static int ota_prog(uint32_t off, const void *p, uint32_t n) { (void)off; (void)p; (void)n; return -1; }
@@ -130,7 +131,10 @@ static int room = 1, frames_this_pass;
 static uint8_t got[BU_MAXIMG + 64];
 static uint32_t got_n, end_len, end_crc, max_wire, frames;
 static int end_seen, end_status, end_flags, gap;
-static int bu_room(void) { return room && !frames_this_pass; }   /* a frame in the ring: full until the next pass */
+static int bu_room(void)                          /* a frame in the ring: full until the next pass; room -1: USB gone */
+{
+    return room < 0 ? -1 : room && !frames_this_pass;
+}
 static int bu_send(const uint8_t *p, uint32_t n)
 {
     uint8_t u[400];
@@ -279,6 +283,40 @@ int main(int argc, char **argv)
     backup(1);
     check("backup while playing: nothing saved first, flagged", flushes == 0 && end_flags == 1 && !gap &&
                                                               end_len == img_n && !memcmp(got + 16, img + 16, img_n - 20));
+
+    {                                             /* a cut cable: the ring never drains / USB gone */
+        int passes = 0, held_long;
+        got_n = 0;
+        end_seen = 0;
+        t_ms = 1000;
+        bu_start(1);
+        for (int k = 0; k < 5; k++) {             /* a few frames out */
+            frames_this_pass = 0;
+            room = 1;
+            bu_step();
+            t_ms += 10;
+        }
+        room = 0;                                 /* then the ring full for good */
+        while (bu.on && passes < 1000) {
+            frames_this_pass = 0;
+            bu_step();
+            t_ms += 10;
+            passes++;
+        }
+        held_long = passes * 10 >= (int)BU_STALL_MS && passes * 10 <= (int)BU_STALL_MS + 20;
+        check("backup stalled (the ring never drains): given up after ~2 s, autosave free",
+              !bu.on && !holding && !end_seen && held_long);
+        bu_start(1);
+        frames_this_pass = 0;
+        room = 1;
+        bu_step();
+        room = -1;                                /* unplugged / suspended */
+        frames_this_pass = 0;
+        bu_step();
+        check("... USB gone: given up at once, autosave free", !bu.on && !holding && !end_seen);
+        room = 1;
+        t_ms = 0;
+    }
 
     /* set B: other contents, an absent slot filled, a project of another size */
     save(OBJ_PROJ, 140, 4);
