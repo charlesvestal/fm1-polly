@@ -189,6 +189,74 @@ static void bk_done(int code, int begun)            /* the result, to the host (
     fm1_delay_ms(1200);
 }
 
+/* backup and restore over USB (tools/polly_backup.py) */
+#include "backup.c"
+static int rs_fetch(uint32_t addr, uint8_t *dst, uint32_t n) { return ota_read(addr, dst, n); }
+static int rs_note(uint32_t addr)                   /* (past the question: no session deadline, 3 tries) */
+{
+    uint8_t b[8];
+    ota_deadline = 0;
+    return ota_read(addr, b, 8);
+}
+static int rs_playing(void) { return arr_playing != 0; }
+static void rs_screen(const char *a, const char *b)
+{
+    lcd_fill(0, 0, 240, 240, C_BLACK);
+    draw_text_box(0, 92, 240, &FONT_S, a, C_WHITE, 1);
+    if (b)
+        draw_text_box(0, 124, 240, &FONT_S, b, C_HI, 1);
+}
+static void rs_begin(void)                          /* a backup is coming: patient now (5 s a read, 2 min in all) */
+{
+    gm_panic();
+    ota_try_ms = 5000u;
+    ota_deadline = ota_now_ms() + 120000u;
+}
+static void rs_show(uint32_t pct)
+{
+    char b[8];
+    uint32_t i = 0;
+    if (pct >= 100u)
+        b[i++] = '1';
+    if (pct >= 10u)
+        b[i++] = (char)('0' + pct / 10u % 10u);
+    b[i++] = (char)('0' + pct % 10u);
+    b[i++] = '%';
+    b[i] = 0;
+    if (!pct)
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+    draw_text_box(0, 92, 240, &FONT_S, "RESTORE", C_WHITE, 1);
+    draw_text_box(0, 124, 240, &FONT_S, b, C_HI, 1);
+}
+static int rs_ask(void)                             /* SEL yes, HOME no; PLAY or 60 s: no */
+{
+    uint32_t t0 = fm1_ms, was = plat_buttons();
+    rs_screen("RESTORE FROM USB?", "SEL yes   HOME no");
+    draw_text_box(0, 156, 240, &FONT_S, "replaces all songs", C_GRAY, 1);
+    while (fm1_ms - t0 < 60000u) {
+        uint32_t b = plat_buttons(), down = b & ~was;
+        fm1_wdt_feed();
+        was = b;
+        if (down >> B_SEL & 1u)
+            return 1;
+        if ((down >> B_HOME & 1u) || arr_playing)
+            return 0;
+    }
+    return 0;
+}
+static void rs_reload(void)
+{
+    gm_panic();
+    app_restored();
+}
+static int rs_rec_erase(void) { return ota_erase(RS_REC); }
+static int rs_rec_prog(uint32_t off, const void *src, uint32_t n) { return ota_prog(RS_REC + off, src, n); }
+static int rs_rec_read(uint32_t off, void *dst, uint32_t n) { return ota_fread(RS_REC + off, dst, n); }
+static int bu_room(void) { return usb.config && so_w == so_r; }   /* the SysEx ring empty: a frame goes in whole */
+static int bu_send(const uint8_t *p, uint32_t n) { return ota_wire_send(p, n); }
+static void bu_flush(void) { app_flush(); }
+static void bu_hold(int on) { app_hold_saves(on); }
+
 #include "app/panel.c"
 #include "app/plat_fm1.c"
 #include "app/project.c"

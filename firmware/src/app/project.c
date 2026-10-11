@@ -299,9 +299,10 @@ int project_slot_info(int i, slot_info_t *si, pattern_t *buf)
 {
     lead_hdr_t h;
     memset(si, 0, sizeof *si);
+    memset(&h, 0, sizeof h);
     if (i < 0 || i >= ARR_USER_PATTERNS)
         return si->kind = SLOT_OTHER;
-    if (plat_store_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) < 0)
+    if (plat_store_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) <= 0)
         return si->kind = SLOT_NONE;
     if (h.magic == LEAD_MAGIC) {
         if (loops_hdr(i, &h)) {

@@ -88,6 +88,9 @@ void song_style_derive(song_t *g);                     /* g->sty from its sectio
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
 void app_bank_changed(void);           /* the QY70 style bank was written: mounted again, the song reloaded */
+void app_restored(void);               /* a restore over USB was written: everything from the flash again */
+void app_flush(void);                  /* stopped: what is not saved, saved (a backup over USB starts) */
+void app_hold_saves(int on);           /* 1: no autosave (a backup over USB streams), 0: as ever */
 void ui_init(void);
 void ui_frame(void);
 void ui_input_only(void);

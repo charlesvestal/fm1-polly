@@ -71,6 +71,11 @@ run storage sh -c "$CC -O2 -Ifirmware/src/dsp -o $OUT/storage_test tests/storage
 # simulated Polly
 run bank-rx sh -c "$CC -std=c99 -Wall -Wextra -Werror -O2 -Ifirmware/src/dsp -o $OUT/bank_rx_test tests/bank_rx_test.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c && $OUT/bank_rx_test $OUT/synth.qyi"
 run qy70-install python3 tests/qy70_install_test.py $OUT/synth.qyi
+# backup and restore over USB (firmware/src/backup.c) on storage.c over a simulated flash: the stream's frames, a
+# restore refused while playing, the cable cut at each read, a changed byte, HOME: nothing changed; a power cut at
+# each write: the old set or the new, whole. Then tools/polly_backup.py against a simulated Polly, on that image
+run backup sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O2 -o $OUT/backup_test tests/backup_test.c && $OUT/backup_test $OUT/backup.plb"
+run polly-backup python3 tests/polly_backup_test.py $OUT/backup.plb
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then
     run ota-entry sh -c "$CC -o $OUT/ota_test tests/ota_test.c && $OUT/ota_test build/polly.fwsc"

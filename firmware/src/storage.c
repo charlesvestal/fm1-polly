@@ -111,12 +111,13 @@ static int st_current(uint32_t obj, st_hdr_t *h)
     return -1;
 }
 
-/* load object into dst (up to max bytes); returns the length, or -1 */
+/* load object into dst (up to max bytes); returns the length, or -1 (none; an empty copy, as a restore of an absent
+ * object writes it (backup.c), is none too) */
 static int st_load(uint32_t obj, void *dst, uint32_t max)
 {
     uint32_t i;
     st_hdr_t h;
-    if (st_current(obj, &h) < 0)
+    if (st_current(obj, &h) < 0 || !h.len)
         return -1;
     if (h.len > max)
         h.len = max;

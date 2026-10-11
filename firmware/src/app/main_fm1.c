@@ -250,8 +250,10 @@ static void fm1_main(void)
         uint32_t f = irq_save();
         flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;   /* the expected 1 MiB part, else RAM only */
         irq_restore(f);
-        if (flash_ok)
+        if (flash_ok) {
+            rs_boot();                              /* a restore's commit cut short by a power loss: finished */
             ota_boot_cleanup();
+        }
     }
     lcd_init();
     palette_set(1);
@@ -337,7 +339,27 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
             }
         }
-        if (ota_service() == 15u && ota_dec[2] == BK_REQ && flash_ok) {   /* the QY70 bank from the host */
+        uint32_t req = ota_service();
+        if (req == 11u && ota_dec[2] == BU_REQ && bu_rd32(ota_dec + 6) == BU_MAGIC && flash_ok)
+            bu_start(arr_playing);                  /* a backup to the host: streamed by bu_step, playing on */
+        bu_step();
+        if (req == 15u && ota_dec[2] == RS_REQ && flash_ok) {   /* a restore from the host (backup.c) */
+            uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);
+            int begun = 0, rc;
+            bu.on = 0;                              /* (a backup streaming: given up) */
+            app_hold_saves(0);
+            ota_try_ms = 300u;                      /* its head first: a host that does not answer costs a second */
+            ota_deadline = ota_now_ms() + 3000u;
+            rc = restore_rx(len, crc, &begun);
+            ota_try_ms = 5000u;
+            ota_deadline = 0;
+            if (begun)
+                ui_init();                          /* the screen again (restored: everything reloaded) */
+            ui_say(rc == RS_E_PLAYING ? "STOP FIRST" : "RESTORE FROM USB",
+                   !rc ? "RESTORED" : rc == RS_E_PLAYING ? "then restore" : rc == RS_E_NO ? "NOTHING CHANGED"
+                                                                                           : "NOT RESTORED");
+        }
+        if (req == 15u && ota_dec[2] == BK_REQ && flash_ok) {   /* the QY70 bank from the host */
             uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);
             int begun = 0;
             ota_try_ms = 300u;                      /* its directory first, playing on: a host that does not */

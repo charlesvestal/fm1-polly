@@ -1,0 +1,50 @@
+# POLLY, backup and restore over USB (tools/polly_backup.py; the device's side, a cut cable, a power cut and the
+# question: tests/backup_test.c): a backup of a known set; the set changed (by hand and in the flash); the backup
+# put back as the device does once SEL answers RESTORE FROM USB?: everything as it was, at once and after a
+# reboot. Refused while playing (STOP FIRST) and when the file is damaged: nothing changes.
+wait 200
+poke_pattern
+reboot
+expect tempo 100
+expect pat1_nev 3
+expect loop_ch9_0 918
+backup out:polly.plb
+# ---- changed: the tempo by hand (saved by the autosave), a pattern and the songs in the flash
+tap HOME
+spin K2 5
+expect tempo 105
+wait 5000
+expect song0_tempo 105
+poke_bad_pattern
+reboot
+expect pat1_nev 0
+expect tempo 105
+# ---- refused while playing: nothing changes
+tap PLAY
+wait 300
+restore out:polly.plb
+expect restore_rc 10
+wait 200
+shot stop_first.png
+expect tempo 105
+tap PLAY
+wait 500
+# ---- a damaged backup: refused, nothing changes
+backup out:other.plb
+backup_damage out:other.plb
+restore out:other.plb
+expect restore_rc 5
+expect pat1_nev 0
+# ---- put back: as backed up, at once (reloaded) and after a reboot
+restore out:polly.plb
+expect restore_rc 0
+expect tempo 100
+expect song0_tempo 100
+expect loop_ch9_0 918
+expect pat1_nev 3
+wait 200
+shot restored.png
+reboot
+expect tempo 100
+expect pat1_nev 3
+expect loop_ch9_0 918

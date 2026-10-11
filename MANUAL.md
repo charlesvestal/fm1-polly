@@ -490,6 +490,28 @@ On the SONG pages, **SEL**'s list has **PLAY FROM ROW** (the row the cursor is o
 **DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**. A row's lead notes go with it (DELETE ROW asks first);
 CLEAR SONG erases them; COPY SONG TO doesn't copy them.
 
+### Backup
+
+Polly's songs can be kept in a file on your computer and put back, over USB. From this repository:
+
+```sh
+pip3 install mido python-rtmidi
+python3 tools/polly_backup.py backup my-songs.plb
+python3 tools/polly_backup.py restore my-songs.plb
+```
+
+A backup holds everything Polly keeps: the four songs, the 16 slots (your patterns, lead notes and the songs'
+loops) and the settings (Setup, the channels' sounds, Master FX). Not in it: the QY70 styles (install them again
+from your ROM) and the button calibration. Polly plays on while it is backed up; stop first if you want the changes
+it hasn't saved yet in the file too.
+
+A restore **replaces everything** with the backup. Stop first: while playing, Polly answers **STOP FIRST**. Polly
+receives the whole file and checks it before anything changes, then asks on its screen: **RESTORE FROM USB?**
+**SEL** restores (and reloads the songs), **HOME** keeps what you have. A cut cable or a damaged file changes
+nothing; even a power cut while it writes leaves either the old songs or the new, never a mix.
+
+`python3 tools/polly_backup.py info my-songs.plb` shows what a backup holds.
+
 ## Setup and MIDI
 
 Press **GLO** for Setup.
@@ -580,7 +602,8 @@ These come from Felucca, the platform Polly is built on, and work as in the othe
 - **Button calibration:** hold OCT− and OCT+ while switching on, then follow the screen. Only needed if
   buttons do the wrong thing.
 
-Your songs and patterns stay through a Polly update.
+Your songs and patterns stay through a Polly update. Putting M-VAVE's firmware back can wipe them: make a
+[backup](#backup) first.
 
 ## Credits
 

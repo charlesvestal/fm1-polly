@@ -1824,6 +1824,24 @@ void app_bank_changed(void)
     song_load();
     undo_reset();
 }
+/* a restore over USB (backup.c) wrote the project, the songs and the slots: all of it from the flash again, as at
+ * power-on (stopped: the restore is refused while playing) */
+void app_restored(void)
+{
+    project_load();
+    project_apply();
+    app_start();
+    ui_init();
+}
+/* a backup over USB: stopped, what is not saved yet saved first (the flash is what it sends); the autosave held
+ * while it streams (its objects as they were when it started) */
+static uint8_t save_hold;
+void app_flush(void)
+{
+    if (!arr_playing && unsaved() && save_all() == 0)
+        app.save_err = 0;
+}
+void app_hold_saves(int on) { save_hold = (uint8_t)(on != 0); }
 static void style_all(int n);
 /* the Style knob (HOME's KNOB 1; the STYLE pages' KNOB 4, PRESETS there): d styles on from the
  * song's (a QY70 style with no bank: from the first) */
@@ -3289,7 +3307,7 @@ static void leds(void)
 #define AUTOSAVE_QUIET 4000u
 static void autosave(void)                       /* at rest only: a flash write pauses the audio */
 {
-    if (arr_playing || ui.btn || ui.keys || gm_voices || plat_ms() - ui.act_t < AUTOSAVE_QUIET || !unsaved())
+    if (arr_playing || ui.btn || ui.keys || gm_voices || plat_ms() - ui.act_t < AUTOSAVE_QUIET || save_hold || !unsaved())
         return;
     if (app.save_err && app.err_chg == app.chg)
         return;                                  /* it failed: again only after another change */
