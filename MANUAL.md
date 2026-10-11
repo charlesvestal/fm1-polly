@@ -291,8 +291,8 @@ Hold **HOME** and press a black key:
 ![HOME held: the grooves and extras, and the progressions](docs/img/manual/home_held.png)
 
 Held, Home shows the five (each under its black key's number) and the 16 progressions. What plays now is teal (a
-ring round a groove, a filled row for a progression), what you asked for (from the next bar) is ringed coral, and,
-stopped, where PLAY starts is ringed in ink.
+ring round a groove; a progression's number on teal, its name teal), what you asked for (from the next bar) is coral
+(a ring, a number on coral), and, stopped, where PLAY starts is ink (a ring, a number on ink).
 
 While playing, the change waits for the next bar. Home shows NEXT and the groove until then.
 While stopped, you choose what PLAY starts with ("FIRST GROOVE B").
@@ -601,8 +601,8 @@ instrument.
 The page is a browser: the sound's General MIDI family of eight as its heading ("Chromatic"), the family's
 sounds in two columns of four (Celesta to Dulcimer), the sound the instrument plays ringed coral, its General
 MIDI number small at the right ("GM 9"). Turning KNOB 1, the ring moves through the family, so you see where
-you are going. Under them, the range it plays in (its low and high ends at the sides), over the whole MIDI
-keyboard.
+you are going. Under them, the range it plays in as a bar over the whole MIDI keyboard (its ends: the Low and
+High knobs').
 
 - **KNOB 1** the sound: the 128 General MIDI sounds, by name. **PRESETS** jumps a family of eight
   (pianos, organs, guitars, basses...). A drum instrument plays the drum kit: the page shows "Drums" and the kit,
