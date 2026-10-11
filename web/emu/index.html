@@ -120,19 +120,21 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <section class="help">
   <div class="knobs">
     <h2>Quick start</h2>
-    <p>Polly plays styles: a band of eight tracks with an Intro, Main A and B, two Fills and an Ending, following the chords
-      you give it. Press <b>Switch on</b> above, then:</p>
+    <p>Polly plays styles: a band of eight instruments with an Intro, Groove A and B, two Fills and an Ending,
+      following the chords you give it. A song is a list of sections; each plays a progression (your chords, P1&ndash;P16)
+      with a groove. Press <b>Switch on</b> above, then:</p>
     <ol class="steps">
-      <li>Turn <b>KNOB 1</b> on the Song page to pick a style (the screen's header shows it).</li>
-      <li>Press <b>PLAY</b>: the Intro, then Main A.</li>
-      <li>Tap <b>SEL</b>: CHORD lights, and the keys enter chords. Hold three or more keys and the band follows; it keeps the
-        chord after you let go. Tap <b>SEL</b> again and the keys play the selected track (<b>ALGORITHM</b>).</li>
-      <li>Hold <b>SEL</b> (<kbd>Shift</kbd>-click it here) and press a black key: 1 Intro, 2 Main A, 3 Main B, 4 Fill,
-        5 Ending, from the next bar.</li>
-      <li>Hold <b>SEL</b> and press a white key: one of 16 chord progressions plays at once, looping. Holding SEL shows both
-        lists on the screen.</li>
-      <li>Turn <b>SELECT</b> for the tempo.</li>
-      <li>Press <b>SAVE</b>: it's lit while something isn't saved. Polly also saves by itself after a few seconds at rest.</li>
+      <li>Turn <b>KNOB 1</b> on the Home page to pick a style (the screen's header shows it).</li>
+      <li>Press <b>PLAY</b>: Groove A plays.</li>
+      <li>Play a chord: three keys or more. The band follows, and keeps the chord after you let go.</li>
+      <li>Hold <b>HOME</b> (<kbd>Shift</kbd>-click it here) and press a black key: 1 Intro, 2 Groove A, 3 Groove B,
+        4 Fill, 5 Ending, from the next bar.</li>
+      <li>Hold <b>HOME</b> and press a white key: one of 16 progressions goes round. Holding HOME shows both lists on
+        the screen.</li>
+      <li><b>HOME</b>, then <b>SELECT</b>: the Song page. Each white key adds a section playing that progression;
+        <b>PLAY</b> there plays the song.</li>
+      <li>Press <b>SAVE</b>: it's lit while something isn't saved. Polly also saves by itself after a few seconds at
+        rest.</li>
     </ol>
     <p><b>Your QY70 styles:</b> press <b>Load QY70 ROM</b> above and pick your QY70's main ROM. It stays in your browser; its
       128 preset styles then follow Polly's own 16 on the Style knob, marked "QY", and Setup (<b>GLO</b>) shows how many
@@ -160,7 +162,7 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   </div>
   <div>
     <h2>Saving</h2>
-    <p>Saving keeps your songs, patterns and settings in this browser, as the FM-1 keeps them in its memory. Factory reset
+    <p>Saving keeps your songs, grooves and settings in this browser, as the FM-1 keeps them in its memory. Factory reset
       forgets them (not the QY70 styles: Forget does that). It is the firmware, not a recording: what you hear is Polly
       running, at the FM-1's 44.1 kHz.</p>
   </div>
@@ -273,10 +275,12 @@ function hit(c, cls) {
 }
 // what each control does, on hover (the Buttons list below says the same)
 // (from the firmware's controls list; the full list is under the device)
-const TIP = { PLAY: "Start / stop", REC: "Record into the selected track", SEL: "Tap: chords on / off. Held: with a key, a section or a chord",
-  HOME: "Song page", SEQ: "Pattern pages", EDIT: "Track page", FX: "Mixer pages", LFO: "Chords page", ENV: "Arrange pages",
-  ARP: "Templates pages", GLO: "Setup pages", SAVE: "Save (held: the jobs)", "OCT-": "Octave down", "OCT+": "Octave up",
-  SELECT: "Tempo", ALGORITHM: "Track", PRESETS: "Per page (Song page: the style; hold SEL: the song)", MASTER: "Volume",
+const TIP = { PLAY: "Start / stop (on the Song page: the song)", REC: "Record what the keys play here",
+  SEL: "This page as a list (its actions); in a question: yes", HOME: "Home, then the Song pages. Held: the shortcuts",
+  SEQ: "Band: the groove's notes", EDIT: "Sound: the instrument's", FX: "Effects", LFO: "Mixer pages",
+  ENV: "Style pages", ARP: "Progression pages", GLO: "Setup pages", SAVE: "Save (held + a white key: copy here)",
+  "OCT-": "Octave down", "OCT+": "Octave up", SELECT: "The page (held HOME: the tempo)", ALGORITHM: "The instrument",
+  PRESETS: "Per page (held HOME: the song)", MASTER: "Volume",
   KNOB1: "What the page shows", KNOB2: "What the page shows", KNOB3: "What the page shows", KNOB4: "What the page shows" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
 for (const k of Object.values(knobs)) hit(k, "knob");
