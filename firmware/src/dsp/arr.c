@@ -292,6 +292,16 @@ static uint32_t fpt, pace;
 static uint32_t ext_pend, ext_age, ext_since, ext_clocks, ext_fpt;
 static uint8_t since_ok;
 
+/* a track's note to play now, and a key's note to store: "as played" tracks (xpose_played), else the type's */
+static int as_played(const arr_trk_t *t) { return (t->flags & ARR_TF_ASPLAYED) && t->x.type == XT_PARALLEL; }
+static int trk_xpose(const arr_trk_t *t, xstate_t *xs, int note, chord_t c)
+{
+    return as_played(t) ? xpose_played(&t->x, note, c) : xpose(&t->x, xs, note, c);
+}
+static int trk_inverse(const arr_trk_t *t, int key, chord_t c)
+{
+    return as_played(t) ? xpose_played_inverse(key, c) : xpose_inverse(&t->x, key, c);
+}
 static uint32_t pat_len(const pattern_t *p) { return (uint32_t)(p->bars ? p->bars : 1) * (p->beats ? p->beats : 4) * ARR_PPQ; }
 static uint32_t bar_len(const pattern_t *p) { return (uint32_t)(p->beats ? p->beats : 4) * ARR_PPQ; }
 static uint32_t ev_end(const arr_trk_t *t)
@@ -695,7 +705,7 @@ static void ev_insert(int s, int trk, uint32_t tick, uint32_t len, int note, int
 static void rec_resolve(rec_t *r)
 {
     if (r->pend && !busy[r->slot]) {
-        r->note = (uint8_t)xpose_inverse(&pat[r->slot].trk[r->trk].x, r->key, chord);
+        r->note = (uint8_t)trk_inverse(&pat[r->slot].trk[r->trk], r->key, chord);
         r->pend = 0;
     }
 }
@@ -787,7 +797,7 @@ static void rec_press(int key, int vel)
     r->trk = rec_trk;
     r->slot = cur;
     r->ident = ident[cur];
-    r->note = (uint8_t)xpose_inverse(&p->trk[rec_trk].x, key, chord);
+    r->note = (uint8_t)trk_inverse(&p->trk[rec_trk], key, chord);
     r->pend = (uint8_t)((int32_t)(kabs - arr_ticks) >= 0 && kpos % ARR_PPQ == 0);   /* a beat line ahead */
     r->qpos = (uint16_t)kpos;
     r->qabs = kabs;
@@ -1389,7 +1399,7 @@ static void events(int play)
             int out;
             if (ev->tick != pos || !audible)
                 continue;
-            out = xpose(&tr->x, &tk[t].xs, ev->note, chord);
+            out = trk_xpose(tr, &tk[t].xs, ev->note, chord);
             if (out >= 0)
                 note_start(t, ev->note, out, ev->vel, tr->chan & 15, ev->len);
         }

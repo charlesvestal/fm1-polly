@@ -291,10 +291,14 @@ Good to know:
 
 - **The grid** (Pattern page KNOB 1) moves notes to the nearest 8th, 8th
   triplet, 16th, 16th triplet or 32nd, or "off" for none. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
-- **As played.** The first time you record into a Chord 1, Chord 2 or Bass track, Polly switches it to
-  Parallel and says so: "C1: AS PLAYED". A note plays back as you played it over the chord it was
-  played on, and moves with the root over another chord, keeping its shape. The Track page (EDIT)
-  shows the type; set it back there if you want (Polly won't switch it again).
+- **As played.** The first time you record into an empty Chord 1, Chord 2 or Bass track, Polly
+  switches it to Parallel "as played" and says so: "C1: AS PLAYED". A note plays back as you played it
+  over the chord it was played on, and moves with the root over another chord, keeping its shape, by
+  the shorter way: a line played over Am goes up a third over C. Its range opens to the whole keyboard.
+  The Track page (EDIT) shows the type; set it back there if you want (Polly won't switch it again).
+- **A track with notes** (a style's comping) keeps its type, so its notes still follow the chords:
+  Polly says "C1 FOLLOWS CHORDS" and the footer "ERASE TRACK (SEL) TO PLAY AS PLAYED". What you record
+  there follows the chords too.
 - **REC while playing** starts at the next bar line: the screen counts the beats down in that bar.
   A note played just before the bar line lands on it. The passes count from there.
 - **Press REC before PLAY** and, with no song, the section you're recording into plays at once,

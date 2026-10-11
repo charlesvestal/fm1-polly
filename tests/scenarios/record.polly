@@ -1,6 +1,7 @@
 # POLLY, record: a C1 melody recorded on SEQ over a looping 4-bar chord loop (L1, Pop: C G Am F) into a 4-bar user
-# pattern. The first REC switches C1 (Chord 1) to Parallel, "as played": each note is stored over the chord's root
-# (key - root) and plays back as played over the same chord. REC counts in to the next bar line; the passes count
+# pattern. The style's C1 has notes: REC keeps Chord 1. Erased, the first REC switches it to "as played" (Parallel,
+# its range opened): each note is stored over the chord's root taken nearest C (-6..+5: G -5, A -3, F +5) and plays
+# back as played over the same chord. REC counts in to the next bar line; the passes count
 # from there ("pass 2: adding"). Then the pattern goes to 16 bars (the Pattern page by halves).
 # Keys (octave 0): key K is MIDI 53 + K: F4 12, A4 16, C5 19, D5 21, E5 23. At 120 BPM a beat is 500 ms, a bar 2 s.
 wait 300
@@ -12,11 +13,31 @@ tapkey w0
 release HOME
 expect mode 1
 expect app_loop 1
-# SEQ, track C1, a clean track: ERASE TRACK (the section gets a user pattern of its own)
+# SEQ, track C1: the style's comping has notes, so REC keeps Chord 1 ("C1 FOLLOWS CHORDS", the footer says how)
 tap SEQ
 expect page 6
 expect track 5
 expect type5 2
+expect slot1_trk5_count 21
+tap REC
+wait 50
+expect recording 1
+expect type5 2
+expect msgtext_is_C1_FOLLOWS_CHORDS_INTO_NEW_P01 1
+expect footer_is_ERASE_TRACK_(SEL)_TO_PLAY_AS_PLAYED 1
+shot rec_follows.png
+tap REC
+wait 50
+expect recording 0
+expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
+# said once: REC again, no hint
+tap REC
+wait 50
+expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
+tap REC
+wait 50
+# a clean track: ERASE TRACK
+expect xlo5 55
 tap SEL
 spin SELECT 20
 turn SELECT -2
@@ -43,6 +64,10 @@ expect rec_wait 1
 expect rec_shown 1
 expect type5 1
 expect msgtext_is_C1:_AS_PLAYED_MAIN_A 1
+# its range opened: the whole keyboard, no high key (notes as played, never folded)
+expect xlo5 0
+expect xhi5 127
+expect xkey5 12
 shot rec_armed.png
 tap REC
 wait 50
@@ -60,14 +85,14 @@ expect msg_is_RECORD 1
 shot rec_countin.png
 # a key during the count-in sounds, is not kept
 tapkey 7
-# bar 2 (G): D5 -> D5 - G (67)
+# bar 2 (G, -5): D5 -> G5 (79)
 wait 1150
 expect rec_wait 0
 expect rec_pass 1
 key 21 down
 wait 300
 key 21 up
-# bar 3 (Am): A4 -> C4 (60); two beats on, C5 -> Eb4 (63)
+# bar 3 (Am, -3): A4 -> C5 (72); two beats on, C5 -> Eb5 (75)
 wait 1700
 key 16 down
 wait 300
@@ -76,7 +101,7 @@ wait 700
 key 19 down
 wait 300
 key 19 up
-# bar 4 (F): F4 -> C4 (60)
+# bar 4 (F, +5): F4 -> C4 (60)
 wait 700
 key 12 down
 wait 300
@@ -94,7 +119,7 @@ expect bar 1
 expect rec_pass 2
 wait 300
 shot rec_pass2.png
-# pass 2 adds: bar 3 (Am), a beat in, G4 -> Bb3 (58)
+# pass 2 adds: bar 3 (Am), a beat in, G4 -> Bb4 (70)
 wait 2080
 key 14 down
 wait 300
@@ -109,13 +134,13 @@ wait 100
 expect slot1_trk5_count 6
 expect slot1_trk5_note0 76
 expect slot1_trk5_tick0 0
-expect slot1_trk5_note1 67
+expect slot1_trk5_note1 79
 expect slot1_trk5_tick1 1920
-expect slot1_trk5_note2 60
+expect slot1_trk5_note2 72
 expect slot1_trk5_tick2 3840
-expect slot1_trk5_note3 58
+expect slot1_trk5_note3 70
 expect slot1_trk5_tick3 4320
-expect slot1_trk5_note4 63
+expect slot1_trk5_note4 75
 expect slot1_trk5_tick4 4800
 expect slot1_trk5_note5 60
 expect slot1_trk5_tick5 5760

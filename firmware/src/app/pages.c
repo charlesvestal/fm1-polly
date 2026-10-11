@@ -149,6 +149,8 @@ static struct {
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
     uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
+    uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
+                                                      * footer's hint showing (ui.c rec_as_played) */
     uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
 } ui;
 /* one of SONG's three pages */
@@ -1544,7 +1546,7 @@ static void draw_track(void)
     uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)proj.trk << 4 | (uint32_t)k2 << 8);
     char a[16], b[16];
     h = hash(h, t->program | (uint32_t)t->chan << 8 | (uint32_t)t->x.type << 16 | (uint32_t)t->x.hikey << 24);
-    h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8);
+    h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8 | (uint32_t)t->flags << 16);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -1552,7 +1554,8 @@ static void draw_track(void)
     {
         int32_t x = pill(8, 0, 0, TRACK_NAME[proj.trk], K_TEAL, K_BG);
         x = cv_text(x + 8, 2, &FONT_B, TYPE_NAME[t->x.type % NXT], K_DIM);
-        if (t->x.type == XT_PARALLEL)            /* (recorded into: notes as played, moved by the chord's root) */
+        if (t->x.type == XT_PARALLEL && (t->flags & ARR_TF_ASPLAYED))   /* (switched at its first REC: notes as
+                                                  * played, moved by the root's move, -6..+5) */
             cv_text(x + 6, 3, &FONT_XS, "as played", K_TEAL);
     }
     if ((t->chan & 15u) == 9u) {
@@ -2289,6 +2292,10 @@ static void page_footer(char *t)
         break;
     case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2: {   /* "KEYS: C1 PIANO|REC: RECORD" */
         char s[40];
+        if (ui.follow_hint) {                        /* REC kept the track's type (it has notes): how to change that */
+            cat_s(t, "ERASE TRACK (SEL) TO PLAY AS PLAYED");
+            break;
+        }
         track_tag(s);
         for (;;) {
             cat_s(cat_s(cat_s(t, "KEYS: "), s), "|REC: RECORD");

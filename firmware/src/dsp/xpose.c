@@ -99,3 +99,23 @@ int xpose_inverse(const xtrack_t *t, int note, chord_t c)
         n -= 12;
     return n;
 }
+
+int xpose_root6(int root)
+{
+    root %= 12;
+    return root > 5 ? root - 12 : root;
+}
+int xpose_played(const xtrack_t *t, int note, chord_t c)
+{
+    int out = fold(note + xpose_root6(c.root), t->lo, t->hi);
+    return out < 0 || out > 127 ? -1 : out;
+}
+int xpose_played_inverse(int note, chord_t c)
+{
+    int n = note - xpose_root6(c.root);
+    while (n < 0)
+        n += 12;
+    while (n > 127)
+        n -= 12;
+    return n;
+}

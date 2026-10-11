@@ -70,6 +70,15 @@ int main(void)
             CHECK(xpose(&t, &s, 64, ch(7, CH_NONE)) == 71, "no chord, type %d: E4 + 7 = B4", types[i]);
         }
     }
+    {   /* as played: the root taken nearest C (-6..+5); round trip; the range folds */
+        xtrack_t t = {XT_PARALLEL, 0, 127, XT_NOKEY}, r = {XT_PARALLEL, 60, 71, XT_NOKEY};
+        CHECK(xpose_root6(9) == -3 && xpose_root6(5) == 5 && xpose_root6(6) == -6 && xpose_root6(0) == 0, "roots -6..+5");
+        CHECK(xpose_played_inverse(69, ch(9, CH_MIN)) == 72, "A4 over Am: C5 stored");
+        CHECK(xpose_played(&t, 72, ch(9, CH_MIN)) == 69 && xpose_played(&t, 72, ch(0, CH_MAJ)) == 72 &&
+                  xpose_played(&t, 72, ch(5, CH_MAJ)) == 77, "back: A4 over Am, C5 over C, F5 over F");
+        CHECK(xpose_played(&r, 72, ch(5, CH_MAJ)) == 65, "in a range: folded (F4)");
+        CHECK(xpose_played_inverse(2, ch(5, CH_MAJ)) == 9, "kept in 0..127 by octaves");
+    }
     printf("%d checks, %d failures\n%s\n", checks, fails, fails ? "XPOSE TEST FAILED" : "xpose test passed");
     return fails ? 1 : 0;
 }

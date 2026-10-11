@@ -519,27 +519,51 @@ static void set_transpose(int x)
     arr_set_transpose(x);
     song_touched();
 }
-/* recording as played: a Chord 1 / 2 or Bass track recorded into the first time becomes Parallel (its notes stored
- * over the root: they play as played over the chord they were played on, moved by the root over another), said; once
- * (ARR_TF_ASPLAYED: a type set back by hand stays). Stored into the arranger now, before the first note. 1: switched */
+/* recording as played: a Chord 1 / 2 or Bass track with no notes, recorded into the first time, becomes "as played"
+ * (Parallel, ARR_TF_ASPLAYED: its notes stored over the root, which the engine takes nearest C; they play as played
+ * over the chord they were played on, moved by the root's move over another), its range the whole keyboard and no
+ * high key (never folded); once (a type set back by hand stays). Stored into the arranger now, before the first note.
+ * A track with notes (a style's comping) keeps its type: they would no longer follow the chords. 1: switched, 2: kept
+ * (it has notes), 0: nothing to do */
 static int rec_as_played(int s, int trk)
 {
     arr_trk_t *t = &app.trk[s][trk & 7];
     if ((t->flags & ARR_TF_ASPLAYED) || (t->x.type != XT_CHORD1 && t->x.type != XT_CHORD2 && t->x.type != XT_BASS))
         return 0;
+    arr_pattern_copy(s, &scratch);
+    if (scratch.trk[trk & 7].count)
+        return 2;
     t->x.type = XT_PARALLEL;
+    t->x.lo = 0;
+    t->x.hi = 127;
+    t->x.hikey = XT_NOKEY;
     t->flags |= ARR_TF_ASPLAYED;
     edited(s);
     edits_flush();
     return 1;
 }
+/* a track kept on its chord type (rec_as_played 2): said once a power-on per track, the footer saying how meanwhile
+ * (ui.follow_hint, until REC goes off or another track). 1: say it now */
+static int follows_told(int trk)
+{
+    if (ui.follow_told >> (trk & 7) & 1u)
+        return 0;
+    ui.follow_told |= (uint8_t)(1u << (trk & 7));
+    ui.follow_hint = 1;
+    return 1;
+}
 static void set_track(int t)
 {
+    int r;
     proj.trk = (uint8_t)(t & 7);
-    if (arr_recording && rec_as_played(eslot(), proj.trk)) {
-        char m[16];
+    ui.follow_hint = 0;
+    if (arr_recording && (r = rec_as_played(eslot(), proj.trk)) != 0) {
+        char m[24];
         arr_record(proj.trk, ARR_REC_BAR);       /* recording goes on, into this track */
-        say(cat_s(cat_s(m, TRACK_NAME[proj.trk]), ": AS PLAYED"), trk_sound(&app.trk[eslot()][proj.trk]));
+        if (r == 1)
+            say(cat_s(cat_s(m, TRACK_NAME[proj.trk]), ": AS PLAYED"), trk_sound(&app.trk[eslot()][proj.trk]));
+        else if (follows_told(proj.trk))
+            say(cat_s(cat_s(m, TRACK_NAME[proj.trk]), " FOLLOWS CHORDS"), 0);
         mark_dirty();
         return;
     }
@@ -1282,9 +1306,10 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         break;
     case B_REC:
     {
-        int on = !arr_recording, s = eslot(), r = key_role();   /* the state asked for (the engine's: a block later) */
+        int on = !arr_recording, s = eslot(), r = key_role(), rp = 0;   /* the state asked for (the engine's: a block
+                                                                         * later) */
         int st = songs.song[proj.song].style[s];
-        char a[16], t[16];
+        char a[24], t[16];
         if (r == KR_CHORDS) {                    /* HOME, LOOP: chords into the loop, or a new loop */
             rec_chords_button();
             break;
@@ -1299,8 +1324,11 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         }
         if (on)
             slot_own(s);                         /* recording into a style's section: a user pattern first */
-        if (on && rec_as_played(s, proj.trk))    /* (before the first note) */
+        ui.follow_hint = 0;
+        if (on && (rp = rec_as_played(s, proj.trk)) == 1)   /* (before the first note) */
             cat_s(cat_s(a, TRACK_NAME[proj.trk]), ": AS PLAYED");
+        else if (rp == 2 && follows_told(proj.trk))
+            cat_s(cat_s(a, TRACK_NAME[proj.trk]), " FOLLOWS CHORDS");
         else
             cat_s(cat_s(a, "RECORD "), TRACK_NAME[proj.trk]);
         arr_record(proj.trk, on ? ARR_REC_BAR : 0);   /* from the next bar line (stopped: from PLAY) */
@@ -2517,6 +2545,8 @@ void ui_frame(void)
     if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     rec_follow_keys();
+    if (!arr_recording && !ui.rec_want)
+        ui.follow_hint = 0;                      /* (REC off: the hint goes) */
     if (ui.song_rec && !song_page()) {           /* REC on SONG writes from SONG: leaving it ends it */
         ui.song_rec = 0;
         say("REC OFF", 0);

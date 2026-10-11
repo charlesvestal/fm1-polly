@@ -492,7 +492,11 @@ static int expect(const char *what, const char *val)
         got = arr_rec_bars / (app.hdr[sect_slot(arr_sect)].bars ? app.hdr[sect_slot(arr_sect)].bars : 1) + 1;
     else if (!strcmp(what, "rec_shown"))          /* SEQ / EDIT show the track being recorded as bars */
         got = trk_rec_shown();
-    else if (!strncmp(what, "type", 4))           /* typeN: the selected section's track N's type, XT_* (1 Parallel) */
+    else if (!strncmp(what, "xlo", 3) || !strncmp(what, "xhi", 3) || !strncmp(what, "xkey", 4)) {
+        /* xloN / xhiN / xkeyN: the selected section's track N's range and high key (12 off) */
+        const xtrack_t *x = &app.trk[sect_slot(arr_sect)][(atoi(what + (what[1] == 'k' ? 4 : 3)) - 1) & 7].x;
+        got = what[1] == 'k' ? x->hikey : what[1] == 'l' ? x->lo : x->hi;
+    } else if (!strncmp(what, "type", 4))           /* typeN: the selected section's track N's type, XT_* (1 Parallel) */
         got = app.trk[sect_slot(arr_sect)][(atoi(what + 4) - 1) & 7].x.type;
     else if (!strcmp(what, "recording"))
         got = arr_recording;

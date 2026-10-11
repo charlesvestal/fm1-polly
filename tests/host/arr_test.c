@@ -3492,6 +3492,48 @@ static void test_record_pickup(void)
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "offs match");
 }
+/* ---- an "as played" track (ARR_TF_ASPLAYED, Parallel): the root's move folded to -6..+5 (each root taken nearest
+ * C: A is -3), so a line recorded over Am plays a third up over C, not a sixth down; a style's own Parallel track
+ * (no flag) moves by the root as it is */
+static void test_record_as_played_fold(void)
+{
+    static const chord_t ac[2] = {{9, CH_MIN, CH_NOBASS}, {0, CH_MAJ, CH_NOBASS}};
+    int i;
+    reset();
+    loops_reset();
+    pat_new();
+    P.trk[5].x.type = XT_PARALLEL;            /* as played (channel 4) */
+    P.trk[5].flags = ARR_TF_ASPLAYED;
+    P.trk[6].x.type = XT_PARALLEL;            /* a style's Parallel (channel 5): C4, moved by the root */
+    add(6, 0, 12, 60);
+    arr_load_pattern(SA, &P);
+    loop_bars(0, 4, 2, ac);                   /* Am | C */
+    arr_set_tempo(120);
+    arr_mode_loop(0);
+    arr_record(5, 1);
+    arr_play(1);
+    key_at(25.f, 69, 1);                      /* A4 over Am */
+    key_at(36.f, 69, 0);
+    run_to((uint32_t)(4 * 96 * FPT + 512));
+    arr_pattern_copy(SA, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 1 && R.ev[i].note == 72, "stored over A taken as -3: C5 (%d)", R.trk[5].count ? R.ev[i].note : -1);
+    CHECK(ons_in(0x93, 69, 2 * 96 * FPT, 3 * 96 * FPT) == 1, "over Am again: A4, as played");
+    CHECK(ons_in(0x93, 72, 3 * 96 * FPT, 4 * 96 * FPT) == 1 && ons_in(0x93, 60, 3 * 96 * FPT, 4 * 96 * FPT) == 0,
+          "over C: a third up, C5 (not a sixth down)");
+    CHECK(ons_in(0x94, 69, 0.f, 96 * FPT) == 1 && ons_in(0x94, 60, 96 * FPT, 2 * 96 * FPT) == 1,
+          "the style's Parallel track: A4 over Am, C4 over C (the root as it is)");
+    arr_set_transpose(5);                     /* Dm | F: F is +5, D +2 */
+    run_to((uint32_t)(6 * 96 * FPT + 512));
+    CHECK(ons_in(0x93, 74, 4 * 96 * FPT, 5 * 96 * FPT) == 1 && ons_in(0x93, 77, 5 * 96 * FPT, 6 * 96 * FPT) == 1,
+          "transposed: D5 over Dm, F5 over F");
+    arr_set_transpose(-6);                    /* Ebm | F#: F# is -6 */
+    run_to((uint32_t)(8 * 96 * FPT + 512));
+    CHECK(ons_in(0x93, 66, 7 * 96 * FPT, 8 * 96 * FPT) == 1, "over F#: F#4 (-6)");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
 int main(void)
 {
     test_timing();
@@ -3574,6 +3616,7 @@ int main(void)
     test_live_keys();
     test_record_as_played();
     test_record_pickup();
+    test_record_as_played_fold();
     test_record_from_bar();
     test_long_pattern();
     printf("%d checks, %d failed\n", checks, fails);

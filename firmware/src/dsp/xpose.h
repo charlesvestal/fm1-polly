@@ -31,3 +31,10 @@ int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c);
  * Keys no pattern note can produce (B over C major, whose 7th is the octave) are stored as note - root and play
  * back moved to a degree of the later chord: the QY's behaviour, by design. */
 int xpose_inverse(const xtrack_t *t, int note, chord_t c);
+/* "As played" (a Parallel track the app switched at its first REC: arr.h ARR_TF_ASPLAYED): moved by the chord's
+ * root taken nearest C, -6..+5 (A is -3, F +5, F# -6), so a line moves by the root's move folded to -6..+5 (over
+ * Am, then C: up a third; across F#, up to 11), then folded into the range as any type. Its inverse for
+ * recording: note - that root, kept in 0..127 by octaves */
+int xpose_root6(int root);
+int xpose_played(const xtrack_t *t, int note, chord_t c);
+int xpose_played_inverse(int note, chord_t c);
