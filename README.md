@@ -12,7 +12,7 @@ The words, in one line each: a **song** is a list of **sections**; a section pla
 P1–P16) with a **groove** (Groove A or B of the song's **style**), so many times; the style's **instruments** (D1 D2
 PC BA C1–C4) play it; **melodies** M1, M2 run along the sections. MANUAL.md's cheat sheet has the picture.
 
-1. Switch on: the Home page. Turn **KNOB 1** to pick a style (the header shows it).
+1. Switch on: the Home page. Turn **KNOB 1** to pick a style.
 2. Press **PLAY**. Groove A plays, over C until you give it a chord.
 3. Play a chord: three keys or more. The band follows, and keeps the chord after you let go. Inversions
    work (E G C is C); the lowest note is the bass, so a note under the chord that isn't its root, 3rd or
@@ -28,8 +28,8 @@ PC BA C1–C4) play it; **melodies** M1, M2 run along the sections. MANUAL.md's 
    at rest, stopped.
 
 **Your grooves and the style.** Record into a groove (SEQ, REC) and it plays your own copy from then on, "(yours)"
-on the screen. The Style knob changes only what still plays the style, so your copy stays; the header says which
-are yours ("Pop · Groove A (yours)"). To give a groove back to the style: **SEL** on the Band page, **BACK TO
+on the screen. The Style knob changes only what still plays the style, so your copy stays; the groove's pill says
+it's yours ("Groove A (yours)"). To give a groove back to the style: **SEL** on the Band page, **BACK TO
 STYLE**. Mutes (SEQ, KNOB 4) are the song's: a muted instrument is muted in every groove, and muting never makes a
 copy.
 
@@ -44,22 +44,24 @@ then follow Polly's 16 styles on the Style knob, marked "QY".
 | Control | |
 |---|---|
 | PLAY / REC | start / stop (on Song: the song from section 1); REC writes what the keys play here: chords into the progression, a new progression (Home, free), the selected instrument (Band, Sound), a melody (Sound, in a song), sections (Song) |
-| SEL | the page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR PROGRESSION, PLAY FROM SECTION, INSERT SECTION, BACK TO STYLE…) |
+| SEL | the page as a list, over the knobs: its values, MORE, and actions (LOAD PROGRESSION, CLEAR PROGRESSION, PLAY FROM SECTION, INSERT SECTION, CLEAR C1, BACK TO STYLE…) |
 | HOME held | the shortcuts on screen: + white key 1-16 a progression; + black key 1-5 Intro, Groove A, Groove B, Fill, Ending (from the next bar); + SELECT the tempo; + PRESETS the song; + REC undo, + PLAY redo |
-| HOME | Home: KNOB 1 style, 2 tempo, 3 transpose, 4 prog ("–": free, the band follows your chords); SELECT: Song (sections: prog, groove, repeat, mutes, transpose; intro, ending, at end, song) |
+| HOME | Home: KNOB 1 style, 2 tempo, 3 transpose, 4 prog ("–": free, the band follows your chords); SELECT: Song (sections: prog, groove, repeat, mutes; page 2 a section's transpose, intro, ending, at end) |
 | ARP | Progression: its chords, a chord a beat (bar, beat, root, type); page 2 length, beats, bass, name |
 | SEQ | Band (the groove's 8 instruments; KNOB 1 the grid, KNOB 2, 3 the cursor's bar and beat, KNOB 4 mute: the song's, every groove); page 2 Groove length (its length, beats, name) |
-| EDIT | Sound: program, type, range; page 2 high key, channel |
+| EDIT | Sound: the sound (by name), type, range; page 2 high key, channel (a melody: one page, sound, channel, velocity) |
 | LFO | Mixer (volume, pan, sends); page 2 tone (bright, reso) |
-| FX | Effects (reverb, chorus) |
+| FX | Effects (reverb, chorus; the page shows each instrument's sends) |
 | ENV | Style: which style each groove and extra plays, KNOB 4 the song's style (two pages) |
-| GLO | Setup: clock, MIDI out, lights, click (and the QY70 bank's state); page 2 Panel (CPU, voices, version) |
+| GLO | Setup: clock, MIDI out, lights, click (and the QY70 bank's state); page 2 Status (CPU, voices, version) |
 | SAVE | saves (lit: something to save; it also saves by itself at rest); held + a white key: copy the progression (Home, Progression) or the groove (Band) there |
 | SELECT / ALGORITHM | the page (a list: up / down) / the instrument (D1…C4, then the melodies M1, M2) |
 | OCT- / OCT+ | the keys' octave (Progression: the cursor) |
 
 A button with more pages shows which one by the dots over the knobs, and the line over the knobs says where you are
-("S1 › Pop › Groove A › C1 Piano"); holding any button a second shows what it does there. MIDI in (USB, TRS) plays
+("S1 › Pop › Groove A › C1 Piano"); holding any button a second shows what it does there. Colours mean one thing
+each: teal what sounds now, coral you (the cursor, an edit, REC), slate and amber Groove A and B, plum the melodies,
+ink the rest. MIDI in (USB, TRS) plays
 all 16 channels; its clock can drive the arranger (Setup).
 
 ## Building
