@@ -3891,6 +3891,81 @@ static void test_lead_record_play(void)
     arr_leads(0);
 }
 
+/* a write in progress over a recorded note's place: handed over only once the player is past it, so the app's
+ * insert never plays it again (the key already sounded) */
+static void test_lead_record_busy(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    int k;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    SG.at_end = 1;
+    arr_record(ARR_LD1, 1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    key_at(47.f, 67, 1);                         /* 940 -> 960 (ahead of the key) */
+    key_at(47.5f, 67, 0);                        /* released before its place */
+    arr_edit(1);                                 /* the app mid-write over tick 960 */
+    run_to((uint32_t)(49.5f * FPT));
+    k = take_all(n, 4);
+    CHECK(k == 0, "not handed over while the player waits behind it (%d)", k);
+    arr_edit(0);
+    run_blocks(1);
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].pos == 960, "handed over once the player passed it (%d %u)", k, k ? n[0].pos : 0);
+    if (k == 1) {
+        lead_ev_t e;
+        lead_set(&e, n[0].row, n[0].pos, n[0].len, n[0].note, n[0].vel, n[0].trk, n[0].root);
+        arr_edit(1);
+        leads_insert(&LD, &e, LEAD_MAX, 0);
+        LD.gen++;
+        arr_edit(0);
+    }
+    run_to((uint32_t)(2 * BAR - 256));
+    CHECK(ons_in(0x96, 67, 0.f, 2 * BAR) == 1, "G4 once this pass: the key (%d)", ons_in(0x96, 67, 0.f, 2 * BAR));
+    run_to((uint32_t)(3 * BAR));
+    CHECK(on_at(0x96, 67, 192.f + 48.f), "the next time round: the note");
+    arr_play(0);
+    run_blocks(1);
+    arr_record(4, 0);
+    run_blocks(1);
+    arr_leads(0);
+}
+/* MIDI Start while playing (a restart): the keys held on a lead end their notes there */
+static void test_lead_record_restart(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    int k;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    arr_record(ARR_LD1, 1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    key_at(24.f, 64, 1);                         /* 480, held */
+    run_to((uint32_t)(36 * FPT));
+    arr_clock(ARR_CLK_START);                    /* the far side restarts us */
+    run_blocks(1);
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].pos == 480 && within((int)n[0].len, 240, 2 * U), "ended at the restart (%d %u)", k, k ? n[0].len : 0);
+    run_blocks(20);
+    arr_key(64, 0, 0);
+    run_blocks(1);
+    CHECK(take_all(n, 4) == 0, "its release later: nothing more");
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    arr_record(4, 0);
+    run_blocks(1);
+    arr_leads(0);
+}
+
 int main(void)
 {
     test_timing();
@@ -3980,6 +4055,8 @@ int main(void)
     test_lead_catchup();
     test_lead_record();
     test_lead_record_play();
+    test_lead_record_busy();
+    test_lead_record_restart();
     test_record_pickup();
     test_record_as_played_fold();
     test_record_from_bar();

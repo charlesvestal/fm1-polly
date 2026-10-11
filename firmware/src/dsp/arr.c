@@ -1108,8 +1108,9 @@ static void lrec_release(lrec_t *r, uint32_t end)
     r->len = len < q ? q : len;
     r->state = R_DONE;
 }
-/* the entries done and resolved: to the app. all (a stop, recording off): the keys held end now, and an entry whose
- * place never played goes */
+/* the entries done and resolved: to the app, once the player is past their place (a write in progress holds it
+ * back: else the app's insert would be ahead of it and play again what the key played). all (a stop, a restart,
+ * recording off): the keys held end now, and an entry whose place never played goes */
 static void lrec_flush(int all)
 {
     if (!lrec_n)
@@ -1123,7 +1124,7 @@ static void lrec_flush(int all)
                 continue;
             lrec_release(r, tick_now());
         }
-        if (r->pend && !all)
+        if (!all && (r->pend || edit_busy || (leads_heard() && r->row == ld_row && r->pos >= ld_from)))
             continue;
         if (!r->pend)
             lout_put(r);
@@ -1370,6 +1371,7 @@ static void transport_start(void)
 {
     uint8_t s = arr_next_sect, to = fill_to;
     rec_flush(1);
+    lrec_flush(1);                                 /* (a restart while playing: a lead's keys held end here) */
     arr_ended = 0;
     chord_owed = 0;
     first_tick = 1;
@@ -1890,9 +1892,10 @@ static void clock_in(int msg)
             setup();
             if (mode_wait) {                       /* a source picked while stopped: its bar 1 is this bar */
                 mode_apply(bar_beat0);
-                if (mode == ARR_SONG && sn.nrows)  /* a song's row: its section from the next bar line */
+                if (mode == ARR_SONG && sn.nrows) {   /* a song's row: its section from the next bar line, */
                     sect_owed = row_start(bar_beat0);
-                    ld_tick = ld_from = pos % bar_len(&pat[cur]);   /* (the row from this bar's downbeat) */
+                    ld_tick = ld_from = pos % bar_len(&pat[cur]);   /* its place from this bar's downbeat */
+                }
             }
         }
         clk_out = 0;
