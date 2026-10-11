@@ -4,7 +4,7 @@
 wait 300
 # the tag and the footer before any button: FREE, the hint
 expect tag_is_S1>free 1
-expect footer_is_REC:_NEW_PROG|HOLD_A_BUTTON:_HELP 1
+expect footer_is_REC_new_prog|hold_a_button:_help 1
 # HOME's list: it opens on its first action (LOAD PROGRESSION, row 4: Style, Tempo, Transpose, Loop above it);
 # SELECT moves (not the page) up to the knobs' rows, ALGORITHM changes the row's value, HOME backs out
 expect list_open 0
@@ -45,7 +45,7 @@ expect tag_is_S1>P9 1
 turn PRESET -8
 expect tag_is_S1>P1_Pop 1
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
-expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_CURSOR 1
+expect footer_is_KEYS_chords|REC_write|OCT_cursor 1
 tap SEL
 expect list_open 1
 # (it opens on CLEAR CHORD, its first action: under the eight knobs, MORE and Letters; STEP after it)
@@ -113,7 +113,7 @@ press SAVE
 tapkey w2
 release SAVE
 expect asking 1
-expect footer_is_SEL:_YES|HOME:_NO 1
+expect footer_is_SEL_yes|HOME_no 1
 press HOME
 expect asking 0
 wait 600

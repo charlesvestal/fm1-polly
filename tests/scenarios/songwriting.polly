@@ -20,7 +20,7 @@ expect slot1_trk4_count 18
 tap REC
 wait 50
 expect recording 1
-expect footer_is_SEL:_4_BARS,_AS_THE_PROG|REC:_STOP 1
+expect footer_is_SEL_4_bars,_as_the_prog|REC_stop 1
 wait 100
 shot rec_bars_hint.png
 tap SEL
@@ -36,7 +36,7 @@ shot rec_bars_done.png
 tap REC
 wait 50
 expect recording 0
-expect footer_is_KEYS:_C1|REC:_RECORD 1
+expect footer_is_KEYS_C1|REC_record 1
 # ---- BARS while the loop plays: at the loop's bar 3 the pattern is at its bar 3; shorter (2): its bar 1; longer again
 # (the notes kept past the end come back, nothing repeated over them): bar 4 at the loop's bar 4
 tap PLAY
@@ -75,7 +75,7 @@ tap HOME
 expect page 0
 tap REC
 expect rec_chords 1
-expect footer_is_KEYS:_CHORDS|REC:_STOP 1
+expect footer_is_KEYS_chords|REC_stop 1
 tap PLAY
 wait 2620
 key 9 down
@@ -99,7 +99,7 @@ expect loop_ch1_5 -1
 expect loop_ch1_10 416
 tap REC
 expect rec_chords 0
-expect footer_is_KEYS:_CHORDS|REC:_WRITE 1
+expect footer_is_KEYS_chords|REC_write 1
 tap PLAY
 wait 300
 # ---- a new loop's take (FREE: KNOB 4 to "-"; REC while playing): counted in, "RECORDING NEW LOOP L9", the tag NEW
@@ -119,7 +119,7 @@ tap REC
 expect take 2
 expect msgtext_is_RECORDING_NEW_PROGRESSION_P9 1
 expect tag_is_S1>new_P9 1
-expect footer_is_KEYS:_CHORDS|REC:_STOP 1
+expect footer_is_KEYS_chords|REC_stop 1
 wait 600
 shot take_countin.png
 wait 1528

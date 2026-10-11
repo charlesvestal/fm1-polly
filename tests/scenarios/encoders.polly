@@ -2,20 +2,21 @@
 # SELECT: the button's next page (one page: nothing), HOME held the tempo. ALGORITHM: the instrument (or melody) the
 # keys play, said only where an instrument is on screen (Band, Groove length, Sound, Mixer, Mixer tone; elsewhere it
 # still picks one). PRESETS: the next progression (Home, Progression), section (Song), groove (Band), style (Style),
-# family (Sound; drums: nothing), HOME held the song. A list, a question: no line (the list covers it; the footer
-# says what SELECT, ALGORITHM, SEL, HOME do). A screenshot of every page.
+# family (Sound; drums: nothing), HOME held the song. A list, a question, a help card: no line (the list covers it;
+# the footer says what SELECT, ALGORITHM, SEL, HOME do). On screen the encoders are SELECT, ALGO, PRESET (round pills),
+# the buttons and keys keycaps. A screenshot of every page.
 # Pages: 0 Home, 1-2 Song, 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2, 10 Mixer, 11 Mixer tone,
 # 12 Effects, 13-14 Style, 15 Setup, 16 Status
 wait 300
 expect page 0
 expect track 5
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_SELECT_page|PRESET_prog 1
 shot home.png
 # HOME held (the overlay): the tempo, the song
 press HOME
 wait 500
 expect home_shown 1
-expect enc_is_SELECT_tempo|PRE_song 1
+expect enc_is_SELECT_tempo|PRESET_song 1
 shot home_held.png
 release HOME
 wait 50
@@ -23,11 +24,11 @@ expect page 0
 # Song's two pages
 turn SELECT 1
 expect page 1
-expect enc_is_SELECT_page|PRE_section 1
+expect enc_is_SELECT_page|PRESET_section 1
 shot song.png
 turn SELECT 1
 expect page 2
-expect enc_is_SELECT_page|PRE_section 1
+expect enc_is_SELECT_page|PRESET_section 1
 shot song2.png
 turn SELECT 1
 expect page 0
@@ -36,49 +37,49 @@ tap ARP
 expect page 4
 turn ALGO 1
 expect track 6
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_SELECT_page|PRESET_prog 1
 turn ALGO -1
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_SELECT_page|PRESET_prog 1
 shot progression.png
 turn SELECT 1
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_SELECT_page|PRESET_prog 1
 shot progression2.png
 # Band, Groove length
 tap SEQ
 expect page 6
-expect enc_is_SELECT_page|ALG_instrument|PRE_groove 1
+expect enc_is_SELECT_page|ALGO_instrument|PRESET_groove 1
 shot band.png
 turn SELECT 1
-expect enc_is_SELECT_page|ALG_instrument|PRE_groove 1
+expect enc_is_SELECT_page|ALGO_instrument|PRESET_groove 1
 shot groove_length.png
 # Sound: PRESETS a family of eight; D1 (drums): none; a melody (past C4) has families too
 tap EDIT
 expect page 8
-expect enc_is_SELECT_page|ALG_instrument|PRE_family 1
+expect enc_is_SELECT_page|ALGO_instrument|PRESET_family 1
 shot sound.png
 turn ALGO -4
 expect track 1
-expect enc_is_SELECT_page|ALG_instrument 1
+expect enc_is_SELECT_page|ALGO_instrument 1
 shot sound_drums.png
 turn ALGO 4
 turn ALGO 4
 expect lead_sel 1
-expect enc_is_ALG_instrument|PRE_family 1
+expect enc_is_ALGO_instrument|PRESET_family 1
 shot sound_melody.png
 turn ALGO -4
 expect lead_sel 0
 expect track 5
 turn SELECT 1
 expect page 9
-expect enc_is_SELECT_page|ALG_instrument 1
+expect enc_is_SELECT_page|ALGO_instrument 1
 shot sound2.png
 # Mixer, Mixer tone, Effects (one page: SELECT does nothing)
 tap LFO
 expect page 10
-expect enc_is_SELECT_page|ALG_instrument 1
+expect enc_is_SELECT_page|ALGO_instrument 1
 shot mixer.png
 turn SELECT 1
-expect enc_is_SELECT_page|ALG_instrument 1
+expect enc_is_SELECT_page|ALGO_instrument 1
 shot mixer_tone.png
 tap FX
 expect page 12
@@ -87,10 +88,10 @@ shot effects.png
 # Style, Setup, Status
 tap ENV
 expect page 13
-expect enc_is_SELECT_page|PRE_style 1
+expect enc_is_SELECT_page|PRESET_style 1
 shot style.png
 turn SELECT 1
-expect enc_is_SELECT_page|PRE_style 1
+expect enc_is_SELECT_page|PRESET_style 1
 shot style2.png
 tap GLO
 expect page 15
@@ -107,11 +108,11 @@ tap SEL
 expect list_open 1
 expect list_sel 4
 expect enc_is_ 1
-expect footer_is_ALG:_CHANGE|SEL:_DO_IT|HOME:_BACK 1
+expect footer_is_ALGO_pick|SEL_do_it|HOME_back 1
 shot list_action.png
 turn SELECT -3
 expect list_sel 1
-expect footer_is_SELECT:_MOVE|ALG:_CHANGE|HOME:_BACK 1
+expect footer_is_SELECT_move|ALGO_set|HOME_back 1
 shot list_knob.png
 tap HOME
 expect list_open 0
@@ -123,34 +124,37 @@ expect tag_is_S1>P1_Pop 1
 tap SEL
 spin SELECT 20
 turn SELECT -1
-expect footer_is_ALG:_CHANGE|SEL:_DO_IT|HOME:_BACK 1
+expect footer_is_ALGO_pick|SEL_do_it|HOME_back 1
 shot list_pick.png
 # STEP: a choice (ALGORITHM: beat, half, bar); CLEAR CHORD: an action
 turn SELECT -1
-expect footer_is_SELECT:_MOVE|ALG:_CHANGE|HOME:_BACK 1
+expect footer_is_SELECT_move|ALGO_set|HOME_back 1
 shot list_step.png
 turn SELECT -1
-expect footer_is_SELECT:_MOVE|SEL:_DO_IT|HOME:_BACK 1
+expect footer_is_SELECT_move|SEL_do_it|HOME_back 1
 turn SELECT -1
-expect footer_is_ALG:_LETTER|SEL:_NEXT|HOME:_BACK 1
+expect footer_is_ALGO_letter|SEL_next|HOME_back 1
 shot list_name.png
 # a question (CLEAR PROGRESSION, the last row): no line; HOME: no
 spin SELECT 20
 tap SEL
 expect asking 1
 expect enc_is_ 1
-expect footer_is_SEL:_YES|HOME:_NO 1
+expect footer_is_SEL_yes|HOME_no 1
 shot question.png
 tap HOME
 expect asking 0
 tap HOME
 expect list_open 0
-# a help card (ARP held alone): the line stays the page's
+# a help card (ARP held alone): no encoders' line (a knob turned with the button held is a combination, not the
+# page's knob), the footer says letting go changes nothing; back after
 press ARP
 wait 1200
 expect card 9
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_ 1
+expect footer_is_let_go:_nothing_changes 1
 shot card.png
 release ARP
 wait 50
 expect card 0
+expect enc_is_SELECT_page|PRESET_prog 1

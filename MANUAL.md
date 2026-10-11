@@ -106,8 +106,10 @@ next thing.
 - **SELECT**: a button's next page; in a list, up and down. **ALGORITHM**: the instrument (or melody). **PRESETS**: the
   next one of what the page shows. **KNOB 1–4**: the four values at the bottom of the screen.
 
-The line over the footer says what turning SELECT, ALGORITHM (ALG) and PRESETS (PRE) changes on the page you're on:
-"SELECT page · ALG instrument · PRE family".
+The two lines at the bottom of the screen name the controls as pills, the way the panel prints them, each followed by
+what it does here: what turning SELECT, ALGORITHM (ALGO) and PRESETS (PRESET) changes, in round pills, "[SELECT] page ·
+[ALGO] instrument · [PRESET] family"; then what the keys and buttons do, in square keycaps, "[KEYS] chords · [REC]
+write".
 
 Hold any button for a second and its card says what it does on the page you're on.
 
@@ -185,21 +187,25 @@ The screen has these bands:
   (the bar, the section) is said by the cursor, not here.
 - **The knobs**: what KNOB 1–4 do here, with their values. The knob you turned last shows in coral. A page with
   no knobs (Status) has no strip.
-- **The encoders' line**: what turning SELECT, ALGORITHM (ALG) and PRESETS (PRE) changes here: "SELECT page ·
-  ALG instrument · PRE section". SELECT turns the button's pages (the dots show which; nothing where a button has
-  one page). ALG picks the instrument (or melody) the keys play; the line says so where an instrument is on screen
-  (Band, Groove length, Sound, the Mixer pages). PRE steps through the progressions (Home, Progression), the
-  sections (Song), the grooves (Band), the sound families (Sound) or the styles (Style). HOME held: "SELECT tempo ·
-  PRE song". In a list there is no line: the list covers it and the footer says it all.
-- **The footer**: what the keys and REC do here ("KEYS: CHORDS · REC: WRITE", "KEYS: C1 · REC: RECORD"); while
-  something records, "REC: STOP". On a page where the keys do nothing (Effects, Style, Setup, Status) it's empty.
-  The very first screen says "REC: NEW PROG · HOLD A BUTTON: HELP".
+- **The two bottom lines**: each control as a pill, like the panel's printed labels, and what it does here after it.
+  First the encoders, in round pills: what turning SELECT, ALGORITHM (ALGO) and PRESETS (PRESET) changes: "[SELECT]
+  page · [ALGO] instrument · [PRESET] section". SELECT turns the button's pages (the dots show which; nothing where a
+  button has one page). ALGO picks the instrument (or melody) the keys play; the line says so where an instrument is
+  on screen (Band, Groove length, Sound, the Mixer pages). PRESET steps through the progressions (Home, Progression),
+  the sections (Song), the grooves (Band), the sound families (Sound) or the styles (Style). HOME held: "[SELECT]
+  tempo · [PRESET] song".
+  Then the keys and buttons, in square keycaps: what they do here ("[KEYS] chords · [REC] write · [OCT] cursor",
+  "[KEYS] C1 · [REC] record", "[WHITE] progression · [BLACK] mutes"); while something records, "[REC] stop". Two held
+  together show as "[HOME]+[KEYS] sections". Where the keys do nothing (Effects, Style, Setup, Status) there is only
+  the encoders' part; where everything fits on one line, it's one line. The very first screen says "[REC] new prog ·
+  hold a button: help". In a list only the list's line shows ("[SELECT] move · [SEL] do it · [HOME] back"), a
+  question says "[SEL] yes · [HOME] no", and while a help card is up "let go: nothing changes".
 
 **Messages** such as "SAVED" or "NEXT GROOVE B" take over the header for a second or so.
 
 **The cursor and the playhead.** Where the knobs and keys write is outlined in thick coral: a chord's cell
 (Progression, its bar and beat numbers on coral), a section (Song, "section 3 of 6" by it), a line down the
-instruments (Band, "bar 2.3" under it), a melody's first bar (Sound with M1 or M2). What plays is filled teal (a
+instruments (Band, "bar 2.3" on coral over it), a melody's first bar (Sound with M1 or M2). What plays is filled teal (a
 teal line on Band). Both show at once: a coral outline round a teal fill is the cursor on the beat playing.
 Whatever you change flashes coral for half a second where it lands: a chord, a section, an instrument's row, a bar
 of notes just recorded, and what undo or redo brings back.
@@ -290,7 +296,8 @@ Hold **HOME** and press a black key:
 
 ![HOME held: the grooves and extras, and the progressions](docs/img/manual/home_held.png)
 
-Held, Home shows the five (each under its black key's number) and the 16 progressions. What plays now is teal (a
+Held, Home shows the five (each under its black key's number) and the progressions with chords, big; the empty
+ones share a line under them ("P9–P16 empty"). What plays now is teal (a
 ring round a groove; a progression's number on teal, its name teal), what you asked for (from the next bar) is coral
 (a ring, a number on coral), and, stopped, where PLAY starts is ink (a ring, a number on ink).
 
@@ -409,15 +416,16 @@ See [Writing a song](#writing-a-song) for the whole path.
 - **Home's KNOB 4, PROG**: "–" (free: the band follows your chords) or P1–P16 (that progression plays; while
   playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
 - **Song** (HOME, SELECT): the sections, top to bottom. A white key writes a section: on END it adds one, on a
-  section it sets that section's progression. Black keys 1–8 mute the section's instruments, 9 and 10 its melodies
-  M1 and M2 (the squares after the gap in MUTE: filled plays, an outline is muted). GROOVE's mark is slate for A,
-  amber for B; TRANSP is the section's own ("0" dim). KNOB 1–4 SECTION, PROG, GROOVE (A or B, "+ fill" for a fill
-  into the next section), REPEAT; page 2 TRANSPOSE (the cursor's section's own, on top of the song's; **PRESETS**
-  steps the sections), and the song's INTRO, ENDING, AT END. (The song itself: hold **HOME**, turn **PRESETS**.)
-  Under the sections, "section 3 of 6" says where the cursor (the coral ring) is; on END, "a white key adds a
-  section". While the song plays, the section playing is filled teal (inside the ring when the cursor follows it);
-  during its Intro, a fill and its Ending the line under the sections says so ("Intro · then section 1", "Fill AB ·
-  into section 3", "Ending · then stop").
+  section it sets that section's progression. A section's row: its number, its progression ("P3 Fifties"), its
+  groove (a slate A or amber B, "+ fill" for a fill into the next section), its repeat ("x2") and its own transpose
+  ("+2"; nothing at 0). Under the rows, the cursor's section's mutes: D1 D2 PC BA, C1–C4, then the melodies M1 M2
+  (plum), filled plays, an outline is muted; black keys 1–8 mute the section's instruments, 9 and 10 its melodies.
+  KNOB 1–4 SECTION, PROG, GROOVE (A or B, "+ fill"), REPEAT; page 2 TRANSPOSE (the cursor's section's own, on top of
+  the song's; **PRESETS** steps the sections), and the song's INTRO, ENDING, AT END. (The song itself: hold
+  **HOME**, turn **PRESETS**.) Over the sections, "section 3 of 6" says where the cursor (the coral ring) is; on
+  END, "a white key adds a section". While the song plays, the section playing is filled teal (inside the ring when
+  the cursor follows it); during its Intro, a fill and its Ending the line over the sections says so ("Intro · then
+  section 1", "Fill AB · into section 3", "Ending · then stop").
 - **Home** shows the progression as bars, the same whether you listen or write chords: a cell a bar with its
   chords, the bar playing filled teal with its beats along its foot (in a bar of several chords, the one sounding
   bright, the others pale); stopped, bar 1 ringed in ink (PLAY starts there). Eight bars show at once, two rows of
@@ -451,16 +459,17 @@ Polly records into the selected instrument of the groove (or extra) playing, goi
 ![Recording into C1](docs/img/manual/recording.png)
 
 1. Press **SEQ** for the Band page. It shows the eight instruments of the groove playing, with their
-   notes (in ink; a muted instrument's pale, its name struck through), the playhead (a teal line) and the cursor:
-   a coral line down the instruments, its place under it ("bar 2.3"). The selected instrument's row is darker,
-   outlined. Over them the groove's pill ("Groove A (yours)") and its length ("2 bars, 4/4"). **KNOB 2** (Bar) and
+   notes (in ink, a drum's hits as short ticks; a muted instrument's pale, its name struck through; one with no
+   notes faded), the playhead (a teal line) and the cursor: a coral line down the instruments, its place on coral
+   over it ("bar 2.3"). The selected instrument's row is darker, outlined. At the top left the groove's pill ("Groove
+   A (yours)"; its length is on Groove length). **KNOB 2** (Bar) and
    **KNOB 3** (Beat) move the cursor; **KNOB 4** (Mute: muted, plays). (Editing notes there is still to come.)
 
    ![The Band page](docs/img/manual/band.png)
 
 2. Turn **ALGORITHM** to pick the instrument. The keys play its sound.
 3. Press **REC**. The coral dot shows in the header and PLAY turns red. The screen shows the groove as
-   bars, the instrument's notes in each: "REC C1 · starts with PLAY". The footer says "REC: STOP".
+   bars, the instrument's notes in each: "REC C1 · starts with PLAY". The footer says "[REC] stop".
 4. Press **PLAY** and play. The groove goes round, and each pass adds to what's there (overdub). You hear
    a new note from the next pass. The lines say where you are: "REC C1 · pass 2 · adding", and under it
    "groove bar 1 / 2 · prog bar 3 / 4" (the groove's bar, and the progression's while one plays).
@@ -478,13 +487,13 @@ Good to know:
   the shorter way: a line played over Am goes up a third over C. Its range opens to the whole keyboard.
   The Sound page (EDIT) shows the type; set it back there if you want (Polly won't switch it again).
 - **An instrument with notes** (a style's comping) keeps its type, so its notes still follow the chords:
-  Polly says "C1 FOLLOWS CHORDS" and the footer "CLEAR C1 (SEL) TO PLAY AS PLAYED". What you record
+  Polly says "C1 FOLLOWS CHORDS" and the footer "[SEL] clear C1: plays as played". What you record
   there follows the chords too.
 - **REC while playing** starts at the next bar line, wherever the groove is: the screen rings that bar and
   counts the beats down in it. A note played just before the bar line lands on it. The passes count from
   there: started at bar 3 of a 4-bar groove, a pass is bars 3, 4, 1, 2.
 - **A groove shorter than the progression** (a style's 2-bar Groove A over a 4-bar progression): REC's footer
-  says "SEL: 4 BARS, AS THE PROG". Press **SEL** and the groove is as long as the progression,
+  says "[SEL] 4 bars, as the prog". Press **SEL** and the groove is as long as the progression,
   its bars repeated into the new ones (SEL's list has it too: **BARS AS THE PROG**). Then what you play over the
   progression's bar 3 stays with bar 3.
 - **A fill takes a section's last bar** in a song (the section's "+ fill", or a groove change after it): that bar
@@ -516,8 +525,9 @@ The Band page's **PRESETS** picks what the groove playing plays: your copies, th
 
 ![Groove length](docs/img/manual/groove_length.png)
 
-- The page shows the groove's bars as a picture, a cell a bar with its beats marked; the bars it could still have
-  (to 16) are outlines. Under them its name, a box a letter.
+- The page shows the groove's bars as a picture, a cell a bar, its number at the top and its beats along its
+  foot; the bars it could still have (to 16) are outlines. Under them its name as a word, the letter PLACE points
+  at in a coral box (the places still free after it: dots).
 - **KNOB 1** bars, 1 to 16. **KNOB 2** beats a bar, 2 to 7. Longer, the new bars repeat the groove's,
   each instrument its own way (a 1-bar drum groove repeats bar 1, a 2-bar bass line bars 1 and 2), so the band
   goes on. Notes past a shortened length are kept, just not played; made longer again, they come back
@@ -629,8 +639,8 @@ High knobs').
 
 ![The Mixer](docs/img/manual/mixer.png)
 
-Ten strips: the eight instruments, then the melodies M1 and M2 (plum), each its volume (the number under it) and
-pan; the selected one darker, outlined, a muted one pale. Black keys 1–10 pick the instrument. For the selected
+Ten strips: the eight instruments, then the melodies M1 and M2 (plum), each its volume and pan; the selected one
+darker, outlined, its volume big under it; a muted one pale. Black keys 1–10 pick the instrument. For the selected
 one: **KNOB 1** volume, **KNOB 2** pan, **KNOB 3** reverb send, **KNOB 4** chorus send (every instrument's sends:
 the Effects page). Instruments on the same channel share these (D1, D2 and PC are all on 10).
 
@@ -643,7 +653,7 @@ its own. Muting never makes a groove yours.
 ![Mixer tone](docs/img/manual/mixer_tone.png)
 
 **KNOB 1** Bright (the filter's cutoff, the strip's dark bar) and **KNOB 2** Reso (its resonance, the grey one) for
-the selected instrument; the numbers under the strips are the two, dim at 64, the sound as it is. Lower Bright is darker; higher Reso is more pronounced.
+the selected instrument; its two numbers, big under its strip (64 is the sound as it is, the line across). Lower Bright is darker; higher Reso is more pronounced.
 
 ### Effects (FX)
 
@@ -696,8 +706,8 @@ any change.
 ![Memory](docs/img/manual/memory.png)
 
 The 16 places of memory hold your grooves (yours), the songs' melodies and each song's own progressions (once
-they differ from the factory's). When they are full, Polly says **MEMORY FULL** and the footer says **SEL:
-MEMORY**: press SEL then, or pick **MEMORY** at the end of SEL's list on SEQ or EDIT, to see what fills them, a
+they differ from the factory's). When they are full, Polly says **MEMORY FULL** and the footer says **[SEL] memory:
+free one**: press SEL then, or pick **MEMORY** at the end of SEL's list on SEQ or EDIT, to see what fills them, a
 place a line, numbered, each the same way round, the songs first: "S1 · Groove A (yours) · Funk" (a groove of yours:
 the songs playing it, what they play it as, its name), "no song · groove (yours)", "S2 · melodies 1/2", "S1 ·
 progressions", "free". The list covers the whole screen; the header counts the free ones. The numbers are

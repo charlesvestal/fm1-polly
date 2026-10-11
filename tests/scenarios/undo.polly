@@ -50,7 +50,7 @@ expect msgtext_is_UNDO_STYLE 1
 press HOME
 wait 500
 expect home_shown 1
-expect footer_is_REC:_UNDO|PLAY:_REDO 1
+expect footer_is_REC_undo|PLAY_redo 1
 shot home_held.png
 release HOME
 # ---- a chord into L9 (LOOP page, stopped: REC writes at the cursor)

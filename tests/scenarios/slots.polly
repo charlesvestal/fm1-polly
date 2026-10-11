@@ -19,7 +19,7 @@ turn SELECT -1
 tap SEL
 wait 50
 expect loops_slot 0
-expect footer_is_MEMORY_FULL|SEL:_MEMORY,_FREE_ONE 1
+expect footer_is_memory_full|SEL_memory:_free_one 1
 shot noslot_hint.png
 # SEL now: SLOTS
 tap SEL
@@ -32,7 +32,7 @@ shot slots_list.png
 # P13 (no song plays it): FREE asks, SEL frees it
 spin SELECT 12
 expect list_sel 12
-expect footer_is_SELECT:_MOVE|SEL:_FREE|HOME:_BACK 1
+expect footer_is_SELECT_move|SEL_free|HOME_back 1
 tap SEL
 expect asking 1
 wait 100
@@ -45,7 +45,7 @@ expect slots_list 1
 expect msgtext_is_PROGS_KEPT_IN_MEMORY_13 1
 expect loops_slot 13
 expect slot_shown13 4
-expect footer_is_SELECT:_MOVE|SEL:_FREE|HOME:_BACK 1
+expect footer_is_SELECT_move|SEL_free|HOME_back 1
 wait 100
 shot slots_freed.png
 wait 1400
@@ -75,7 +75,7 @@ release SEL
 expect list_open 0
 tap SEL
 spin SELECT 20
-expect footer_is_SELECT:_MOVE|SEL:_OPEN|HOME:_BACK 1
+expect footer_is_SELECT_move|SEL_open|HOME_back 1
 wait 100
 shot seq_list_slots.png
 tap SEL
@@ -195,7 +195,7 @@ expect track 5
 spin K1 1
 wait 100
 expect msgtext_is_MEMORY_FULL_NOT_KEPT 1
-expect footer_is_MEMORY_FULL|SEL:_MEMORY,_FREE_ONE 1
+expect footer_is_memory_full|SEL_memory:_free_one 1
 expect song1_style1 33
 expect trk5_program 2
 tap SEL

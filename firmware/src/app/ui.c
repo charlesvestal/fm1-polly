@@ -4092,9 +4092,8 @@ void ui_frame(void)
     if (!(lst.open && !ui.card && !home_shown())) {   /* (a list covers the tag, the knobs and the encoders' line) */
         draw_tag();
         draw_knobs();
-        draw_enc();
     }
-    draw_footer();
+    draw_footer();                               /* (the encoders' line and the footer: one band) */
     leds();
     ui.frame++;
 }

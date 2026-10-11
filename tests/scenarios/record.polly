@@ -25,12 +25,12 @@ expect recording 1
 expect type5 2
 expect msgtext_is_C1_FOLLOWS_CHORDS_(YOURS) 1
 # (the pattern, 2 bars, is shorter than the loop: the footer says SEL makes it 4 first, over the hint)
-expect footer_is_SEL:_4_BARS,_AS_THE_PROG|REC:_STOP 1
+expect footer_is_SEL_4_bars,_as_the_prog|REC_stop 1
 shot rec_follows.png
 tap REC
 wait 50
 expect recording 0
-expect footer_is_KEYS:_C1|REC:_RECORD 1
+expect footer_is_KEYS_C1|REC_record 1
 # said once: REC again, no hint
 tap REC
 wait 50

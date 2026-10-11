@@ -113,7 +113,7 @@ expect page 0
 turn SELECT 1
 expect page 1
 expect tag_is_S1 1
-expect footer_is_WHITE:_PROGRESSION|BLACK:_MUTES 1
+expect footer_is_WHITE_progression|BLACK_mutes 1
 wait 50
 shot song_empty.png
 tapkey w8
@@ -364,7 +364,7 @@ expect page 1
 tap REC
 expect song_rec 1
 expect msg_is_REC 1
-expect footer_is_HOME_+_KEYS:_SECTIONS|REC:_STOP 1
+expect footer_is_HOME+KEYS_sections|REC_stop 1
 tap PLAY
 wait 500
 expect mode 2

@@ -43,8 +43,13 @@ cards), in the manual and the README. Code identifiers stay as they are.
   (a progression's own default name shows as its number, "P9", not "Prog 9"); "Prog" where room is short.
 - A place in bars: **bar 2.3** (bar 2, beat 3) by a cursor; **groove bar 1 / 2**, **prog bar 3 / 4** while
   recording; a song's place: **section 2 of 4 · repeat 1 of 2**.
-- The encoders: **SELECT**, **ALGORITHM** (ALG on the encoders' line and in footers: "ALG: CHANGE"), **PRESETS**
-  (PRE). Help cards spell them out.
+- The encoders: **SELECT**, **ALGORITHM** (**ALGO** on the encoders' line and in footers), **PRESETS** (**PRESET**):
+  four letters or more, so they never read as one of the three-letter buttons (SEL, REC, ARP, SEQ, FX, LFO, ENV,
+  GLO). Help cards spell them out.
+- The bottom lines (the legibility pass, 2026-10-11): each control a pill as printed on the panel, its job after it in
+  lower case, a size up: "[SELECT] page · [ALGO] instrument · [PRESET] family", "[KEYS] chords · [REC] write ·
+  [OCT] cursor", "[SEL] yes · [HOME] no", "[HOME]+[KEYS] sections". Encoders round pills, buttons and keys square
+  keycaps.
 - Values: Mute **muted** / **plays**; Type **Bypass, Parallel, Chord 1, Chord 2, Bass**, "as played"; Clock
   **internal** / **MIDI**; the song's end **next: stop**, "then stop". Name letters: **Place** (which), **Letter**
   (what). Effects' levels: **Level** (each right of its effect's knob).

@@ -28,7 +28,7 @@ expect track 5
 turn ALGO 4
 expect lead_sel 1
 expect tag_is_S1>M1_Square_Lead 1
-expect footer_is_KEYS:_M1|REC:_RECORD 1
+expect footer_is_KEYS_M1|REC_record 1
 expect lsnd1_prog 81
 wait 1500
 shot track_ld1.png

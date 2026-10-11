@@ -8,7 +8,7 @@
 # 12 Effects, 13-14 Style, 15 Setup, 16 Status.
 wait 300
 # ---- (7) the first screen: REC's job in the footer, and where the rest is said
-expect footer_is_REC:_NEW_PROG|HOLD_A_BUTTON:_HELP 1
+expect footer_is_REC_new_prog|hold_a_button:_help 1
 shot home_first.png
 # ---- (6) HOME's list, free: nothing of its own to clear
 tap SEL
@@ -18,8 +18,8 @@ expect list_has_LOAD_PROGRESSION 1
 shot list_home_free.png
 tap HOME
 expect list_open 0
-expect footer_is_KEYS:_CHORDS|REC:_NEW_PROGRESSION 1
-expect enc_is_SELECT_page|PRE_prog 1
+expect footer_is_KEYS_chords|REC_new_progression 1
+expect enc_is_SELECT_page|PRESET_prog 1
 expect tag_is_S1>free 1
 # free: a chord played, then playing (the groove's bar at the right, the chord teal while the band plays it)
 key 7 down
@@ -55,7 +55,7 @@ press HOME
 wait 600
 expect home_shown 1
 expect held_ring3 1
-expect enc_is_SELECT_tempo|PRE_song 1
+expect enc_is_SELECT_tempo|PRESET_song 1
 tapkey w1
 expect held_ring2 2
 expect held_ring3 1
@@ -94,7 +94,7 @@ wait 300
 tap ARP
 expect page 4
 expect tag_is_S1>P1_Pop 1
-expect enc_is_SELECT_page|PRE_prog 1
+expect enc_is_SELECT_page|PRESET_prog 1
 shot prog.png
 turn SELECT 1
 shot prog2.png
@@ -138,7 +138,7 @@ wait 600
 turn SELECT 1
 expect page 1
 expect tag_is_S1 1
-expect enc_is_SELECT_page|PRE_section 1
+expect enc_is_SELECT_page|PRESET_section 1
 shot song_empty.png
 tapkey w0
 tapkey w2
@@ -176,7 +176,7 @@ shot home_song.png
 # ---- Band: stopped, playing, recording; Groove length
 tap SEQ
 expect page 6
-expect enc_is_SELECT_page|ALG_instrument|PRE_groove 1
+expect enc_is_SELECT_page|ALGO_instrument|PRESET_groove 1
 shot band.png
 tap PLAY
 wait 1300
