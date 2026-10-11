@@ -5,13 +5,14 @@ wait 300
 # the tag and the footer before any button: FREE, the hint
 expect tag_is_FREE 1
 expect footer_is_HOLD_ANY_BUTTON:_WHAT_IT_DOES 1
-# HOME's list: SELECT moves (not the page), ALGORITHM changes the row's value, HOME backs out
+# HOME's list: it opens on its first action (LOAD PROGRESSION, row 4: Style, Tempo, Transpose, Loop above it);
+# SELECT moves (not the page) up to the knobs' rows, ALGORITHM changes the row's value, HOME backs out
 expect list_open 0
 tap SEL
 expect list_open 1
-expect list_sel 0
+expect list_sel 4
 shot list_home.png
-turn SELECT 1
+turn SELECT -3
 expect list_sel 1
 expect page 0
 spin ALGO 2
@@ -116,25 +117,26 @@ wait 600
 release HOME
 expect page 0
 expect loop_bars3 4
-# SONG: INSERT ROW while playing: STOP FIRST; stopped: a row
+# SONG: its list opens on PLAY FROM ROW (9); INSERT ROW (one down) while playing: STOP FIRST; stopped: a row
 turn SELECT 1
 expect page 1
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 10
+expect list_sel 9
+turn SELECT 1
 tap SEL
 expect msg2_is_STOP_FIRST 1
 expect rows 0
 tap PLAY
 wait 200
 tap SEL
-spin SELECT 10
+turn SELECT 1
 tap SEL
 expect rows 1
 expect msg_is_INSERTED 1
 tap SEL
-spin SELECT 11
+spin SELECT 2
 tap SEL
 expect rows 0
 # Pattern: ERASE TRACK asks first (the drums have notes)
@@ -217,7 +219,7 @@ tap HOME
 turn SELECT 1
 expect page 1
 tap SEL
-spin SELECT 10
+turn SELECT 1
 tap SEL
 expect rows 1
 tap SEL
@@ -241,7 +243,7 @@ tap PLAY
 wait 200
 # CLEAR SONG: it has a row, a question; yes
 tap SEL
-spin SELECT 12
+spin SELECT 3
 tap SEL
 expect asking 1
 tap SEL

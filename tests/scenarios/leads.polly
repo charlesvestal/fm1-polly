@@ -36,13 +36,17 @@ turn SELECT 1
 expect page 9
 shot track2_ld1.png
 turn SELECT -1
-# in FREE a lead does not record
+# playing in FREE a lead does not record (stopped, REC would put the song on: below)
 expect mode 0
+tap PLAY
+wait 200
 tap REC
 wait 50
 expect recording 0
 expect msgtext_is_LEADS_RECORD_IN_A_SONG 1
 shot rec_free.png
+tap PLAY
+wait 100
 # ---- SONG once (PLAY there, PLAY again: stopped in SONG); back on EDIT, REC arms LD1: it starts with PLAY
 tap HOME
 turn SELECT 1
@@ -57,7 +61,7 @@ tap REC
 wait 50
 expect recording 1
 expect rec_shown 1
-expect msgtext_is_RECORD_LD1_FROM_PLAY 1
+expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
 wait 1500
 shot lead_armed.png
 # PLAY here: the song from row 1; the keys go into LD1 at their places (row 1: C4 E4 G4, row 2: A4 C5)
@@ -98,27 +102,25 @@ tap PLAY
 wait 100
 expect playing 0
 expect lead_notes 5
-# ---- punch in at row 3: SONG's cursor to row 3, SEL: PLAY FROM ROW 3; back on EDIT, REC (LD1 still selected)
+# ---- punch in at row 3: SONG's cursor to row 3; on EDIT, REC (LD1 still selected), PLAY: the song from row 3
 tap HOME
 turn SELECT 1
 expect page 1
 spin K1 -9
 spin K1 2
 expect cursor 3
-tap SEL
-spin SELECT 9
-expect list_sel 9
-tap SEL
-wait 50
-expect playing 1
-expect row 3
 tap EDIT
 expect lead_sel 1
 tap REC
 wait 50
 expect recording 1
 expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
-wait 950
+wait 100
+shot lead_punch_armed.png
+tap PLAY
+expect playing 1
+expect row 3
+wait 1170
 key 9 down
 wait 400
 key 9 up
@@ -160,8 +162,7 @@ expect lead_sel 1
 expect cursor 3
 tap SEL
 expect list_open 1
-spin SELECT 6
-expect list_sel 6
+expect list_sel 4
 wait 100
 shot lead_list.png
 tap SEL
@@ -176,8 +177,8 @@ expect lead_count2_3 2
 expect lead_notes 7
 # ERASE LD1 (the whole song's): asked, HOME says no
 tap SEL
-spin SELECT 7
-expect list_sel 7
+turn SELECT 1
+expect list_sel 5
 tap SEL
 expect asking 1
 tap HOME
@@ -221,7 +222,7 @@ shot song_lead_mutes.png
 tapkey b9
 expect row_lmute1 0
 tap SEL
-spin SELECT 11
+spin SELECT 2
 expect list_sel 11
 tap SEL
 expect asking 1
@@ -293,17 +294,16 @@ expect page 1
 spin K1 -9
 spin K1 3
 expect cursor 4
-tap SEL
-spin SELECT 9
-tap SEL
-wait 50
-expect playing 1
-expect row 4
+expect mode 0
 tap EDIT
 tap REC
 wait 50
 expect recording 1
-wait 1037
+expect mode 2
+tap PLAY
+expect playing 1
+expect row 4
+wait 1262
 key 7 down
 wait 300
 key 7 up
@@ -321,16 +321,16 @@ expect lead_notes 9
 expect lead_count1_4 2
 expect lead8_row 4
 expect lead8_vel 80
-# played: 1287 and 2123 ticks into the row (off the grid)
+# played: 1287 and 2129 ticks into the row (off the grid)
 expect lead8_pos 1287
-expect lead9_pos 2123
+expect lead9_pos 2129
 tap SEQ
 turn K1 -3
 expect quant 2
 tap EDIT
 tap SEL
-spin SELECT 8
-expect list_sel 8
+spin SELECT 2
+expect list_sel 6
 wait 100
 shot lead_quantise_list.png
 tap SEL
@@ -345,7 +345,6 @@ tap HOME
 turn SELECT 1
 expect cursor 4
 tap SEL
-spin SELECT 9
 tap SEL
 wait 50
 tap EDIT

@@ -41,9 +41,11 @@ tap SEL
 wait 50
 expect asking 0
 expect slots_list 1
-expect slot_shown13 0
-expect msgtext_is_SLOT_13_FREE_NOW 1
-expect footer_is_SELECT:_MOVE|HOME:_BACK 1
+# the loops' change NO FREE SLOT left unkept takes the slot freed at once (said)
+expect msgtext_is_LOOPS_KEPT_IN_SLOT_13 1
+expect loops_slot 13
+expect slot_shown13 4
+expect footer_is_SELECT:_MOVE|SEL:_FREE|HOME:_BACK 1
 wait 100
 shot slots_freed.png
 wait 1400
@@ -174,3 +176,37 @@ release HOME
 wait 50
 expect lead_notes 2
 expect lead_slot1 2
+# ---- a change with no slot free (the loops take 13 again; C1's sound on Main A, the style's): NO FREE SLOT, NOT KEPT
+# (it plays); SEL: SLOTS, P14 (no song plays it) freed: the change is kept there at once, said
+tap ARP
+expect app_loop 1
+tap SEL
+spin SELECT 20
+turn SELECT -1
+tap SEL
+expect asking 1
+tap SEL
+wait 50
+expect loops_slot 13
+tap EDIT
+turn ALGO -4
+expect lead_sel 0
+expect track 5
+spin K1 1
+wait 100
+expect msgtext_is_NO_FREE_SLOT_NOT_KEPT 1
+expect footer_is_NO_FREE_SLOT|SEL:_SLOTS,_FREE_ONE 1
+expect song1_style1 33
+expect trk5_program 2
+tap SEL
+expect slots_list 1
+spin SELECT 13
+tap SEL
+expect asking 1
+tap SEL
+wait 50
+expect song1_style1 13
+expect trk5_program 2
+expect msgtext_is_MAIN_A_KEPT_IN_P14 1
+wait 100
+shot slots_kept.png

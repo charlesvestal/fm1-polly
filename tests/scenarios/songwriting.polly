@@ -1,0 +1,256 @@
+# POLLY, writing a song (the second UX pass's fixes): REC's screen offers a pattern as long as the loop (its bars
+# repeated into the new ones); a pattern's bars changed while a loop plays stay in step with the loop; after an
+# Ending the pages show what PLAY starts with; a bar's first chord a little late lands on its downbeat (writing in
+# time, a new loop's take); REC says "REC: STOP" while it records; a lead counts in, stops with the song, starts at
+# SONG's cursor row when armed, and copies a row's notes (one undo step).
+# Funk: 100 BPM, a beat 600 ms, a bar 2400 ms. L1 (Pop): C G Am F, a bar each. Keys (octave 0): key K is MIDI 53 + K:
+# Am 4 7 11, Dm 9 12 16, Em 11 14 18, C4 7, E4 11, G4 14.
+wait 300
+turn K1 1
+expect tempo 100
+# ---- L1 (4 bars) over Funk's Main A (2 bars). SEQ, REC armed: the footer offers 4 bars, SEL makes it so: bars 1-2
+# repeated into 3-4 (the drums, the bass, the comping go on), a user pattern of the song's own (P01)
+press HOME
+tapkey w0
+release HOME
+tap SEQ
+expect slot1_bars 2
+expect slot1_trk1_count 44
+expect slot1_trk4_count 18
+tap REC
+wait 50
+expect recording 1
+expect footer_is_SEL:_4_BARS,_AS_THE_LOOP|REC:_STOP 1
+wait 100
+shot rec_bars_hint.png
+tap SEL
+expect list_open 0
+expect slot1_bars 4
+expect song1_style1 0
+expect slot1_trk1_count 88
+expect slot1_trk4_count 36
+expect msgtext_is_BARS_4_AS_THE_LOOP 1
+expect recording 1
+wait 100
+shot rec_bars_done.png
+tap REC
+wait 50
+expect recording 0
+expect footer_is_KEYS:_C1_CLAVINET|REC:_RECORD 1
+# ---- BARS while the loop plays: at the loop's bar 3 the pattern is at its bar 3; shorter (2): its bar 1; longer again
+# (the notes kept past the end come back, nothing repeated over them): bar 4 at the loop's bar 4
+tap PLAY
+wait 5400
+expect bar 2
+turn SELECT 1
+turn K1 -2
+expect slot1_bars 2
+wait 50
+expect bar 0
+turn K1 2
+expect slot1_bars 4
+expect slot1_trk1_count 88
+wait 2400
+expect loop_beat 13
+expect bar 3
+shot bars_in_step.png
+# ---- an Ending (HOME + black key 5) plays out and stops: the pages show Main A again (what PLAY starts with), bar 1
+press HOME
+tapkey b4
+release HOME
+expect next_sect 6
+wait 2400
+expect sect 6
+wait 7000
+expect playing 0
+expect sect 2
+expect bar 0
+turn SELECT -1
+expect page 6
+wait 100
+shot after_ending_seq.png
+# ---- writing chords in time (REC on HOME in LOOP, then PLAY): Dm 300 ms into bar 2 (its first chord, late): bar 2's
+# downbeat (beat 4), not beat 5; Em 350 ms after bar 3's beat 2 (not a first beat): the nearest beat, 3.3 (beat 10)
+tap HOME
+expect page 0
+tap REC
+expect rec_chords 1
+expect footer_is_KEYS:_CHORDS|REC:_STOP 1
+tap PLAY
+wait 2620
+key 9 down
+key 12 down
+key 16 down
+wait 100
+key 9 up
+key 12 up
+key 16 up
+wait 2924
+key 11 down
+key 14 down
+key 18 down
+wait 100
+key 11 up
+key 14 up
+key 18 up
+wait 300
+expect loop_ch1_4 216
+expect loop_ch1_5 -1
+expect loop_ch1_10 416
+tap REC
+expect rec_chords 0
+expect footer_is_KEYS:_CHORDS|REC:_WRITE 1
+tap PLAY
+wait 300
+# ---- a new loop's take (FREE: KNOB 4 to "-"; REC while playing): counted in, "RECORDING NEW LOOP L9", the tag NEW
+# LOOP L9 (not FREE), REC: STOP; Am a little late on its first downbeat: beat 0 (not 1)
+turn K4 -16
+expect mode 0
+tap PLAY
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+wait 300
+tap REC
+expect take 2
+expect msgtext_is_RECORDING_NEW_LOOP_L9 1
+expect tag_is_NEW_LOOP_L9 1
+expect footer_is_KEYS:_CHORDS|REC:_STOP 1
+wait 600
+shot take_countin.png
+wait 1528
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+wait 2288
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+key 7 up
+wait 2288
+tap REC
+expect take 0
+expect loop_ch9_0 916
+expect loop_ch9_1 -1
+expect loop_ch9_4 500
+tap PLAY
+wait 300
+# ---- a song of two rows of L1 (white key 1 twice), row 1 on Main B (the other follows); INTRO off; PLAY: it plays to
+# its Ending and stops: SEQ shows row 1's section (Main B), not the Ending
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+tapkey w0
+expect rows 2
+spin K1 -2
+expect cursor 1
+spin K3 2
+expect row_sect1 2
+turn SELECT 2
+spin K1 -1
+expect song_intro 0
+expect song_ending 1
+turn SELECT -2
+tap PLAY
+wait 19500
+expect sect 6
+shot song_ending.png
+wait 6000
+expect playing 0
+expect sect 3
+expect cursor 1
+# ---- LD1, armed stopped with SONG's cursor on row 2: PLAY starts row 2 and records from its downbeat
+spin K1 1
+expect cursor 2
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+expect recording 1
+expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
+wait 100
+shot lead_armed_row2.png
+tap PLAY
+expect playing 1
+expect row 2
+wait 520
+key 7 down
+wait 300
+key 7 up
+wait 300
+key 11 down
+wait 300
+key 11 up
+wait 600
+expect lead_count1_2 2
+# the song stops: REC goes off with it
+tap PLAY
+wait 50
+expect playing 0
+expect recording 0
+expect msgtext_is_RECORD_OFF_SONG_STOPPED 1
+# ---- REC while the song plays: a count-in to the next bar line (a key before it only sounds)
+tap PLAY
+expect row 1
+wait 1000
+tap REC
+wait 50
+expect recording 1
+expect rec_wait 1
+wait 100
+shot lead_countin.png
+key 14 down
+wait 200
+key 14 up
+wait 1200
+expect rec_wait 0
+expect lead_count1_1 0
+wait 300
+key 14 down
+wait 200
+key 14 up
+wait 600
+expect lead_count1_1 1
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect cursor 1
+# ---- SEL's list (on its first action: ERASE LD1 IN ROW 1): COPY LD1 TO ROW 1 from row 2 (it has a note: asked)
+tap SEL
+expect list_sel 4
+wait 100
+shot lead_list.png
+spin SELECT 3
+expect list_sel 7
+tap SEL
+expect asking 1
+wait 100
+shot lead_copy_ask.png
+tap SEL
+expect asking 0
+expect lead_count1_1 2
+expect lead_count1_2 2
+expect msgtext_is_COPIED_LD1_ROW_2_>_ROW_1 1
+# one step: undone, redone
+press HOME
+tap REC
+release HOME
+expect lead_count1_1 1
+expect msgtext_is_UNDO_COPY_LD1 1
+press HOME
+tap PLAY
+release HOME
+expect lead_count1_1 2

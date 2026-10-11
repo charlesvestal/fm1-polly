@@ -14,8 +14,9 @@ tap PLAY
 wait 200
 tap REC
 expect take 2
-expect msg_is_REC 1
-expect footer_is_KEYS:_CHORDS|REC:_NEW_LOOP 1
+expect msgtext_is_RECORDING_NEW_LOOP_L9 1
+expect footer_is_KEYS:_CHORDS|REC:_STOP 1
+expect tag_is_NEW_LOOP_L9 1
 # (the take starts at the next downbeat: beat 4; this chord lands near it, a third of a beat late: beat 0)
 wait 1800
 key 4 down

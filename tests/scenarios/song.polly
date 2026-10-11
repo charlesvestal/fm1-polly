@@ -207,7 +207,8 @@ expect msg_is_C1 1
 spin K1 -1
 expect cursor 5
 tap SEL
-spin SELECT 11
+expect list_sel 9
+spin SELECT 2
 tap SEL
 expect rows 4
 expect msg_is_DELETED 1
@@ -282,11 +283,10 @@ expect row 1
 tap PLAY
 wait 300
 expect playing 0
-# PLAY FROM ROW (SEL's list, row 9): from the cursor's row, row 3
+# PLAY FROM ROW (SEL's list opens on it, row 9): from the cursor's row, row 3
 spin K1 2
 expect cursor 3
 tap SEL
-spin SELECT 9
 expect list_sel 9
 wait 50
 shot song_list.png
@@ -370,7 +370,7 @@ expect page 1
 tap REC
 expect song_rec 1
 expect msg_is_REC 1
-expect footer_is_REC:_HOME_+_KEYS_WRITE_ROWS 1
+expect footer_is_HOME_+_KEYS:_ROWS|REC:_STOP 1
 tap PLAY
 wait 500
 expect mode 2

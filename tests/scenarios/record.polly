@@ -24,7 +24,8 @@ wait 50
 expect recording 1
 expect type5 2
 expect msgtext_is_C1_FOLLOWS_CHORDS_INTO_NEW_P01 1
-expect footer_is_ERASE_TRACK_(SEL)_TO_PLAY_AS_PLAYED 1
+# (the pattern, 2 bars, is shorter than the loop: the footer says SEL makes it 4 first, over the hint)
+expect footer_is_SEL:_4_BARS,_AS_THE_LOOP|REC:_STOP 1
 shot rec_follows.png
 tap REC
 wait 50
@@ -33,7 +34,7 @@ expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
 # said once: REC again, no hint
 tap REC
 wait 50
-expect footer_is_KEYS:_C1_ACOUSTIC_GRAND|REC:_RECORD 1
+expect msgtext_is_RECORD_C1_MAIN_A 1
 tap REC
 wait 50
 # a clean track: ERASE TRACK

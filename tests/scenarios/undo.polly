@@ -50,7 +50,7 @@ expect msgtext_is_UNDO_STYLE 1
 press HOME
 wait 500
 expect home_shown 1
-expect footer_is_LOOP,_SECTION|REC:_UNDO|PLAY:_REDO 1
+expect footer_is_SELECT:_TEMPO|REC:_UNDO|PLAY:_REDO 1
 shot home_held.png
 release HOME
 # ---- a chord into L9 (LOOP page, stopped: REC writes at the cursor)
@@ -202,13 +202,17 @@ wait 400
 key 14 up
 wait 1600
 tap PLAY
-wait 1100
+wait 100
+# the song stopped: the lead's REC goes off with it (the next PLAY would record over it)
+expect recording 0
+expect msgtext_is_RECORD_OFF_SONG_STOPPED 1
+wait 1000
 expect lead_notes 3
 press HOME
 tap REC
 release HOME
 expect lead_notes 0
-expect recording 1
+expect recording 0
 expect msgtext_is_UNDO_TAKE_LD1 1
 shot undo_take.png
 press HOME
@@ -218,8 +222,6 @@ expect playing 0
 expect lead_notes 3
 expect lead2_note 64
 expect msgtext_is_REDO_TAKE_LD1 1
-tap REC
-wait 50
 expect recording 0
 # ---- C1's sound (EDIT, KNOB 1): the section gets a user pattern of its own; undone, both go back
 turn ALGO -4
@@ -277,7 +279,7 @@ press HOME
 tap REC
 release HOME
 expect slot1_trk5_count 23
-expect msgtext_is_UNDO_TAKE_C1 1
+expect msgtext_is_UNDO_PASS_C1 1
 shot undo_pass.png
 press HOME
 tap REC
@@ -291,7 +293,7 @@ press HOME
 tap PLAY
 release HOME
 expect slot1_trk5_count 25
-expect msgtext_is_REDO_TAKE_C1 1
+expect msgtext_is_REDO_PASS_C1 1
 # ---- CLEAR PATTERN (SEL on SEQ: the third from the end, before BACK TO STYLE and SLOTS), undone while playing
 tap SEL
 spin SELECT 40
