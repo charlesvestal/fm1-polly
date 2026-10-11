@@ -72,7 +72,9 @@ next thing.
 | play a progression | hold **HOME**, press white key *n* (P*n* goes round, from the next bar while playing) |
 | change the groove | hold **HOME**, press black key 2 (Groove A) or 3 (Groove B); 4 a fill, 1 the Intro, 5 the Ending |
 | write a progression | **HOME**, turn **KNOB 4** anticlockwise to "–" (free), **REC**, **PLAY**, a chord a bar, **REC** |
-| fix a chord | **ARP**, **OCT+** / **OCT−** to its beat, turn **KNOB 1** (root), **KNOB 2** (type) or **KNOB 3** (bass) |
+| go to bar 1 beat 3 | **ARP**, turn **KNOB 1** (Bar) to 1, **KNOB 2** (Beat) to 3 (**OCT−** / **OCT+**: a beat back / on) |
+| fix a chord | **ARP**, **KNOB 1** (Bar) and **KNOB 2** (Beat) to it, turn **KNOB 3** (Root) or **KNOB 4** (Type); its bass: **SELECT**, **KNOB 3** (Bass) |
+| delete a chord | **ARP**, **KNOB 1** / **KNOB 2** to it, **SEL** (the list opens on CLEAR CHORD), **SEL** |
 | lengthen a progression | **ARP**, **SELECT** (page 2), turn **KNOB 1** (Length) |
 | add a section to the song | **HOME**, **SELECT** (the Song page), press white key *n*: a section playing P*n* |
 | play from section 3 | on the Song page turn **KNOB 1** (Section) to 3, **SEL** (the list opens on PLAY FROM SECTION 3), **SEL** |
@@ -90,7 +92,7 @@ next thing.
 - **SEL**: this page as a list, with its actions; in a question, yes.
 - **HOME**: Home; **SELECT** then turns to the Song pages. Held: the shortcuts (keys, SELECT, PRESETS, REC, PLAY); in a
   question, no.
-- **ARP**: Progression (the chords), page 2 its length and name.
+- **ARP**: Progression (the chords: bar, beat, root, type), page 2 its length, beats, bass and name.
 - **SEQ**: Band (the groove's notes, instrument by instrument), page 2 the groove's length and name.
 - **EDIT**: Sound (the instrument's sound and range), page 2 its high key and channel.
 - **LFO**: Mixer, page 2 its tone.
@@ -98,7 +100,7 @@ next thing.
 - **ENV**: Style (which style each groove and extra plays).
 - **GLO**: Setup, page 2 the Panel.
 - **SAVE**: save; held + a white key: copy here.
-- **OCT− / OCT+**: the keys' octave (on Progression: the cursor).
+- **OCT− / OCT+**: the keys' octave (on Progression: the cursor, a beat back / on).
 - **SELECT**: a button's next page; in a list, up and down. **ALGORITHM**: the instrument (or melody). **PRESETS**: the
   next one of what the page shows. **KNOB 1–4**: the four values at the bottom of the screen.
 
@@ -145,7 +147,7 @@ The white keys are counted from the left, 1 to 16: progression P9 is white key 9
 | REC | Write what the keys play here: chords into the progression (Home, Progression; free on Home: a new progression), the selected instrument (Band, Sound), sections (Song) |
 | SEL | This page as a list, opened on its first action (LOAD PROGRESSION, PLAY FROM SECTION, ERASE INSTRUMENT…); SELECT up to its values and MORE |
 | HOME | Home; SELECT for the Song pages. Held: the shortcuts, on screen: + white key 1–16 a progression, + black key 1–5 a groove or an extra, + SELECT the tempo, + PRESETS the song, + REC undo, + PLAY redo |
-| ARP | Progression: its chords; page 2 its length, beats, name |
+| ARP | Progression: its chords; page 2 its length, beats, bass, name |
 | SEQ | Band (the groove's notes), page 2 Groove length |
 | EDIT | Sound, page 2 Sound 2 (high key, channel) |
 | LFO | Mixer, page 2 Mixer tone |
@@ -157,7 +159,7 @@ The white keys are counted from the left, 1 to 16: progression P9 is white key 9
 | ALGORITHM | The instrument, on any page: D1, D2, PC, BA, C1, C2, C3, C4, then the melodies M1, M2 |
 | PRESETS | Depends on the page (Home, Progression: the next progression). With HOME held: the song |
 | KNOB 1–4 | The four values at the bottom of the screen |
-| OCT− / OCT+ | Move the keys down or up an octave, −3 to +3. On Progression: the cursor |
+| OCT− / OCT+ | Move the keys down or up an octave, −3 to +3. On Progression: the cursor, a beat back / on |
 | Keys | Chords on Home and Progression, the selected instrument on Band and Sound, the sections on Song |
 | Any button held a second | A card says what it does on this page |
 
@@ -365,9 +367,22 @@ See [Writing a song](#writing-a-song) for the whole path.
 
 ![The Progression page](docs/img/manual/progression.png)
 
-- **Progression** (ARP): its bars, a chord a beat; KNOB 1–4 ROOT, TYPE, BASS, STEP at the cursor
-  (OCT− / OCT+ move it). Page 2: LENGTH, BEATS, NAME. It shows the progression playing, or the last one
-  picked; before you've picked one, the first empty one, so you never write over a factory one.
+- **Progression** (ARP): its bars, a chord a beat, and the cursor (the coral ring; the tag says where: "P9 ·
+  BAR 1.3"). KNOB 1–4: **BAR** and **BEAT** move the cursor (BAR keeps the beat; the grid scrolls to it; while
+  REC writes, one bar past the end, where a chord makes the progression longer), **ROOT** and **TYPE** change
+  the chord there (TYPE one below maj: "·", no chord there). **OCT−** / **OCT+** move the cursor a beat. Page 2:
+  **LENGTH**, **BEATS** (a bar's; each chord stays in its bar: a chord on bar 2 beat 1 is still on bar 2 beat 1),
+  **BASS** (the cursor's chord's), **NAME**. It shows the progression playing, or the last one picked; before
+  you've picked one, the first empty one, so you never write over a factory one.
+- **Writing at the cursor** (stopped, **REC**): each chord you play goes on the cursor, and the cursor moves on
+  a **STEP**: a bar, unless you pick a beat or half a bar in **SEL**'s list.
+- **SEL** on Progression: the knobs, the name's letters, then **CLEAR CHORD** (the list opens on it: the chord at
+  the cursor goes, "·", one undo step), **STEP** (beat, half, bar: ALGORITHM picks), **LOAD PROGRESSION**,
+  **CLEAR PROGRESSION**.
+- **Shorter, then longer again:** made shorter (LENGTH, or fewer BEATS), the chords that no longer fit are
+  hidden ("2 CHORDS HIDDEN"): not played, and back if you make it longer again while you're still on the
+  Progression pages. Leave them and they're gone (never saved). A chord written past the end grows the
+  progression into empty bars. Undo brings back a shortening, chords and all.
 - **Home's KNOB 4, PROG**: "–" (free: the band follows your chords) or P1–P16 (that progression plays; while
   playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
 - **Song** (HOME, SELECT): the sections, top to bottom. A white key writes a section: on END it adds one, on a
@@ -783,8 +798,8 @@ on every page. SELECT turns a button's pages.
 | Song | HOME, SELECT | Section | Prog | Groove | Repeat | The next section |
 | Song 2 | HOME, SELECT ×2 | Section | Transpose | | | The next section |
 | Song 3 | HOME, SELECT ×3 | Intro | Ending | At end | Song | The next section |
-| Progression | ARP | Root | Type | Bass | Step | The next progression |
-| Progression 2 | ARP, SELECT | Length | Beats | Name | | The next progression |
+| Progression | ARP | Bar | Beat | Root | Type | The next progression |
+| Progression 2 | ARP, SELECT | Length | Beats | Bass | Name | The next progression |
 | Band | SEQ | Grid | | | Mute | What the groove plays |
 | Groove length | SEQ, SELECT | Bars | Beats | Letter | Character | What the groove plays |
 | Sound | EDIT | Program | Type | Low (a melody: none) | High (a melody: Velocity) | Program family |

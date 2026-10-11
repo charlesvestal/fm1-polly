@@ -47,7 +47,7 @@ then follow Polly's 16 styles on the Style knob, marked "QY".
 | SEL | the page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR PROGRESSION, PLAY FROM SECTION, INSERT SECTION, BACK TO STYLE…) |
 | HOME held | the shortcuts on screen: + white key 1-16 a progression; + black key 1-5 Intro, Groove A, Groove B, Fill, Ending (from the next bar); + SELECT the tempo; + PRESETS the song; + REC undo, + PLAY redo |
 | HOME | Home: KNOB 1 style, 2 tempo, 3 transpose, 4 prog ("–": free, the band follows your chords); SELECT: Song (sections: prog, groove, repeat, mutes, transpose; intro, ending, at end, song) |
-| ARP | Progression: its chords, a chord a beat (root, type, bass, step); page 2 length, beats, name |
+| ARP | Progression: its chords, a chord a beat (bar, beat, root, type); page 2 length, beats, bass, name |
 | SEQ | Band (the groove's 8 instruments; KNOB 1 the grid, KNOB 4 mute: the song's, every groove); page 2 Groove length (its length, beats, name) |
 | EDIT | Sound: program, type, range; page 2 high key, channel |
 | LFO | Mixer (volume, pan, sends); page 2 tone (bright, reso) |
