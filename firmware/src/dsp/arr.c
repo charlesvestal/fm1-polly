@@ -27,10 +27,11 @@ volatile uint16_t arr_bar, arr_beat_tick;
 volatile uint8_t arr_mode, arr_override;
 volatile int8_t arr_loop_now = -1;
 volatile uint16_t arr_loop_beat;
-volatile uint8_t arr_row, arr_rep, arr_mutes;
+volatile uint8_t arr_row, arr_rep;
+volatile uint16_t arr_mutes;
 volatile uint32_t arr_beats;
 volatile uint32_t arr_chord_now;
-volatile uint32_t arr_track_hit[ARR_TRACKS];
+volatile uint32_t arr_track_hit[ARR_ALLTRK];
 volatile uint32_t arr_ticks;
 
 /* ------------------------------------------------------------ commands --- */
@@ -111,7 +112,7 @@ int arr_keys_held(const uint8_t *notes, int n)    /* in the caller's thread: cho
 }
 void arr_record(int trk, int on)
 {
-    post(C_REC, (uint32_t)(trk >= 0 && trk < ARR_TRACKS ? trk : 0), on == ARR_REC_BAR ? ARR_REC_BAR : on != 0);
+    post(C_REC, (uint32_t)(trk >= 0 && trk < ARR_ALLTRK ? trk : 0), on == ARR_REC_BAR ? ARR_REC_BAR : on != 0);
 }
 void arr_key(int note, int on, int vel)
 {
@@ -223,7 +224,7 @@ typedef struct {
     uint8_t nh, mute;
     held_t h[ARR_HELD];
 } track_t;
-static track_t tk[ARR_TRACKS];
+static track_t tk[ARR_ALLTRK];                     /* the patterns' tracks, then LD1, LD2 (their notes held) */
 static uint8_t cur;                                /* the slot playing */
 static uint32_t pos;                               /* ticks into the pattern */
 /* the work a tick: most of 480 a beat have nothing due, and only move the place on */
@@ -246,6 +247,23 @@ static uint32_t at;                                /* the tick playing: its samp
 static uint16_t late_off[LATE_OFFS];               /* chan << 8 | note */
 static int n_late;
 static uint8_t start_wait;                         /* a start waiting for its sounds to go out: blocks waited + 1 */
+/* the lead tracks (arr.h): the app's notes, read with the busy rule; the player's place in the row playing */
+static const leads_t *ld;                          /* the app's lead notes (arr_leads), 0 none */
+static uint16_t ld_gen;                            /* their gen when ld_i was found */
+static uint8_t ld_ok;                              /* ld_i, ld_end found for ld_row at ld_gen */
+static uint8_t ld_row;                             /* the row they are of */
+static uint16_t ld_i, ld_end;                      /* the row's next note and its end (indexes into the list) */
+static uint32_t ld_tick;                           /* the row's place of the next tick (lead_ev_t pos) */
+static uint32_t ld_from;                           /* the first place whose notes are not played or passed yet */
+static lead_trk_t ld_snd[ARR_LEADS];               /* the leads' sounds as sent (ld_snd_ok: sent since the last setup) */
+static uint8_t ld_snd_ok, ld_out_pend;             /* ... and still owed to MIDI out */
+volatile uint32_t arr_row_tick;
+static void lead_init(void);
+static void lead_row_start(void);
+static void lead_sounds(void);
+static void lead_sounds_out(void);
+static uint32_t lead_sounds_need(void);
+static int leads_heard(void);
 
 /* sections, the chord source */
 static uint8_t first_tick;                         /* the first tick since a start: no bar or beat behind it */
@@ -412,7 +430,7 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
 }
 static void all_off(void)
 {
-    for (int t = 0; t < ARR_TRACKS; t++)
+    for (int t = 0; t < ARR_ALLTRK; t++)
         track_off(&tk[t]);
 }
 
@@ -512,6 +530,7 @@ static uint32_t sound(const arr_trk_t *t, int k, uint8_t *v)
 static void setup(void)
 {
     const pattern_t *p = &pat[cur];
+    ld_snd_ok = 0;                                 /* the leads' sounds again too (in SONG: lead_sounds) */
     if (busy[cur])
         return;
     for (int i = 0; i < ARR_TRACKS; i++)
@@ -526,6 +545,7 @@ static void sounds_out(void)
 {
     const pattern_t *p = &pat[cur];
     ctl_out_flush();                               /* the controller resets owed, before the sounds */
+    lead_sounds_out();
     if (!out_pend || !mout || busy[cur])
         return;
     for (int i = 0; i < ARR_TRACKS; i++)
@@ -546,7 +566,7 @@ static void sounds_out(void)
 static int sounds_fit_first(void)
 {
     const pattern_t *p = &pat[cur];
-    uint32_t need = 2;                             /* FA and tick 0's F8 */
+    uint32_t need = 2 + lead_sounds_need();        /* FA and tick 0's F8; the leads' sounds */
     if (busy[cur])
         return 0;
     for (int i = 0; i < ARR_TRACKS; i++) {
@@ -806,9 +826,17 @@ static void rec_press(int key, int vel)
 }
 /* the selected track's sounds (program, volume, pan, sends) for the keys: to the synth, and to MIDI out what
  * it does not have yet, when they were not sent for this track of this pattern */
+static void lead_press(int key, int vel);
+static void lead_release(int key, uint32_t end);
+static void lrec_flush(int all);
 static void live_sounds(void)
 {
-    const arr_trk_t *t = &pat[cur].trk[rec_trk];
+    const arr_trk_t *t = &pat[cur].trk[rec_trk % ARR_TRACKS];
+    if (rec_trk >= ARR_TRACKS) {                   /* a lead's: its sounds (sent when they changed) */
+        lead_sounds();
+        live_trk = rec_trk;
+        return;
+    }
     if (busy[cur] || (live_trk == rec_trk && live_cur == cur && live_gen == gen[cur]))
         return;
     for (int k = 0; k < NSOUND; k++) {
@@ -824,10 +852,21 @@ static void live_sounds(void)
     live_cur = cur;
     live_gen = gen[cur];
 }
+/* a lead's channel for the keys: as sent, else the app's (not mid-write), else its default */
+static uint32_t lead_chan(int k)
+{
+    if (ld_snd_ok)
+        return ld_snd[k].chan & 15u;
+    if (ld && !edit_busy)
+        return ld->trk[k].chan & 15u;
+    return k ? 7u : 6u;
+}
 static void key_event(int key, int vel)            /* arr_key, in the render: sound it, record it */
 {
-    uint32_t chan = pat[cur].trk[rec_trk].chan & 15u, kpos;
+    uint32_t chan, kpos;
     int i;
+    live_sounds();                                 /* (a lead's: before its channel is taken) */
+    chan = rec_trk >= ARR_TRACKS ? lead_chan(rec_trk - ARR_LD1) : pat[cur].trk[rec_trk].chan & 15u;
     for (i = 0; i < n_live && live_key[i] != key; i++)
         ;
     if (i < n_live) {                              /* released, or struck again: its note-off first */
@@ -845,9 +884,9 @@ static void key_event(int key, int vel)            /* arr_key, in the render: so
         if (rec[i].state == R_HELD && rec[i].key == key)
             rec_release(&rec[i], key_tick(&kpos, 0));
     rec_flush(0);
+    lead_release(key, key_tick(&kpos, 0));
     if (!vel)
         return;
-    live_sounds();
     if (n_live < LIVE_N) {                         /* to MIDI out as the pattern's notes: room for its note-off */
         live_key[n_live] = (uint8_t)key;
         live_chan[n_live] = (uint8_t)chan;
@@ -860,7 +899,10 @@ static void key_event(int key, int vel)            /* arr_key, in the render: so
         }
         n_live++;
     }
-    if (rec_on && arr_playing)
+    if (rec_on && arr_playing && rec_trk >= ARR_TRACKS) {
+        if (leads_heard())
+            lead_press(key, vel);
+    } else if (rec_on && arr_playing)
         rec_press(key, vel);
 }
 static void erase_track(int s, int trk)
@@ -902,6 +944,304 @@ static void erase_apply(void)
                     erase_track(s, t);
         erase_pend[s] = 0;
     }
+}
+
+/* ------------------------------------------------------------ the lead tracks --- */
+void arr_leads(const leads_t *l) { ld = l; }
+static void lead_as_trk(const lead_trk_t *l, arr_trk_t *t)
+{
+    memset(t, 0, sizeof *t);
+    t->program = l->program & 127u;
+    t->chan = l->chan & 15u;
+    t->vol = l->vol;
+    t->pan = l->pan;
+    t->rev = l->rev;
+    t->cho = l->cho;
+    t->bright = l->bright;
+    t->reso = l->reso;
+}
+/* the leads play now: a song's row (not its Intro or Ending) */
+static int leads_heard(void) { return mode == ARR_SONG && rows_live && ld; }
+/* the leads' sounds, when they are wanted (SONG, or the keys on a lead) and changed, or after a setup: to the synth
+ * now, to MIDI out what it lacks (the rest in later blocks: lead_sounds_out). Not while the app writes them */
+static void lead_sounds(void)
+{
+    if (!ld || edit_busy || (mode != ARR_SONG && rec_trk < ARR_TRACKS))
+        return;
+    if (ld_snd_ok && !memcmp(ld_snd, ld->trk, sizeof ld_snd))
+        return;
+    memcpy(ld_snd, ld->trk, sizeof ld_snd);
+    ld_snd_ok = 1;
+    for (int k = 0; k < ARR_LEADS; k++) {
+        arr_trk_t t;
+        lead_as_trk(&ld_snd[k], &t);
+        for (int i = 0; i < NSOUND; i++) {
+            uint8_t v;
+            uint32_t m = sound(&t, i, &v);
+            gm_midi_now(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu, at);
+        }
+    }
+    ld_out_pend = 1;
+    lead_sounds_out();
+}
+static void lead_sounds_out(void)
+{
+    if (!mout || !ld_out_pend || !ld_snd_ok)
+        return;
+    for (int k = 0; k < ARR_LEADS; k++) {
+        arr_trk_t t;
+        lead_as_trk(&ld_snd[k], &t);
+        for (int i = 0; i < NSOUND; i++) {
+            uint8_t v;
+            uint32_t m = sound(&t, i, &v), c = m & 15u;
+            if (out_sent[c][i] == v)
+                continue;
+            if (!out_room(1))
+                return;                            /* the rest in a later block */
+            arr_midi_out(m & 0xFFu, m >> 8 & 0xFFu, m >> 16 & 0xFFu);
+            out_sent[c][i] = v;
+        }
+    }
+    ld_out_pend = 0;
+}
+static uint32_t lead_sounds_need(void)             /* (sounds_fit_first: what a start in SONG sends out besides) */
+{
+    uint32_t n = 0;
+    if (!ld || edit_busy || mode != ARR_SONG || !mout)
+        return 0;
+    for (int k = 0; k < ARR_LEADS; k++) {
+        arr_trk_t t;
+        lead_as_trk(&ld->trk[k], &t);
+        for (int i = 0; i < NSOUND; i++) {
+            uint8_t v;
+            uint32_t m = sound(&t, i, &v);
+            n += out_sent[m & 15u][i] != v;
+        }
+    }
+    return n;
+}
+/* the row playing's notes from ld_from on: found again when the row or the list (gen) changed. 0: busy */
+static int lead_sync(void)
+{
+    uint32_t a, b, n;
+    if (!ld || edit_busy)
+        return 0;
+    if (ld_row != row) {
+        ld_row = row;
+        ld_ok = 0;
+    }
+    if (ld_ok && ld_gen == ld->gen)
+        return 1;
+    n = ld->n > LEAD_MAX ? LEAD_MAX : ld->n;
+    a = ld->row0[ld_row % ARR_ROWS];
+    b = ld->row0[ld_row % ARR_ROWS + 1];
+    b = b > n ? n : b;
+    a = a > b ? b : a;
+    while (a < b) {                                /* the first at or after ld_from */
+        uint32_t m = (a + b) / 2;
+        if (lead_pos(lead_at_c(ld, m)) < ld_from)
+            a = m + 1;
+        else
+            b = m;
+    }
+    ld_i = (uint16_t)a;
+    b = ld->row0[ld_row % ARR_ROWS + 1];
+    ld_end = (uint16_t)(b > n ? n : b);
+    ld_gen = ld->gen;
+    ld_ok = 1;
+    return 1;
+}
+static void lead_row_start(void)                   /* (row_start: the row `row` from its first downbeat, this tick) */
+{
+    ld_row = row;
+    ld_tick = ld_from = 0;
+    ld_ok = 0;
+}
+
+/* recording into a lead: a key held is an entry (its row and place, quantised; its start as a render tick); released
+ * and its place played (its root then taken), it is handed to the app (arr_lead_take) */
+typedef struct {
+    uint8_t state, key, note, vel, trk, row, root, pend;   /* pend: its place not played yet (its root not known) */
+    uint32_t pos, qabs, len;
+} lrec_t;
+#define LREC_N 8
+static lrec_t lrec[LREC_N];
+static uint8_t lrec_n;                             /* entries in use */
+#define LOUT_N 32
+static arr_lnote_t lout[LOUT_N];
+static volatile uint32_t lout_w, lout_r;
+volatile uint8_t arr_lead_lost;
+int arr_lead_take(arr_lnote_t *n)                  /* the main loop's (one reader) */
+{
+    uint32_t r = lout_r;
+    if (r == lout_w)
+        return 0;
+    BARRIER();
+    *n = lout[r % LOUT_N];
+    BARRIER();
+    lout_r = r + 1;
+    return 1;
+}
+static void lout_put(const lrec_t *r)
+{
+    uint32_t w = lout_w;
+    arr_lnote_t *n;
+    if (w - lout_r >= LOUT_N) {
+        arr_lead_lost++;
+        return;
+    }
+    n = &lout[w % LOUT_N];
+    n->row = r->row;
+    n->trk = r->trk;
+    n->note = r->note;
+    n->vel = r->vel;
+    n->root = r->root;
+    n->rsv[0] = n->rsv[1] = n->rsv[2] = 0;
+    n->pos = r->pos;
+    n->len = r->len < 1u ? 1u : r->len > 0xFFFFu ? 0xFFFFu : r->len;
+    BARRIER();
+    lout_w = w + 1;
+}
+static void lrec_release(lrec_t *r, uint32_t end)
+{
+    uint32_t q = QUANT_TICKS[quant], len = (int32_t)(end - r->qabs) > 0 ? end - r->qabs : 0;
+    r->len = len < q ? q : len;
+    r->state = R_DONE;
+}
+/* the entries done and resolved: to the app. all (a stop, recording off): the keys held end now, and an entry whose
+ * place never played goes */
+static void lrec_flush(int all)
+{
+    if (!lrec_n)
+        return;
+    for (int i = 0; i < LREC_N; i++) {
+        lrec_t *r = &lrec[i];
+        if (r->state == R_FREE)
+            continue;
+        if (r->state == R_HELD) {
+            if (!all)
+                continue;
+            lrec_release(r, tick_now());
+        }
+        if (r->pend && !all)
+            continue;
+        if (!r->pend)
+            lout_put(r);
+        r->state = R_FREE;
+        lrec_n--;
+    }
+}
+/* in a tick, its chord set: the entries whose place is this tick take its root */
+static void lrec_due(void)
+{
+    if (!lrec_n)
+        return;
+    for (int i = 0; i < LREC_N; i++)
+        if (lrec[i].state != R_FREE && lrec[i].pend && (int32_t)(lrec[i].qabs - tick_now()) <= 0) {
+            lrec[i].root = (uint8_t)(chord.root % 12u);
+            lrec[i].pend = 0;
+        }
+    lrec_flush(0);
+}
+/* a row's length in ticks: its beats rounded up to the pattern's bar (the row changes on its bar lines) */
+static uint32_t row_ticks(void)
+{
+    uint32_t bar = bar_len(&pat[cur]), t = (uint32_t)sn.cur_len * ARR_PPQ;
+    return (t + bar - 1) / bar * bar;
+}
+static void lead_press(int key, int vel)           /* a key on a lead, recording, a row playing (a block's start) */
+{
+    lrec_t *r = 0;
+    uint32_t q = QUANT_TICKS[quant], back = 0, kt, kabs, m, len;
+    uint8_t rw = row;
+    for (int i = 0; i < LREC_N && !r; i++)
+        if (lrec[i].state == R_FREE)
+            r = &lrec[i];
+    if (!r)
+        return;                                    /* more than LREC_N held: it only sounds */
+    if (!first_tick && !start_wait && ftt > 0 && (uint32_t)ftt > pace / 2 && ld_tick > 0)
+        back = 1;                                  /* the tick before is nearer the key than the next one */
+    kt = ld_tick - back;
+    kabs = arr_ticks - back;
+    m = kt % q;
+    if (2 * m >= q) {                              /* to the nearest grid line */
+        kt += q - m;
+        kabs += q - m;
+    } else {
+        kt -= m;
+        kabs -= m;
+    }
+    len = row_ticks();
+    if (kt >= len) {                               /* just before the next row: its tick 0 */
+        if (row + 1 < sn.nrows)
+            rw = (uint8_t)(row + 1);
+        else if (sn.at_end)
+            rw = 0;
+        else
+            return;                                /* (the song ends there) */
+        kt -= len;
+    }
+    r->state = R_HELD;
+    r->key = (uint8_t)key;
+    r->note = (uint8_t)key;
+    r->vel = (uint8_t)vel;
+    r->trk = (uint8_t)(rec_trk - ARR_LD1);
+    r->row = rw;
+    r->pos = kt;
+    r->qabs = kabs;
+    r->len = 0;
+    r->pend = (uint8_t)((int32_t)(kabs - arr_ticks) >= 0);   /* its place ahead: its root there */
+    r->root = (uint8_t)(chord.root % 12u);
+    lrec_n++;
+}
+static void lead_release(int key, uint32_t end)
+{
+    for (int i = 0; i < LREC_N; i++)
+        if (lrec[i].state == R_HELD && lrec[i].key == key)
+            lrec_release(&lrec[i], end);
+    lrec_flush(0);
+}
+/* the tick playing (its chord set, the patterns' notes started): the row's notes due, moved by the root's move
+ * since they were played; play 0 (a clock catch-up's dropped tick): passed over */
+static void lead_tick(int play)
+{
+    uint32_t rt = ld_tick++;
+    lrec_due();
+    if (!leads_heard() || !lead_sync())
+        return;                                    /* (busy: its notes due play at the first tick after) */
+    while (ld_i < ld_end) {
+        const lead_ev_t *e = lead_at_c(ld, ld_i);
+        int t, out;
+        if (lead_pos(e) > rt)
+            break;
+        ld_i++;
+        t = lead_trk(e);
+        if (!play || tk[ARR_LD1 + t].mute)
+            continue;
+        out = e->note + lead_shift(chord.root, lead_root(e));
+        if (out >= 0 && out <= 127)
+            note_start(ARR_LD1 + t, e->note, out, e->vel, ld->trk[t].chan & 15, (int)lead_len(e));
+    }
+    ld_from = rt + 1;
+}
+static void lead_skip(void)                        /* the place jumped on (skip): the notes passed over */
+{
+    ld_from = ld_tick;
+    ld_ok = 0;
+}
+static void lead_init(void)
+{
+    ld_gen = 0;
+    ld_ok = 0;
+    ld_row = 0;
+    ld_i = ld_end = 0;
+    ld_tick = ld_from = 0;
+    ld_snd_ok = ld_out_pend = 0;
+    memset(lrec, 0, sizeof lrec);
+    lrec_n = 0;
+    lout_w = lout_r = 0;
+    arr_lead_lost = 0;
+    arr_row_tick = 0;
 }
 
 /* ------------------------------------------------------------ sections --- */
@@ -946,7 +1286,8 @@ static uint16_t row_len(const row_t *w)            /* a row's beats: its loop's 
     int n = lp_len(row_loop(w));
     return (uint16_t)((n > 0 ? n : 4) * (w->rep ? w->rep : 1));
 }
-static void row_mutes(uint8_t m);
+static void row_mutes(uint32_t m);
+static uint32_t row_mute_bits(const row_t *w) { return w->mute | (uint32_t)(w->lmute & 3u) << ARR_LD1; }
 /* the song's header and rows `row` and the one after it (row 0 after the last), when the app is not writing
  * (the main loop never runs inside the render: busy means it was interrupted mid-write; the last snapshot stays) */
 static void song_snap(void)
@@ -978,13 +1319,14 @@ static void song_snap(void)
     sn.next_len = row_len(&sn.next);
     sn.next2_len = row_len(&sn.next2);
 }
-static void row_mutes(uint8_t m)                   /* a row's mutes (a hand mute lasts to here) */
+static void row_mutes(uint32_t m)                  /* a row's mutes (a hand mute lasts to here): the tracks', LD1, LD2's */
 {
-    for (int t = 0; t < ARR_TRACKS; t++) {
+    for (int t = 0; t < ARR_ALLTRK; t++) {
         uint8_t on = (uint8_t)(m >> t & 1u);
         if (on && !tk[t].mute) {
             track_off(&tk[t]);
-            ctl_reset_mask(1u << (pat[cur].trk[t].chan & 15u));
+            if (t < ARR_TRACKS)                    /* (the leads send no controllers) */
+                ctl_reset_mask(1u << (pat[cur].trk[t].chan & 15u));
         }
         tk[t].mute = on;
     }
@@ -996,7 +1338,8 @@ static uint8_t row_start(uint32_t b0)
     row_b0 = b0;
     rows_live = 1;
     song_end = 0;
-    row_mutes(sn.cur.mute);
+    row_mutes(row_mute_bits(&sn.cur));
+    lead_row_start();
     chord_owed = 1;
     override = 0;
     return (uint8_t)row_main(&sn.cur);
@@ -1048,7 +1391,7 @@ static void transport_start(void)
     if (mode == ARR_SONG && sn.nrows) {
         if (!s && sn.intro && row == 0 && !rec_on && !sect_empty(SEC_INTRO)) {
             s = SEC_INTRO;                         /* the Intro holds row 1's first chord (source_chord) */
-            row_mutes(sn.cur.mute);
+            row_mutes(row_mute_bits(&sn.cur));
         } else {
             uint8_t m = row_start(0);              /* the row's section from beat 0 (one queued by hand wins) */
             if (!s)
@@ -1067,7 +1410,7 @@ static void transport_start(void)
     ftt = 0;                                       /* tick 0 at once */
     ext_pend = 0;
     clk_div = 0;                                   /* tick 0's F8 */
-    for (int t = 0; t < ARR_TRACKS; t++) {
+    for (int t = 0; t < ARR_ALLTRK; t++) {
         track_off(&tk[t]);
         xpose_reset(&tk[t].xs);
         xpose_chord_changed(&tk[t].xs);            /* Bass: the first note is the root */
@@ -1081,6 +1424,7 @@ static void transport_start(void)
 static void transport_stop(void)
 {
     rec_flush(1);                                  /* the notes being recorded end here */
+    lrec_flush(1);
     arr_playing = 0;
     arr_ended = 0;
     start_wait = 0;
@@ -1105,8 +1449,10 @@ static int follows_chord(uint8_t type) { return type == XT_CHORD1 || type == XT_
 static void switch_to(uint8_t sec)
 {
     rec_flush(1);                                  /* recording: the pass ends here, and recording too */
-    rec_on = arr_recording = 0;                    /* (it would go on into the other pattern) */
-    rec_wait = arr_rec_wait = 0;
+    if (rec_trk < ARR_TRACKS) {                    /* (it would go on into the other pattern; a lead's goes on: it */
+        rec_on = arr_recording = 0;                /* runs along the song) */
+        rec_wait = arr_rec_wait = 0;
+    }
     ctl_reset();                                   /* the phrases' bends and swells end with their section */
     if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && sec != arr_sect)
         chord_owed = 1;                            /* the source's chords held meanwhile: its latest, at once */
@@ -1314,7 +1660,7 @@ static void beat_chord(int play)
 static void ends_due(void)
 {
     uint32_t m = arr_ticks + FAR;
-    for (int t = 0; t < ARR_TRACKS; t++)
+    for (int t = 0; t < ARR_ALLTRK; t++)
         for (int i = tk[t].nh - 1; i >= 0; i--) {
             uint32_t e = tk[t].h[i].end;
             if ((int32_t)(e - arr_ticks) <= 0)
@@ -1430,6 +1776,8 @@ static void skip(uint32_t k)
     }
     wake = 1;
     rec_flush(0);
+    ld_tick += k;                                  /* the leads' notes in the jump: passed over */
+    lead_skip();
 }
 /* one tick; play 0: the position moves on and notes end, nothing new starts (clocks in too bunched). Most
  * ticks have nothing due: no note ends (next_end), no event (next_ev), no beat line, no F8 out */
@@ -1467,6 +1815,7 @@ static void tick(int play)
     }
     if (wake || pos >= next_ev)
         events(play);
+    lead_tick(play);                               /* the leads after the patterns (MAX_ONS for all) */
     bar = bar_len(p);
     arr_bar = (uint16_t)(pos / bar);
     arr_beat_tick = (uint16_t)(pos % bar);        /* ticks into the bar */
@@ -1543,6 +1892,7 @@ static void clock_in(int msg)
                 mode_apply(bar_beat0);
                 if (mode == ARR_SONG && sn.nrows)  /* a song's row: its section from the next bar line */
                     sect_owed = row_start(bar_beat0);
+                    ld_tick = ld_from = pos % bar_len(&pat[cur]);   /* (the row from this bar's downbeat) */
             }
         }
         clk_out = 0;
@@ -1590,17 +1940,19 @@ static void drain(void)
                 arr_next_sect = (uint8_t)a;
             break;
         case C_MUTE:
-            if (a < ARR_TRACKS) {
+            if (a < ARR_ALLTRK) {
                 tk[a].mute = (uint8_t)b;
                 if (b) {
                     track_off(&tk[a]);
-                    ctl_reset_mask(1u << (pat[cur].trk[a].chan & 15u));   /* muted mid-bend: not left bent */
+                    if (a < ARR_TRACKS)
+                        ctl_reset_mask(1u << (pat[cur].trk[a].chan & 15u));   /* muted mid-bend: not left bent */
                 }
             }
             break;
         case C_MOUT:
             if (a && !mout) {
                 memset(out_sent, 0xFF, sizeof out_sent);   /* what the far side has: unknown */
+                ld_out_pend = 1;
                 mout = 1;
                 out_pend = arr_playing;
                 if (arr_playing && !arr_ext) {     /* playing on our clock: start the far side now */
@@ -1649,6 +2001,8 @@ static void drain(void)
             override = mode != ARR_FREE;
             break;
         case C_REC:
+            if (rec_on && (!b || a != rec_trk))    /* a lead's keys held end their notes: off, or another track */
+                lrec_flush(1);
             rec_trk = (uint8_t)a;
             live_sounds();                         /* the track's sounds for the keys, now */
             arr_recording = (uint8_t)(b != 0);
@@ -1665,6 +2019,8 @@ static void drain(void)
                 rec_wait = 0;
             if (b && !rec_on)
                 arr_rec_bars = 0;
+            if (rec_trk >= ARR_TRACKS)             /* a lead: no bar line to wait for (it records while a row plays) */
+                rec_wait = 0;
             arr_rec_wait = rec_wait;
             rec_on = (uint8_t)(b != 0);
             break;
@@ -1692,6 +2048,7 @@ static void block(uint32_t frames)
     if (mode == ARR_SONG)
         song_snap();                               /* the rows as they are now (not mid-write) */
     drain();
+    lead_sounds();                                 /* the leads' sounds when wanted and changed (not mid-write) */
     if (xp_pend && !edit_busy) {                   /* a transpose during a write: the chord sounding moves now */
         if (src_chords())
             chord_change(shifted(chord, xp_pend), 1);
@@ -1714,6 +2071,7 @@ static void block(uint32_t frames)
         out_link = arr_midi_out_link();
         memset(out_sent, 0xFF, sizeof out_sent);
         out_pend = mout && arr_playing;
+        ld_out_pend = 1;
     }
     if (arr_ext) {
         if (ext_clocks) {                          /* clocks came: their rate, from the frames since the last */
@@ -1809,11 +2167,12 @@ void arr_block(uint32_t frames)
         arr_rep = (uint8_t)(k < sn.cur.rep ? k : sn.cur.rep ? sn.cur.rep - 1u : 0u);
     }
     {
-        uint8_t m = 0;
-        for (int t = 0; t < ARR_TRACKS; t++)
-            m |= (uint8_t)(tk[t].mute << t);
+        uint16_t m = 0;
+        for (int t = 0; t < ARR_ALLTRK; t++)
+            m |= (uint16_t)(tk[t].mute << t);
         arr_mutes = m;
     }
+    arr_row_tick = mode == ARR_SONG && rows_live ? ld_tick : 0;
 }
 
 void arr_init(void)                                /* at boot, before the render runs */
@@ -1830,10 +2189,11 @@ void arr_init(void)                                /* at boot, before the render
         ident[i] = 0;
         bk[i] = 0;
     }
-    for (int t = 0; t < ARR_TRACKS; t++) {
+    for (int t = 0; t < ARR_ALLTRK; t++) {
         xpose_reset(&tk[t].xs);
         arr_track_hit[t] = 0;
     }
+    lead_init();
     ctl_dirty = ctl_out_dirty = ctl_out_pend = 0;
     chord_owed = 0;
     chord.root = 0;

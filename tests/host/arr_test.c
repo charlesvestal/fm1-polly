@@ -11,6 +11,7 @@
 #include "arr.h"
 #include "gm_stub.h"
 #include "loops.h"
+#include "leads.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -3534,6 +3535,362 @@ static void test_record_as_played_fold(void)
     run_blocks(1);
     CHECK(offs_match(stub_log, stub_n), "offs match");
 }
+/* ------------------------------------------------------------ the lead tracks --- */
+static leads_t LD;
+static void ld_reset(void)
+{
+    memset(&LD, 0, sizeof LD);
+    lead_trk_default(&LD.trk[0], 0);             /* LD1: channel 7 (0x96), LD2: channel 8 (0x97) */
+    lead_trk_default(&LD.trk[1], 1);
+    leads_clear(&LD);
+    arr_leads(&LD);
+}
+static void ld_add(int row, uint32_t pos, uint32_t len, int note, int trk, int root)
+{
+    lead_ev_t e;
+    lead_set(&e, row, pos, len, note, 100, trk, root);
+    arr_edit(1);                                 /* as the app: inside a write, gen counted */
+    leads_insert(&LD, &e, LEAD_MAX, 0);
+    LD.gen++;
+    arr_edit(0);
+}
+/* the note-on of `note` on channel byte `st` nearest `units` (+-ON_TOL frames): 1 found */
+static int on_at(int st, int note, float units)
+{
+    for (int i = 0; i < stub_n; i++)
+        if (stub_log[i].st == st && stub_log[i].d1 == note && is_on(&stub_log[i]) && near(stub_log, i, units * FPT))
+            return 1;
+    return 0;
+}
+static int ons_ch(int st, float from, float to)        /* note-ons on a channel between two frames */
+{
+    int n = 0;
+    for (int i = 0; i < stub_n; i++)
+        n += stub_log[i].st == st && is_on(&stub_log[i]) && (float)stub_log[i].frame >= from && (float)stub_log[i].frame < to;
+    return n;
+}
+#define T2U(t) ((float)(t) / U)                         /* ticks to units */
+/* rows of one-bar loops, each A: L1 C, L2 F, L3 G (ROW_A, no fills) */
+static void lead_song(int n, const int *lo, const int *re)
+{
+    static const chord_t c[1] = {{0, CH_MAJ, CH_NOBASS}}, f[1] = {{5, CH_MAJ, CH_NOBASS}}, g[1] = {{7, CH_MAJ, CH_NOBASS}};
+    static const int se[8] = {ROW_A, ROW_A, ROW_A, ROW_A, ROW_A, ROW_A, ROW_A, ROW_A};
+    loop_bars(0, 4, 1, c);
+    loop_bars(1, 4, 1, f);
+    loop_bars(2, 4, 1, g);
+    song_rows(n, lo, se, re);
+}
+static void test_lead_play(void)
+{
+    static const int lo[3] = {0, 1, 0}, re[3] = {2, 1, 1};
+    int i, j;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(3, lo, re);
+    ld_add(0, 0, 240, 60, 0, 0);                 /* row 1 (C, x2): C4 at its start */
+    ld_add(0, 4 * 480 + 480, 240, 64, 0, 0);     /* its second pass, beat 2: E4 (linear across REPEAT) */
+    ld_add(1, 0, 240, 60, 0, 0);                 /* row 2 (F): C4 played over C: up a fourth, F4 */
+    ld_add(1, 960, 240, 67, 0, 5);               /* G4 played over F: as played */
+    ld_add(2, 0, 480, 72, 1, 0);                 /* row 3 (C): LD2's C5 */
+    ld_add(2, 480, 240, 74, 1, 7);               /* D5 played over G, now over C: +5 (folded: G to C is up a fourth), G5 */
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(5 * BAR));
+    i = find(stub_log, stub_n, 0, 0xC6, 80);
+    j = find(stub_log, stub_n, 0, 0x96, 60);
+    CHECK(i >= 0 && find(stub_log, stub_n, 0, 0xC7, 48) >= 0 && find(stub_log, stub_n, 0, 0xB6, 7) >= 0, "the leads' sounds: LD1 GM 81 on 7, LD2 GM 49 on 8");
+    CHECK(i >= 0 && j > i, "... before the first lead note");
+    CHECK(on_at(0x96, 60, 0.f), "row 1 at 0: C4 as played (same chord)");
+    CHECK(on_at(0x96, 64, 96.f + 24.f), "row 1's second pass, beat 2: E4 (pos 2400)");
+    CHECK(on_at(0x96, 65, 192.f), "row 2 over F: C4 up a fourth, F4");
+    CHECK(on_at(0x96, 67, 192.f + 48.f), "row 2: G4 recorded over F, as played");
+    CHECK(on_at(0x97, 72, 288.f), "row 3: LD2's C5 on channel 8");
+    CHECK(on_at(0x97, 79, 288.f + 24.f), "row 3: D5 played over G, over C: G5 (+5)");
+    CHECK(ons_ch(0x96, 0.f, 5 * BAR) == 4 && ons_ch(0x97, 0.f, 5 * BAR) == 2, "each once (%d %d)", ons_ch(0x96, 0.f, 5 * BAR),
+          ons_ch(0x97, 0.f, 5 * BAR));
+    i = find(stub_log, stub_n, 0, 0x86, 60);
+    CHECK(near(stub_log, i, T2U(240) * FPT), "its note-off after its length");
+    CHECK(arr_playing == 0 && offs_match(stub_log, stub_n), "the song ended, offs match");
+    /* the same song again with at_end: the second time round the same */
+    reset();
+    loops_reset();
+    load_slots(4);
+    lead_song(3, lo, re);
+    SG.at_end = 1;
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(8 * BAR + 512));
+    CHECK(on_at(0x96, 60, 384.f) && on_at(0x96, 64, 384.f + 120.f) && on_at(0x96, 65, 384.f + 192.f), "again from row 1");
+    arr_play(0);
+    run_blocks(2);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+    /* not in FREE or LOOP */
+    reset();
+    loops_reset();
+    load_slots(4);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(2 * BAR));
+    CHECK(ons_ch(0x96, 0.f, 2 * BAR) == 0 && ons_ch(0x97, 0.f, 2 * BAR) == 0, "LOOP: no leads");
+    arr_play(0);
+    run_blocks(1);
+    arr_leads(0);
+}
+static void test_lead_transpose(void)
+{
+    static const int lo[2] = {0, 0}, re[2] = {1, 1};
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    SG.row[1].key = -3;                          /* row 2 in A (C - 3) */
+    ld_add(0, 0, 240, 60, 0, 0);
+    ld_add(1, 0, 240, 60, 0, 0);
+    arr_set_transpose(2);                        /* the song up a tone: D, then B */
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(on_at(0x96, 62, 0.f), "TRANSPOSE +2: C4 over D, D4");
+    CHECK(on_at(0x96, 59, 96.f), "TRANSPOSE +2, KEY -3: over B, B3 (-1)");
+    arr_play(0);
+    run_blocks(1);
+    arr_leads(0);
+}
+static void test_lead_mutes(void)
+{
+    static const int lo[3] = {0, 0, 0}, re[3] = {1, 1, 1};
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(3, lo, re);
+    SG.row[1].lmute = 1;                         /* row 2: LD1 muted */
+    for (int r = 0; r < 3; r++) {
+        ld_add(r, 0, 240, 60, 0, 0);
+        ld_add(r, 960, 240, 64, 1, 0);
+    }
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    CHECK(arr_mutes == 0, "row 1: none muted (%x)", arr_mutes);
+    run_to((uint32_t)(1.25f * BAR));
+    CHECK(arr_mutes == 1u << ARR_LD1, "row 2: LD1 muted (%x)", arr_mutes);
+    arr_track_mute(ARR_LD1 + 1, 1);              /* LD2 by hand, until the next row */
+    run_blocks(1);
+    CHECK(arr_mutes == (1u << ARR_LD1 | 1u << (ARR_LD1 + 1)), "and LD2 by hand (%x)", arr_mutes);
+    run_to((uint32_t)(3 * BAR + 512));
+    CHECK(on_at(0x96, 60, 0.f) && !on_at(0x96, 60, 96.f) && on_at(0x96, 60, 192.f), "LD1: rows 1 and 3, not 2");
+    CHECK(on_at(0x97, 64, 48.f) && !on_at(0x97, 64, 96.f + 48.f) && on_at(0x97, 64, 192.f + 48.f), "LD2: muted by hand in row 2 only");
+    arr_leads(0);
+}
+static void test_lead_row_change(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    int i;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    ld_add(0, 1440, 960, 67, 0, 0);              /* beat 4 of row 1, two beats long: into row 2 */
+    ld_add(1, 0, 240, 72, 1, 0);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(2 * BAR + 512));
+    CHECK(on_at(0x96, 67, 72.f), "G4 on beat 4");
+    i = find(stub_log, stub_n, 0, 0x86, 67);
+    CHECK(near(stub_log, i, 120.f * FPT), "it plays to its end across the row change (%u)", i >= 0 ? stub_log[i].frame : 0);
+    CHECK(on_at(0x97, 77, 96.f), "row 2's own note over F (C5 up a fourth)");
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+    arr_leads(0);
+}
+static void test_lead_busy(void)
+{
+    static const int lo[2] = {0, 0}, re[2] = {2, 1};
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    ld_add(0, 960, 240, 60, 0, 0);               /* beat 3 */
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(47 * FPT));
+    arr_edit(1);                                 /* a write over beat 3: its note waits */
+    run_to((uint32_t)(49 * FPT));
+    CHECK(ons_ch(0x96, 0.f, 49 * FPT) == 0, "busy: not yet");
+    arr_edit(0);
+    run_blocks(1);
+    CHECK(ons_ch(0x96, 0.f, 50 * FPT) == 1, "the first block after: it plays, late");
+    /* a note written while it plays: ahead of the place, it plays; behind it, not this time */
+    ld_add(0, 1440, 240, 62, 0, 0);              /* beat 4: ahead */
+    ld_add(0, 480, 240, 64, 0, 0);               /* beat 2: behind */
+    run_to((uint32_t)(BAR - 256));
+    CHECK(on_at(0x96, 62, 72.f) && ons_ch(0x96, 0.f, BAR) == 2, "beat 4's (written ahead) plays, beat 2's not (%d)",
+          ons_ch(0x96, 0.f, BAR));
+    run_to((uint32_t)(3 * BAR));
+    CHECK(ons_ch(0x96, 50 * FPT, 3 * BAR) == 1, "nothing twice (row 1's notes are in its first pass only)");
+    arr_play(0);
+    run_blocks(1);
+    arr_leads(0);
+}
+static void test_lead_catchup(void)
+{
+    static const int lo[1] = {0}, re[1] = {2};
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(1, lo, re);
+    SG.at_end = 1;
+    ld_add(0, 40, 200, 60, 0, 0);                /* in the first clocks' ticks: plays */
+    ld_add(0, 600, 200, 62, 0, 0);               /* in the jump: passed over */
+    ld_add(0, 1500, 200, 64, 0, 0);              /* after it: plays */
+    arr_mode_song(&SG, 0);
+    arr_clock(ARR_CLK_START);
+    run_blocks(1);
+    arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    for (int k = 0; k < 47; k++)                  /* 48 clocks: to tick 960, bunched */
+        arr_clock(ARR_CLK_TICK);
+    run_blocks(1);
+    CHECK(arr_row_tick == 960u, "the place jumped to 960 (%u)", arr_row_tick);
+    CHECK(find(stub_log, stub_n, 0, 0x96, 60) >= 0 && find(stub_log, stub_n, 0, 0x96, 62) < 0, "40 played, 600 jumped over");
+    for (int k = 0; k < 40; k++) {               /* on, clock by clock */
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(4);
+    }
+    CHECK(find(stub_log, stub_n, 0, 0x96, 64) >= 0 && find(stub_log, stub_n, 0, 0x96, 62) < 0, "1500 plays; 600 never restruck");
+    arr_clock(ARR_CLK_STOP);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+    arr_leads(0);
+}
+static int take_all(arr_lnote_t *n, int max)
+{
+    int k = 0;
+    while (k < max && arr_lead_take(&n[k]))
+        k++;
+    return k;
+}
+static void test_lead_record(void)
+{
+    static const int lo[3] = {0, 1, 0}, re[3] = {1, 1, 1};
+    arr_lnote_t n[8];
+    int k;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(3, lo, re);
+    SG.row[2].sect = ROW_B;                      /* row 2 plays Fill AB, row 3 Main B: two section changes */
+    arr_record(ARR_LD1, 1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    key_at(25.f, 69, 1);                         /* A4 at 500 ticks -> 480 (16ths: 120) */
+    key_at(36.f, 69, 0);
+    run_blocks(1);
+    k = take_all(n, 8);
+    CHECK(k == 1 && n[0].row == 0 && n[0].pos == 480 && n[0].note == 69 && n[0].trk == 0 && n[0].root == 0 && n[0].vel == 90,
+          "A4: row 1, 480, over C (%d: %d %u %d %d)", k, k ? n[0].row : -1, k ? n[0].pos : 0, k ? n[0].note : 0, k ? n[0].root : -1);
+    CHECK(k == 1 && within((int)n[0].len, 240, 4 * U), "its length to the release (%u)", k ? n[0].len : 0);
+    CHECK(find(stub_log, stub_n, 0, 0x96, 69) >= 0, "the key sounds on LD1's channel");
+    /* a key just before row 2 (F) lands on its tick 0, over F */
+    key_at(95.f, 72, 1);
+    key_at(100.f, 72, 0);
+    run_to((uint32_t)(102 * FPT));
+    k = take_all(n, 8);
+    CHECK(k == 1 && n[0].row == 1 && n[0].pos == 0 && n[0].root == 5, "C5 a little early: row 2, 0, root F (%d: %d %u %d)", k,
+          k ? n[0].row : -1, k ? n[0].pos : 0, k ? n[0].root : -1);
+    /* held over the row change into row 3: one note of row 2, its length past the row's end */
+    key_at(96.f + 84.f, 65, 1);                  /* row 2, 84 units: 1680 ticks */
+    key_at(192.f + 12.f, 65, 0);
+    run_to((uint32_t)(206 * FPT));
+    k = take_all(n, 8);
+    CHECK(k == 1 && n[0].row == 1 && n[0].pos == 1680 && within((int)n[0].len, 480, 4 * U), "held across rows: row 2, 1680, 480 (%u %u)",
+          k ? n[0].pos : 0, k ? n[0].len : 0);
+    /* the section changes did not end it */
+    CHECK(arr_recording && slot_at(96.f * FPT) == SFA && slot_at(192.f * FPT) == SB, "still recording, across Fill AB and Main B");
+    /* the stop ends a key held */
+    key_at(192.f + 48.f, 60, 1);
+    run_to((uint32_t)((192 + 60) * FPT));
+    arr_play(0);
+    run_blocks(1);
+    k = take_all(n, 8);
+    CHECK(k == 1 && n[0].row == 2 && n[0].pos == 960 && within((int)n[0].len, 240, 2 * U), "held at the stop: ended there (%u)", k ? n[0].len : 0);
+    arr_key(60, 0, 0);
+    run_blocks(1);
+    /* punch in from row 3 (PLAY FROM ROW) */
+    arr_mode_song(&SG, 2);
+    arr_play(1);
+    key_at(stub_frame / FPT + 1.f, 62, 1);
+    key_at(stub_frame / FPT + 6.f, 62, 0);
+    run_blocks(4);
+    k = take_all(n, 8);
+    CHECK(k == 1 && n[0].row == 2 && n[0].pos <= 120 && n[0].root == 0, "from row 3: its start (%d: %d %u)", k, k ? n[0].row : -1,
+          k ? n[0].pos : 0);
+    arr_play(0);
+    run_blocks(1);
+    /* LD2 selected; in LOOP the keys only sound */
+    arr_record(ARR_LD1 + 1, 1);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_blocks(4);
+    arr_key(64, 1, 90);
+    run_blocks(4);
+    arr_key(64, 0, 0);
+    run_blocks(4);
+    CHECK(take_all(n, 8) == 0, "LOOP: nothing recorded");
+    CHECK(find(stub_log, stub_n, 0, 0x97, 64) >= 0, "LD2's key on its channel (8)");
+    arr_play(0);
+    arr_record(4, 0);
+    run_blocks(1);
+    CHECK(arr_lead_lost == 0, "none lost");
+    arr_leads(0);
+}
+/* recorded, inserted by the app, played back: the next time round, moved with the root */
+static void test_lead_record_play(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    int k;
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    SG.at_end = 1;
+    arr_record(ARR_LD1, 1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    key_at(47.f, 67, 1);                         /* G4 at 940 -> 960, over C */
+    key_at(53.f, 67, 0);
+    run_blocks(2);
+    k = take_all(n, 4);
+    CHECK(k == 1, "taken");
+    if (k == 1) {
+        lead_ev_t e;
+        lead_set(&e, n[0].row, n[0].pos, n[0].len, n[0].note, n[0].vel, n[0].trk, n[0].root);
+        arr_edit(1);
+        leads_insert(&LD, &e, LEAD_MAX, 0);
+        LD.gen++;
+        arr_edit(0);
+    }
+    run_to((uint32_t)(2 * BAR - 256));
+    CHECK(ons_ch(0x96, 0.f, 2 * BAR) == 1, "this pass: the key only, never the note again");
+    SG.row[0].loop = 1;                          /* the chord edited: row 1 now F */
+    run_to((uint32_t)(3 * BAR));
+    CHECK(on_at(0x96, 72, 192.f + 48.f), "the next time round over F: C5 (G4 up a fourth)");
+    arr_play(0);
+    run_blocks(1);
+    arr_record(4, 0);
+    run_blocks(1);
+    arr_leads(0);
+}
+
 int main(void)
 {
     test_timing();
@@ -3615,6 +3972,14 @@ int main(void)
     test_record_section();
     test_live_keys();
     test_record_as_played();
+    test_lead_play();
+    test_lead_transpose();
+    test_lead_mutes();
+    test_lead_row_change();
+    test_lead_busy();
+    test_lead_catchup();
+    test_lead_record();
+    test_lead_record_play();
     test_record_pickup();
     test_record_as_played_fold();
     test_record_from_bar();
