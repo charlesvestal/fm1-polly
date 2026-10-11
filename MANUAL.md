@@ -32,7 +32,8 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
    chords are now loop L9 and the band plays them round. Name it: press **ARP**, **SELECT** to page 2,
    and turn **NAME** to "Verse". (Or, stopped: press **ARP**, which opens the first empty loop, and
    write on its grid: **REC**, then a chord a bar.)
-3. **Write your chorus.** Press **HOME** and turn **KNOB 4** to "–": the band is free again. Press
+3. **Write your chorus.** Press **HOME** and turn **KNOB 4** anticlockwise, past L1, to "–": the band is
+   free again. Press
    **REC**, play C, G, Am, F, then press **REC**. That's L10. Name it: **ARP**, **SELECT**, **NAME**
    to "Chorus".
 4. **Build the song.** Press **HOME**, then **SELECT** to the SONG page. Tap white keys in order: 9,
@@ -40,13 +41,14 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 5. **Shape it.** On a chorus row (**ROW**, KNOB 1, moves between rows), turn **SECTION** to Main B for
    the busier groove (the other chorus rows follow). Turn **REPEAT** for ×2. On the last row, **SELECT**
    to the next page and turn **KEY** to +2 for the last chorus a tone up. For a breakdown, tap black
-   keys to mute tracks on a row (black keys 1 and 2 are the drums).
+   keys to mute tracks on a row (black keys 1, 2 and 3 are the drums and the percussion: D1, D2, PC).
 6. **Play it.** Press **PLAY** on the SONG page. The band is still playing your chorus, so the song
    takes over at the next bar, from row 1: your rows with fills between sections, then an Ending.
-   (From a stop it opens with an Intro. To start on another row: **SEL**, **PLAY FROM ROW**.)
+   (From a stop it opens with an Intro. To start on another row: move the cursor there with **ROW**,
+   press **SEL**: the list opens on **PLAY FROM ROW**; **SEL** again starts it.)
 7. **Add a melody.** On the SONG page press **PLAY**, then press **EDIT**, turn **ALGORITHM** past C4 to
-   LD1 and press **REC**. Play along: your notes go into the rows as they play. (See
-   [Lead tracks](#lead-tracks).)
+   LD1 and press **REC**. The click counts you in to the next bar line; play along: your notes go into the
+   rows as they play. (See [Lead tracks](#lead-tracks).)
 8. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
 
 ## Getting around
@@ -57,7 +59,7 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 | --- | --- |
 | PLAY | Start and stop. On a SONG page: the song from row 1 (while a loop plays, from the next bar); playing, it stops it |
 | REC | Write what the keys play here: chords into the loop (HOME, LOOP; in FREE on HOME a new loop), the selected track (SEQ, EDIT), rows (SONG) |
-| SEL | This page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, PLAY FROM ROW…) |
+| SEL | This page as a list, opened on its first action (LOAD PROGRESSION, PLAY FROM ROW, ERASE TRACK…); SELECT up to its values and MORE |
 | HOME | HOME; SELECT for the SONG pages. Held: the shortcuts, on screen: + white key 1–16 a loop, + black key 1–5 a section, + SELECT the tempo, + PRESETS the song, + REC undo, + PLAY redo |
 | ARP | LOOP: the loop's chords; page 2 its length, beats, name |
 | SEQ | Pattern, page 2 Pattern setup |
@@ -88,6 +90,8 @@ The screen has three bands:
   style.
 - **The middle**: what the page is about.
 - **The knobs**: what KNOB 1–4 do here, with their values. The knob you turned last shows in coral.
+- **The footer**: what the keys and REC do here ("KEYS: CHORDS · REC: WRITE"); while something records,
+  "REC: STOP".
 
 **Messages** such as "SAVED" or "NEXT Main B" take over the header for a second or so.
 
@@ -184,7 +188,8 @@ While stopped, you choose the section PLAY starts with ("FIRST Main B").
 
 - PLAY starts on Main A. The Intro plays first in a song with INTRO on started from a stop, or when
   you pick it (HOME + black key 1) before PLAY.
-- The Ending plays once and stops. Without an Ending, Polly stops at the bar line.
+- The Ending plays once and stops. Without an Ending, Polly stops at the bar line. Stopped so, the pages
+  show what PLAY starts with again: in a song row 1's section, else Main A (not the Ending).
 
 ### Intros and endings hold a chord
 
@@ -194,8 +199,8 @@ changes it at once.
 
 ### Tempo
 
-Turn **KNOB 2** on HOME, or hold **HOME** and turn **SELECT**: 40 to 240 BPM. The tempo is shown at the top right. When Polly follows MIDI clock, it
-shows "ext" instead.
+Turn **KNOB 2** on HOME, or hold **HOME** and turn **SELECT** (held, the footer says "SELECT: TEMPO"): 40 to
+240 BPM. The tempo is shown at the top right. When Polly follows MIDI clock, it shows "ext" instead.
 
 ## Chords
 
@@ -219,6 +224,9 @@ On HOME and LOOP the keys play chords.
 - A chord may leave out its 5th: C E B♭ is C7 too.
 - Two notes are not a chord: nothing changes.
 - Over a loop, a chord you play lasts until the loop's next chord change.
+- **Writing in time** (REC while a loop plays, or a new loop's take): a chord lands on the nearest beat, except
+  a bar's first chord played within its first beat: that lands on the bar's downbeat (a little late on the
+  one is still the one).
 
 **The chord types** (25, plus "---", no chord):
 
@@ -262,8 +270,12 @@ See [Writing a song](#writing-a-song) for the whole path.
   playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
 - **SONG** (HOME, SELECT): the rows. A white key writes a row: on END it adds one, on a row it sets
   that row's loop. Black keys 1–8 mute the row's tracks, 9 and 10 its lead tracks LD1 and LD2 (the
-squares after the gap in MUTES). KNOB 1–4 ROW, LOOP, SECTION, REPEAT; page 2
-  KEY; page 3 INTRO, ENDING, AT END, SONG.
+  squares after the gap in MUTES: filled plays, a coral outline is muted). KNOB 1–4 ROW, LOOP, SECTION,
+  REPEAT; page 2 KEY; page 3 INTRO, ENDING, AT END, SONG. While the song plays, the row playing is tinted
+  teal; during its Intro, a fill and its Ending the line under the rows says so ("Intro · then row 1",
+  "Fill AB · into row 3", "Ending · then the stop").
+- **HOME** says where the band is: "loop bar 2.3 / 4" (or "pattern bar 1.1 / 2" with no loop); stopped, bar 1
+  and the chords PLAY starts with.
 
 ### The style's patterns (ENV)
 
@@ -287,10 +299,10 @@ Polly records into the selected track of the section playing, as a loop.
    notes, and the playhead.
 2. Turn **ALGORITHM** to pick the track. The keys play its sound.
 3. Press **REC**. The red dot shows in the header and PLAY turns red. The screen shows the pattern as
-   bars, the track's notes in each: "REC C1 · starts with PLAY".
+   bars, the track's notes in each: "REC C1 · starts with PLAY". The footer says "REC: STOP".
 4. Press **PLAY** and play. The pattern loops, and each pass adds to what's there (overdub). You hear
-   a new note from the next pass. The line says where you are: "REC C1 · bar 3/4 · pass 2", and from
-   the second pass "pass 2: adding".
+   a new note from the next pass. The lines say where you are: "REC C1 · pass 2 · adding", and under it
+   "pattern bar 1/2 · loop bar 3/4" (the pattern's bar, and the loop's while one plays).
 5. Press **REC** again to stop recording. The pattern plays on.
 
 Good to know:
@@ -307,8 +319,15 @@ Good to know:
 - **A track with notes** (a style's comping) keeps its type, so its notes still follow the chords:
   Polly says "C1 FOLLOWS CHORDS" and the footer "ERASE TRACK (SEL) TO PLAY AS PLAYED". What you record
   there follows the chords too.
-- **REC while playing** starts at the next bar line: the screen counts the beats down in that bar.
-  A note played just before the bar line lands on it. The passes count from there.
+- **REC while playing** starts at the next bar line, wherever the pattern is: the screen rings that bar and
+  counts the beats down in it. A note played just before the bar line lands on it. The passes count from
+  there: started at bar 3 of a 4-bar pattern, a pass is bars 3, 4, 1, 2.
+- **A pattern shorter than the loop** (a style's 2-bar Main A over a 4-bar loop): REC's screen says
+  "2-bar pattern · loop 4 bars · SEL: 4 bars". Press **SEL** and the pattern is as long as the loop, its bars
+  repeated into the new ones (SEL's list has it too: **BARS AS THE LOOP**). Then what you play over the
+  loop's bar 3 stays with bar 3.
+- **A fill takes a row's last bar** in a song (the row's "+fill", or a section change after it): that bar
+  plays the Fill, not the Main, so a part recorded in the Main's last bar isn't heard there.
 - **Press REC before PLAY** and, with no song, the section you're recording into plays at once,
   without the Intro.
 - **A section change ends the take**: a fill, an ending, or a song's next row. Polly says "RECORD OFF
@@ -326,9 +345,9 @@ song's, not the pattern's.
 ![RECORD C1 into new P01](docs/img/manual/record_msg.png)
 
 There are 16 user patterns, P01 to P16, shared by the four songs. A free one is one that no song plays
-and that holds no notes. When none is free, Polly says **NO FREE PATTERN** "not kept": your change
-plays, but it isn't kept once another pattern is picked. Hold SAVE and press a white key on SEQ to
-keep it in a P number, or free a slot ([Slots](#slots)).
+and that holds no notes. When none is free, Polly says **NO FREE SLOT** "not kept": your change plays,
+but it isn't kept once another pattern is picked. Free a slot ([Slots](#slots)): the change is kept there
+at once ("MAIN A KEPT IN P14"). Or hold SAVE and press a white key on SEQ to keep it in a P number.
 
 The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to P16, then the styles'.
 
@@ -336,18 +355,22 @@ The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to
 
 ![Pattern setup](docs/img/manual/pattern_setup.png)
 
-- **KNOB 1** bars, 1 to 16. **KNOB 2** beats a bar, 2 to 7. Notes past a shortened length are kept,
-  just not played. The Pattern page shows a pattern longer than 8 bars by halves, "bars 9-16 of 16",
-  following the playhead.
+- **KNOB 1** bars, 1 to 16. **KNOB 2** beats a bar, 2 to 7. Longer, the new bars repeat the pattern's,
+  each track its own way (a 1-bar drum groove repeats bar 1, a 2-bar bass line bars 1 and 2), so the band
+  goes on. Notes past a shortened length are kept, just not played; made longer again, they come back
+  (nothing is repeated over them). While a loop plays, the pattern's bar stays the loop's: turned at the
+  loop's bar 3, a 4-bar pattern plays its bar 3. The Pattern page shows a pattern longer than 8 bars by
+  halves, "bars 9-16 of 16", following the playhead.
 - **KNOB 3** picks a letter of the name, **KNOB 4** changes it. Names are eight letters, digits, "-"
   and "#".
 
 ### The pattern's actions (SEL)
 
-On the Pattern, Track, Mixer and Master FX pages, **SEL**'s list has the actions **ERASE TRACK**, **CLEAR PATTERN**
-and **BACK TO STYLE**, for the section playing (and on SEQ and EDIT, **SLOTS**). With a lead track selected,
-**ERASE TRACK** becomes **ERASE LD1 IN ROW n**, **ERASE LD1** and **QUANTISE LD1 ROW n**. To copy the pattern into P01–P16, hold **SAVE** and press
-a white key on SEQ.
+On the Pattern, Track, Mixer and Master FX pages, **SEL**'s list opens on its actions: **ERASE TRACK**,
+**CLEAR PATTERN** and **BACK TO STYLE**, for the section playing (and on SEQ and EDIT, **SLOTS**; **BARS AS THE
+LOOP** first when the pattern is shorter than the loop). With a lead track selected they are the lead's:
+**ERASE LD1 IN ROW n**, **ERASE LD1**, **QUANTISE LD1 ROW n** and **COPY LD1 TO ROW n**. To copy the pattern into
+P01–P16, hold **SAVE** and press a white key on SEQ.
 
 ## Lead tracks
 
@@ -359,29 +382,41 @@ shape (over the same chord it plays exactly as played).
 
 **Record a melody over your song:**
 
-1. On the SONG page, press **PLAY** (or, stopped, **SEL**, **PLAY FROM ROW** to start further in).
+1. On the SONG page, press **PLAY**.
 2. Press **EDIT** and turn **ALGORITHM** past C4 to **LD1**. The keys play its sound (a square lead; LD2
    is strings).
-3. Press **REC** and play along. The screen says where you are, "REC LD1 · row 3 · bar 2.3", shows the
-   row as bars with your notes in it, and the song's rows underneath, the one playing in teal.
-4. Press **REC** again to stop recording. The song plays on.
+3. Press **REC**. The click counts in to the next bar line ("REC LD1 · starts at the next bar", the beats
+   left big in that bar). Play along. The screen says where you are, "REC LD1 · row 3 · bar 2.3", shows
+   the row as bars with your notes in it, and the song's rows underneath, the one playing in teal.
+4. Press **REC** again to stop recording. The song plays on. Stopping the song stops recording too
+   ("RECORD OFF SONG STOPPED"), so the next PLAY doesn't record over the song.
 
 Notes go into the row playing, at their place on the Pattern page's grid. You hear them the next time
-the row plays. Recording again over a row adds to it.
+the row plays. Recording again over a row (a punch in) adds notes to what's there; to replace a row's
+part, erase it first (**SEL**: the list opens on **ERASE LD1 IN ROW n**), then record.
 
-- **Punch in:** on the SONG page, move the cursor (ROW) to the row, **SEL**, **PLAY FROM ROW**, then
-  **EDIT**, **REC**.
-- **A second part:** turn ALGORITHM to **LD2**; recording goes on into it.
-- **Erase:** on EDIT, **SEL**'s list has **ERASE LD1 IN ROW 3** (the row playing, else SONG's cursor row)
-  and **ERASE LD1** (the whole song's), each asking first.
+- **Punch in:** on the SONG page, move the cursor (ROW) to the row; then on **EDIT**, **REC** and **PLAY**: the
+  song starts at that row (REC's screen rings it) and records from its first downbeat. (Or, stopped,
+  REC in FREE or LOOP puts the song on first.)
+- **A second part:** turn ALGORITHM to **LD2**; recording goes on into it. LD1's notes show dim under
+  LD2's, to play against.
+- **Erase:** on EDIT, **SEL**'s list opens on **ERASE LD1 IN ROW 3** (the row playing, else SONG's cursor row);
+  under it **ERASE LD1** (the whole song's). Each asks first.
+- **Copy a row:** **COPY LD1 TO ROW 3** (the same row): **ALGORITHM** picks the row it comes from ("from 2"),
+  **SEL** copies its LD1 notes in place of row 3's (asking first when row 3 has some). They play as played
+  over row 3's chords, moved with its root. One undo step.
 - **Quantise:** **SEL**'s **QUANTISE LD1 ROW 3** moves that row's LD1 notes to the nearest line of the Pattern
   page's grid (shown on the row: 16, 8T, ...). Record with the grid off to play freely, then quantise. HOME + REC
   undoes it in one step.
 - **Sound:** the Track page shows the lead's program and channel; its type is always "as played" over
-  the whole keyboard. **KNOB 4 Velocity** sets how hard the notes you record from then on are (the keys have no
-  velocity; 100 at first). The Mixer and Mixer tone pages have its strip (black keys 9 and 10 pick LD1, LD2).
+  the whole keyboard (no Low, High or high key to set). **KNOB 4 Velocity** sets how hard the notes you record
+  from then on are (the keys have no velocity; 100 at first). The Mixer and Mixer tone pages have its strip
+  (black keys 9 and 10 pick LD1, LD2).
 - **Mutes:** on the SONG page, black keys 9 and 10 mute LD1 and LD2 on the cursor's row.
-- REC in FREE or LOOP says "LEADS RECORD IN A SONG". Deleting a row that has lead notes asks first.
+- **On HOME**, in a song, LD1 and LD2 (each with notes) sit at the right of the song's line: plum, coral
+  while a note sounds, an outline struck through while muted.
+- REC while a loop plays, or in FREE, says "LEADS RECORD IN A SONG". Deleting a row that has lead notes asks
+  first.
 - Lead notes share the 16 user-pattern slots: a song's melodies take one slot (about 420 notes), a second
   when they outgrow it. "NO FREE SLOT" or "LEAD FULL" means none is left: see [Slots](#slots).
 
@@ -463,10 +498,10 @@ and Polly says "SHARED PATTERN kept Main B".
 ### Undo
 
 Hold **HOME** and press **REC** to undo; **HOME** + **PLAY** redoes (neither records nor starts). The header
-says what: "UNDO L9 CHORD", "UNDO ROW 3", "UNDO TAKE LD1", "UNDO CLEAR LOOP", "REDO C1 SOUND", or "NOTHING
+says what: "UNDO L9 CHORD", "UNDO ROW 3", "UNDO TAKE LD1", "UNDO PASS C1", "UNDO CLEAR LOOP", "REDO C1 SOUND", or "NOTHING
 TO UNDO". It covers the song you're on: its loops (chords, length, name, loading, clearing, copying), its
 rows and settings (style, tempo, TRANSPOSE, mutes, the lead tracks' sounds), its lead notes (a take is one
-step; erasing), and its patterns as you change them (sounds, mixer, types, ERASE TRACK, CLEAR PATTERN, BACK
+step; erasing, copying a row), and its patterns as you change them (sounds, mixer, types, ERASE TRACK, CLEAR PATTERN, BACK
 TO STYLE, and each pass of a recording). A step is what you changed before a pause of about a second, a whole
 lead take, or one pass of a pattern recording. Polly keeps up to 32 steps (fewer after big ones) while it's
 on; switching songs or turning it off starts afresh. It works while playing. Not undone: the tempo turned
@@ -475,18 +510,19 @@ while playing, and the Setup page and Master FX. What undo brings back is saved 
 ### Slots
 
 The 16 slots hold the user patterns (P01–P16), the songs' lead notes and each song's own loops (once they
-differ from the factory's). When they are full, Polly says **NO FREE SLOT** (or NO FREE PATTERN) and the footer
+differ from the factory's). When they are full, Polly says **NO FREE SLOT** and the footer
 says **SEL: SLOTS**: press SEL then, or pick **SLOTS** at the end of SEL's list on SEQ or EDIT, to see what fills
-them: "P03 · Funk A · S1" (a pattern and the songs playing it), "S2 leads 1/2", "S1 loops", "free". The header
-counts the free ones.
+them: "P03 · Funk A · S1" (a pattern, its name and section, and the songs playing it), "S2 leads 1/2", "S1
+loops", "free". The header counts the free ones.
 
 On a slot, **SEL** frees it (stopped; it asks first): a pattern goes back to the style in the songs that play it
 (its notes are erased, and that can't be undone), a lead part's notes are erased, a song's loops go back to the
-factory's ("S1'S LOOPS BACK TO FACTORY?"). HOME goes back.
+factory's ("S1'S LOOPS BACK TO FACTORY?"). HOME goes back. A change NO FREE SLOT left playing but not kept
+(a section's sound, a recording, the song's loops) takes the slot freed at once ("MAIN A KEPT IN P14").
 
 ### The song's actions (SEL)
 
-On the SONG pages, **SEL**'s list has **PLAY FROM ROW** (the row the cursor is on), **INSERT ROW**,
+On the SONG pages, **SEL**'s list opens on **PLAY FROM ROW** (the row the cursor is on), then **INSERT ROW**,
 **DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**. A row's lead notes go with it (DELETE ROW asks first);
 CLEAR SONG erases them; COPY SONG TO doesn't copy them.
 
@@ -639,8 +675,8 @@ button's pages.
 | LOOP 2 | ARP, SELECT | Length | Beats | Name | | The next loop |
 | Pattern | SEQ | Grid | | | Mute | The section's pattern |
 | Pattern setup | SEQ, SELECT | Bars | Beats | Letter | Character | The section's pattern |
-| Track | EDIT | Program | Type | Low | High (a lead: Velocity) | Program family |
-| Track keys | EDIT, SELECT | High key | Channel | | | |
+| Track | EDIT | Program | Type | Low (a lead: none) | High (a lead: Velocity) | Program family |
+| Track keys | EDIT, SELECT | High key (a lead: none) | Channel | | | |
 | Mixer | LFO | Volume | Pan | Reverb | Chorus | |
 | Mixer tone | LFO, SELECT | Bright | Reso | | | |
 | Master FX | FX | Reverb | Reverb level | Chorus | Chorus level | |
