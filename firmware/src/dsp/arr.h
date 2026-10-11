@@ -12,7 +12,9 @@
 #define ARR_TRACKS 8
 #define ARR_PPQ 480                      /* ticks a quarter note: the QY70's resolution */
 #define ARR_CLOCK_TICKS (ARR_PPQ / 24)   /* ticks a MIDI clock (F8, 24 a quarter): 20 */
-#define ARR_MAXBARS 8
+#define ARR_MAXBARS 16                   /* a pattern's bars at most (as a loop's): 16 of 7 beats, 53,760 ticks, fit the
+                                         * 16-bit ticks; the factory and QY70 styles have 8 at most */
+#define ARR_STYLE_MAXBARS 8              /* a QY70 bank section's bars at most (qybank.h) */
 #define ARR_NEV 600                      /* notes per pattern */
 #define ARR_USER_PATTERNS 16             /* the user's patterns (flash objects); a song's section gets one when it
                                          * is first recorded into or edited (ui.c: copy-on-write) */
@@ -27,7 +29,7 @@
 enum { SEC_SAME, SEC_INTRO, SEC_A, SEC_B, SEC_FILL_AB, SEC_FILL_BA, SEC_END, SEC_FILL };
 
 typedef struct {
-    uint16_t tick;                       /* from the pattern's start, ARR_PPQ a beat (8 bars of 7: 26880 at most) */
+    uint16_t tick;                       /* from the pattern's start, ARR_PPQ a beat (16 bars of 7: 53760 at most) */
     uint16_t len;                        /* ticks, 1 .. the pattern's length */
     uint8_t note, vel;
 } arr_ev_t;
@@ -42,13 +44,15 @@ typedef struct {
                                           * it loads it (patterns saved before) */
     uint8_t bright, reso;                /* CC 74 (brightness: the filter's cutoff), CC 71 (resonance), each stored XOR
                                           * 64: 0 is the neutral 64 (patterns saved before them hold 0) */
-    uint8_t rsv;
+    uint8_t flags;                       /* ARR_TF_*: was rsv (0 in patterns saved before) */
     uint16_t first, count;               /* its events: ev[first .. first + count), sorted by tick */
 } arr_trk_t;
+#define ARR_TF_ASPLAYED 1u               /* the app switched it to Parallel at its first REC (a Chord 1 / 2 or Bass track):
+                                          * once; a type set back by hand stays */
 
 typedef struct {
     char name[8];
-    uint8_t bars, beats;                 /* 1..8 bars of 2..7 beats */
+    uint8_t bars, beats;                 /* 1..ARR_MAXBARS bars of 2..7 beats */
     uint8_t rsv[2];
     arr_trk_t trk[ARR_TRACKS];
     uint16_t nev;
@@ -258,7 +262,15 @@ void arr_track_mute(int trk, int on);
  * or pattern changed), and go to MIDI out on its channel when MIDI out is on (as the pattern's notes: a
  * note-on only with room for its note-off). */
 enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 240 160 120 80 60 1 ticks */
-void arr_record(int trk, int on);                /* the selected track (also arr_key's sound), recording on */
+/* the selected track (also arr_key's sound), recording: 0 off, 1 on at once, ARR_REC_BAR from the next bar line
+ * (stopped: from PLAY's downbeat). Waiting (arr_rec_wait), the keys only sound, except one whose grid line is that
+ * bar line (a key a little early lands on it). Asked again while recording (another track): it goes on. From the
+ * bar line recording starts at, arr_rec_bars counts the bars played (0 the first): the pass is arr_rec_bars /
+ * the pattern's bars + 1, counted from where recording started */
+#define ARR_REC_BAR 2
+void arr_record(int trk, int on);
+extern volatile uint8_t arr_rec_wait;
+extern volatile uint16_t arr_rec_bars;
 void arr_key(int note, int on, int vel);
 void arr_set_quant(int q);                       /* ARR_Q_*, ARR_Q_16 at init */
 /* the playing pattern's track: its notes removed (while that slot is being stored: right after) */

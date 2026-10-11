@@ -3329,6 +3329,169 @@ static void test_section_decisions(void)
 }
 
 
+/* ---- recording as played (the app sets the track Parallel at its first REC): stored by the inverse of Parallel,
+ * note - root; plays back as played over the same chord, moved by the root over another */
+static void test_record_as_played(void)
+{
+    static const chord_t af[2] = {{9, CH_MIN, CH_NOBASS}, {5, CH_MAJ, CH_NOBASS}};
+    int i;
+    reset();
+    loops_reset();
+    pat_new();                                /* one bar; track 5 (channel 4) as played */
+    P.trk[5].x.type = XT_PARALLEL;
+    arr_load_pattern(SA, &P);
+    loop_bars(0, 4, 2, af);                   /* Am | F */
+    arr_set_tempo(120);
+    arr_mode_loop(0);
+    arr_record(5, 1);
+    arr_play(1);
+    key_at(25.f, 69, 1);                      /* A4 over Am, at 24 */
+    key_at(36.f, 69, 0);
+    key_at(47.f, 72, 1);                      /* C5 (Am's third) at 48 */
+    key_at(58.f, 72, 0);
+    run_to((uint32_t)(3 * 96 * FPT + 512));
+    arr_pattern_copy(SA, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 2 && R.ev[i].note == 60 && R.ev[i + 1].note == 63,
+          "stored root-relative: A4 - A = C4, C5 - A = Eb4 (%d: %d %d)", R.trk[5].count, R.ev[i].note, R.ev[i + 1].note);
+    CHECK(near(stub_log, find(stub_log, stub_n, find(stub_log, stub_n, 0, 0x93, 69) + 1, 0x93, 69), (2 * 96 + 24) * FPT) &&
+              near(stub_log, find(stub_log, stub_n, find(stub_log, stub_n, 0, 0x93, 72) + 1, 0x93, 72), (2 * 96 + 48) * FPT),
+          "over Am again (bar 3): A4 and C5, as played");
+    CHECK(ons_in(0x93, 65, 96 * FPT, 2 * 96 * FPT) == 1 && ons_in(0x93, 68, 96 * FPT, 2 * 96 * FPT) == 1 &&
+              ons_in(0x93, 69, 96 * FPT, 2 * 96 * FPT) == 0,
+          "over F (bar 2): moved down by the root, F4 and Ab4, the shape kept (%d %d)", ons_in(0x93, 65, 96 * FPT, 2 * 96 * FPT),
+          ons_in(0x93, 68, 96 * FPT, 2 * 96 * FPT));
+    arr_set_transpose(2);                     /* Bm | G: up a tone */
+    run_to((uint32_t)(5 * 96 * FPT + 512));
+    CHECK(ons_in(0x93, 71, 4 * 96 * FPT, 5 * 96 * FPT) == 1 && ons_in(0x93, 74, 4 * 96 * FPT, 5 * 96 * FPT) == 1,
+          "transposed: over Bm, B4 and D5");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+
+/* ---- REC from the next bar line: the keys only sound until it; a key landing on it counts; the passes */
+static void test_record_from_bar(void)
+{
+    int i;
+    reset();
+    loops_reset();
+    pat_new();
+    P.bars = 2;                               /* bars of 96 units */
+    P.trk[5].x.type = XT_PARALLEL;
+    arr_load_pattern(SA, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(0, CH_MAJ));
+    arr_record(5, 0);
+    arr_play(1);
+    run_to((uint32_t)(30 * FPT));
+    arr_record(5, ARR_REC_BAR);
+    run_blocks(1);
+    CHECK(arr_recording == 1 && arr_rec_wait == 1, "waiting for the bar line (%d %d)", arr_recording, arr_rec_wait);
+    key_at(40.f, 60, 1);                      /* counting in: sounds only */
+    key_at(45.f, 60, 0);
+    key_at(94.8f, 62, 1);                     /* a little early: lands on the bar line (96) */
+    key_at(100.f, 62, 0);
+    run_to((uint32_t)(98 * FPT));
+    CHECK(arr_rec_wait == 0 && arr_rec_bars == 0 && arr_bar == 1, "recording from bar 2 (%d %d %d)", arr_rec_wait, arr_rec_bars, arr_bar);
+    arr_record(6, ARR_REC_BAR);               /* another track: recording goes on (no new wait) */
+    run_blocks(1);
+    CHECK(arr_rec_wait == 0 && arr_recording == 1, "another track: on at once");
+    arr_record(5, ARR_REC_BAR);
+    key_at(120.f, 64, 1);
+    key_at(126.f, 64, 0);
+    run_to((uint32_t)(3 * 96 * FPT + 20 * FPT));
+    arr_pattern_copy(SA, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 2 && R.ev[i].tick == 96 * U && R.ev[i].note == 62 && R.ev[i + 1].tick == 120 * U,
+          "D on the bar line, E at 120; the count-in's C not kept (%d: %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].note);
+    CHECK(arr_rec_bars == 2 && arr_bar == 1 && arr_rec_bars / 2 + 1 == 2, "bar 2 again: pass 2 (%d)", arr_rec_bars);
+    arr_play(0);
+    run_blocks(1);
+    /* stopped: REC waits for PLAY, then records from its downbeat */
+    arr_record(5, 0);
+    arr_record(5, ARR_REC_BAR);
+    run_blocks(1);
+    CHECK(arr_recording == 1 && arr_rec_wait == 1, "stopped: armed");
+    stub_n = 0;
+    arr_play(1);
+    run_blocks(1);
+    CHECK(arr_rec_wait == 0 && arr_rec_bars == 0, "from PLAY's downbeat");
+    key_at((float)stub_frame / FPT + 10.f, 67, 1);
+    key_at((float)stub_frame / FPT + 6.f, 67, 0);
+    run_blocks(400);
+    arr_pattern_copy(SA, &R);
+    CHECK(R.trk[5].count == 3, "a note recorded in the first bar (%d)", R.trk[5].count);
+    arr_play(0);
+    run_blocks(1);
+}
+
+/* ---- a 16-bar pattern of 7 beats: 53,760 ticks in 16 bits; its last bar plays, records, wraps */
+static void test_long_pattern(void)
+{
+    const int bar = 7 * 24, len = 16 * bar;   /* units */
+    int i;
+    reset();
+    loops_reset();
+    pat_new();
+    P.bars = ARR_MAXBARS;
+    P.beats = 7;
+    add(4, 0, 12, 60);
+    add(4, len - 24, 12, 64);                 /* the last beat: tick 53,280 */
+    arr_load_pattern(SA, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(0, CH_MAJ7));
+    arr_record(5, 1);
+    arr_play(1);
+    key_at((float)(15 * bar + 49), 72, 1);    /* bar 16, at 48 into it */
+    key_at((float)(15 * bar + 60), 72, 0);
+    run_to((uint32_t)((len + 30) * FPT));
+    i = find(stub_log, stub_n, 0, 0x92, 64);
+    CHECK(near(stub_log, i, (float)(len - 24) * FPT), "the last beat plays (%u)", i >= 0 ? stub_log[i].frame : 0);
+    CHECK(arr_bar == 0, "wrapped to bar 1 (%d)", arr_bar);
+    i = find(stub_log, stub_n, 0, 0x92, 60);
+    i = find(stub_log, stub_n, i + 1, 0x92, 60);
+    CHECK(near(stub_log, i, (float)len * FPT), "and bar 1 again");
+    arr_pattern_copy(SA, &R);
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].tick == (15 * bar + 48) * U, "recorded into bar 16 at tick %d (%d)",
+          (15 * bar + 48) * U, R.trk[5].count ? R.ev[R.trk[5].first].tick : -1);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
+/* a key a little before a chord change, quantised onto it: stored over the new chord (a pickup) */
+static void test_record_pickup(void)
+{
+    static const chord_t af[2] = {{9, CH_MIN, CH_NOBASS}, {5, CH_MAJ, CH_NOBASS}};
+    int i;
+    reset();
+    loops_reset();
+    pat_new();
+    P.bars = 2;
+    P.trk[5].x.type = XT_PARALLEL;
+    arr_load_pattern(SA, &P);
+    loop_bars(0, 4, 2, af);                   /* Am | F . C . */
+    loop_write(&LT[0], 6, ch(0, CH_MAJ));
+    arr_set_tempo(120);
+    arr_mode_loop(0);
+    arr_record(5, 1);
+    arr_play(1);
+    key_at(94.8f, 69, 1);                     /* A4 just before F's bar line: on it (96), held into C */
+    key_at(119.5f, 72, 1);                    /* C5 just before beat 2 of F (no change there) */
+    key_at(124.f, 72, 0);
+    key_at(160.f, 69, 0);
+    run_to((uint32_t)(170 * FPT));
+    arr_pattern_copy(SA, &R);
+    i = R.trk[5].first;
+    CHECK(R.trk[5].count == 2 && R.ev[i].tick == 96 * U && R.ev[i].note == 64 && R.ev[i + 1].note == 67,
+          "over F: A4 - F = E4, C5 - F = G4 (%d: %d %d %d)", R.trk[5].count, R.ev[i].tick, R.ev[i].note, R.ev[i + 1].note);
+    run_to((uint32_t)(2 * 192 * FPT + 512));
+    CHECK(near(stub_log, find(stub_log, stub_n, find(stub_log, stub_n, 0, 0x93, 69) + 1, 0x93, 69), (192 + 96) * FPT),
+          "plays back as played on F's downbeat");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+}
 int main(void)
 {
     test_timing();
@@ -3409,6 +3572,10 @@ int main(void)
     test_song_busy();
     test_record_section();
     test_live_keys();
+    test_record_as_played();
+    test_record_pickup();
+    test_record_from_bar();
+    test_long_pattern();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

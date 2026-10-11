@@ -109,7 +109,10 @@ int arr_keys_held(const uint8_t *notes, int n)    /* in the caller's thread: cho
     post(C_LIVE, arr_chord_pack(c), 0);
     return 1;
 }
-void arr_record(int trk, int on) { post(C_REC, (uint32_t)(trk >= 0 && trk < ARR_TRACKS ? trk : 0), on != 0); }
+void arr_record(int trk, int on)
+{
+    post(C_REC, (uint32_t)(trk >= 0 && trk < ARR_TRACKS ? trk : 0), on == ARR_REC_BAR ? ARR_REC_BAR : on != 0);
+}
 void arr_key(int note, int on, int vel)
 {
     post(C_NOTE, (uint32_t)(note & 0x7F) | (uint32_t)(on ? vel & 0x7F : 0) << 8, 0);
@@ -121,6 +124,8 @@ void arr_erase_track(int trk)
         post(C_ERASE, (uint32_t)trk, 0);
 }
 volatile uint8_t arr_full, arr_recording;
+volatile uint8_t arr_rec_wait;
+volatile uint16_t arr_rec_bars;
 volatile uint16_t arr_dirty[ARR_NSECT];
 /* the render writes a slot's pattern only between blocks and counts arr_dirty up after: a copy with the same
  * count before and after was not written meanwhile (the render interrupts this loop, never the other way) */
@@ -616,7 +621,9 @@ static const uint16_t QUANT_TICKS[ARR_NQ] = {ARR_PPQ / 2, ARR_PPQ / 3, ARR_PPQ /
 enum { R_FREE, R_HELD, R_DONE };
 typedef struct {
     uint8_t state, key, note, vel, trk, slot;
-    uint8_t ident, rsv;                            /* its slot's pattern (ident) at the key */
+    uint8_t ident;                                 /* its slot's pattern (ident) at the key */
+    uint8_t pend;                                  /* its start a beat line not played yet: its note over the chord
+                                                    * there (rec_resolve), not the one the key was played over */
     uint16_t qpos, len;                            /* its start in the pattern; its length (R_DONE) */
     uint32_t qabs;                                 /* its start in render ticks */
 } rec_t;
@@ -627,6 +634,7 @@ static uint8_t live_key[LIVE_N], live_chan[LIVE_N], live_mo[LIVE_N];
 static int n_live;
 static uint8_t live_trk = 0xFF, live_cur, live_gen; /* the track whose sounds the keys last had sent */
 static uint8_t rec_on, rec_trk, quant = ARR_Q_16;
+static uint8_t rec_wait;                           /* recording from the next bar line (arr_rec_wait) */
 static uint8_t in_tick;                            /* inside tick(): the tick arr_ticks - 1 is playing */
 static uint8_t erase_pend[ARR_NSECT], erase_ident[ARR_NSECT];   /* erases waiting for a load to finish */
 static uint32_t tick_now(void) { return in_tick ? arr_ticks - 1 : arr_ticks; }
@@ -682,12 +690,29 @@ static void ev_insert(int s, int trk, uint32_t tick, uint32_t len, int note, int
     if (s == cur)
         wake = 1;
 }
-static void rec_write(const rec_t *r)
+/* a note whose start is a beat line ahead of its key (played a little early, quantised forward): stored over the
+ * chord on that beat (a pickup onto a chord change belongs to the new chord), once its beat line has set it */
+static void rec_resolve(rec_t *r)
+{
+    if (r->pend && !busy[r->slot]) {
+        r->note = (uint8_t)xpose_inverse(&pat[r->slot].trk[r->trk].x, r->key, chord);
+        r->pend = 0;
+    }
+}
+static void rec_due(void)                          /* at a beat line, its chord set: the notes starting on it */
+{
+    for (int i = 0; i < REC_N; i++)
+        if (rec[i].state != R_FREE && rec[i].pend && (int32_t)(rec[i].qabs - tick_now()) <= 0)
+            rec_resolve(&rec[i]);
+}
+static void rec_write(rec_t *r)
 {
     const pattern_t *p = &pat[r->slot];
     uint32_t plen = pat_len(p), len = r->len, q = QUANT_TICKS[quant];
     if (r->qpos >= plen || r->trk >= ARR_TRACKS)
         return;
+    rec_resolve(r);                                /* (a stop before its beat line: the chord now) */
+    r->pend = 0;
     if (len < q)
         len = q;
     if (len > plen - r->qpos)                      /* to the pattern's end at most */
@@ -755,12 +780,15 @@ static void rec_press(int key, int vel)
     }
     if (kpos >= plen)                              /* just before the loop's start: its tick 0 */
         kpos -= plen;
+    if (rec_wait && (kpos % bar_len(p) != 0 || (int32_t)(kabs - arr_ticks) < 0))
+        return;                                    /* waiting for the bar line: only a key landing on it */
     r->key = (uint8_t)key;
     r->vel = (uint8_t)vel;
     r->trk = rec_trk;
     r->slot = cur;
     r->ident = ident[cur];
     r->note = (uint8_t)xpose_inverse(&p->trk[rec_trk].x, key, chord);
+    r->pend = (uint8_t)((int32_t)(kabs - arr_ticks) >= 0 && kpos % ARR_PPQ == 0);   /* a beat line ahead */
     r->qpos = (uint16_t)kpos;
     r->qabs = kabs;
     r->len = 0;
@@ -993,6 +1021,7 @@ static void transport_start(void)
     chord_owed = 0;
     first_tick = 1;
     sec_bars = 0;
+    arr_rec_bars = 0;                              /* (recording: its passes from here) */
     beat_now = bar_beat0 = 0;
     if (mode_wait)
         mode_apply(0);
@@ -1067,6 +1096,7 @@ static void switch_to(uint8_t sec)
 {
     rec_flush(1);                                  /* recording: the pass ends here, and recording too */
     rec_on = arr_recording = 0;                    /* (it would go on into the other pattern) */
+    rec_wait = arr_rec_wait = 0;
     ctl_reset();                                   /* the phrases' bends and swells end with their section */
     if ((arr_sect == SEC_INTRO || arr_sect == SEC_END) && sec != arr_sect)
         chord_owed = 1;                            /* the source's chords held meanwhile: its latest, at once */
@@ -1410,13 +1440,20 @@ static void tick(int play)
         if (!first_tick)
             beat_now++;
         arr_beats = beat_now;
-        if (pos % bar_len(p) == 0 && !bar_line()) {    /* sections change on the bar; an end stops here */
-            in_tick = 0;
-            return;
+        if (pos % bar_len(p) == 0) {
+            if (!bar_line()) {                     /* sections change on the bar; an end stops here */
+                in_tick = 0;
+                return;
+            }
+            if (rec_on && rec_wait)                /* recording from this bar line */
+                rec_wait = arr_rec_wait = 0;
+            else if (rec_on && !first_tick)
+                arr_rec_bars++;
         }
         first_tick = 0;
         p = &pat[cur];
         beat_chord(play);                          /* the beat's chord before its notes */
+        rec_due();
     }
     if (wake || pos >= next_ev)
         events(play);
@@ -1604,7 +1641,7 @@ static void drain(void)
         case C_REC:
             rec_trk = (uint8_t)a;
             live_sounds();                         /* the track's sounds for the keys, now */
-            arr_recording = (uint8_t)b;
+            arr_recording = (uint8_t)(b != 0);
             if (rec_on && !b) {                    /* off: the keys held end their notes now */
                 uint32_t kpos;
                 for (int i = 0; i < REC_N; i++)
@@ -1612,7 +1649,14 @@ static void drain(void)
                         rec_release(&rec[i], key_tick(&kpos, 0));
                 rec_flush(!arr_playing);
             }
-            rec_on = (uint8_t)b;
+            if (!b || !rec_on)                     /* on again (another track): as it was */
+                rec_wait = (uint8_t)(b == ARR_REC_BAR);
+            else if (b == 1)
+                rec_wait = 0;
+            if (b && !rec_on)
+                arr_rec_bars = 0;
+            arr_rec_wait = rec_wait;
+            rec_on = (uint8_t)(b != 0);
             break;
         case C_NOTE: key_event((int)(a & 0x7Fu), (int)(a >> 8 & 0x7Fu)); break;
         case C_QUANT: quant = (uint8_t)a; break;
@@ -1812,8 +1856,9 @@ void arr_init(void)                                /* at boot, before the render
     memset(keys_prev, 0, sizeof keys_prev);
     memset(rec, 0, sizeof rec);
     n_live = 0;
-    rec_on = rec_trk = 0;
-    arr_recording = 0;
+    rec_on = rec_trk = rec_wait = 0;
+    arr_recording = arr_rec_wait = 0;
+    arr_rec_bars = 0;
     live_trk = 0xFF;
     in_tick = 0;
     memset(erase_pend, 0, sizeof erase_pend);
@@ -1910,7 +1955,7 @@ int arr_bank_pattern(const qb_style_t *S, int k, pattern_t *p)
         k = SEC_A - 1;
     for (i = 0; i < 8 && S->name[i]; i++)
         p->name[i] = S->name[i];
-    p->bars = S->bars[k] < 1 ? 1 : S->bars[k] > ARR_MAXBARS ? ARR_MAXBARS : S->bars[k];
+    p->bars = S->bars[k] < 1 ? 1 : S->bars[k] > ARR_STYLE_MAXBARS ? ARR_STYLE_MAXBARS : S->bars[k];
     p->beats = S->beats < 2 ? 4 : S->beats > 7 ? 7 : S->beats;
     slen = (uint32_t)p->bars * p->beats * ARR_PPQ;
     memset(hist, 0, sizeof hist);
