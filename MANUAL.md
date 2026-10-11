@@ -13,6 +13,7 @@ speaker and the headphone jack, and MIDI coming in plays them too.
 - [Chords](#chords)
 - [Loops and songs](#loops-and-songs)
 - [Recording a part](#recording-a-part)
+- [Lead tracks](#lead-tracks)
 - [Sound](#sound)
 - [Songs and saving](#songs-and-saving)
 - [Setup and MIDI](#setup-and-midi)
@@ -43,7 +44,10 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 6. **Play it.** Press **PLAY** on the SONG page. The band is still playing your chorus, so the song
    takes over at the next bar, from row 1: your rows with fills between sections, then an Ending.
    (From a stop it opens with an Intro. To start on another row: **SEL**, **PLAY FROM ROW**.)
-7. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
+7. **Add a melody.** On the SONG page press **PLAY**, then press **EDIT**, turn **ALGORITHM** past C4 to
+   LD1 and press **REC**. Play along: your notes go into the rows as they play. (See
+   [Lead tracks](#lead-tracks).)
+8. **Save.** Press **SAVE**, or just stop: Polly saves by itself.
 
 ## Getting around
 
@@ -99,7 +103,8 @@ A pattern has eight tracks, named as on the QY70:
 | C1–C4 | Chords, riffs and pads |
 
 ALGORITHM picks the track on any page. The screen says its name and sound. The keys play that track's
-sound (C1 at first, a piano), and REC records into it.
+sound (C1 at first, a piano), and REC records into it. Past C4 come the song's two lead tracks, LD1 and
+LD2 (see [Lead tracks](#lead-tracks)).
 
 ### The keys
 
@@ -256,7 +261,8 @@ See [Writing a song](#writing-a-song) for the whole path.
 - **HOME's KNOB 4, LOOP**: "–" (FREE: the band follows your chords) or L1–L16 (that loop plays; while
   playing, from the next bar). In a song it shows "Song"; turning it leaves the song.
 - **SONG** (HOME, SELECT): the rows. A white key writes a row: on END it adds one, on a row it sets
-  that row's loop. Black keys 1–8 mute the row's tracks. KNOB 1–4 ROW, LOOP, SECTION, REPEAT; page 2
+  that row's loop. Black keys 1–8 mute the row's tracks, 9 and 10 its lead tracks LD1 and LD2 (the
+squares after the gap in MUTES). KNOB 1–4 ROW, LOOP, SECTION, REPEAT; page 2
   KEY; page 3 INTRO, ENDING, AT END, SONG.
 
 ### The style's patterns (ENV)
@@ -337,8 +343,41 @@ The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to
 ### The pattern's actions (SEL)
 
 On the Pattern, Track, Mixer and Master FX pages, **SEL**'s list has the actions **ERASE TRACK**, **CLEAR PATTERN**
-and **BACK TO STYLE**, for the section playing. To copy the pattern into P01–P16, hold **SAVE** and press
+and **BACK TO STYLE**, for the section playing. With a lead track selected, **ERASE TRACK** becomes **ERASE LD1
+IN ROW n** and **ERASE LD1**. To copy the pattern into P01–P16, hold **SAVE** and press
 a white key on SEQ.
+
+## Lead tracks
+
+Each song has two lead tracks, **LD1** and **LD2**, for melodies that run along the whole song instead of
+going round with a pattern. They play only in a song (SONG on HOME's LOOP knob, or PLAY on the SONG
+page). A note belongs to its row, and it is kept as you played it with the chord's root under it: when
+you change that row's chord or KEY, or the song's TRANSPOSE, the melody moves with the root and keeps its
+shape (over the same chord it plays exactly as played).
+
+**Record a melody over your song:**
+
+1. On the SONG page, press **PLAY** (or, stopped, **SEL**, **PLAY FROM ROW** to start further in).
+2. Press **EDIT** and turn **ALGORITHM** past C4 to **LD1**. The keys play its sound (a square lead; LD2
+   is strings).
+3. Press **REC** and play along. The screen says where you are, "REC LD1 · row 3 · bar 2.3", shows the
+   row as bars with your notes in it, and the song's rows underneath, the one playing in teal.
+4. Press **REC** again to stop recording. The song plays on.
+
+Notes go into the row playing, at their place on the Pattern page's grid. You hear them the next time
+the row plays. Recording again over a row adds to it.
+
+- **Punch in:** on the SONG page, move the cursor (ROW) to the row, **SEL**, **PLAY FROM ROW**, then
+  **EDIT**, **REC**.
+- **A second part:** turn ALGORITHM to **LD2**; recording goes on into it.
+- **Erase:** on EDIT, **SEL**'s list has **ERASE LD1 IN ROW 3** (the row playing, else SONG's cursor row)
+  and **ERASE LD1** (the whole song's), each asking first.
+- **Sound:** the Track page shows the lead's program and channel; its type is always "as played" over
+  the whole keyboard. The Mixer and Mixer tone pages have its strip (black keys 9 and 10 pick LD1, LD2).
+- **Mutes:** on the SONG page, black keys 9 and 10 mute LD1 and LD2 on the cursor's row.
+- REC in FREE or LOOP says "LEADS RECORD IN A SONG". Deleting a row that has lead notes asks first.
+- Lead notes share the 16 user-pattern slots: a song's melodies take one slot (about 420 notes), a second
+  when they outgrow it. "NO FREE SLOT" or "LEAD FULL" means none is left.
 
 ## Sound
 
@@ -371,7 +410,8 @@ The sound pages show and change the section playing, track by track: ALGORITHM p
 
 ![The Mixer](docs/img/manual/mixer.png)
 
-Eight strips. For the selected track: **KNOB 1** volume, **KNOB 2** pan, **KNOB 3** reverb send,
+Ten strips: the eight tracks, then the lead tracks LD1 and LD2. Black keys 1–10 pick the track. For the
+selected track: **KNOB 1** volume, **KNOB 2** pan, **KNOB 3** reverb send,
 **KNOB 4** chorus send. Tracks on the same channel share these (D1, D2 and PC are all on 10).
 
 **Mute:** the Pattern page's KNOB 4 mutes or unmutes the selected track. A mute is the song's: the
@@ -417,7 +457,8 @@ and Polly says "SHARED PATTERN kept Main B".
 ### The song's actions (SEL)
 
 On the SONG pages, **SEL**'s list has **PLAY FROM ROW** (the row the cursor is on), **INSERT ROW**,
-**DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**.
+**DELETE ROW**, **CLEAR SONG** and **COPY SONG TO**. A row's lead notes go with it (DELETE ROW asks first);
+CLEAR SONG erases them; COPY SONG TO doesn't copy them.
 
 ## Setup and MIDI
 
@@ -527,7 +568,7 @@ trademarks of their owners. Polly is GPL-3.0 (see LICENSING.md).
 
 ## Page by page
 
-ALGORITHM picks the track on every page. HOME held + PRESETS picks the song on every page. SELECT turns a
+ALGORITHM picks the track on every page (D1 … C4, then LD1, LD2). HOME held + PRESETS picks the song on every page. SELECT turns a
 button's pages.
 
 | Page | Button | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
