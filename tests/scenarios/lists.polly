@@ -41,13 +41,16 @@ expect page 0
 # ARP with no loop picked yet: the first empty loop (L9), never a factory one; PRESETS back to L1
 tap ARP
 expect page 4
-expect tag_is_S1>P9|bar_1.1 1
+expect tag_is_S1>P9|BAR_1.1 1
 turn PRESET -8
-expect tag_is_S1>P1_Pop|bar_1.1 1
+expect tag_is_S1>P1_Pop|BAR_1.1 1
 # LOOP's list: CLEAR LOOP (the list's last row) asks; HOME: no, the list stays; SEL again, SEL: yes
-expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_CURSOR 1
+expect footer_is_KEYS:_CHORDS|REC:_WRITE|OCT:_BEAT 1
 tap SEL
 expect list_open 1
+# (it opens on CLEAR CHORD, its first action: under the eight knobs, MORE and Letters; STEP after it)
+expect list_sel 10
+shot list_prog.png
 spin SELECT 20
 tap SEL
 expect asking 1
@@ -78,10 +81,10 @@ tap SEL
 expect asking 0
 expect loop_bars1 4
 expect loop_ch1_0 916
-# MORE's NAME: ALGORITHM turns the letter, SEL the next
+# MORE's NAME (over CLEAR CHORD, STEP, LOAD PROGRESSION): ALGORITHM turns the letter, SEL the next
 tap SEL
 spin SELECT 20
-turn SELECT -2
+turn SELECT -4
 spin ALGO 1
 tap SEL
 expect name_cur 1

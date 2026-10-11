@@ -68,16 +68,36 @@ expect loop_ch9_4 500
 expect msgtext_is_NEW_PROGRESSION_P9 1
 tap PLAY
 wait 300
-# ---- Fix a chord: ARP, OCT+ to its bar (the cursor), turn KNOB 1 (Root)
+# ---- Fix a chord: ARP, KNOB 1 (Bar) and KNOB 2 (Beat) to it, turn KNOB 3 (Root)
 tap ARP
 expect page 4
 expect app_loop 9
-tap OCT+
-expect cbeat 4
 turn K1 1
+expect cbeat 4
+expect tag_is_S1>P9|BAR_2.1 1
+turn K3 1
 expect loop_ch9_4 600
-turn K1 -1
+turn K3 -1
 expect loop_ch9_4 500
+# ---- Go to bar 1 beat 3: KNOB 1 (Bar) 1, KNOB 2 (Beat) 3
+turn K1 -1
+turn K2 2
+expect cbeat 2
+expect tag_is_S1>P9|BAR_1.3 1
+# ---- Delete a chord: SEL, CLEAR CHORD (the list opens on it), SEL (here: F on bar 2, then undone)
+turn K1 1
+turn K2 -2
+tap SEL
+expect list_open 1
+tap SEL
+expect loop_ch9_4 -1
+expect msgtext_is_CHORD_CLEARED 1
+wait 1100
+press HOME
+tap REC
+release HOME
+expect loop_ch9_4 500
+expect msgtext_is_UNDO_CLEAR_CHORD 1
 wait 1400
 shot progression.png
 # ---- Lengthen a progression: ARP, SELECT to page 2, turn KNOB 1 (Length)

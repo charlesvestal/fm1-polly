@@ -62,7 +62,7 @@ static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 /* a loop's name (mixed case: "Verse", as the factory's "Pop") */
 static const char LOOP_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-#";
 #define NLOOP_CHARS ((int)sizeof LOOP_CHARS - 1)
-/* the cursor's step (app.cstep): a beat, half a bar, a bar */
+/* the step writing's step (app.cstep, the Progression list's STEP): a beat, half a bar, a bar */
 static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
 /* NAME (LOOP page 2): the presets the knob turns through, then "Prog N" (its own number) */
 static const char *const LOOP_NAME_LIST[] = {"Verse", "Chorus", "Bridge", "Pre", "Intro", "Outro", "Solo", "Break"};
@@ -112,7 +112,7 @@ static struct {
     uint8_t mute_sent;                               /* the mutes the engine has (arr_track_mute), bit t track t */
     uint8_t cbeat;                                   /* the chord cursor: a beat of app.loop, 0..ARR_LOOP_BEATS-1 (REC on
                                                       * HOME / LOOP writes there while stopped) */
-    uint8_t cstep;                                   /* the cursor's step: 0 a beat, 1 half a bar, 2 a bar */
+    uint8_t cstep;                                   /* the keys' step writing (the list's STEP): 0 a beat, 1 half a bar, 2 a bar */
     uint8_t played;                                  /* a chord was heard since start-up (the keys', a loop's, a song's):
                                                       * HOME stops saying "Play a chord" */
     uint8_t picked;                                  /* app.loop was set since start-up (picked, playing, ARP): until
@@ -195,12 +195,12 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_COPY_LEAD, A_MATCH_BARS, A_SLOTS,
-       NACTIONS };
+       A_CLEAR_CHORD, A_STEP, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
                                                   "INSERT SECTION", "DELETE SECTION", "CLEAR SONG", "COPY SONG TO",
                                                   "ERASE INSTRUMENT", "CLEAR", "BACK TO STYLE", "ERASE M IN SECTION",
                                                   "ERASE M", "QUANTISE M", "COPY M TO SECTION", "BARS AS THE PROG",
-                                                  "MEMORY"};
+                                                  "MEMORY", "CLEAR CHORD", "STEP"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 6                                 /* rows on screen */
 static struct {
@@ -2465,32 +2465,35 @@ static void song_page_knobs(knob_t *k)
         kv(&k[2], "At end", g->at_end ? "again" : "stop", g->at_end, 0);
         kn(&k[3], "Song", proj.song + 1, ARR_SONGS);
         break;
-    case P_LOOP: {
+    case P_LOOP: {                                   /* BAR, BEAT (the cursor: up to the end while REC writes), ROOT, TYPE */
         const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
-        int has, b = app.cbeat;
+        int has, b = app.cbeat, bpb = l->beats ? l->beats : 4, len = loop_len(l);
+        int m = ui.rec_chords ? len : len > 0 ? len - 1 : 0;
         chord_t c = chord_shift(cursor_chord(l, b, &has), xpose_now());
-        kv(&k[0], "Root", KEY_NAME[c.root % 12u], c.root, 11);
-        kv(&k[1], "Type", !has ? "-" : c.type == CH_MAJ ? "maj" : chord_type_name(c.type), has ? c.type : 0, CH_DIM);
+        kn(&k[0], "Bar", b / bpb + 1, m / bpb + 1);
+        kn(&k[1], "Beat", b % bpb + 1, bpb);
+        kv(&k[2], "Root", KEY_NAME[c.root % 12u], c.root, 11);
+        kv(&k[3], "Type", !has ? "-" : c.type == CH_MAJ ? "maj" : chord_type_name(c.type), has ? c.type : 0, CH_DIM);
+        break;
+    }
+    case P_LOOP2: {                                  /* LENGTH, BEATS, BASS (the cursor's chord), NAME */
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
+        int bpb = l->beats ? l->beats : 4, has;
+        chord_t c = chord_shift(cursor_chord(l, app.cbeat, &has), xpose_now());
+        char v[9];
+        kn(&k[0], "Length", l->bars ? l->bars : 1, loop_max_bars(bpb));
+        kn(&k[1], "Beats", bpb, 7);
         if (c.bass == CH_NOBASS)
             kv(&k[2], "Bass", "-", 0, 11);
         else
             kv(&k[2], "Bass", KEY_NAME[c.bass % 12u], c.bass, 11);
-        kv(&k[3], "Step", STEP_NAME[app.cstep % 3u], app.cstep, 2);
-        break;
-    }
-    case P_LOOP2: {
-        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
-        int bpb = l->beats ? l->beats : 4;
-        char v[9];
-        kn(&k[0], "Length", l->bars ? l->bars : 1, loop_max_bars(bpb));
-        kn(&k[1], "Beats", bpb, 7);
         {
             int n = 0;
             for (int i = 0; i < 8 && l->name[i]; i++)
                 v[n++] = l->name[i];
             v[n] = 0;
         }
-        kv(&k[2], "Name", v, loop_name_index(l), NLOOP_NAMES);
+        kv(&k[3], "Name", v, loop_name_index(l), NLOOP_NAMES);
         break;
     }
     case P_STYLE: case P_STYLE2: {
@@ -2685,19 +2688,17 @@ static void page_tag(char *t)
             cat_s(e, n ? "end" : "no sections");
         break;
     }
-    case P_LOOP: case P_LOOP2: {                     /* the progression and where it is (or the cursor), the STEP:
-                                                      * "S1>P3 Verse|bar 2.3", "S1>P10|bar 1.1|half" */
+    case P_LOOP: case P_LOOP2: {                     /* the progression and where it is (or the cursor):
+                                                      * "S1>P3 Verse|BAR 2.3", "S1>P10|BAR 1.1" */
         place_t pl;
         const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         uint32_t bt = l->beats ? l->beats : 4u, b = 0;
         place_read(&pl);
         b = arr_playing && pl.loop == app.loop ? pl.lbeat : app.cbeat;   /* (stopped: the cursor's beat) */
         e = loop_label(app.loop, cat_s(crumb_song(t), ">"));
-        e = itoa_u(b / bt + 1u, cat_s(e, "|bar "));
+        e = itoa_u(b / bt + 1u, cat_s(e, "|BAR "));
         *e++ = '.';
-        e = itoa_u(b % bt + 1u, e);
-        if (app.cstep < 2)                           /* STEP not a bar: say so */
-            cat_s(e, app.cstep ? "|half" : "|beat");
+        itoa_u(b % bt + 1u, e);
         break;
     }
     case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2: case P_MIXER: case P_TONE:
@@ -2790,6 +2791,7 @@ static void page_footer(char *t)
         int k = lst.row[lst.sel].kind;
         cat_s(t, k == LK_NAME ? "ALGO: LETTER|SEL: NEXT|HOME: BACK"
                : k == LK_ACTION ? "SELECT: MOVE|SEL: DO IT|HOME: BACK"
+               : k == LK_PICK && lst.row[lst.sel].id == A_STEP ? "ALGO: BEAT, HALF, BAR|HOME: BACK"
                : k == LK_PICK ? "ALGO: PICK|SEL: DO IT|HOME: BACK"
                : k == LK_SUB ? "SELECT: MOVE|SEL: OPEN|HOME: BACK"
                : k == LK_SLOT ? (slot_kind[lst.row[lst.sel].id] == SLOT_NONE ? "SELECT: MOVE|HOME: BACK"
@@ -2803,7 +2805,7 @@ static void page_footer(char *t)
                  : app.mode == ARR_FREE ? "KEYS: CHORDS|REC: NEW PROGRESSION" : "KEYS: CHORDS|REC: WRITE");
         break;
     case P_LOOP: case P_LOOP2:
-        cat_s(t, ui.rec_chords ? "KEYS: CHORDS|REC: STOP|OCT: CURSOR" : "KEYS: CHORDS|REC: WRITE|OCT: CURSOR");
+        cat_s(t, ui.rec_chords ? "KEYS: CHORDS|REC: STOP|OCT: BEAT" : "KEYS: CHORDS|REC: WRITE|OCT: BEAT");
         break;
     case P_SONG: case P_SONG2: case P_SONG3:
         cat_s(t, ui.song_rec ? "HOME + KEYS: SECTIONS|REC: STOP" : "WHITE: PROGRESSION|BLACK: MUTES");
@@ -2963,7 +2965,7 @@ static void draw_enc(void)
 #define CF_NOLEAD (1u << 30)                         /* only without (PG_ANY: both, either) */
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Progression", "Your chords, 1-16 bars, going round. Play chords.",
-     "REC writes them: at the cursor, or in time."},
+     "REC writes them: at the cursor (BAR, BEAT), or in time."},
     {B_SEQ, PG_ANY, "Band", "The groove's notes, instrument by instrument; SELECT: its length and name.", 0},
     {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "Its sound; KNOB 4 the velocity its notes are recorded with.",
      "SEL: QUANTISE to the grid. ALGORITHM: the instruments."},
@@ -2991,8 +2993,10 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_REC, PG_ANY, "Record", "Nothing to record on this page.", "HOME + REC: undo."},
     {B_PLAY, PG_ANY, "Play", "Start and stop. On Song: the song from section 1 (from a progression: at the next bar).",
      "HOME + PLAY: redo."},
-    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor: OCT- back a step, OCT+ on a step (the chords stay as they are).", 0},
-    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor: OCT+ on a step, OCT- back a step (the chords stay as they are).", 0},
+    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor a beat back (OCT+ a beat on); the chords stay as they are.",
+     "BAR and BEAT go straight there."},
+    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor a beat on (OCT- a beat back); the chords stay as they are.",
+     "BAR and BEAT go straight there."},
     {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Both held 5 s: update mode."},
     {B_OCTUP, PG_ANY, "Octave", "The keys an octave up.", "Both held 5 s: update mode."},
 };
@@ -3116,6 +3120,11 @@ static void list_build(void)
         list_add("Letters", v, LK_NAME, 0);
     }
     if (list_loops()) {
+        if (keep != P_HOME) {                        /* Progression: the cursor's chord cleared (first: the list opens
+                                                      * on it), the keys' step */
+            list_add(ACTION_NAME[A_CLEAR_CHORD], 0, LK_ACTION, A_CLEAR_CHORD);
+            list_add(ACTION_NAME[A_STEP], STEP_NAME[app.cstep % 3u], LK_PICK, A_STEP);
+        }
         list_add(ACTION_NAME[A_LOAD_PROG], TEMPLATES[ui.pick_prog % NTEMPLATES].name, LK_PICK, A_LOAD_PROG);
         list_add(ACTION_NAME[A_CLEAR_LOOP], 0, LK_ACTION, A_CLEAR_LOOP);
     } else if (song_pg(keep)) {

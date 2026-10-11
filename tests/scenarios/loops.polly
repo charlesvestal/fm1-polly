@@ -303,7 +303,8 @@ tapkey w2
 release HOME
 tap PLAY
 wait 300
-# ---- the LOOP screen: step writing on L10 (empty), stopped; OCT+ skips a step; the grid, the cursor
+# ---- the Progression page: step writing on L10 (empty), stopped; OCT+ a beat on (past the end with REC: the loop
+# grows to hold it); the grid, the cursor
 tap PLAY
 wait 100
 press HOME
@@ -320,7 +321,13 @@ key 7 up
 key 11 up
 key 14 up
 wait 50
+expect cbeat 4
 tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+expect cbeat 8
+expect loop_bars10 2
 key 2 down
 key 6 down
 key 9 down
@@ -335,13 +342,15 @@ expect loop_ch10_0 0
 expect loop_ch10_4 -1
 expect loop_ch10_8 700
 shot loop.png
-# page 2: LENGTH, BEATS, NAME (Verse, Chorus, ... then "Loop N")
+# page 2: LENGTH, BEATS, BASS, NAME (Verse, Chorus, ... then "Prog N")
 turn SELECT 1
 expect page 5
 shot loop2.png
-# a loop of 7-beat bars: the grid wraps to two lines a bar
+# a progression of 7-beat bars: the grid wraps to two lines a bar; each chord stays in its bar (D on 3.1: beat 14)
 spin K2 3
 expect loop_beats10 7
+expect loop_ch10_14 700
+expect loop_ch10_8 -1
 turn SELECT -1
 expect page 4
 shot loop7.png
@@ -349,54 +358,179 @@ turn SELECT 1
 expect page 5
 spin K2 -3
 expect loop_beats10 4
+expect loop_ch10_8 700
 # name it
-spin K3 -8
+spin K4 -8
 expect loop_name10 Verse
-# a 16-bar loop, the cursor (a bar a step: REC ended it on the start of the last bar written, 3.1) on bar 12: the grid
-# scrolled to it
+# a 16-bar progression; BAR takes the cursor (REC ended it on the start of the last bar written, 3.1) to bar 12: the
+# grid scrolled to it
 spin K1 13
 expect loop_bars10 16
 turn SELECT -1
 expect page 4
 expect cstep 2
 expect cbeat 8
-tap OCT+
+spin K1 1
 expect cbeat 12
-tap OCT+
-tap OCT+
-tap OCT+
-tap OCT+
-tap OCT+
-tap OCT+
-tap OCT+
+spin K1 8
+expect cbeat 44
+expect tag_is_S1>P10_Verse|BAR_12.1 1
+wait 50
+shot loop16.png
+# BEAT within the bar (12.4, no further); BAR keeps the beat (11.4); OCT+ a beat on, over the bar line (12.1), OCT- a
+# beat back; BAR past the end stays on the last bar
+spin K2 3
+expect cbeat 47
+spin K2 2
+expect cbeat 47
+spin K1 -1
+expect cbeat 43
+expect tag_is_S1>P10_Verse|BAR_11.4 1
 tap OCT+
 expect cbeat 44
-shot loop16.png
-# LENGTH shrinking past the cursor brings it back into the loop: a ROOT turn then writes there, not past the end
+tap OCT-
+tap OCT-
+expect cbeat 42
+spin K1 9
+expect cbeat 62
+# LENGTH shrinking past the cursor brings it back into the loop: a ROOT turn then writes there, not past the end. D
+# (bar 3) no longer fits: hidden (out of the loop), said
 turn SELECT 1
 expect page 5
 spin K1 -15
 expect loop_bars10 1
 expect cbeat 3
+expect loop_ch10_8 -1
+expect msgtext_is_1_CHORD_HIDDEN_BACK_IF_IT_GROWS 1
+wait 100
+shot loop_hidden.png
 turn SELECT -1
 expect page 4
-spin K1 2
+spin K3 2
 expect loop_bars10 1
 expect cbeat 3
 expect loop_ch10_3 100
 wait 100
 shot loop_clamp.png
-# ---- the songwriting pass: STEP's tag and grid, chords heard while stopped, REC's end, names, PRESETS, PLAY
-# STEP half: the tag says so (the cursor on 1.4); another loop (HOME + white 15, empty L15): STEP a bar again
+# while on the Progression pages, LENGTH 1 -> 3 brings it back (1 -> 3 -> 1 again: hidden again)
+turn SELECT 1
+expect page 5
+spin K1 2
+expect loop_bars10 3
+expect loop_ch10_8 700
+spin K1 -2
+expect loop_ch10_8 -1
+# BEATS 4 -> 3 -> 4: the chord on 1.4 hidden, then back on 1.4
+spin K2 -1
+expect loop_beats10 3
+expect loop_ch10_3 -1
+expect loop_ch10_0 0
+spin K2 1
+expect loop_ch10_3 100
+# undo while here: LENGTH 3 again (the chord with it); redo: LENGTH 1
+wait 1500
+spin K1 2
+wait 1500
+spin K1 -2
+wait 1500
+press HOME
+tap REC
+release HOME
+expect loop_bars10 3
+expect loop_ch10_8 700
+press HOME
+tap PLAY
+release HOME
+expect loop_bars10 1
+expect loop_ch10_8 -1
+# leaving the pages drops the hidden chords: back here, LENGTH 3 is empty bars
+tap HOME
+expect page 0
+tap ARP
+turn SELECT 1
+expect page 5
+spin K1 2
+expect loop_bars10 3
+expect loop_ch10_8 -1
+spin K1 -2
+expect loop_bars10 1
+# REC writing past the end grows into beats already clear: D hidden again (LENGTH 3 -> 1), a chord written on 2.1
+# (the cursor one past the end), then LENGTH 3: bar 3 empty
+spin K1 2
+spin K1 -2
+expect loop_ch10_8 -1
+turn SELECT -1
+expect page 4
+tap REC
+spin K1 1
+expect cbeat 4
+key 2 down
+key 6 down
+key 9 down
+wait 50
+key 2 up
+key 6 up
+key 9 up
+wait 50
+tap REC
+expect loop_bars10 2
+expect loop_ch10_4 700
+turn SELECT 1
+spin K1 1
+expect loop_bars10 3
+expect loop_ch10_8 -1
+spin K1 -2
+expect loop_bars10 1
+turn SELECT -1
+expect page 4
+# CLEAR CHORD (SEL: the list opens on it): the cursor's chord gone ("·"), one undo step; nothing there: said
+spin K1 -1
+spin K2 -3
+expect cbeat 0
+tap SEL
+expect list_open 1
+expect list_sel 10
+tap SEL
+expect list_open 0
+expect loop_ch10_0 -1
+expect msgtext_is_CHORD_CLEARED 1
+tap SEL
+tap SEL
+expect msgtext_is_CLEAR_CHORD_NONE_HERE 1
+press HOME
+tap REC
+release HOME
+expect loop_ch10_0 0
+expect msgtext_is_UNDO_CLEAR_CHORD 1
+# TYPE turned one below maj clears it too (undone)
+wait 1500
 spin K4 -1
+expect loop_ch10_0 -1
+wait 1500
+press HOME
+tap REC
+release HOME
+expect loop_ch10_0 0
+# ---- the songwriting pass: STEP (SEL's list), chords heard while stopped, REC's end, names, PRESETS, PLAY
+# STEP half (the list's row after CLEAR CHORD, ALGORITHM); the tag stays the bar and beat; another progression
+# (HOME + white 15, empty L15): STEP a bar again
+spin K2 3
+tap SEL
+turn SELECT 1
+expect list_sel 11
+spin ALGO -1
 expect cstep 1
-expect tag_is_S1>P10_Verse|bar_1.4|half 1
+wait 100
+shot list_step.png
+tap HOME
+expect list_open 0
+expect tag_is_S1>P10_Verse|BAR_1.4 1
 press HOME
 tapkey w14
 release HOME
 expect app_loop 15
 expect cstep 2
-expect tag_is_S1>P15|bar_1.1 1
+expect tag_is_S1>P15|BAR_1.1 1
 # its default name: "L15" alone (not "L15 Loop 15"); messages in upper case
 expect msgtext_is_PROGRESSION_P15 1
 # step writing 4 bars a bar a step: Am F Em G, each heard while its keys are held (C1's sound), silent after
@@ -440,27 +574,48 @@ expect cbeat 16
 tap REC
 # REC ended at the loop's end: the cursor on the last bar's start (4.1), not its last beat
 expect cbeat 12
-# OCT-: a bar back (3.1); ROOT there changes that bar's chord (Em -> Ebm), nothing on its beat 4
-tap OCT-
-expect cbeat 8
+# BAR back (3.1); ROOT there changes that bar's chord (Em -> Ebm), nothing on its beat 4
 spin K1 -1
+expect cbeat 8
+spin K3 -1
 expect loop_ch15_8 316
 expect loop_ch15_11 -1
-# off the grid (STEP beat: 3.2), then STEP half: OCT+ 3.3; STEP bar from 3.3: OCT- 3.1, again 2.1
-spin K4 -1
-spin K4 -1
-expect cstep 0
+# the keys' step on the STEP's grid: off it (OCT+: 3.2), STEP half: C there, the cursor on to 3.3; STEP bar: C on
+# 3.3, the cursor on to 4.1
 tap OCT+
 expect cbeat 9
-spin K4 1
-tap OCT+
+tap SEL
+turn SELECT 1
+spin ALGO -1
+tap HOME
+expect cstep 1
+tap REC
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect loop_ch15_9 0
 expect cbeat 10
-spin K4 1
+tap SEL
+turn SELECT 1
+spin ALGO 1
+tap HOME
 expect cstep 2
-tap OCT-
-expect cbeat 8
-tap OCT-
-expect cbeat 4
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect loop_ch15_10 0
+expect cbeat 12
+tap REC
 # HOME, stopped in LOOP: the big chord is the loop's first (Am, what PLAY starts on), not the last one written; a
 # chord held shows while held (coral), then the loop's first again
 tap HOME
@@ -591,3 +746,29 @@ tap REC
 expect rec_chords 0
 tap PLAY
 wait 100
+# ---- hidden chords are never saved: P1 (Pop, C G Am F) LENGTH 1 on the Progression pages; the autosave (stopped,
+# quiet) stores 1 bar, the hidden ones still come back (LENGTH 4) while here; hidden again, saved, a power cycle: 1 bar
+press HOME
+tapkey w0
+release HOME
+expect app_loop 1
+tap ARP
+turn SELECT 1
+expect page 5
+spin K1 -3
+expect loop_bars1 1
+expect loop_ch1_4 -1
+expect msgtext_is_3_CHORDS_HIDDEN_BACK_IF_IT_GROWS 1
+wait 4500
+expect dirty 0
+spin K1 3
+expect loop_bars1 4
+expect loop_ch1_4 700
+spin K1 -3
+wait 4500
+expect dirty 0
+reboot
+wait 300
+expect loop_bars1 1
+expect loop_ch1_4 -1
+expect loop_ch1_0 0

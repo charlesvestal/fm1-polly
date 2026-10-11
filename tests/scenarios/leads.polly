@@ -244,7 +244,7 @@ tap ARP
 expect page 4
 expect app_loop 1
 expect loop_ch1_0 0
-turn K1 2
+turn K3 2
 expect loop_ch1_0 200
 tap HOME
 turn SELECT 1

@@ -118,12 +118,19 @@ expect list_open 0
 tap ARP
 expect page 4
 turn PRESET -8
-expect tag_is_S1>P1_Pop|bar_1.1 1
+expect tag_is_S1>P1_Pop|BAR_1.1 1
 tap SEL
 spin SELECT 20
 turn SELECT -1
 expect enc_is_SELECT_scroll|ALG_choose|PRE_prog 1
 shot list_pick.png
+# STEP: a choice (ALGORITHM: beat, half, bar); CLEAR CHORD: an action
+turn SELECT -1
+expect enc_is_SELECT_scroll|ALG_choose|PRE_prog 1
+expect footer_is_ALGO:_BEAT,_HALF,_BAR|HOME:_BACK 1
+shot list_step.png
+turn SELECT -1
+expect enc_is_SELECT_scroll|PRE_prog 1
 turn SELECT -1
 expect enc_is_SELECT_scroll|ALG_letter|PRE_prog 1
 shot list_name.png

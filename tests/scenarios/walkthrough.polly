@@ -81,7 +81,7 @@ expect page 4
 expect app_loop 9
 turn SELECT 1
 expect page 5
-turn K3 1
+turn K4 1
 expect loop_name9 Verse
 wait 50
 shot 2_named.png
@@ -144,7 +144,7 @@ expect page 4
 expect app_loop 10
 turn SELECT 1
 expect page 5
-turn K3 2
+turn K4 2
 expect loop_name10 Chorus
 wait 50
 shot 3_named.png

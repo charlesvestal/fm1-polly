@@ -866,22 +866,25 @@ static void ask_end(int yes);
  * REC on HOME in FREE is a new loop's take (free_take_*): its chords land on the nearest beat from its start. */
 static char *loop_name_l(int i, char *t);
 static void take_end(void);
-/* the cursor's step: a beat, half a bar (at least a beat), a bar of app.loop */
+static void keep_forget(void);
+/* the step writing moves the cursor on by (the Progression list's STEP): a beat, half a bar (at least a beat), a bar
+ * of app.loop */
 static int step_beats(void)
 {
     const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4;
     return app.cstep == 0 ? 1 : app.cstep == 1 ? (bpb / 2 > 1 ? bpb / 2 : 1) : bpb;
 }
-/* the cursor d (1 / -1) steps on, on the STEP's grid of each bar (bar: its beat 1; half: beats 1 and 3 of 4; beat):
- * off the grid (STEP changed, or REC stopped it on a beat), OCT- goes to the grid point before it and OCT+ to the one
- * after it (4.4 with bar: OCT- 4.1; 3.2 with half: OCT+ 3.3). REC on: it may stand at the loop's end (a chord there
- * makes the loop longer), and a step on from the end skips: the loop grows to hold it, by bars of "no change" (LOOP
- * FULL at the limit). REC off: round the loop. Back past beat 0: the last bar's last grid point */
-static void cursor_move(int d)
+/* the cursor d (1 / -1) steps on by s beats, on the grid of s in each bar (s a bar: its beat 1; half: beats 1 and 3
+ * of 4; 1: every beat): off the grid (STEP changed, or OCT moved it a beat), back goes to the grid point before it
+ * and on to the one after it (4.4 with bar: back 4.1; 3.2 with half: on 3.3). OCT- / OCT+ move it a beat (s 1), the
+ * keys' step writing by STEP. REC on: it may stand at the loop's end (a chord there makes the loop longer), and a
+ * step on from the end skips: the loop grows to hold it, by bars of "no change" (LOOP FULL at the limit). REC off:
+ * round the loop. Back past beat 0: the last bar's last grid point */
+static void cursor_move(int d, int s)
 {
     loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
-    int len = loop_len(l), s = step_beats(), bpb = l->beats ? l->beats : 4;
+    int len = loop_len(l), bpb = l->beats ? l->beats : 4;
     int bar = app.cbeat / bpb, p = app.cbeat % bpb, b;
     char t[8];
     if (d > 0) {
@@ -905,19 +908,51 @@ static void cursor_move(int d)
     } else if (b > len && app.cbeat < len)
         b = len;                                 /* (a step past what is left: the end first) */
     else if (b > len) {                          /* from the end: a skip, the loop grows to hold it */
+        keep_forget();
         songs_write(1);
         loop_set_bars(l, (b + bpb - 1) / bpb);
         songs_write(0);
     }
     app.cbeat = (uint8_t)b;
 }
-/* the cursor kept in app.loop: REC on, at most at its end (a chord there makes it longer); REC off, on a beat of it
+/* the furthest the cursor goes in app.loop: REC on, its end (a chord there makes it longer); REC off, its last beat
  * (a ROOT / TYPE / BASS turn writes there: never past the end, growing the loop) */
+static int cursor_max(void)
+{
+    int len = loop_len(&sloops.loop[app.loop % ARR_LOOPS]);
+    return ui.rec_chords ? len : len > 0 ? len - 1 : 0;
+}
+/* the cursor kept in app.loop (cursor_max) */
 static void cursor_clamp(void)
 {
-    int len = loop_len(&sloops.loop[app.loop % ARR_LOOPS]), m = ui.rec_chords ? len : len > 0 ? len - 1 : 0;
+    int m = cursor_max();
     if (app.cbeat > m)
         app.cbeat = (uint8_t)m;
+}
+/* the chords LENGTH / BEATS hid (loops.c's loop_keep_t): app.loop's, while the Progression pages show it. Leaving
+ * them (another page, progression or song) forgets them: they were never in the loop, so no save or autosave ever
+ * has them, and undo has what the loop lost (a LENGTH shrink's step holds its chords) */
+static struct {
+    int8_t loop, song;                           /* -1: none kept */
+    loop_keep_t k;
+} pk = {-1, -1, {0}};
+static loop_keep_t *prog_keep(void)
+{
+    int i = app.loop % ARR_LOOPS;
+    if (pk.loop != i || pk.song != proj.song) {
+        loop_keep_init(&pk.k, &sloops.loop[i]);
+        pk.loop = (int8_t)i;
+        pk.song = (int8_t)proj.song;
+    }
+    return &pk.k;
+}
+static void keep_forget(void) { pk.loop = -1; }
+/* a frame: off the Progression pages (or another progression, another song), the hidden chords are gone */
+static void keep_poll(void)
+{
+    if (pk.loop >= 0 && ((ui.page != P_LOOP && ui.page != P_LOOP2) || pk.loop != app.loop % ARR_LOOPS ||
+                         pk.song != proj.song))
+        keep_forget();
 }
 /* the loop the keys write into: the one playing (playing), else app.loop */
 static int rec_loop(void)
@@ -930,6 +965,8 @@ static int chord_write(int i, int b, chord_t c)
 {
     int r;
     char t[8];
+    if (b >= loop_len(&sloops.loop[i]))
+        keep_forget();                           /* (it grows into beats clear: the hidden chords gone first) */
     songs_write(1);
     r = loop_write(&sloops.loop[i], b, chord_shift(c, -xpose_now()));
     songs_write(0);
@@ -942,6 +979,55 @@ static int chord_write(int i, int b, chord_t c)
         ui.wrote_beat = (uint8_t)b;
     }
     return r;
+}
+/* the chord at the cursor (app.loop's, as heard) turned d: what 0 ROOT, 1 TYPE (one below maj: "·", no change
+ * there: loop_unwrite), 2 BASS ("-" one below C) */
+static void chord_turn(int what, int d)
+{
+    int l = app.loop % ARR_LOOPS, has, b = app.cbeat;
+    chord_t c = chord_shift(cursor_chord(&sloops.loop[l], b, &has), xpose_now());
+    if (what == 0)
+        c.root = (uint8_t)((c.root + 12 + d) % 12);
+    else if (what == 1) {
+        int t = (has ? (int)c.type : -1) + d;
+        if (t < -1)
+            t = CH_DIM;
+        else if (t > CH_DIM)
+            t = -1;
+        if (t < 0) {
+            songs_write(1);
+            loop_unwrite(&sloops.loop[l], b);
+            songs_write(0);
+            return;
+        }
+        c.type = (uint8_t)t;
+    } else {
+        int cur = c.bass == CH_NOBASS ? -1 : (int)c.bass;
+        cur += d;
+        if (cur < -1)
+            cur = 11;
+        else if (cur > 11)
+            cur = -1;
+        c.bass = cur < 0 ? CH_NOBASS : (uint8_t)cur;
+    }
+    chord_write(l, b, c);
+}
+/* CLEAR CHORD (the Progression list): the cursor's beat back to "·" (no change there), a step of its own */
+static void act_clear_chord(void)
+{
+    loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
+    int b = app.cbeat;
+    if (b >= loop_len(l) || b >= ARR_LOOP_BEATS || l->ch[b] == LC_SAME) {
+        say("CLEAR CHORD", "NONE HERE");
+        return;
+    }
+    undo_commit();                               /* (what came before: its own step) */
+    undo_hint("CLEAR CHORD");
+    songs_write(1);
+    loop_unwrite(l, b);
+    songs_write(0);
+    undo_commit();                               /* one step */
+    say("CHORD CLEARED", 0);
 }
 /* the beat nearest now of loop l playing (an empty loop: of the pattern's bar). A bar's first chord played within its
  * first beat (nothing written this REC on or after that downbeat) is the downbeat's, not the next beat's: a chord a
@@ -1031,7 +1117,7 @@ static void chord_played(const uint8_t *n, int cnt)
         return;
     }
     if (prev >= 0 && ui.centry_step)             /* a key lifted, a new chord with keys still held: the next step */
-        cursor_move(1);
+        cursor_move(1, step_beats());
     ui.centry = (int8_t)(chord_write(l, app.cbeat, ch) == 0 ? app.cbeat : -1);
     ui.centry_step = 1;
 }
@@ -1053,7 +1139,7 @@ static void chord_keys(void)
     }
     if (!c && ui.centry >= 0) {
         if (ui.centry_step)
-            cursor_move(1);
+            cursor_move(1, step_beats());
         ui.centry = -1;
         ui.clifted = 0;
     }
@@ -1726,8 +1812,8 @@ static void button_up(int b)                     /* a tap: released before it wa
         break;
     }
     case B_OCTDN: case B_OCTUP:
-        if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* the cursor: OCT+ skips a step on, OCT- steps back */
-            cursor_move(b == B_OCTUP ? 1 : -1);
+        if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* the cursor: OCT+ a beat on, OCT- a beat back */
+            cursor_move(b == B_OCTUP ? 1 : -1, 1);
             break;
         }
         proj.oct = (int8_t)(proj.oct + (b == B_OCTUP ? 1 : -1));
@@ -1951,64 +2037,57 @@ static void song_page_knob(int k, int32_t e)
             proj.click = (uint8_t)clampi(proj.click + d, ARR_CLICK_OFF, ARR_CLICK_ON);
         mark_dirty();
         break;
-    case P_LOOP: {                               /* ROOT, TYPE ("·" one below maj: loop_unwrite), BASS, STEP */
-        int l = app.loop % ARR_LOOPS, has, b = app.cbeat;
-        chord_t c = chord_shift(cursor_chord(&sloops.loop[l], b, &has), xpose_now());
-        if (k == 3) {                             /* STEP: beat, half, bar (no write) */
-            app.cstep = (uint8_t)(((int)app.cstep + d) % 3 + 3) % 3;
+    case P_LOOP: {                               /* BAR, BEAT (the cursor), ROOT, TYPE ("·" one below maj) */
+        loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
+        int bpb = l->beats ? l->beats : 4, m = cursor_max(), bar = app.cbeat / bpb, p = app.cbeat % bpb;
+        if (k == 0)                              /* BAR: the beat kept (clamped: one past the end, its first) */
+            bar = clampi(bar + accel(EN_K1, e), 0, m / bpb);
+        else if (k == 1)
+            p = clampi(p + accel(EN_K2, e), 0, bpb - 1);
+        else {
+            chord_turn(k == 2 ? 0 : 1, d);
             break;
         }
-        if (k == 0)
-            c.root = (uint8_t)((c.root + 12 + d) % 12);
-        else if (k == 1) {
-            int t = (has ? (int)c.type : -1) + d;
-            if (t < -1)
-                t = CH_DIM;
-            else if (t > CH_DIM)
-                t = -1;
-            if (t < 0) {
-                songs_write(1);
-                loop_unwrite(&sloops.loop[l], b);
-                songs_write(0);
-                break;
-            }
-            c.type = (uint8_t)t;
-        } else {
-            int cur = c.bass == CH_NOBASS ? -1 : (int)c.bass;
-            cur += d;
-            if (cur < -1)
-                cur = 11;
-            else if (cur > 11)
-                cur = -1;
-            c.bass = cur < 0 ? CH_NOBASS : (uint8_t)cur;
-        }
-        chord_write(l, b, c);
+        app.cbeat = (uint8_t)(bar * bpb + p > m ? m : bar * bpb + p);
         break;
     }
-    case P_LOOP2: {                              /* LENGTH, BEATS ("LENGTH 9: 64 BEATS MAX" when it shrank), NAME */
+    case P_LOOP2: {                              /* LENGTH, BEATS ("LENGTH 9: 64 BEATS MAX" when it shrank), BASS, NAME */
         loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int bpb = l->beats ? l->beats : 4, step = accel(EN_K1 + k, e);
-        if (k == 0) {
-            int m = loop_max_bars(bpb), to = clampi((l->bars ? l->bars : 1) + step, 1, m);
-            if (to == l->bars)
-                break;
-            songs_write(1);
-            loop_set_bars(l, to);
-            songs_write(0);
-        } else if (k == 1) {
-            int to = clampi(bpb + step, 2, 7), before = l->bars;
-            if (to == bpb)
-                break;
-            songs_write(1);
-            loop_set_beats(l, to);
-            songs_write(0);
-            if (l->bars < before) {
-                char a[16];
+        if (k <= 1) {                            /* the chords that no longer fit: hidden while here (prog_keep) */
+            loop_keep_t *kp = prog_keep();
+            int hid = loop_hidden(l, kp), bar = app.cbeat / bpb, p = app.cbeat % bpb, to, asked;
+            char a[16];
+            if (k == 0) {
+                to = clampi((l->bars ? l->bars : 1) + step, 1, loop_max_bars(bpb));
+                if (to == l->bars)
+                    break;
+                songs_write(1);
+                loop_relayout(l, kp, to, bpb);
+                songs_write(0);
+            } else {
+                to = clampi(bpb + step, 2, 7);
+                if (to == bpb)
+                    break;
+                songs_write(1);
+                loop_relayout(l, kp, -1, to);
+                songs_write(0);
+                app.cbeat = (uint8_t)(bar * to + (p < to ? p : to - 1));   /* the cursor in its bar too */
+            }
+            ui.wrote_t = 0;                      /* (a chord just written: its beat may be another now) */
+            asked = kp->bars;
+            if (k == 1 && l->bars < asked) {
                 itoa_u((uint32_t)l->bars, cat_s(a, "LENGTH "));
                 cat_s(a, ":");
                 say(a, "64 BEATS MAX");
+            } else if (loop_hidden(l, kp) > hid) {
+                cat_s(itoa_u((uint32_t)loop_hidden(l, kp), a), loop_hidden(l, kp) > 1 ? " CHORDS HIDDEN" : " CHORD HIDDEN");
+                say(a, "BACK IF IT GROWS");
             }
         } else if (k == 2) {
+            chord_turn(2, d);
+            break;
+        } else {
             int idx = ((loop_name_index(l) + step) % (NLOOP_NAMES + 1) + NLOOP_NAMES + 1) % (NLOOP_NAMES + 1);
             songs_write(1);
             loop_set_name_preset(l, app.loop % ARR_LOOPS, idx);
@@ -2794,6 +2873,8 @@ static void action_run(int a)
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
     case A_CLEAR_LOOP: act_clear_loop(); break;
+    case A_CLEAR_CHORD: act_clear_chord(); break;
+    case A_STEP: break;
     case A_PLAY_FROM: song_play_from(app.row); break;
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
@@ -3392,7 +3473,9 @@ static void list_change(int32_t e)
         name_turn(e);
         break;
     case LK_PICK:
-        if (lst.row[lst.sel].id == A_LOAD_PROG)
+        if (lst.row[lst.sel].id == A_STEP)     /* STEP: beat, half, bar (the keys' step writing) */
+            app.cstep = (uint8_t)clampi(app.cstep + d, 0, 2);
+        else if (lst.row[lst.sel].id == A_LOAD_PROG)
             ui.pick_prog = (uint8_t)(((ui.pick_prog + e) % NTEMPLATES + NTEMPLATES) % NTEMPLATES);
         else if (lst.row[lst.sel].id == A_COPY_LEAD) {   /* COPY LD1 TO ROW n: from another row, a step a detent */
             int nr = csong()->nrows, lr = lead_row(), r = ui.pick_lrow;
@@ -3956,6 +4039,7 @@ void ui_frame(void)
         song_change(s);
     }
     click_poll();
+    keep_poll();                                 /* (before the autosave: hidden chords are never in a loop) */
     undo_tick();
     autosave();
     draw_header();
