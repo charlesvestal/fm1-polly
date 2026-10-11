@@ -37,6 +37,14 @@ Each colour means one thing, on every page:
 - **Teal: sounding now**, and nothing else: the bar, beat, section, progression playing; the playhead; a melody's
   chip while it sounds; HOME held's progression playing (filled) and groove playing (ringed), only while playing;
   Free's chord while the band plays it.
+  - **A bar playing** (HOME's bars, recording a groove, recording a melody; `bar_lit` / `bar_beats` in pages.c): a
+    light teal tint (K_TEAL_T) inside a 2 px teal outline, its number dim and its chord in ink (readable at arm's
+    length; of several chords the one sounding ink, the others dim). Its beats as segments along its foot, centred:
+    the beat now a bold solid teal block (6 px tall), those gone by solid pale teal (K_TEAL_M, 4 px), those to come a
+    pale teal outline (4 px); 6 and 7 beats closer together. A cursor's coral ring on the bar playing keeps the tint
+    inside it (the ring stays distinct); with the cursor stepping (no playhead) the beat now is coral on neutral.
+    A cell too short for the big chord over the beats (under 52 px: HOME's two rows) shows it in the middle font
+    (capitals only, "F7") or the bold one, every cell alike.
 - **Coral: you**: the cursor, an edit's flash, the knob turned last (value and bar), REC (its dot, the row being
   recorded), the chord you play over a progression (Home, top right, until the progression's next change), the
   progression or groove you asked for (HOME held), questions and messages.

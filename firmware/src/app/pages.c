@@ -23,6 +23,7 @@
 #define K_ACCENT RGB(242, 120, 72)
 #define K_TEAL RGB(38, 166, 154)
 #define K_TEAL_T RGB(196, 230, 222)
+#define K_TEAL_M RGB(118, 196, 186)                  /* a playing bar's beats gone by */
 #define K_AMBER RGB(206, 138, 34)                    /* Groove B */
 #define K_SLATE RGB(84, 118, 168)                    /* Groove A */
 #define K_PLUM RGB(150, 112, 170)                    /* the melodies */
@@ -674,7 +675,8 @@ static void loop_set_name_preset(loop_t *l, int li, int idx)
 /* ---------------------------------------------------------- HOME page --- */
 /* HOME (the spec's Screens) shows the progression as bars, the same recording or listening (home_bars): a cell a bar,
  * four to a row, the bar's number and its chord (big), or its chords (small: "Am  F"), a dot for none; the bar
- * playing filled teal, its beats marked along its foot; stopped, bar 1 (where PLAY starts) ringed teal; a chord just
+ * playing tinted light teal in a teal outline (its chord in ink), its beats along its foot (the one now a bold teal
+ * block); stopped, bar 1 (where PLAY starts) ringed teal; a chord just
  * written (or put back by undo) fills its bar coral a moment. Listening (draw_home): the section (and the one queued)
  * and where it is; the chord sounding, big (coral: one from the keys, holding until the source's next change; teal:
  * the loop's or the song's) and the next; a line (LOOP: the progression's name, "starts after the Intro" while an
@@ -729,6 +731,35 @@ static int32_t bar_y(int32_t y, int32_t ch, const felucca_font_t *f)
     int32_t ty = cap_y(y, ch, f), top = f == &FONT_L ? 4 : f == &FONT_XS ? 3 : 2;
     return ty + top < y + 15 ? y + 15 - top : ty;
 }
+/* the bar playing: a light teal tint inside a teal outline (its chord in ink, readable); the cell w x h at x, y */
+static void bar_lit(int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    cv_round(x, y, w, h, 5, K_TEAL);
+    cv_round(x + 2, y + 2, w - 4, h - 4, 4, K_TEAL_T);
+}
+/* a bar's beats along its foot (a cell RG_CW wide, ch tall at x, y), segments centred: the beat now a bold solid block
+ * (6 px), those gone by solid in past (4 px), those to come an outline in past; now -1 none */
+static void bar_beats(int32_t x, int32_t y, int32_t ch, int bpb, int now, uint16_t on, uint16_t past)
+{
+    int32_t gap = bpb >= 6 ? 1 : 2, sw = (RG_CW - 8 + gap) / bpb, x0 = x + (RG_CW - (bpb * sw - gap)) / 2, yb = y + ch - 4;
+    for (int k = 0; k < bpb; k++) {
+        int32_t sx = x0 + k * sw, w = sw - gap;
+        if (k == now)
+            cv_rect(sx, yb - 6, w, 6, on);
+        else if (k < now)
+            cv_rect(sx, yb - 4, w, 4, past);
+        else {
+            cv_rect(sx, yb - 4, w, 1, past);
+            cv_rect(sx, yb - 1, w, 1, past);
+            cv_rect(sx, yb - 3, 1, 2, past);
+            cv_rect(sx + w - 1, yb - 3, 1, 2, past);
+        }
+    }
+}
+/* a cell tall enough for a big chord: its number, the chord's capitals (26 px), the beats along its foot (10 px) under
+ * them (shorter, 44 px and up: the middle font for a chord in capitals ("F7"), else the bold one; every cell alike, so
+ * the bar playing reads the same as the others) */
+#define BIG_CH 52
 #define HB_Y 24                                      /* the bars' top: under the first line (a progression playing) */
 #define HB_Y2 40                                     /* ... under two (a song: what comes next; recording: where) */
 /* the bars as HOME draws them: loop l's (len beats, bpb a bar), n cells (its shown bars, then bars to come,
@@ -779,8 +810,8 @@ static void home_bars(const bars_t *v)
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = v->y0 + (b / 4 - v->top) * (ch + 2), nx;
         int plays = b == v->focus && !v->cursor, cur = b == v->focus && v->cursor, out = b >= v->out_from;
         int flash = b == v->fbar, st = b == v->start && !flash, nch = 0, k, snd = -1;
-        uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL : out ? K_BG : K_PANEL;
-        uint16_t fg = flash || plays ? K_BG : K_TEXT;
+        uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL_T : out ? K_BG : K_PANEL;
+        uint16_t fg = flash ? K_BG : K_TEXT;
         char nm[4][12];
         if (cur) {                                   /* the cursor: a coral ring (CUR_RING px, as every cursor) */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
@@ -788,13 +819,15 @@ static void home_bars(const bars_t *v)
         } else if (st) {                             /* where PLAY starts: an ink ring (no colour: nothing sounds yet) */
             cv_round(x, y, RG_CW, ch, 5, K_TEXT);
             cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 4, fill);
-        } else if (out && !flash) {                  /* a bar to come: its outline */
+        } else if (plays && !flash)                  /* the bar playing: tinted, a teal outline */
+            bar_lit(x, y, RG_CW, ch);
+        else if (out && !flash) {                    /* a bar to come: its outline */
             cv_round(x, y, RG_CW, ch, 5, K_LINE);
             cv_round(x + 1, y + 1, RG_CW - 2, ch - 2, 4, fill);
         } else
             cv_round(x, y, RG_CW, ch, 5, fill);
         itoa_u((uint32_t)b + 1u, t);                 /* its number in the corner, clear of a ring */
-        nx = cv_text(x + 3, ch >= 33 ? y + 1 : y + 4, &FONT_XS, t, flash || plays ? K_BG : out ? K_LINE : K_DIM) + 4;
+        nx = cv_text(x + 3, ch >= 33 ? y + 1 : y + 4, &FONT_XS, t, flash ? K_BG : out ? K_LINE : K_DIM) + 4;
         for (k = 0; k < bpb; k++) {                  /* its chords (and which sounds now: the last at or before the beat) */
             int idx = b * bpb + k;
             uint16_t c = idx < len && idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME;
@@ -809,8 +842,10 @@ static void home_bars(const bars_t *v)
             text_c(x + RG_CW / 2, bar_y(y, ch, &FONT_L), &FONT_L, t, K_ACCENT);
         } else if (nch == 1) {                       /* one chord: as big as fits, centred (tall cells) */
             int32_t tx = ch >= 33 ? x + 4 : nx, tw = RG_CW - (tx - x) - 3;
-            if (ch >= 44 && text_w(&FONT_L, nm[0]) <= RG_CW - 2 * CUR_RING - 4)   /* (3 px clear of a ring) */
+            if (ch >= BIG_CH && text_w(&FONT_L, nm[0]) <= RG_CW - 2 * CUR_RING - 4)   /* (3 px clear of a ring) */
                 text_c(x + RG_CW / 2, bar_y(y, ch, &FONT_L), &FONT_L, nm[0], fg);
+            else if (ch >= 44 && upper_only(nm[0]) && text_w(&FONT_M, nm[0]) <= RG_CW - 2 * CUR_RING - 4)
+                text_c(x + RG_CW / 2, bar_y(y, ch, &FONT_M), &FONT_M, nm[0], fg);   /* (between: no lower case) */
             else if (ch >= 33 && text_w(&FONT_B, nm[0]) <= tw)
                 text_c(x + RG_CW / 2, bar_y(y, ch, &FONT_B), &FONT_B, nm[0], fg);
             else if (ch >= 33 && text_w(&FONT_XS, nm[0]) <= tw)
@@ -836,17 +871,14 @@ static void home_bars(const bars_t *v)
                     tx = x + (RG_CW - text_w(f, t)) / 2;
                 for (k = 0; k < nch; k++)
                     tx = cv_text(tx + (k ? text_w(f, "  ") : 0), ty, f, nm[k],
-                                 plays && k != snd ? K_TEAL_T : fg);
+                                 plays && k != snd ? K_DIM : fg);
             }
         } else if (!out)                             /* none: a dot, in the middle */
             cv_round(ch >= 33 ? x + RG_CW / 2 - 2 : (nx + x + RG_CW) / 2 - 2, y + ch / 2 - 2, 4, 4, 1,
-                     flash || plays ? K_BG : K_DIM);
-        if (b == v->focus) {                         /* its beats along its foot: the one now (and those before) lit */
-            int32_t sw = (RG_CW - 10) / bpb;
-            for (k = 0; k < bpb; k++)
-                cv_rect(x + 5 + k * sw, y + ch - 6, sw - 2, 2,
-                        v->cursor ? (k == v->fbeat ? K_ACCENT : K_LINE) : k <= v->fbeat ? K_BG : K_TEAL_T);
-        }
+                     flash ? K_BG : K_DIM);
+        if (b == v->focus)                           /* its beats along its foot: the one now bold, those before lit */
+            bar_beats(x, y, ch, bpb, v->fbeat, flash ? K_BG : v->cursor ? K_ACCENT : K_TEAL,
+                      flash ? RGB(250, 196, 170) : v->cursor ? K_LINE : K_TEAL_M);
     }
     if (v->rows > v->vis) {                          /* the scroll bar: where the window is */
         int32_t th = v->vis * (ch + 2) - 2, bh = th * v->vis / v->rows, by = v->y0 + th * v->top / v->rows;
@@ -1794,7 +1826,7 @@ static void draw_lead_rec(void) { draw_lead(1); }
 static void draw_trk_rec(void)
 {
     int s = pslot(), trk = proj.trk & 7, nb = app.hdr[s].bars, bpb = app.hdr[s].beats, play = arr_playing;
-    int wait = !arr_recording || arr_rec_wait, focus = -1, fbeat = 0, next = -1, cnt = 0, pass = 1, rows, ch, b, k;
+    int wait = !arr_recording || arr_rec_wait, focus = -1, fbeat = 0, next = -1, cnt = 0, pass = 1, rows, ch, b;
     int ll = loop_longer(), lbar = -1, lbars = 0;
     uint32_t blen, bar, bt, h, n, e, lo = 127, hi = 0, fbars = 0;
     const arr_trk_t *tr;
@@ -1884,19 +1916,21 @@ static void draw_trk_rec(void)
     for (b = 0; b < nb; b++) {                       /* the bars */
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
         int plays = b == focus, cin = b == next, fl = fbars >> b & 1u;
-        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL : K_PANEL, fg = plays || fl ? K_BG : K_TEXT;
+        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL_T : K_PANEL, fg = fl ? K_BG : K_TEXT;
         if (cin) {                                   /* the bar recording starts on: the cursor's coral ring */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
-            cv_round(x + CUR_RING, y + CUR_RING, RG_CW - 2 * CUR_RING, ch - 2 * CUR_RING, 4, plays ? K_TEAL : K_BG);
-        } else
+            cv_round(x + CUR_RING, y + CUR_RING, RG_CW - 2 * CUR_RING, ch - 2 * CUR_RING, 4, plays ? K_TEAL_T : K_BG);
+        } else if (plays && !fl)                     /* the bar playing: tinted, a teal outline */
+            bar_lit(x, y, RG_CW, ch);
+        else
             cv_round(x, y, RG_CW, ch, 5, fill);
         itoa_u((uint32_t)b + 1u, t);
-        ax = ch >= 30 ? x + 4 : cv_text(x + 3, cap_y(y, ch, &FONT_XS), &FONT_XS, t, plays || fl ? K_BG : K_DIM) + 3;
+        ax = ch >= 30 ? x + 4 : cv_text(x + 3, cap_y(y, ch, &FONT_XS), &FONT_XS, t, fl ? K_BG : K_DIM) + 3;
         if (ch >= 30)                                /* its number in the corner (as HOME's bars) */
-            cv_text(x + 3, y + 1, &FONT_XS, t, plays || fl ? K_BG : cin ? K_ACCENT : K_DIM);
+            cv_text(x + 3, y + 1, &FONT_XS, t, fl ? K_BG : cin ? K_ACCENT : K_DIM);
         aw = x + RG_CW - 4 - ax;
         ay = ch >= 30 ? y + 16 : y + 3;
-        ah = y + ch - 7 - ay;
+        ah = y + ch - 11 - ay;                       /* (clear of the beats along the foot) */
         nh = ah >= 30 ? 3 : 2;
         if (cin && cnt) {                            /* the count-in, big */
             itoa_u((uint32_t)cnt, t);
@@ -1918,11 +1952,8 @@ static void draw_trk_rec(void)
             ny = ay + ah - nh - (hi > lo ? (int32_t)((v->note - lo) * (uint32_t)(ah - nh) / (hi - lo)) : (ah - nh) / 2);
             cv_rect(nx, ny, nw, nh, fg);
         }
-        if (plays) {                                 /* its beats along its foot: the one now (and those before) lit */
-            int32_t sw = (RG_CW - 10) / bpb;
-            for (k = 0; k < bpb; k++)
-                cv_rect(x + 5 + k * sw, y + ch - 6, sw - 2, 2, k <= fbeat ? K_BG : K_TEAL_T);
-        }
+        if (plays)                                   /* its beats along its foot: the one now bold, those before lit */
+            bar_beats(x, y, ch, bpb, fbeat, fl ? K_BG : K_TEAL, fl ? RGB(250, 196, 170) : K_TEAL_M);
     }
     cv_blit(0, MAIN_Y);
 }
@@ -2054,16 +2085,18 @@ static void draw_lead(int rec)
         int bi = win * 8 + b, plays = bi == focus, start = ((rec ? why >= 3 : !live && n) && why < 7 && bi == 0) || bi == cin;
         int fl = bi < 32 && (fbars >> bi & 1u);
         int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
-        uint16_t fg = plays || fl ? K_BG : K_TEXT, other = fl ? RGB(250, 196, 170) : plays ? K_TEAL_T : K_LINE;
-        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL : K_PANEL;
+        uint16_t fg = fl ? K_BG : K_TEXT, other = fl ? RGB(250, 196, 170) : plays ? K_TEAL_M : K_LINE;
+        uint16_t fill = fl ? K_ACCENT : plays ? K_TEAL_T : K_PANEL;
         uint32_t b0 = (uint32_t)bi * blen;
         if (start) {                                 /* the bar it starts in (the cursor): the cursor's coral ring */
             cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
             cv_round(x + CUR_RING, y + CUR_RING, RG_CW - 2 * CUR_RING, ch - 2 * CUR_RING, 4, fill);
-        } else
+        } else if (plays && !fl)                     /* the bar playing: tinted, a teal outline */
+            bar_lit(x, y, RG_CW, ch);
+        else
             cv_round(x, y, RG_CW, ch, 5, fill);
         itoa_u((uint32_t)bi + 1u, t);                /* its number in the corner (as HOME's bars) */
-        cv_text(x + 3, y + 1, &FONT_XS, t, plays || fl ? K_BG : start ? K_ACCENT : K_DIM);
+        cv_text(x + 3, y + 1, &FONT_XS, t, fl ? K_BG : start ? K_ACCENT : K_DIM);
         if (bi == cin) {                             /* the count-in, big */
             itoa_u((uint32_t)cbeats, t);
             text_c(x + RG_CW / 2, bar_y(y, ch, ch >= 36 ? &FONT_L : &FONT_B), ch >= 36 ? &FONT_L : &FONT_B, t, K_ACCENT);
@@ -2072,7 +2105,7 @@ static void draw_lead(int rec)
         ax = x + 4;
         aw = RG_CW - 8;
         ay = y + 16;
-        ah = y + ch - 7 - ay;
+        ah = y + ch - 11 - ay;                       /* (clear of the beats along the foot) */
         nh = ah >= 24 ? 3 : 2;
         for (int pass = 0; pass < 2; pass++)         /* the lead's notes in this bar: ticks (the other lead's first, dim) */
             for (i = i0; i < i1 && i < leads.n; i++) {
@@ -2087,11 +2120,8 @@ static void draw_lead(int rec)
                 ny = ay + ah - nh - (hi > lo ? (int32_t)((e->note - lo) * (uint32_t)(ah - nh) / (hi - lo)) : (ah - nh) / 2);
                 cv_rect(nx, ny, nw, nh, pass ? fg : other);
             }
-        if (plays) {                                 /* its beats along its foot: the one now (and those before) lit */
-            int32_t sw = (RG_CW - 10) / bpb;
-            for (int q = 0; q < bpb; q++)
-                cv_rect(x + 5 + q * sw, y + ch - 6, sw - 2, 2, q <= fbeat ? K_BG : K_TEAL_T);
-        }
+        if (plays)                                   /* its beats along its foot: the one now bold, those before lit */
+            bar_beats(x, y, ch, bpb, fbeat, fl ? K_BG : K_TEAL, fl ? RGB(250, 196, 170) : K_TEAL_M);
     }
     if (nb > 8) {                                    /* a longer row: which eight ("9-16 of 24"), over the bars' right */
         p = itoa_u((uint32_t)win * 8u + 1u, t);
