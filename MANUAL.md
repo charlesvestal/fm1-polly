@@ -648,3 +648,21 @@ button's pages.
 | Style 2 | ENV, SELECT | Fill AB | Fill BA | Ending | Style | Style |
 | Setup | GLO | Clock | MIDI out | Lights | Click | |
 | Panel | GLO, SELECT | | | | | |
+
+## Screen mirroring
+
+Polly can show its screen and panel on a computer, live, over the USB cable: for teaching, filming or a big screen.
+It only watches; nothing on the page plays the FM-1.
+
+1. Plug the FM-1 into the computer.
+2. Open `web/mirror/index.html` in Chrome or Edge (the browsers with Web MIDI).
+3. Press **Connect** and allow MIDI with SysEx. Polly is picked by itself (its ports are called *Polly FM-1*); if
+   not, pick them in the In and Out lists.
+
+The screen shows twice or three times its size (×2, ×3), and the panel below it lights as the FM-1 does: lit
+buttons and keys as their LEDs, the ones held outlined, a knob turned flashes with the detents it moved. **Save PNG**
+saves the screen; `python3 tools/polly_mirror.py screen.png` does the same without a browser.
+
+The mirror costs nothing until a page asks for it, and stops when the page closes, goes quiet for six seconds or
+the cable comes out. Notes and clock go out first: when the computer is slow to take it all, the page skips frames,
+then catches up by itself.

@@ -124,6 +124,17 @@ static volatile uint8_t sx_ready, sx_collect, sx_busy;
 static uint32_t sx_out_q[SXQ];
 static volatile uint32_t so_w, so_r;
 #endif
+#ifndef FELUCCA_MIRROR
+#define FELUCCA_MIRROR 0
+#endif
+#if FELUCCA_MIRROR
+/* Polly's screen mirroring (mirror.c): whole F0..F7 frames as bytes, sent last (after the SysEx ring and the
+ * notes), each whole: tx_mid says which ring's SysEx message is half sent (nothing else goes in between) */
+#define MRQ 4096u
+static uint8_t mr_q[MRQ];
+static volatile uint32_t mr_w, mr_r;
+static uint8_t tx_mid;                                  /* 0 between messages, 1 the SysEx ring's, 2 mr_q's */
+#endif
 
 /* MIDI rings: 4-byte USB-MIDI event packets */
 #define MQ 64u
@@ -707,7 +718,10 @@ static void ota_frame_done(void)
 static void ep1_tx(void)
 {
     uint32_t csr, n = 0;
-#if FELUCCA_OTA
+#if FELUCCA_MIRROR
+    if (mo_w == mo_r && so_w == so_r && mr_w == mr_r)
+        return;
+#elif FELUCCA_OTA
     if (mo_w == mo_r && so_w == so_r)
         return;
 #else
@@ -723,6 +737,11 @@ static void ep1_tx(void)
 #if FELUCCA_OTA
     while (so_r != so_w && n < 64u) {                   /* SysEx first, never split by notes */
         uint32_t pkt = sx_out_q[so_r % SXQ];
+#if FELUCCA_MIRROR
+        if (tx_mid == 2u)
+            break;                                      /* (a mirror frame half sent: it ends first) */
+        tx_mid = (pkt & 15u) == 4u;                     /* CIN 4: the message goes on */
+#endif
         ep1tx[n] = (uint8_t)pkt;
         ep1tx[n + 1] = (uint8_t)(pkt >> 8);
         ep1tx[n + 2] = (uint8_t)(pkt >> 16);
@@ -730,7 +749,11 @@ static void ep1_tx(void)
         n += 4u;
         so_r++;
     }
+#if FELUCCA_MIRROR
+    while (!tx_mid && !sx_busy && so_r == so_w && mo_r != mo_w && n < 64u) {
+#else
     while (!sx_busy && so_r == so_w && mo_r != mo_w && n < 64u) {
+#endif
 #else
     while (mo_r != mo_w && n < 64u) {
 #endif
@@ -745,6 +768,24 @@ static void ep1_tx(void)
         RING_PUBLISH();
         mo_r++;
     }
+#if FELUCCA_MIRROR
+    /* the mirror's frames last: only between other messages, and the one begun goes on to its end */
+    while (mr_r != mr_w && n < 64u && (tx_mid == 2u || (!tx_mid && !sx_busy && so_r == so_w && mo_r == mo_w))) {
+        uint32_t r = mr_r, k = 0, b[3] = {0, 0, 0};
+        RING_PUBLISH();                                 /* (whole frames are published: an F7 ends each) */
+        do
+            b[k] = mr_q[r++ % MRQ];
+        while (++k < 3u && b[k - 1u] != 0xF7u);
+        tx_mid = b[k - 1u] == 0xF7u ? 0u : 2u;
+        ep1tx[n] = (uint8_t)(tx_mid ? 4u : 4u + k);     /* CIN 4 goes on; 5, 6, 7: ends with 1, 2, 3 bytes */
+        ep1tx[n + 1] = (uint8_t)b[0];
+        ep1tx[n + 2] = (uint8_t)b[1];
+        ep1tx[n + 3] = (uint8_t)b[2];
+        n += 4u;
+        RING_PUBLISH();
+        mr_r = r;
+    }
+#endif
     if (!n)
         return;
     fm1_usb_ep_send(1, ep1tx, n);
@@ -1011,6 +1052,10 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
 #if FELUCCA_OTA
         so_r = so_w;
         sx_collect = 0;
+#endif
+#if FELUCCA_MIRROR
+        mr_r = mr_w;
+        tx_mid = 0;
 #endif
         usb.e0_tx = 0;
         usb.has_pend_addr = 0;

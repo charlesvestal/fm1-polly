@@ -102,6 +102,17 @@ for s in tests/scenarios/*.polly; do
     mkdir -p "build/scenarios/$n"
     run "scenario-$n" build/host/polly_host "$s" "build/scenarios/$n"
 done
+# the screen mirrored over USB (firmware/src/mirror.c): its pixel code on the simulator's screens (the mirror
+# scenario's dumps: the bytes each takes), rows not sent twice, a full ring (drops, redraws until whole), a refresh,
+# the input reports, off; then the viewer's own decoder (web/mirror/index.html) on the simulator's stream, against its
+# screen, and tools/polly_mirror.py making a PNG of it
+M=build/scenarios/mirror
+run mirror sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O2 -Ibuild/gen -o $OUT/mirror_test tests/host/mirror_test.c && \
+    $OUT/mirror_test $M/home.bin $M/seq.bin $M/fx.bin $M/glo.bin $M/arp.bin $M/final.bin"
+if command -v node >/dev/null 2>&1; then
+    run mirror-viewer node tests/host/mirror_test.mjs $M
+fi
+run mirror-png python3 tools/polly_mirror.py $OUT/mirror.png --from $M/stream.syx
 # three QY70 styles played whole from the ROM's bank, to WAVs in $QDIR (QY70_OUT keeps them)
 if [ -n "${QY_HOST:-}" ]; then
     run qy70-styles build/host/polly_host tests/rom/qy70_styles.polly "$QDIR"

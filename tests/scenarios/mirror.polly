@@ -1,0 +1,80 @@
+# POLLY, the screen and panel mirrored over USB (firmware/src/mirror.c): a viewer asks, the screen streams at USB's
+# pace, playing; a slow link drops frames, the rows come back by themselves once there is room; the input reports;
+# off by request, by the viewer gone quiet, by the cable. tests/host/mirror_test.mjs decodes stream.syx through the
+# viewer's own decoder (web/mirror/index.html) and compares it with the screens dumped here; tests/host/mirror_test.c
+# codes the dumps again (compression, round trip).
+wait 300
+expect mirror_on 0
+mirror stream.syx
+wait 800
+expect mirror_on 1
+expect mirror_dirty 0
+fbdump home.bin
+# the panel: a button held, keys held, knobs turned (the reports' contents: mirror_test.mjs)
+press SEL
+wait 60
+key 5 down
+key 9 down
+wait 60
+key 5 up
+key 9 up
+release SEL
+turn K1 3 30
+turn PRESET -2 30
+master 3000
+wait 200
+# pages and play: the stream keeps up
+tap SEQ
+wait 200
+fbdump seq.bin
+tap FX
+wait 200
+fbdump fx.bin
+tap GLO
+wait 200
+fbdump glo.bin
+tap ARP
+wait 200
+fbdump arp.bin
+tap HOME
+tap PLAY
+wait 3000
+# a slow link (a busy host): frames dropped, their rows dirty, redrawn when there is room
+mirror_rate 2
+tap SEQ
+wait 300
+tap EDIT
+wait 300
+turn K2 4 40
+expect mirror_drops >0
+mirror_rate 48
+tap PLAY
+wait 1500
+expect mirror_dirty 0
+fbdump final.bin
+# a refresh: everything again
+mirror refresh
+wait 600
+expect mirror_dirty 0
+fbdump final2.bin
+# the cable out (what was queued gone out first): off
+mirror unplug
+wait 50
+expect mirror_on 0
+# again, from scratch
+mirror stream2.syx
+wait 600
+expect mirror_on 1
+expect mirror_dirty 0
+fbdump second.bin
+mirror unplug
+# the viewer gone without a word: off after 6 s
+mirror stream3.syx
+wait 600
+expect mirror_on 1
+mirror nokeep
+wait 7000
+expect mirror_on 0
+mirror off
+expect mirror_on 0
+mirror unplug

@@ -31,6 +31,11 @@
  *   restore FILE                 a backup put back as the device does once SEL answers RESTORE FROM USB?: checked
  *                                whole, every object replaced, everything reloaded; refused while playing (STOP
  *                                FIRST) or when damaged: nothing changes (expect restore_rc: 0, 10 playing, 5 damaged)
+ *   mirror FILE|off|refresh|nokeep|unplug   the screen and panel mirrored over USB (firmware/src/mirror.c) as a
+ *                                viewer asks for it, the device's SysEx into FILE (in OUTDIR) at USB's pace; nokeep: the
+ *                                viewer's keep-alive stops; unplug: the cable out
+ *   mirror_rate N                that pace, bytes a millisecond (48: a 64-byte USB-MIDI packet a 1 ms frame)
+ *   fbdump FILE                  the screen's pixels raw (240 x 240 RGB565, high byte first) into FILE in OUTDIR
  *   style NAME                   the song's six sections from the style named NAME ("_" for a space; "qy:NAME": the
  *                                QY70 bank's only), as the Style knob sets them
  */
@@ -47,10 +52,16 @@
 /* ------------------------------------------------------------ screen --- */
 static uint16_t fb[240 * 240];          /* RGB565, byte-swapped as the panel takes it (gfx.c) */
 static void lcd_sync(void) {}
+/* screen mirroring over USB (firmware/src/mirror.c), as lcd.c copies each blit and fill to it */
+static uint8_t mirror_on;
+static void mirror_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *px);
+static void mirror_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c);
 static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)
 {
     uint32_t i, j;
     uint16_t sc = (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8));
+    if (mirror_on && w && h && x < 240u && y < 240u)
+        mirror_fill(x, y, x + w > 240u ? 240u - x : w, y + h > 240u ? 240u - y : h, c);
     for (j = y; j < y + h && j < 240u; j++)
         for (i = x; i < x + w && i < 240u; i++)
             fb[j * 240u + i] = sc;
@@ -64,12 +75,16 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
         for (i = 0; i < w; i++)
             if (x + i < 240u && y + j < 240u)
                 fb[(y + j) * 240u + x + i] = px[j * w + i];
+    if (mirror_on)
+        mirror_blit(x, y, w, h, px);
 }
 #include "../firmware/src/gfx.c"
 
 
 /* ---------------------------------------------------------- platform --- */
 #include "../firmware/src/app/plat.h"
+#define MRQ 4096u                       /* the device's mirror ring (usb.c) */
+#include "../firmware/src/mirror.c"
 
 static uint32_t now_ms, held_btn, held_keys, master = 2048;
 static int32_t enc_acc[NE];
@@ -82,6 +97,8 @@ int32_t plat_enc(int role)
 {
     int32_t v = enc_acc[role];
     enc_acc[role] = 0;
+    if (v)
+        mirror_enc(role, v);
     return v;
 }
 uint32_t plat_master(void) { return master; }
@@ -89,6 +106,7 @@ void plat_leds(uint32_t b, uint32_t k)
 {
     lit_btn = b;
     lit_keys = k;
+    mirror_leds(b, k);
 }
 static int glow_on = 1;                 /* the device's button glow (plat_glow); the lights printed are the bright ones */
 void plat_glow(int on) { glow_on = on; }
@@ -186,6 +204,61 @@ static int msg_too_wide;                 /* ui.c's say(): messages wider than th
 #include "../firmware/src/app/project.c"
 #include "../firmware/src/app/pages.c"
 #include "../firmware/src/app/ui.c"
+
+/* ------------------------------------------------- mirroring over USB --- */
+/* the device's mirror ring, drained at USB's pace (mr_rate bytes a millisecond; 48: one 64-byte packet of
+ * USB-MIDI a 1 ms frame) into a file of SysEx (`mirror FILE`); the SysEx ring's frames (the input reports, the
+ * hellos) go first, between frames, as usb.c sends them. The viewer's keep-alive every 2 s. */
+static uint8_t hmr_q[MRQ], hctl[1024];
+static uint32_t hmr_w, hmr_r, hctl_n, mr_rate = 48, mr_mid, mr_keep = 1, mr_keep_t, mr_link_n = 1;
+static FILE *mr_out;
+static uint32_t mr_free(void) { return MRQ - (hmr_w - hmr_r); }
+static void mr_put(const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++)
+        hmr_q[(hmr_w + i) % MRQ] = p[i];
+    hmr_w += n;
+}
+static int mr_link(void) { return mr_out ? (int)mr_link_n : -1; }
+static int mr_busy(void) { return !mr_out; }
+static int mr_ctl_send(const uint8_t *p, uint32_t n)
+{
+    if (!mr_out || hctl_n + n > sizeof hctl)
+        return -1;
+    memcpy(hctl + hctl_n, p, n);
+    hctl_n += n;
+    return 0;
+}
+static void mr_redraw(void)
+{
+    for (uint32_t k = 0; k < 5u; k++)
+        ui.sig[k] = ~ui.sig[k];
+}
+static void host_mirror_ms(void)                 /* one millisecond of USB */
+{
+    uint32_t budget = mr_rate;
+    if (!mr_out)
+        return;
+    if (mirror_on && mr_keep && now_ms - mr_keep_t >= 2000u) {
+        mr_keep_t = now_ms;
+        mirror_cmd(1);
+    }
+    for (;;) {
+        if (!mr_mid && hctl_n) {
+            fwrite(hctl, 1, hctl_n, mr_out);
+            budget = budget > hctl_n ? budget - hctl_n : 0;
+            hctl_n = 0;
+        }
+        if (hmr_r == hmr_w || !budget)
+            break;
+        {
+            uint8_t b = hmr_q[hmr_r++ % MRQ];
+            fputc(b, mr_out);
+            mr_mid = b != 0xF7u;
+            budget--;
+        }
+    }
+}
 
 /* ------------------------------------------- backup / restore over USB --- */
 /* backup.c's image, made and taken from the simulated store (the device's side and its safety: tests/backup_test.c) */
@@ -453,6 +526,8 @@ static void run_ms(uint32_t ms)
         } else {
             ui_input_only();
         }
+        mirror_step();
+        host_mirror_ms();
     }
 }
 
@@ -674,6 +749,18 @@ static int expect(const char *what, const char *val)
         got = csong()->transpose;
     else if (!strcmp(what, "track"))              /* the selected track, 1..8 */
         got = proj.trk + 1;
+    else if (!strcmp(what, "mirror_on"))          /* the screen mirrored over USB */
+        got = mirror_on;
+    else if (!strcmp(what, "mirror_drops"))       /* frames that did not fit the ring (their rows dirty) */
+        got = (int)mr.drops;
+    else if (!strcmp(what, "mirror_redraws"))     /* the UI asked to draw again (dirty rows, a refresh) */
+        got = (int)mr.redraws;
+    else if (!strcmp(what, "mirror_dirty")) {     /* rows the viewer has wrong now */
+        got = 0;
+        for (uint32_t r = 0; r < 240u; r++)
+            got += mr_bit(mr.dirty, r);
+    } else if (!strcmp(what, "mirror_inputs"))    /* input reports sent */
+        got = (int)mr.inputs;
     else if (!strcmp(what, "restore_rc"))         /* the last restore: 0 done, 10 playing (STOP FIRST), else damaged */
         got = restore_rc;
     else if (!strcmp(what, "store_writes"))
@@ -1063,7 +1150,51 @@ int main(int argc, char **argv)
             wav_close();
         else if (!strcmp(cmd, "peakreset"))
             peak_out = 0.0f;
-        else if (!strcmp(cmd, "shot")) {
+        else if (!strcmp(cmd, "mirror")) {          /* mirror FILE | off | refresh | nokeep: the screen mirrored over
+                                                       * USB (firmware/src/mirror.c) into FILE (SysEx), as a viewer asks */
+            if (!strcmp(a, "off"))
+                mirror_cmd(0);
+            else if (!strcmp(a, "refresh"))
+                mirror_cmd(2);
+            else if (!strcmp(a, "nokeep"))            /* the viewer stops its keep-alive (gone without "off") */
+                mr_keep = 0;
+            else if (!strcmp(a, "unplug")) {          /* the cable out (once what was queued went out): no host */
+                if (mr_out) {
+                    uint32_t r0 = mr_rate;
+                    mr_rate = MRQ + sizeof hctl;
+                    host_mirror_ms();
+                    mr_rate = r0;
+                    fclose(mr_out);
+                }
+                mr_out = 0;
+                mr_mid = 0;
+                mr_link_n++;
+            } else {
+                snprintf(out, sizeof out, "%s/%s", dir, !strncmp(a, "out:", 4) ? a + 4 : a);
+                if (mr_out)
+                    fclose(mr_out);
+                if (!(mr_out = fopen(out, "wb"))) {
+                    printf("line %d: cannot write %s\n", lineno, out);
+                    return 2;
+                }
+                mr_keep = 1;
+                mr_keep_t = now_ms;
+                mirror_cmd(2);
+            }
+            run_ms(1);
+        } else if (!strcmp(cmd, "mirror_rate"))   /* mirror_rate N: USB's pace for the mirror, bytes a millisecond */
+            mr_rate = (uint32_t)atoi(a);
+        else if (!strcmp(cmd, "fbdump")) {         /* fbdump FILE: the screen's 240 x 240 pixels as stored (RGB565, the
+                                                     * panel's byte order: high byte first) */
+            FILE *f;
+            snprintf(out, sizeof out, "%s/%s", dir, a);
+            if (!(f = fopen(out, "wb"))) {
+                printf("line %d: cannot write %s\n", lineno, out);
+                return 2;
+            }
+            fwrite(fb, 2, 240 * 240, f);
+            fclose(f);
+        } else if (!strcmp(cmd, "shot")) {
             snprintf(out, sizeof out, "%s/%s", dir, a);
             png_write(out);
         } else if (!strcmp(cmd, "leds")) {
@@ -1150,6 +1281,13 @@ int main(int argc, char **argv)
     if (midi_log)
         fclose(midi_log);
     fails += msg_too_wide;
+    if (mr.frames) {
+        printf("mirror: %u frames, %u bytes (%u rects, %u rows sent, %u rows skipped, %u drops, %u redraws, %u inputs; "
+               "%u pixels blitted)\n", mr.frames, mr.bytes, mr.rects, mr.rows, mr.skipped, mr.drops, mr.redraws,
+               mr.inputs, mr.px);
+    }
+    if (mr_out)
+        fclose(mr_out);
     printf("host: %u ms simulated, %u blits, render %.1f%% of real time (host CPU)%s\n", now_ms, blits,
            render_budget_ns_total > 0 ? 100.0 * render_ns_total / render_budget_ns_total : 0.0,
            fails ? ", EXPECTATIONS FAILED" : "");

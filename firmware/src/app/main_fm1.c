@@ -343,6 +343,9 @@ static void fm1_main(void)
         if (req == 11u && ota_dec[2] == BU_REQ && bu_rd32(ota_dec + 6) == BU_MAGIC && flash_ok)
             bu_start(arr_playing);                  /* a backup to the host: streamed by bu_step, playing on */
         bu_step();
+        if (req == 8u && ota_dec[2] == MR_REQ)
+            mirror_cmd(ota_dec[6]);                 /* the screen mirrored: on, off, refresh (mirror.c) */
+        mirror_step();
         if (req == 15u && ota_dec[2] == RS_REQ && flash_ok) {   /* a restore from the host (backup.c) */
             uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);
             int begun = 0, rc;

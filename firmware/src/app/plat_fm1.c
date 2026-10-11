@@ -19,7 +19,12 @@ int32_t plat_enc(int role)
 {
     if (role < 0 || role >= NE)
         return 0;
-    return fm1_enc_take(panel.enc[role]) * panel.dir[role];
+    {
+        int32_t n = fm1_enc_take(panel.enc[role]) * panel.dir[role];
+        if (n)
+            mirror_enc(role, n);
+        return n;
+    }
 }
 
 static volatile uint32_t master_q12 = 2048;
@@ -53,6 +58,7 @@ void plat_leds(uint32_t buttons, uint32_t keys)
 {
     uint8_t nl[FM1_NCOL] = {0}, dl[FM1_NCOL] = {0};
     uint32_t i, c;
+    mirror_leds(buttons | (uint32_t)play_red << 15, keys);
     for (i = 0; i < NB + NKEYS; i++) {
         uint32_t id = i < NB ? panel.btn[i] : 14u + (i - NB);
         int on = i < NB ? (buttons >> i) & 1u : (keys >> (i - NB)) & 1u;

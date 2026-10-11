@@ -18,6 +18,7 @@
 #include "fm1_perf.h"
 
 #include "libc.c"
+#define LCD_MIRROR 1              /* screen mirroring over USB (mirror.c) */
 #include "lcd.c"
 #include "gfx.c"
 
@@ -36,6 +37,7 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 #define GM_UAC 1                  /* USB audio input: the master output, recordable over the cable */
 #endif
 #define FELUCCA_UAC GM_UAC
+#define FELUCCA_MIRROR 1          /* usb.c's ring for mirror.c's frames */
 #ifndef FELUCCA_ID
 #define FELUCCA_ID "FM-1_300"     /* package identity (tools/build.py) */
 #endif
@@ -262,9 +264,34 @@ static int bu_send(const uint8_t *p, uint32_t n) { return ota_wire_send(p, n); }
 static void bu_flush(void) { app_flush(); }
 static void bu_hold(int on) { app_hold_saves(on); }
 
+/* the screen and the panel mirrored over USB (web/mirror/index.html, tools/polly_mirror.py) */
+#include "mirror.c"
+static uint32_t mr_free(void) { return MRQ - (mr_w - mr_r); }
+static void mr_put(const uint8_t *p, uint32_t n)
+{
+    uint32_t w = mr_w, i;
+    for (i = 0; i < n; i++)
+        mr_q[(w + i) % MRQ] = p[i];
+    RING_PUBLISH();                                 /* the bytes before the index: usb.c sends whole frames */
+    mr_w = w + n;
+}
+static int mr_link(void) { return usb.config ? (int)(midi_links & 0x7FFFFFFFu) : -1; }
+static int mr_busy(void) { return !usb.config || usb.suspended || bu.on; }
+static int mr_ctl_send(const uint8_t *p, uint32_t n)
+{
+    if (sx_busy || SXQ - (so_w - so_r) < (n + 2u) / 3u)
+        return -1;
+    return ota_wire_send(p, n);
+}
+
 #include "app/panel.c"
 #include "app/plat_fm1.c"
 #include "app/project.c"
 #include "app/pages.c"
 #include "app/ui.c"
 #include "app/main_fm1.c"
+static void mr_redraw(void)                         /* every band drawn again at the next frame (pages.c) */
+{
+    for (uint32_t k = 0; k < 5u; k++)
+        ui.sig[k] = ~ui.sig[k];
+}

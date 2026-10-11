@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polly Mirror</title>
+<meta name="description" content="The screen and panel of an FM-1 running Polly, live over USB-MIDI: view only.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+:root { --ground: #faf4e8; --ink: #48392f; --muted: #8a7764; --rule: #e6dccb; --accent: #e0683a; --teal: #26a69a; --card: #fffaf1; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); margin: 0; padding-inline: 16px; padding-block: 24px 48px;
+       font: 400 16px/1.55 "Barlow", "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 1040px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.2rem; margin: 0 0 .8rem; }
+h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
+header p { margin: 0; color: var(--muted); }
+a { color: var(--accent); }
+.bar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: 0 0 1rem; padding: .6rem .8rem;
+       background: var(--card); border: 1px solid var(--rule); border-radius: 12px; font-size: .95rem; }
+.bar label { color: var(--muted); display: inline-flex; gap: .4rem; align-items: center; }
+.bar select, .bar button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule);
+                           border-radius: 8px; padding: .25em .6em; max-width: 14rem; }
+.bar button { cursor: pointer; }
+.bar button.primary { background: var(--accent); border-color: var(--accent); color: #2a140a; font-weight: 600; }
+.bar button[aria-pressed="true"] { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
+.bar .zoom { display: inline-flex; gap: .25rem; }
+.dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--rule); display: inline-block; flex: none; }
+.dot.on { background: var(--teal); }
+.dot.wait { background: #e2a63c; }
+#status { flex: 1 1 14rem; }
+.nums { color: var(--muted); font-variant-numeric: tabular-nums; }
+.stage { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-start; justify-content: center; }
+.big { flex: none; max-width: 100%; }
+.big canvas { display: block; width: 480px; max-width: calc(100vw - 54px); aspect-ratio: 1; image-rendering: pixelated; image-rendering: crisp-edges;
+              background: #000; border-radius: 6px; box-shadow: 0 0 0 10px #111214, 0 0 0 11px var(--rule); margin: 11px; }
+.device { position: relative; flex: 1 1 420px; max-width: 760px; aspect-ratio: 1000 / 640; }
+.device svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.device canvas { position: absolute; left: 31.8%; top: 9.6875%; width: 20%; height: 31.25%; background: #000; border-radius: 2px; }
+.btnface, .keyface { transition: fill .06s, stroke .06s; }
+.lit .btnface { fill: #f28a5a; }
+.lit.green .btnface { fill: #4cc36a; }
+.lit text.btn { fill: #2a140a; }
+.held .btnface, .held .keyface { stroke: #4cc3b6; stroke-width: 4; }
+.held .btnface { fill: #3c5f5b; }
+.held.lit .btnface { fill: #f28a5a; }
+.lit .keyface.white { fill: #f6b48e; }
+.lit .keyface.black { fill: #4cc3b6; }
+.held .keyface.white { fill: #b9ddd8; }
+.held .keyface.black { fill: #8fd6ce; }
+.ring { fill: none; stroke: #f28a5a; stroke-width: 5; opacity: 0; }
+.ring.pulse { animation: pulse .5s ease-out; }
+@keyframes pulse { from { opacity: 1; } to { opacity: 0; } }
+.delta { opacity: 0; font: 700 22px "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif; fill: #f6b48e; }
+.delta.show { animation: rise .9s ease-out; }
+@keyframes rise { 0% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.help { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; margin: 1.6rem 0 0; }
+.help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.help p, .help ol { margin: 0; color: var(--muted); max-width: 60ch; }
+.help ol { padding-left: 1.1rem; }
+.err { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .ring.pulse, .delta.show { animation-duration: .01s; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Polly Mirror</h1>
+  <p>the FM-1's screen and panel, live over USB: view only</p>
+</header>
+
+<div class="bar" role="group" aria-label="Connection">
+  <span class="dot" id="dot" aria-hidden="true"></span>
+  <span id="status" role="status" aria-live="polite">Not connected.</span>
+  <button id="connect" class="primary" type="button">Connect</button>
+  <label>In <select id="inSel" aria-label="MIDI input (from the FM-1)"></select></label>
+  <label>Out <select id="outSel" aria-label="MIDI output (to the FM-1)"></select></label>
+  <span class="zoom" role="group" aria-label="Screen size">
+    <button type="button" data-zoom="2" aria-pressed="true">&times;2</button>
+    <button type="button" data-zoom="3" aria-pressed="false">&times;3</button>
+  </span>
+  <button id="refresh" type="button" title="Ask for the whole screen again">Refresh</button>
+  <button id="png" type="button" title="Save the screen as a PNG">Save PNG</button>
+  <span class="nums" id="nums"></span>
+</div>
+
+<div class="stage">
+  <div class="big"><canvas id="screen" width="240" height="240" aria-label="The FM-1's screen"></canvas></div>
+  <div class="device">
+    <svg id="panel" viewBox="0 0 1000 640" aria-label="The FM-1's panel: lit buttons and keys, held ones outlined, knobs as turned"></svg>
+    <canvas id="small" width="240" height="240" aria-hidden="true"></canvas>
+  </div>
+</div>
+
+<section class="help">
+  <div>
+    <h2>How</h2>
+    <ol>
+      <li>Plug the FM-1 running Polly into this computer.</li>
+      <li>Open this page in Chrome or Edge (Web MIDI), press <b>Connect</b> and allow MIDI with SysEx.</li>
+      <li>Polly is picked by itself; else choose its ports (<i>Polly FM-1</i>) above.</li>
+    </ol>
+  </div>
+  <div>
+    <h2>What you see</h2>
+    <p>Every screen update, as Polly draws it. Buttons and keys light as their LEDs do; the ones held are outlined in teal; a knob
+      turned flashes and shows its detents. Nothing here plays the FM-1: it only watches. Unplugged or asleep, the page waits and
+      picks it up again.</p>
+  </div>
+  <div>
+    <h2>Speed</h2>
+    <p>The screen goes run-length coded over USB-MIDI, after the notes and the clock. A slow moment (a busy host) skips frames,
+      never the picture: Polly sends what you are missing as soon as there is room.</p>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+// --- decoder: begin (tests/host/mirror_test.mjs runs this part in Node) ---
+// Polly's mirror frames (firmware/src/mirror.c): F0 pack7(00 59 cmd len24 body ~sum8(body)) F7.
+const MR_REQ = 0x50, MR_RECT = 0x51, MR_FILL = 0x52, MR_INPUT = 0x53;
+function mrPack7(bytes) {
+  const out = [];
+  let acc = 0, nb = 0;
+  for (const b of bytes) {
+    acc |= b << nb; nb += 8;
+    while (nb >= 7) { out.push(acc & 0x7F); acc >>= 7; nb -= 7; }
+  }
+  if (nb) out.push(acc & 0x7F);
+  return out;
+}
+function mrUnpack7(src) {
+  const out = [];
+  let acc = 0, nb = 0;
+  for (const b of src) {
+    acc |= (b & 0x7F) << nb; nb += 7;
+    if (nb >= 8) { out.push(acc & 0xFF); acc >>= 8; nb -= 8; }
+  }
+  return out;
+}
+// a request to the FM-1: 0 off, 1 on (also the keep-alive), 2 refresh
+function mrRequest(op) {
+  return Uint8Array.from([0xF0, ...mrPack7([0x00, 0x59, MR_REQ, 1, 0, 0, op, ~op & 0xFF]), 0xF7]);
+}
+const mrHash = (c) => (Math.imul(c, 40503) >>> 10) & 63;
+// on: { rect(x, y, w, h), input(state), hello(info), gap() }; screen: 240 x 240 RGB565
+function createMirror(on = {}) {
+  const screen = new Uint16Array(240 * 240);
+  const stats = { bytes: 0, frames: 0, rects: 0, fills: 0, inputs: 0, bad: 0, gaps: 0 };
+  let buf = [], inSx = false, seq = -1;
+  function rect(b) {
+    const x = b[0], y = b[1], w = b[2], h = b[3], total = w * h, cache = new Uint16Array(64);
+    let i = 5, p = 0, cur = 0;
+    if (!w || !h || x + w > 240 || y + h > 240) return false;
+    const put = (c, n) => {
+      if (p + n > total) return false;
+      for (let k = 0; k < n; k++, p++) screen[(y + (p / w | 0)) * 240 + x + p % w] = c;
+      return true;
+    };
+    while (i < b.length) {
+      const op = b[i++];
+      if (op < 0x80) { if (!put(cur, op + 1)) return false; }
+      else if (op < 0xC0) { cur = cache[op & 63]; if (!put(cur, 1)) return false; }
+      else {
+        if (i + 2 > b.length) return false;
+        cur = b[i] << 8 | b[i + 1]; i += 2;
+        cache[mrHash(cur)] = cur;
+        if (!put(cur, (op & 63) + 1)) return false;
+      }
+    }
+    return p === total;
+  }
+  function frame(raw) {
+    const m = mrUnpack7(raw);
+    if (m.length < 7 || m[0] !== 0 || m[1] !== 0x59) return;          // not Polly's
+    const n = m[3] | m[4] << 8 | m[5] << 16;
+    let sum = 0;
+    for (let i = 6; i < 6 + n; i++) sum += m[i];
+    if (n + 7 !== m.length || (~sum & 0xFF) !== m[6 + n]) { stats.bad++; return; }
+    const cmd = m[2], b = m.slice(6, 6 + n);
+    stats.frames++;
+    if (cmd === MR_RECT || cmd === MR_FILL) {
+      if (seq >= 0 && b[4] !== seq) { stats.gaps++; on.gap?.(); }
+      seq = (b[4] + 1) & 255;
+    }
+    if (cmd === MR_RECT) {
+      if (!rect(b)) { stats.bad++; on.gap?.(); }
+      stats.rects++;
+      on.rect?.(b[0], b[1], b[2], b[3]);
+    } else if (cmd === MR_FILL && n >= 7) {
+      const c = b[5] << 8 | b[6], x = b[0], y = b[1], w = b[2], h = b[3];
+      for (let j = y; j < Math.min(240, y + h); j++) screen.fill(c, j * 240 + x, j * 240 + Math.min(240, x + w));
+      stats.fills++;
+      on.rect?.(x, y, w, h);
+    } else if (cmd === MR_INPUT && n >= 21) {
+      const u32 = (o) => (b[o] | b[o + 1] << 8 | b[o + 2] << 16 | b[o + 3] << 24) >>> 0;
+      const lit = b[15] | b[16] << 8;
+      stats.inputs++;
+      on.input?.({ buttons: b[0] | b[1] << 8, keys: u32(2), enc: Array.from(b.slice(6, 13), (v) => (v << 24) >> 24),
+                   master: b[13] | b[14] << 8, litButtons: lit & 0x7FFF, playRed: !!(lit & 0x8000), litKeys: u32(17) });
+    } else if (cmd === MR_REQ && n >= 4) {
+      on.hello?.({ version: b[0], on: !!b[1], w: b[2] + 1, h: b[3] + 1 });
+    }
+  }
+  function feed(data) {
+    for (const v of data) {
+      stats.bytes++;
+      if (v === 0xF0) { inSx = true; buf = []; }
+      else if (!inSx || v >= 0xF8) continue;                          // (real-time bytes may come inside a SysEx)
+      else if (v === 0xF7) { inSx = false; frame(buf); }
+      else if (v & 0x80) inSx = false;                                // a status byte: that SysEx is cut
+      else buf.push(v);
+    }
+  }
+  return { feed, screen, stats, resync() { seq = -1; } };
+}
+// --- decoder: end ---
+
+if (typeof document !== "undefined") {
+// ---------------------------------------------------------------- the panel (web/emu's drawing)
+const NS = "http://www.w3.org/2000/svg";
+const BTN = { FX: 0, SEL: 1, ENV: 2, LFO: 3, EDIT: 4, GLO: 5, HOME: 6, SAVE: 7, ARP: 8, SEQ: 9, PLAY: 10, REC: 11, "OCT-": 12, "OCT+": 13 };
+const ENC = { SELECT: 0, ALGORITHM: 1, PRESETS: 2, KNOB1: 3, KNOB2: 4, KNOB3: 5, KNOB4: 6 };
+const WHITE_K = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26];
+const BLACK_K = [1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25];
+const BLACK_AFTER = [0, 1, 2, 4, 5, 7, 8, 9, 11, 12, 14];
+const BODY = "#3a3d42", TRAY = "#26282c", KEY_W = "#d9dadc", KEY_B = "#c9cacd", KNOB = "#1f2124", BTNC = "#2e3135", LABEL = "#e8e8ea";
+const svg = document.getElementById("panel");
+function el(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function text(parent, x, y, s, size, fill = LABEL) {
+  const t = el("text", { x, y, "text-anchor": "middle", "font-family": "'Barlow Semi Condensed', 'Arial Narrow', Arial, sans-serif",
+                         "font-size": size, "font-weight": 600, fill, "letter-spacing": ".05em", class: "btn" }, parent);
+  t.textContent = s;
+  return t;
+}
+el("rect", { x: 4, y: 4, width: 992, height: 632, rx: 44, fill: BODY });
+const knobs = {}, byRole = [];
+function knob(x, y, r, label, role) {
+  const g = el("g", {});
+  el("circle", { cx: x, cy: y, r: r + 5, fill: TRAY }, g);
+  const ring = el("circle", { cx: x, cy: y, r: r + 9, class: "ring" }, g);
+  el("circle", { cx: x, cy: y, r, fill: KNOB, stroke: "#44474c", "stroke-width": 2 }, g);
+  const ind = el("line", { x1: x, y1: y - r + 5, x2: x, y2: y - r + 15, stroke: LABEL, "stroke-width": 3, "stroke-linecap": "round" }, g);
+  text(g, x, y - r - 12, label, 17);
+  const delta = el("text", { x: x + r + 14, y: y + 8, class: "delta", "text-anchor": "start" }, g);
+  const k = { g, ind, ring, delta, x, y, angle: 0, sum: 0, t: 0 };
+  knobs[label] = k;
+  if (role !== undefined) byRole[role] = k;
+  return k;
+}
+knob(105, 100, 24, "MASTER");
+knob(215, 100, 24, "SELECT", ENC.SELECT);
+knob(105, 205, 24, "PRESETS", ENC.PRESETS);
+knob(215, 205, 24, "ALGORITHM", ENC.ALGORITHM);
+for (let i = 0; i < 4; i++) knob(610 + i * 104, 100, 22, `KNOB${i + 1}`, ENC[`KNOB${i + 1}`]);
+const buttons = [];
+function button(x, y, w, h, label, two) {
+  const g = el("g", {});
+  el("rect", { x, y, width: w, height: h, rx: 9, fill: BTNC, stroke: "#4a4d52", "stroke-width": 1.5, class: "btnface" }, g);
+  if (two) { text(g, x + w / 2, y + h / 2 - 1, label, 12); text(g, x + w / 2, y + h / 2 + 12, two, 12); }
+  else text(g, x + w / 2, y + h / 2 + 5, label, 15);
+  buttons[BTN[label]] = { g };
+}
+el("rect", { x: 58, y: 258, width: 210, height: 58, rx: 14, fill: TRAY });
+button(72, 268, 82, 38, "OCT-"); button(170, 268, 82, 38, "OCT+");
+el("rect", { x: 300, y: 44, width: 236, height: 236, rx: 26, fill: "#111214" });
+el("rect", { x: 568, y: 160, width: 400, height: 140, rx: 18, fill: TRAY });
+const ROW1 = ["FX", "SEL", "ENV", "LFO", "EDIT", "GLO"], ROW2 = ["HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
+for (let i = 0; i < 6; i++) {
+  button(582 + i * 63, 174, 54, 48, ROW1[i]);
+  if (ROW2[i] === "PLAY") button(582 + i * 63, 236, 54, 48, "PLAY", "STOP"); else button(582 + i * 63, 236, 54, 48, ROW2[i]);
+}
+const keys = [];
+(function keybed(x0, y0, w, h) {
+  el("rect", { x: x0, y: y0, width: w, height: h, rx: 18, fill: TRAY });
+  const pitch = (w - 24) / 16, kw = pitch * 0.78;
+  for (let i = 0; i < 16; i++) {
+    const g = el("g", {});
+    el("rect", { x: x0 + 12 + i * pitch + (pitch - kw) / 2, y: y0 + h * 0.43, width: kw, height: h * 0.52, rx: kw / 2, fill: KEY_W, class: "keyface white" }, g);
+    keys[WHITE_K[i]] = { g };
+  }
+  BLACK_AFTER.forEach((a, k) => {
+    const g = el("g", {});
+    el("rect", { x: x0 + 12 + (a + 1) * pitch - kw / 2, y: y0 + h * 0.06, width: kw, height: h * 0.33, rx: kw / 2, fill: KEY_B, class: "keyface black" }, g);
+    keys[BLACK_K[k]] = { g };
+  });
+})(36, 340, 928, 270);
+
+function restart(e, cls) { e.classList.remove(cls); void e.getBoundingClientRect(); e.classList.add(cls); }
+function turned(k, n) {
+  const now = performance.now();
+  k.sum = now - k.t < 700 ? k.sum + n : n;
+  k.t = now;
+  k.angle = (k.angle + n * 18) % 360;
+  k.ind.setAttribute("transform", `rotate(${k.angle} ${k.x} ${k.y})`);
+  k.delta.textContent = (k.sum > 0 ? "+" : "−") + Math.abs(k.sum);
+  restart(k.ring, "pulse");
+  restart(k.delta, "show");
+}
+let lastMaster = -1;
+function showInput(s) {
+  buttons.forEach((b, i) => {
+    b.g.classList.toggle("held", !!(s.buttons & (1 << i)));
+    b.g.classList.toggle("lit", !!(s.litButtons & (1 << i)));
+    if (i === BTN.PLAY) b.g.classList.toggle("green", !s.playRed);
+  });
+  keys.forEach((k, i) => {
+    k.g.classList.toggle("held", !!(s.keys & (1 << i)));
+    k.g.classList.toggle("lit", !!(s.litKeys & (1 << i)));
+  });
+  s.enc.forEach((n, r) => { if (n && byRole[r]) turned(byRole[r], n); });
+  if (s.master !== lastMaster) {                       // gain = position^2: the knob's position back
+    const m = knobs.MASTER, pos = Math.min(1, Math.sqrt(s.master * 256) / 1023);
+    if (lastMaster >= 0 && Math.abs(s.master - lastMaster) >= 32) restart(m.ring, "pulse");
+    lastMaster = s.master;
+    m.ind.setAttribute("transform", `rotate(${-135 + 270 * pos} ${m.x} ${m.y})`);
+  }
+}
+
+// ---------------------------------------------------------------- the screen
+const big = document.getElementById("screen"), bctx = big.getContext("2d");
+const sctx = document.getElementById("small").getContext("2d");
+const img = bctx.createImageData(240, 240);
+let pending = false, painted = 0;
+const R5 = Array.from({ length: 32 }, (_, i) => Math.round(i * 255 / 31)), G6 = Array.from({ length: 64 }, (_, i) => Math.round(i * 255 / 63));
+const mirror = createMirror({
+  rect(x, y, w, h) {
+    const d = img.data, s = mirror.screen;
+    for (let j = y; j < y + h; j++)
+      for (let i = x; i < x + w; i++) {
+        const p = j * 240 + i, v = s[p], o = p * 4;
+        d[o] = R5[v >> 11]; d[o + 1] = G6[(v >> 5) & 63]; d[o + 2] = R5[v & 31]; d[o + 3] = 255;
+      }
+    if (!pending) { pending = true; requestAnimationFrame(paint); }
+  },
+  input: showInput,
+  hello(h) { heardHello = true; if (!h.on) say("Polly stopped mirroring.", "wait"); },
+  gap() { askRefresh(); },
+});
+function paint() {
+  pending = false;
+  painted++;
+  bctx.putImageData(img, 0, 0);
+  sctx.drawImage(big, 0, 0);
+}
+for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
+paint();
+
+document.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
+  const z = +b.dataset.zoom;
+  big.style.width = `${240 * z}px`;
+  document.querySelectorAll("[data-zoom]").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+  try { localStorage.setItem("polly-mirror-zoom", String(z)); } catch {}
+}));
+try { const z = localStorage.getItem("polly-mirror-zoom"); if (z) document.querySelector(`[data-zoom="${z}"]`)?.click(); } catch {}
+document.getElementById("png").addEventListener("click", () => {
+  big.toBlob((b) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = `polly-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+});
+
+// ---------------------------------------------------------------- MIDI
+const statusEl = document.getElementById("status"), dot = document.getElementById("dot"), nums = document.getElementById("nums");
+const inSel = document.getElementById("inSel"), outSel = document.getElementById("outSel"), connectBtn = document.getElementById("connect");
+let access = null, inPort = null, outPort = null, lastHeard = 0, heardHello = false, lastAsk = 0;
+function say(t, state) {
+  statusEl.textContent = t;
+  statusEl.classList.toggle("err", state === "err");
+  dot.className = "dot" + (state === "on" ? " on" : state === "wait" ? " wait" : "");
+}
+function send(op) { try { outPort?.send(mrRequest(op)); } catch { /* the port went away: the state change says so */ } }
+function askRefresh() {
+  const t = performance.now();
+  if (t - lastAsk < 1000) return;
+  lastAsk = t;
+  mirror.resync();
+  send(2);
+}
+function fill(sel, ports, saved) {
+  const names = ports.map((p) => p.name);
+  sel.replaceChildren(...ports.map((p) => new Option(p.name, p.id)));
+  const pick = ports.find((p) => p.name === saved) || ports.find((p) => /polly/i.test(p.name)) || ports.find((p) => /fm-?1/i.test(p.name));
+  if (pick) sel.value = pick.id;
+  sel.disabled = !names.length;
+}
+function pickPorts() {
+  const ins = [...access.inputs.values()].filter((p) => p.state === "connected");
+  const outs = [...access.outputs.values()].filter((p) => p.state === "connected");
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("polly-mirror-ports") || "{}"); } catch {}
+  fill(inSel, ins, saved.in);
+  fill(outSel, outs, saved.out);
+  attach();
+}
+function attach() {
+  const i = access.inputs.get(inSel.value) || null, o = access.outputs.get(outSel.value) || null;
+  if (i !== inPort) {
+    if (inPort) inPort.onmidimessage = null;
+    inPort = i;
+    if (inPort) inPort.onmidimessage = (e) => { lastHeard = performance.now(); mirror.feed(e.data); };
+  }
+  const fresh = o !== outPort;
+  outPort = o;
+  if (!inPort || !outPort) { say("Waiting for Polly: plug the FM-1 in, or pick its ports.", "wait"); return; }
+  try { localStorage.setItem("polly-mirror-ports", JSON.stringify({ in: inPort.name, out: outPort.name })); } catch {}
+  if (fresh) { heardHello = false; lastHeard = performance.now(); mirror.resync(); send(2); say(`Asking ${outPort.name}...`, "wait"); }
+}
+inSel.addEventListener("change", attach);
+outSel.addEventListener("change", () => { outPort = null; attach(); });
+document.getElementById("refresh").addEventListener("click", () => { lastAsk = 0; askRefresh(); });
+async function connect() {
+  if (!navigator.requestMIDIAccess) { say("This browser has no Web MIDI: use Chrome or Edge.", "err"); return; }
+  try {
+    access = await navigator.requestMIDIAccess({ sysex: true });
+  } catch (e) {
+    say("MIDI was not allowed: press Connect again and allow MIDI with SysEx.", "err");
+    return;
+  }
+  connectBtn.hidden = true;
+  const seen = new Map();                              // each port's last state: plugged, unplugged (not open / closed)
+  for (const p of [...access.inputs.values(), ...access.outputs.values()]) seen.set(p.id, p.state);
+  access.onstatechange = (e) => {
+    const p = e.port;
+    if (seen.get(p.id) === p.state) return;
+    seen.set(p.id, p.state);
+    if (inPort) inPort.onmidimessage = null;           // the FM-1 back (or gone): the ports picked afresh, a refresh
+    inPort = outPort = null;
+    pickPorts();
+  };
+  pickPorts();
+}
+connectBtn.addEventListener("click", connect);
+navigator.permissions?.query({ name: "midi", sysex: true }).then((p) => { if (p.state === "granted") connect(); }).catch(() => {});
+
+// keep-alive (Polly stops after 6 s without one), reconnection, the numbers
+let lastBytes = 0, lastPainted = 0;
+setInterval(() => {
+  if (!outPort) return;
+  const quiet = performance.now() - lastHeard;
+  if (quiet > 4000) { heardHello = false; mirror.resync(); send(2); say("No answer: is Polly running? Asking again...", "wait"); }
+  else { send(1); if (heardHello) say(`Mirroring ${inPort ? inPort.name : ""}.`, "on"); }
+}, 2000);
+setInterval(() => {
+  const b = mirror.stats.bytes - lastBytes, f = painted - lastPainted;
+  lastBytes = mirror.stats.bytes; lastPainted = painted;
+  nums.textContent = `${f} fps · ${b >= 1024 ? (b / 1024).toFixed(1) + " kB" : b + " B"}/s` + (mirror.stats.gaps ? ` · ${mirror.stats.gaps} gaps` : "");
+}, 1000);
+addEventListener("pagehide", () => send(0));
+}
+</script>
+</body>
+</html>

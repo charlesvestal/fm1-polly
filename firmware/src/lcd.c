@@ -16,6 +16,12 @@
 
 static uint8_t lcd_small[64];
 static uint8_t lcd_busy;           /* a lcd_data DMA may still run; CS is low */
+#if LCD_MIRROR
+/* Polly: screen mirroring over USB (mirror.c): every blit and fill copied while a host watches */
+static uint8_t mirror_on;
+static void mirror_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *px);
+static void mirror_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c);
+#endif
 
 static void lcd_spin(uint32_t n)
 {
@@ -78,6 +84,10 @@ static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)
         w = 240u - x;
     if (y + h > 240u)
         h = 240u - y;
+#if LCD_MIRROR
+    if (mirror_on)
+        mirror_fill(x, y, w, h, c);
+#endif
     lcd_sync();
     k = 240u / w * w;                       /* whole rows per transfer (narrow fills: one DMA) */
     for (i = 0; i < k; i++)
@@ -96,6 +106,10 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
         return;
     lcd_window(x, y, x + w - 1u, y + h - 1u);
     lcd_data(px, w * h * 2u);
+#if LCD_MIRROR
+    if (mirror_on)
+        mirror_blit(x, y, w, h, px);              /* (while the DMA sends it: both only read px) */
+#endif
 }
 
 /* ST7789V init: reset, then 16-bit colour, scan direction and IPS inversion;
