@@ -3,16 +3,22 @@
 Usability holes the user picked, in this order: 1 2 3 5 6 4. Polly is prerelease: no migrations (an older
 saved format loads as defaults).
 
-## 1. Loops shared by the four songs, made visible and safe
+## 1. Each song owns its loops
 
-The flash is full, so loops stay one table of 16 for all songs. Instead:
-- LOOP's header and HOME's strip show where a loop is used, across songs: "L9 · S1 ×3 · S2 ×1" (rows per
-  song; the current song first; "not in a song" when none).
-- The first edit of a loop (a chord written, a knob, LENGTH / BEATS, LOAD PROGRESSION, CLEAR LOOP) that is
-  used by **another** song asks once: "L9 IS IN S2 TOO" — SEL: **EDIT FOR BOTH**, HOME: **COPY FOR THIS SONG**
-  (the loop is copied to the first empty loop, this song's rows switch to the copy, the edit goes into the
-  copy; no empty loop: "NO EMPTY LOOP: EDIT FOR BOTH?"). The answer holds until another loop is picked.
-- A free take never needs it (it writes an empty loop).
+The user: "Sharing loops makes no sense to me." Loops belong to a song: S1's L9 and S2's L9 are different
+loops. Nothing is shared, so there is nothing to warn about.
+- RAM holds the current song's 16 loops (as today's table; the engine's `arr_loops` pointer unchanged). The
+  songs object (OBJ_SONGS) keeps the four songs' headers and rows only.
+- A song's loops are stored in a **slot** (the shared 16, kind "loops", header: magic, kind, song), taken the
+  first time that song's loops differ from the factory defaults (L1–L8 factory, L9–L16 empty) and saved when
+  they change (autosave at rest). A song with default loops takes no slot. "NO FREE SLOT" when a song's
+  loops need one and none is free (with the SLOTS hint, part 5).
+- Switching songs (only at a stop, as today): the current song's loops are saved if changed, the new song's
+  loaded (or the defaults). COPY SONG copies the loops too (a slot for the target if they're not the
+  defaults). CLEAR SONG keeps the loops (as today: rows only) — add CLEAR SONG'S LOOPS? No: CLEAR LOOP per
+  loop is enough.
+- The "in N rows" header counts the current song only (as today, now exact).
+- Format: songs object without loops (format 8); older formats load as defaults (prerelease, no migration).
 
 ## 2. Undo / redo
 
