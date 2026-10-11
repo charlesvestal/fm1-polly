@@ -1,0 +1,244 @@
+# Polly: a song from scratch (tools/polly_video.py tools/video/song.story OUT.mp4), MANUAL.md's "Writing a song"
+# from a fresh boot. Pop, 105 BPM: a bar 2285.714 ms. Keys (octave 0): F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11,
+# F4 12, G4 14, A4 16, B4 18, C5 19, D5 21, E5 23. Am 4 7 11, F 0 4 7, C 7 11 14, G 2 6 9.
+barms 2285.714
+cap Polly | a pocket arranger after the QY70, on the M-VAVE FM-1. Fresh from boot: Home, nothing playing.
+wait 2500
+# ---- 1. a style
+cap 1. Pick a style | Home's KNOB 1 turns through the styles (each brings its tempo); back to Pop at 105 BPM
+wait 600
+turn K1 1 500
+turn K1 1 500
+turn K1 1 600
+turn K1 -3 250
+wait 900
+expect tempo 105
+# ---- 2. chords in free
+cap 2. Play some chords | Three keys make a chord; PLAY, and the band follows whatever you play: Am, F, C, G
+chord 900 4 7 11
+wait 300
+anchor A
+tap PLAY
+wait 1200
+expect playing 1
+at A 1 30
+chord 1900 0 4 7
+at A 2 30
+chord 1900 7 11 14
+at A 3 30
+chord 1900 2 6 9
+at A 4 30
+chord 900 4 7 11
+# ---- 3. the verse take
+cap 3. Record the verse | REC: the click counts in to the next bar; then Am, F, C, G, a bar each; REC again
+at A 4 1050
+tap REC
+expect take 2
+at A 5 30
+chord 1900 4 7 11
+at A 6 30
+chord 1900 0 4 7
+at A 7 30
+chord 1900 7 11 14
+at A 8 30
+chord 1900 2 6 9
+at A 9 -250
+tap REC
+expect take 0
+wait 300
+expect mode 1
+expect loop_bars9 4
+expect loop_ch9_0 916
+expect loop_ch9_12 700
+# ---- 4. name it
+cap 4. Name it | ARP shows the progression, P9; SELECT to page 2, KNOB 4 (Name) to "Verse". It plays round meanwhile.
+wait 500
+tap ARP
+wait 1300
+turn SELECT 1
+wait 700
+turn K4 1
+wait 1800
+expect loop_name9 Verse
+# ---- 5. the chorus
+cap 5. Record the chorus | HOME, KNOB 4 back past P1 to "-": free again. REC, then C, G, Am, F; REC
+tap HOME
+wait 700
+turn K4 -9 90
+wait 400
+expect mode 0
+at A 12 30
+chord 900 7 11 14
+at A 12 1050
+tap REC
+expect take 2
+at A 13 30
+chord 1900 7 11 14
+at A 14 30
+chord 1900 2 6 9
+at A 15 30
+chord 1900 4 7 11
+at A 16 30
+chord 1900 0 4 7
+at A 17 -250
+tap REC
+expect take 0
+wait 300
+expect mode 1
+expect loop_bars10 4
+expect loop_ch10_0 0
+expect loop_ch10_4 700
+expect loop_ch10_8 916
+expect loop_ch10_12 500
+# ---- 6. name it
+cap 6. Name it | ARP, SELECT to page 2, KNOB 4 (Name) to "Chorus": P10. The band plays it round.
+wait 400
+tap ARP
+wait 1100
+turn SELECT 1
+wait 600
+turn K4 2 300
+wait 1500
+expect loop_name10 Chorus
+# ---- 7. the song
+cap 7. Build the song | HOME, SELECT to the Song page; white keys 9, 10, 9, 10: verse, chorus, verse, chorus
+tap HOME
+wait 600
+turn SELECT 1
+wait 900
+expect page 1
+tapkey w8
+wait 500
+tapkey w9
+wait 500
+tapkey w8
+wait 500
+tapkey w9
+wait 1200
+expect rows 4
+expect row_loop1 9
+expect row_loop2 10
+expect row_loop3 9
+expect row_loop4 10
+# ---- 8. shape it
+cap 8. Shape it | KNOB 1 to the chorus (section 2), KNOB 3 (Groove) to B: busier; the other chorus follows
+turn K1 -3 250
+wait 600
+expect cursor 2
+turn K3 2 350
+wait 1500
+expect row_sect2 2
+expect row_sect4 2
+cap 8. Shape it | The last chorus: KNOB 4 (Repeat) to x2, then SELECT to page 2, KNOB 1 (Transpose) to +2
+turn K1 2 300
+wait 500
+expect cursor 4
+turn K4 1
+wait 1000
+expect row_rep4 2
+turn SELECT 1
+wait 700
+expect page 2
+turn K1 2 350
+wait 1500
+expect row_key4 2
+cap 8. Shape it | A breakdown: back on page 1, KNOB 1 to verse 2 (section 3); black keys 1, 2, 3 mute D1, D2, PC there
+turn SELECT -1
+wait 500
+turn K1 -1
+wait 600
+expect cursor 3
+tapkey b0
+wait 350
+tapkey b1
+wait 350
+tapkey b2
+wait 1500
+expect row_mute3 7
+# ---- 9. a melody
+cap 9. Add a melody | On the Song page PLAY: the song takes over at the next bar. EDIT, ALGORITHM past C4 to M1, REC
+at A 27 100
+tap PLAY
+wait 250
+tap EDIT
+wait 200
+turn ALGO 4 110
+expect lead_sel 1
+wait 100
+tap REC
+expect recording 1
+at A 28 -150
+cap 9. Add a melody | The click counts in; play along on the keys: the notes go into section 1 as it plays
+at A 28 10
+note 820 23
+at A 28 867
+note 240 21
+at A 28 1153
+note 480 19
+at A 28 1724
+note 480 16
+at A 29 10
+note 720 19
+at A 29 867
+note 240 16
+at A 29 1153
+note 240 19
+at A 29 1439
+note 240 21
+at A 29 1724
+note 480 19
+at A 30 10
+note 480 14
+at A 30 581
+note 480 19
+at A 30 1153
+note 720 23
+at A 30 2010
+note 240 21
+at A 31 10
+note 960 21
+at A 31 1153
+note 480 18
+at A 31 1724
+note 330 14
+at A 32 -180
+tap REC
+wait 50
+expect lead_count1_1 >10
+tap PLAY
+wait 100
+expect playing 0
+# ---- 10. play it
+cap 10. Play it | From the top, on the Song page: the Intro, the sections with fills between them, the Ending
+wait 900
+tap HOME
+wait 500
+turn SELECT 1
+wait 900
+expect page 1
+anchor S
+tap PLAY
+wait 300
+expect sect 1
+cap 10. Play it | The Intro: PLAY from a stop on the Song page opens with the style's Intro
+at S 2 400
+expect row 1
+cap 10. Play it | Section 1, the verse, with the melody on M1
+at S 6 400
+expect row 2
+expect sect 3
+cap 10. Play it | Section 2, the chorus, on Groove B: busier (a fill leads into it)
+at S 10 400
+expect row 3
+expect mutes 7
+cap 10. Play it | Section 3, the breakdown: verse 2 with D1, D2 and PC muted
+at S 14 400
+expect row 4
+cap 10. Play it | Section 4, the last chorus: Groove B, twice, a tone up (+2: D, A, Bm, G)
+at S 22 400
+expect sect 6
+cap 10. Play it | The Ending, and the song stops by itself
+at S 24 300
+expect playing 0
+cap Done | Two progressions, four sections, a melody, from a fresh boot. Stopped, Polly saves the song by itself.
+wait 3200
