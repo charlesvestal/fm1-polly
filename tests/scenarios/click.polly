@@ -1,0 +1,110 @@
+# POLLY, the click: Setup's CLICK (off / rec / on, rec at first), a woodblock on channel 16 on every beat (counted
+# here as it goes to MIDI out: clicks_out). ON: always while playing; OFF: nothing, except REC's count-in (a track's
+# wait for its bar line, a free take's); REC: while recording. Kept in the project (a reboot).
+# At 120 BPM a beat is 500 ms, a bar 2 s.
+wait 300
+spin K2 15
+expect tempo 120
+# ---- Setup: CLICK, "when recording" at first
+tap GLO
+expect page 15
+expect click 1
+expect footer_is_KNOBS:_CLOCK,_MIDI_OUT,_LIGHTS,_CLICK 1
+wait 100
+shot setup_click.png
+# ON: every beat while playing (a bar and a beat: 5)
+turn K4 1
+expect click 2
+wait 100
+shot setup_click_on.png
+hitreset
+tap PLAY
+wait 2100
+tap PLAY
+wait 100
+expect clicks_out 5
+# OFF: none
+turn K4 -2
+expect click 0
+wait 100
+shot setup_click_off.png
+hitreset
+tap PLAY
+wait 2100
+tap PLAY
+wait 100
+expect clicks_out 0
+# ---- OFF, REC on SEQ while playing: the count-in clicks (beats 3 and 4), then nothing while it records
+tap SEQ
+expect page 6
+tap PLAY
+wait 600
+hitreset
+tap REC
+wait 50
+expect recording 1
+expect rec_wait 1
+wait 1300
+expect rec_wait 0
+expect clicks_out 2
+hitreset
+wait 2000
+expect clicks_out 0
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+# ---- REC: not while only playing; recording: the count-in and every beat of the take
+tap GLO
+turn K4 1
+expect click 1
+tap SEQ
+hitreset
+tap PLAY
+wait 1000
+expect clicks_out 0
+tap REC
+wait 50
+expect rec_wait 1
+wait 2900
+expect rec_wait 0
+expect clicks_out 6
+tap REC
+wait 50
+hitreset
+wait 1000
+expect clicks_out 0
+tap PLAY
+wait 100
+# ---- a free take (REC on HOME in FREE) with CLICK off: its wait for the bar clicks, the take does not
+tap GLO
+turn K4 -1
+expect click 0
+tap HOME
+expect page 0
+expect mode 0
+tap PLAY
+wait 600
+hitreset
+tap REC
+wait 50
+expect take 2
+wait 1300
+expect clicks_out 2
+hitreset
+wait 1500
+expect clicks_out 0
+tap REC
+wait 50
+expect take 0
+tap PLAY
+wait 100
+# ---- kept: ON, saved, rebooted
+tap GLO
+turn K4 2
+expect click 2
+tap SAVE
+wait 100
+reboot
+expect click 2

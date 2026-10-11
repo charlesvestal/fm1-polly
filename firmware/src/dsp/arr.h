@@ -119,9 +119,11 @@ static inline int lead_shift(int now, int rec)
     int d = ((now - rec) % 12 + 12) % 12;
     return d > 5 ? d - 12 : d;
 }
-/* a lead track's sound and mixer, as a pattern's track's (bright and reso stored XOR 64: 0 is the neutral 64) */
+/* a lead track's sound and mixer, as a pattern's track's (bright and reso stored XOR 64: 0 is the neutral 64); vel: the
+ * velocity its notes are recorded with (the keys have none: the app plays them with it), 1..127 */
 typedef struct {
     uint8_t program, chan, vol, pan, rev, cho, bright, reso;
+    uint8_t vel, rsv;
 } lead_trk_t;
 /* a lead part as stored in a shared slot (plat.h OBJ_PAT0..): the header, then n notes (saved: 12 + 9 n bytes). The
  * slots hold user patterns too: a pattern is a bare pattern_t (no header: as patterns were stored before), a lead part
@@ -231,7 +233,7 @@ static inline uint8_t arr_reso(const arr_trk_t *t) { return (uint8_t)((t->reso ^
 static inline uint8_t arr_xor64(int v) { return (uint8_t)(((unsigned)v & 127u) ^ 64u); }
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
 _Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
-_Static_assert(sizeof(lead_ev_t) == 9 && sizeof(lead_trk_t) == 8, "a lead note 9 bytes, a lead track's sound 8");
+_Static_assert(sizeof(lead_ev_t) == 9 && sizeof(lead_trk_t) == 10, "a lead note 9 bytes, a lead track's sound 10");
 _Static_assert(sizeof(lead_part_t) == LEAD_HDR + 9 * LEAD_PART_NOTES && sizeof(lead_part_t) <= 3840, "a lead part fits a slot");
 _Static_assert(sizeof(lead_hdr_t) == LEAD_HDR, "a lead part's header: 12 bytes, as its notes' offset");
 _Static_assert((sizeof(pattern_t) - LEAD_HDR) % 9 != 0, "a lead part's length is never a pattern's");
@@ -428,6 +430,22 @@ typedef struct {
 int arr_lead_take(arr_lnote_t *n);              /* 1 = a recorded note (main loop) */
 extern volatile uint8_t arr_lead_lost;
 extern volatile uint32_t arr_row_tick;           /* the row playing's place (lead_ev_t pos): for the screen */
+/* ---- the click: a short GM Woodblock (program 115) on MIDI channel 16 (ARR_CLICK_CHAN), on each beat line of the
+ * pattern playing (its bar's first beat high, ARR_CLICK_HI; the others ARR_CLICK_LO), at a fixed level under the band
+ * (CC 7 ARR_CLICK_VOL, dry), never muted by the tracks' mutes. Its sounds go to the synth with each click (the channel
+ * is the click's); MIDI out as the patterns' notes (a note-on only with room for its note-off; its program and volume
+ * with the sounds' priority). Mode ARR_CLICK_OFF / REC (while recording: the engine's own, a track or a lead, or the
+ * app's REC, `rec`: writing chords, a take) / ON (always while playing). The count-in clicks whatever the mode: a track
+ * recording waiting for its bar line (arr_rec_wait), and the beats before `beat` (arr_beats) given to arr_count_in (a
+ * free take waiting for its bar; 0: none) */
+enum { ARR_CLICK_OFF, ARR_CLICK_REC, ARR_CLICK_ON };
+#define ARR_CLICK_CHAN 15
+#define ARR_CLICK_PROG 115
+#define ARR_CLICK_HI 84
+#define ARR_CLICK_LO 77
+#define ARR_CLICK_VOL 72
+void arr_click(int mode, int rec);
+void arr_count_in(uint32_t beat);
 /* MIDI clock in: F8, FA (a start, as PLAY), FB (on from where it stopped; after an Ending or a song's end
  * stopped it: a start, as PLAY), FC */
 enum { ARR_CLK_TICK, ARR_CLK_START, ARR_CLK_CONTINUE, ARR_CLK_STOP };

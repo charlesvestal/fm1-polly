@@ -109,6 +109,67 @@ int leads_count(const leads_t *l, int r, int trk)
         n += lead_trk(lead_at_c(l, i)) == trk;
     return n;
 }
+static void pos_set(lead_ev_t *e, uint32_t p)
+{
+    e->pos[0] = (uint8_t)p;
+    e->pos[1] = (uint8_t)(p >> 8);
+    e->pos[2] = (uint8_t)(p >> 16);
+}
+int leads_quantise(leads_t *l, int r, int trk, uint32_t grid, uint32_t end)
+{
+    uint32_t a, b, w;
+    int moved = 0;
+    if (r < 0 || r >= ARR_ROWS || grid <= 1u)
+        return 0;
+    a = l->row0[r];
+    b = l->row0[r + 1];
+    for (uint32_t i = a; i < b; i++) {
+        lead_ev_t *e = lead_at(l, i);
+        uint32_t p = lead_pos(e), q = (p + grid / 2u) / grid * grid;
+        if (trk >= 0 && lead_trk(e) != trk)
+            continue;
+        if (end && q >= end)
+            q = (end - 1u) / grid * grid;
+        if (q != p) {
+            pos_set(e, q);
+            moved++;
+        }
+    }
+    if (!moved)
+        return 0;
+    for (uint32_t i = a + 1; i < b; i++) {       /* the row in order again (its notes only moved within it) */
+        lead_ev_t e = *lead_at(l, i);
+        uint32_t k = i;
+        while (k > a && lead_cmp(lead_at(l, k - 1), &e) > 0) {
+            *lead_at(l, k) = *lead_at(l, k - 1);
+            k--;
+        }
+        *lead_at(l, k) = e;
+    }
+    w = a;                                       /* the same note twice: the later one kept */
+    for (uint32_t i = a; i < l->n; i++) {
+        if (i + 1 < b && lead_cmp(lead_at(l, i), lead_at(l, i + 1)) == 0)
+            continue;
+        if (w != i)
+            *lead_at(l, w) = *lead_at(l, i);
+        w++;
+    }
+    l->n = (uint16_t)w;
+    leads_index(l);
+    return moved;
+}
+int leads_erase_at(leads_t *l, uint32_t from, uint32_t n)
+{
+    if (from >= l->n)
+        return 0;
+    if (n > l->n - from)
+        n = l->n - from;
+    for (uint32_t i = from; i + n < l->n; i++)
+        *lead_at(l, i) = *lead_at(l, i + n);
+    l->n = (uint16_t)(l->n - n);
+    leads_index(l);
+    return (int)n;
+}
 int leads_row_insert(leads_t *l, int r)
 {
     if (r < 0 || r >= ARR_ROWS)

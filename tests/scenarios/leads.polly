@@ -268,3 +268,104 @@ expect lead_count1_1 3
 expect lead_count2_3 2
 expect lsnd1_vol 80
 expect transpose 2
+# ---- LD1's VELOCITY (EDIT's KNOB 4 for a lead): the notes recorded from then on; row 4 recorded with the grid off,
+# then SEL's QUANTISE LD1 ROW 4 puts them on SEQ's GRID (16ths), one undo step
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+expect page 8
+spin K4 -20
+expect lsnd1_vel 80
+wait 100
+shot track_ld1_velocity.png
+press EDIT
+wait 1200
+expect card 5
+shot card_edit_lead.png
+release EDIT
+expect page 8
+tap SEQ
+turn K1 3
+expect quant 5
+tap HOME
+turn SELECT 1
+expect page 1
+spin K1 -9
+spin K1 3
+expect cursor 4
+tap SEL
+spin SELECT 9
+tap SEL
+wait 50
+expect playing 1
+expect row 4
+tap EDIT
+tap REC
+wait 50
+expect recording 1
+wait 1037
+key 7 down
+wait 300
+key 7 up
+wait 571
+key 11 down
+wait 300
+key 11 up
+wait 700
+shot lead_row4_played.png
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect lead_notes 9
+expect lead_count1_4 2
+expect lead8_row 4
+expect lead8_vel 80
+# played: 1287 and 2123 ticks into the row (off the grid)
+expect lead8_pos 1287
+expect lead9_pos 2123
+tap SEQ
+turn K1 -3
+expect quant 2
+tap EDIT
+tap SEL
+spin SELECT 8
+expect list_sel 8
+wait 100
+shot lead_quantise_list.png
+tap SEL
+wait 50
+expect msgtext_is_QUANTISED_LD1_ROW_4_TO_16 1
+shot lead_quantised.png
+# on the 16ths: 1320 (11 x 120), 2160 (18 x 120)
+expect lead8_pos 1320
+expect lead9_pos 2160
+# row 4 again, REC on LD1: its notes on the grid lines
+tap HOME
+turn SELECT 1
+expect cursor 4
+tap SEL
+spin SELECT 9
+tap SEL
+wait 50
+tap EDIT
+tap REC
+wait 2000
+shot lead_row4_quantised.png
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect lead_notes 9
+# undo: back where they were played; redo
+press HOME
+tap REC
+release HOME
+wait 50
+expect msgtext_is_UNDO_QUANTISE 1
+expect lead8_pos 1287
+press HOME
+tap PLAY
+release HOME
+wait 50
+expect lead8_pos 1320

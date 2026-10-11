@@ -50,6 +50,12 @@ static void say(const char *a, const char *b)
 #endif
 }
 void ui_say(const char *a, const char *b) { say(a, b); }
+/* NO FREE SLOT (or pattern): said, and for a while SEL opens SLOTS (the footer says so) */
+static void say_noslot(const char *a, const char *b)
+{
+    say(a, b);
+    ui.slots_until = ui.msg_until + 3000u;
+}
 
 static void mark_dirty(void)
 {
@@ -376,7 +382,7 @@ static int slot_own(int s)
     if (g->style[s] < ARR_USER_PATTERNS)
         return 0;
     if ((p = pattern_free()) < 0) {
-        say("NO FREE PATTERN", "not kept");
+        say_noslot("NO FREE PATTERN", "not kept");
         return -1;
     }
     g->style[s] = (uint16_t)p;
@@ -446,7 +452,7 @@ static void lead_add(const arr_lnote_t *n)
             break;
         k = app.lslot[0] < 0 ? 0 : 1;            /* full: the next part, in a slot of its own */
         if (room >= LEAD_MAX || (p = pattern_free()) < 0) {
-            say(k ? "LEAD FULL" : "NO FREE SLOT", k ? "NOTES NOT KEPT" : "LEADS NOT KEPT");
+            say_noslot(k ? "LEAD FULL" : "NO FREE SLOT", k ? "NOTES NOT KEPT" : "LEADS NOT KEPT");
             return;
         }
         app.lslot[k] = (int8_t)p;
@@ -488,7 +494,7 @@ static int loops_slot_take(void)
     if (app.lpslot >= 0 || loops_is_default(sloops.loop))
         return 0;
     if ((p = pattern_free()) < 0) {
-        say("NO FREE SLOT", "LOOPS NOT KEPT");
+        say_noslot("NO FREE SLOT", "LOOPS NOT KEPT");
         app.lpsum = loops_sum();                 /* (said once: again at their next change) */
         return -1;
     }
@@ -1240,7 +1246,8 @@ static void key_down(int k)
         chord_keys();
     } else if (r == KR_TRACK) {
         ui.kmode[k] = KM_PLAY;
-        arr_key(ui.knote[k], 1, 100);            /* the selected track's sound; recorded when recording */
+        arr_key(ui.knote[k], 1, app.lead ? clampi(sel_lead()->vel, 1, 127) : 100);   /* the selected track's sound;
+                                                 * recorded when recording (a lead: its VELOCITY) */
     } else if (r == KR_PICK && song_page())
         song_key(k);                             /* SONG: white the row's loop, black its mutes */
     else if (r == KR_PICK && b >= 0 && b < ARR_ALLTRK)
@@ -1634,6 +1641,8 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
     default: break;
     }
 }
+static void slots_open(int from_list);
+static void slots_back(void);
 static void button_up(int b)                     /* a tap: released before it was used (a key, a knob, its card) */
 {
     if (lst.open && b == PAGE_BTN[page_group(ui.page)].btn && b != B_HOME) {
@@ -1650,17 +1659,22 @@ static void button_up(int b)                     /* a tap: released before it wa
     case B_REC:                                  /* (on release, at once: holding it shows its card, starts nothing) */
         button_down(B_REC);
         break;
-    case B_SEL:                                  /* a question: yes; a list: its row; else the list */
-        if (ui.ask)
+    case B_SEL:                                  /* a question: yes; a list: its row; else the list (SLOTS just after */
+        if (ui.ask)                              /* a NO FREE SLOT) */
             ask_end(1);
         else if (lst.open)
             list_sel();
-        else
+        else if (plat_ms() < ui.slots_until) {
+            ui.slots_until = 0;
+            slots_open(0);
+        } else
             list_open();
         break;
-    case B_HOME:                                 /* HOME on release: no; back from a list; else the page */
+    case B_HOME:                                 /* HOME on release: no; back from a list (SLOTS: to its list); else the page */
         if (ui.ask)
             ask_end(0);
+        else if (lst.open && lst.slots)
+            slots_back();
         else if (lst.open)
             lst.open = 0;
         else
@@ -1880,7 +1894,7 @@ static void song_page_knob(int k, int32_t e)
         } else if (k == 2)
             proj.leds = (uint8_t)clampi(proj.leds + d, 0, 2);
         else
-            break;
+            proj.click = (uint8_t)clampi(proj.click + d, ARR_CLICK_OFF, ARR_CLICK_ON);
         mark_dirty();
         break;
     case P_LOOP: {                               /* ROOT, TYPE ("·" one below maj: loop_unwrite), BASS, STEP */
@@ -2169,7 +2183,7 @@ static void do_copy_song(void)
     }
     edits_flush();
     if (copy_patterns_pick(to, st) != 0) {
-        say("NOT COPIED", "NO FREE PATTERN");
+        say_noslot("NOT COPIED", "NO FREE PATTERN");
         return;
     }
     for (int i = 0; i < ARR_NSECT; i++)
@@ -2177,7 +2191,7 @@ static void do_copy_song(void)
             mine |= 1u << st[i];
     if (!deflt && (lp = (int8_t)project_loops_slot(to)) < 0 &&
         (lp = (int8_t)project_slot_free(&songs, mine, &scratch)) < 0) {   /* the loops' slot: the target's, else free */
-        say("NOT COPIED", "NO FREE SLOT");
+        say_noslot("NOT COPIED", "NO FREE SLOT");
         return;
     }
     for (int i = 0; i < ARR_NSECT; i++) {        /* the patterns' contents, as they play now; the song after */
@@ -2338,6 +2352,290 @@ static void act_back_to_style(void)
         }
     }
 }
+/* QUANTISE LD1 ROW 3: the lead's notes in the row (the playing one, else SONG's cursor's) to the GRID (SEQ's); one undo
+ * step */
+static const uint16_t GRID_TICKS[ARR_NQ] = {ARR_PPQ / 2, ARR_PPQ / 3, ARR_PPQ / 4, ARR_PPQ / 6, ARR_PPQ / 8, 1};
+static void act_quant_lead(void)
+{
+    const song_t *g = csong();
+    int k = (app.lead ? app.lead - 1 : 0) % ARR_LEADS, r = lead_row(), n, before = leads.n, from;
+    uint32_t end = 0;
+    char a[24], *e;
+    e = cat_s(cat_s(a, TRACK_NAME[ARR_LD1 + k]), " ROW ");
+    itoa_u((uint32_t)r + 1u, e);
+    if (proj.quant % ARR_NQ == ARR_Q_OFF) {
+        say("GRID IS OFF", "SEQ: GRID");
+        return;
+    }
+    if (r >= g->nrows || !leads_count(&leads, r, k)) {
+        say(a, "HAS NO NOTES");
+        return;
+    }
+    {   /* the row's length: its loop's beats (an empty loop: a bar of 4), REPEAT times */
+        const row_t *w = &g->row[r];
+        int b = loop_len(&sloops.loop[w->loop % ARR_LOOPS]);
+        end = (uint32_t)(b > 0 ? b : 4) * (w->rep ? w->rep : 1u) * ARR_PPQ;
+    }
+    undo_commit();                               /* (what came before: a step of its own) */
+    from = leads.row0[r];
+    lead_write(1);
+    n = leads_quantise(&leads, r, k, GRID_TICKS[proj.quant % ARR_NQ], end);
+    lead_write(0);
+    if (!n) {
+        say(a, "ON THE GRID");
+        return;
+    }
+    lead_changed(from, before);
+    e = cat_s(a + slen(a), " TO ");
+    cat_s(e, GRID_NAME[proj.quant % ARR_NQ]);
+    undo_hint("QUANTISE");
+    undo_commit();                               /* one step */
+    say("QUANTISED", a);
+}
+
+/* ---- SLOTS: what fills the 16 shared slots, and FREE one */
+typedef struct {
+    uint8_t kind;                                /* SLOT_NONE (free), SLOT_PATTERN, SLOT_LEAD, SLOT_LOOPS */
+    uint8_t song, part;                          /* a lead part's song and part, a song's loops' song */
+    uint8_t plays;                               /* a pattern: the songs playing it (bit n) */
+    int8_t sect;                                 /* ... the section of the song selected playing it, -1 none */
+} slot_who_t;
+/* slot i: the song's own (in RAM: its lead parts' and loops' slots, taken or saved), the songs' patterns, else as stored
+ * (a pattern no song plays, with notes; a lead part or loops with notes); else free */
+static void slot_who(int i, slot_who_t *w)
+{
+    slot_info_t si;
+    memset(w, 0, sizeof *w);
+    w->sect = -1;
+    for (int k = 0; k < LEAD_PARTS; k++)
+        if (app.lslot[k] == i) {
+            w->kind = SLOT_LEAD;
+            w->song = (uint8_t)proj.song;
+            w->part = (uint8_t)k;
+            return;
+        }
+    if (app.lpslot == i) {
+        w->kind = SLOT_LOOPS;
+        w->song = (uint8_t)proj.song;
+        return;
+    }
+    for (int n = 0; n < ARR_SONGS; n++)
+        for (int k = 0; k < ARR_NSECT; k++)
+            if (songs.song[n].style[k] == i) {
+                w->plays |= (uint8_t)(1u << n);
+                if (n == proj.song && w->sect < 0)
+                    w->sect = (int8_t)k;
+            }
+    if (w->plays) {
+        w->kind = SLOT_PATTERN;
+        return;
+    }
+    project_slot_info(i, &si, &scratch);
+    if ((si.kind == SLOT_LEAD || si.kind == SLOT_LOOPS || si.kind == SLOT_PATTERN) && si.n) {
+        w->kind = si.kind;
+        w->song = si.song;
+        w->part = si.part;
+    }
+}
+static char *song_list(uint8_t plays, char *t)   /* "S1 S3" */
+{
+    int first = 1;
+    *t = 0;
+    for (int n = 0; n < ARR_SONGS; n++)
+        if (plays >> n & 1u) {
+            if (!first)
+                *t++ = ' ';
+            first = 0;
+            *t++ = 'S';
+            *t++ = (char)('1' + n);
+            *t = 0;
+        }
+    return t;
+}
+static int songs_n(uint8_t plays)
+{
+    int k = 0;
+    for (int n = 0; n < ARR_SONGS; n++)
+        k += plays >> n & 1u;
+    return k;
+}
+static void slot_text(int i, char *t)            /* "P03|Funk A|S1", "S2 leads 1/2", "S1 loops", "free" */
+{
+    slot_who_t w;
+    char *e;
+    slot_who(i, &w);
+    slot_kind[i] = w.kind;
+    *t = 0;
+    if (w.kind == SLOT_LEAD) {
+        e = cat_s(t, "S");
+        *e++ = (char)('1' + w.song);
+        *e = 0;
+        e = cat_s(e, " leads ");
+        *e++ = (char)('1' + w.part);
+        cat_s(e, "/2");
+    } else if (w.kind == SLOT_LOOPS) {
+        e = cat_s(t, "S");
+        *e++ = (char)('1' + w.song);
+        *e = 0;
+        cat_s(e, " loops");
+    } else if (w.kind == SLOT_PATTERN) {
+        const char *nm = 0;
+        char b[9];
+        int j;
+        style_name(i, t);                        /* "P03" */
+        if (w.sect >= 0)
+            nm = app.hdr[w.sect].name;
+        else if (project_pattern_load(i, &scratch) == 0)
+            nm = scratch.name;
+        for (j = 0; nm && j < 8 && nm[j]; j++)
+            b[j] = nm[j];
+        while (j > 0 && b[j - 1] == ' ')
+            j--;
+        b[j] = 0;
+        e = t + slen(t);
+        if (b[0])
+            e = cat_s(cat_s(e, "|"), b);
+        e = cat_s(e, "|");
+        if (w.plays)
+            song_list(w.plays, e);
+        else
+            cat_s(e, "no song");
+    } else
+        cat_s(t, "free");
+}
+static void slots_scan(void)
+{
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)
+        slot_text(i, slot_txt[i]);
+}
+/* SLOTS from a list (HOME: back to it), or from the hint after a NO FREE SLOT (HOME: the page) */
+static void slots_open(int from_list)
+{
+    lst.back_sel = from_list ? lst.sel : 255u;
+    lst.back_top = lst.top;
+    lst.open = 1;
+    lst.slots = 1;
+    lst.sel = lst.top = 0;
+    slots_scan();
+}
+static void slots_back(void)
+{
+    lst.slots = 0;
+    if (lst.back_sel == 255u) {
+        lst.open = 0;
+        return;
+    }
+    lst.sel = lst.back_sel;
+    lst.top = lst.back_top;
+}
+/* FREE: slot ui.tgt.free let go. A pattern the songs play: those sections back to their song's style, the pattern
+ * erased (not undone: its notes are gone); a lead part: its notes erased; a song's loops: back to the factory's (the
+ * song selected's: an undo step; another song's: let go in the flash). Saved at once (the slot free for what needs it) */
+static void do_free_slot(void)
+{
+    int i = ui.tgt.free % ARR_USER_PATTERNS;
+    slot_who_t w;
+    char a[16], b[24];
+    if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
+        say("FREE", "STOP FIRST");
+        return;
+    }
+    slot_who(i, &w);
+    itoa_u((uint32_t)i + 1u, cat_s(a, "SLOT "));
+    cat_s(b, "FREE NOW");
+    if (w.kind == SLOT_PATTERN) {
+        edits_flush();
+        undo_commit();
+        for (int n = 0; n < ARR_SONGS; n++) {
+            song_t *g = &songs.song[n];
+            for (int k = 0; k < ARR_NSECT; k++) {
+                int to;
+                if (g->style[k] != i)
+                    continue;
+                to = song_style_base(g->sty) == (int)g->sty ? g->sty + k : ARR_FACTORY0 + k;
+                g->style[k] = (uint16_t)to;
+                app.songs_dirty = 1;
+                if (n == proj.song)
+                    slot_load(k, to);
+            }
+        }
+        pattern_empty(&scratch);
+        project_pattern_save(i, &scratch);
+        save_all_now();
+        undo_sync();
+        if (w.plays)
+            cat_s(song_list(w.plays, b), " BACK TO STYLE");
+        app.chg++;
+        app.gen++;
+    } else if (w.kind == SLOT_LEAD && w.song == proj.song) {
+        int k = w.part % LEAD_PARTS;
+        undo_hint(k ? "FREE LEADS 2" : "FREE LEADS 1");
+        lead_write(1);
+        leads_erase_at(&leads, (uint32_t)k * LEAD_PART_NOTES, leads.part[k].n);
+        lead_write(0);
+        if (k == 0 && leads.part[0].n) {         /* part 1's notes are part 0's now: its slot holds them, this one goes */
+            app.lslot[0] = app.lslot[1];
+            app.lslot[1] = (int8_t)i;
+        }
+        app.ldirty = (1u << LEAD_PARTS) - 1u;
+        save_all();
+        cat_s(b, "LEAD NOTES ERASED");
+    } else if (w.kind == SLOT_LOOPS && w.song == proj.song) {
+        undo_hint("LOOPS FACTORY");
+        songs_write(1);
+        loops_default(sloops.loop);
+        songs_write(0);
+        save_all();
+        cat_s(b, "LOOPS: FACTORY");
+    } else if (w.kind == SLOT_LEAD || w.kind == SLOT_LOOPS) {
+        if (project_slot_clear(i) != 0) {
+            say("NOT FREED", "FLASH ERROR");
+            return;
+        }
+    } else
+        return;
+    lst.open = 1;                                /* (the question closed the list: SLOTS again, as it is now) */
+    lst.slots = 1;
+    slots_scan();
+    say(a, b);
+}
+static void act_free_slot(int i)
+{
+    slot_who_t w;
+    char q[40], *e;
+    if (slot_kind[i % ARR_USER_PATTERNS] == SLOT_NONE)
+        return;
+    if (arr_playing) {
+        say("FREE", "STOP FIRST");
+        return;
+    }
+    ui.tgt.free = (uint8_t)i;
+    slot_who(i, &w);
+    if (w.kind == SLOT_PATTERN) {
+        style_name(i, cat_s(q, "FREE "));
+        e = cat_s(q + slen(q), "? ");
+        if (songs_n(w.plays) > 1)
+            cat_s(itoa_u((uint32_t)songs_n(w.plays), e), " SONGS BACK TO STYLE");
+        else if (w.plays)
+            cat_s(song_list(w.plays, e), " BACK TO STYLE");
+        else
+            cat_s(e, "NOTES ERASED");
+    } else if (w.kind == SLOT_LEAD) {
+        e = cat_s(q, "ERASE S");
+        *e++ = (char)('1' + w.song);
+        e = cat_s(e, " LEADS ");
+        *e++ = (char)('1' + w.part);
+        cat_s(e, "/2?");
+    } else if (w.kind == SLOT_LOOPS) {
+        e = cat_s(q, "S");
+        *e++ = (char)('1' + w.song);
+        cat_s(e, "'S LOOPS BACK TO FACTORY?");
+    } else {
+        slots_scan();                            /* (free meanwhile) */
+        return;
+    }
+    ask(q, do_free_slot);
+}
 static void action_run(int a)
 {
     ui.tgt.loop = app.loop;                      /* what it acts on: now (a question's yes: still this) */
@@ -2358,6 +2656,10 @@ static void action_run(int a)
     case A_BACK_TO_STYLE: act_back_to_style(); break;
     case A_ERASE_LEAD_ROW: act_erase_lead(1); break;
     case A_ERASE_LEAD: act_erase_lead(0); break;
+    case A_QUANT_LEAD_ROW: act_quant_lead(); break;
+    case A_SLOTS:
+        slots_open(1);
+        return;                                  /* (the list stays: SLOTS in it) */
     default: break;
     }
     if (!ui.ask)                                 /* done (or said why not): back to the page */
@@ -2547,7 +2849,7 @@ static void lsnd_set(uint8_t *v, int to, int lo, int hi)
     lead_sounds_sync();
     song_touched();
 }
-/* EDIT's and the Mixer's knobs with a lead selected: PROGRAM; CHANNEL; VOLUME, PAN, REVERB, CHORUS; BRIGHT, RESO. Its type
+/* EDIT's and the Mixer's knobs with a lead selected: PROGRAM, VELOCITY; CHANNEL; VOLUME, PAN, REVERB, CHORUS; BRIGHT, RESO. Its type
  * (as played), range (all) and high key (off) are fixed: said */
 static void lead_knob(int k, int32_t e)
 {
@@ -2558,7 +2860,9 @@ static void lead_knob(int k, int32_t e)
         if (k == 0) {
             if ((l->chan & 15u) != 9u)
                 lsnd_set(&l->program, l->program + accel(EN_K1, e), 0, 127);
-        } else
+        } else if (k == 3)                       /* VELOCITY: the notes recorded from now on */
+            lsnd_set(&l->vel, l->vel + accel(EN_K4, e), 1, 127);
+        else
             say(TRACK_NAME[sel_trk()], "AS PLAYED, ALL KEYS");
         break;
     case P_TRACK2:
@@ -2723,6 +3027,7 @@ static void presets(int32_t e)
 /* ------------------------------------------------------------- lists --- */
 static void list_open(void)
 {
+    lst.slots = 0;
     lst.open = 1;
     lst.sel = lst.top = 0;
     list_build();
@@ -2818,7 +3123,9 @@ static void list_sel(void)
         return;
     if (lst.row[lst.sel].kind == LK_NAME)
         ui.name_cur = (uint8_t)((ui.name_cur + 1) & 7);
-    else if (lst.row[lst.sel].kind == LK_ACTION || lst.row[lst.sel].kind == LK_PICK) {
+    else if (lst.row[lst.sel].kind == LK_SLOT)
+        act_free_slot(lst.row[lst.sel].id);
+    else if (lst.row[lst.sel].kind == LK_ACTION || lst.row[lst.sel].kind == LK_PICK || lst.row[lst.sel].kind == LK_SUB) {
         action_run(lst.row[lst.sel].id);
     }
 }
@@ -3249,7 +3556,7 @@ static void do_undo(int redo)
             if (leads.part[p].n && app.lslot[p] < 0) {
                 int f = pattern_free();
                 if (f < 0) {
-                    say("NO FREE SLOT", "LEADS NOT KEPT");
+                    say_noslot("NO FREE SLOT", "LEADS NOT KEPT");
                     break;
                 }
                 app.lslot[p] = (int8_t)f;
@@ -3270,6 +3577,23 @@ void ui_init(void)
     ui.loop_seen = -1;
     ui.act_t = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
+}
+
+/* the click (Setup's CLICK) to the engine with the app's REC (writing chords, a take, REC on SONG: the engine knows its
+ * own recording), and a free take's count-in (the beats before its downbeat click even with CLICK off) */
+static void click_poll(void)
+{
+    int rec = ui.rec_want || ui.rec_chords || ui.take || ui.song_rec;
+    uint8_t m = (uint8_t)(1u + (proj.click % 3u) * 2u + (rec != 0));
+    uint32_t cin = ui.take == 2 ? ui.take_b0 : 0;
+    if (m != ui.click_sent) {
+        ui.click_sent = m;
+        arr_click(proj.click % 3u, rec);
+    }
+    if (cin != ui.count_sent) {
+        ui.count_sent = cin;
+        arr_count_in(cin);
+    }
 }
 
 #define SONG_WAIT_MS 2000u
@@ -3327,6 +3651,7 @@ void ui_frame(void)
         ui.ask = 0;                              /* (a question was about the song before) */
         song_change(s);
     }
+    click_poll();
     undo_tick();
     autosave();
     draw_header();

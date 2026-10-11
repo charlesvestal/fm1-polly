@@ -143,7 +143,7 @@ expect page 6
 tap SEL
 shot list_pattern.png
 spin SELECT 20
-turn SELECT -2
+turn SELECT -3
 tap SEL
 expect asking 1
 tap HOME
@@ -153,7 +153,7 @@ expect list_open 0
 # a question acts on what it asked about: ALGORITHM (the track) and PRESETS (the pattern) change nothing meanwhile
 tap SEL
 spin SELECT 20
-turn SELECT -2
+turn SELECT -3
 tap SEL
 expect asking 1
 spin ALGO 1
@@ -164,10 +164,10 @@ expect quant 2
 tap SEL
 expect asking 0
 expect msg2_is_C1 1
-# CLEAR PATTERN (asks), then BACK TO STYLE (the section plays Pop's again, the user pattern kept)
+# CLEAR PATTERN (asks), then BACK TO STYLE (SLOTS is the last row) (the section plays Pop's again, the user pattern kept)
 tap SEL
 spin SELECT 20
-turn SELECT -1
+turn SELECT -2
 tap SEL
 expect asking 1
 tap SEL
@@ -175,6 +175,7 @@ expect msg_is_CLEARED 1
 expect dirty 1
 tap SEL
 spin SELECT 20
+turn SELECT -1
 tap SEL
 expect msg_is_BACK 1
 expect msg2_is_Pop 1

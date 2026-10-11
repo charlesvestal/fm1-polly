@@ -295,6 +295,8 @@ Polly records into the selected track of the section playing, as a loop.
 
 Good to know:
 
+- **The click:** a woodblock counts the beats while you record, and always during REC's count-in to the next
+  bar line (Setup's CLICK: off, rec, on).
 - **The grid** (Pattern page KNOB 1) moves notes to the nearest 8th, 8th
   triplet, 16th, 16th triplet or 32nd, or "off" for none. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
 - **As played.** The first time you record into an empty Chord 1, Chord 2 or Bass track, Polly
@@ -326,7 +328,7 @@ song's, not the pattern's.
 There are 16 user patterns, P01 to P16, shared by the four songs. A free one is one that no song plays
 and that holds no notes. When none is free, Polly says **NO FREE PATTERN** "not kept": your change
 plays, but it isn't kept once another pattern is picked. Hold SAVE and press a white key on SEQ to
-keep it in a P number.
+keep it in a P number, or free a slot ([Slots](#slots)).
 
 The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to P16, then the styles'.
 
@@ -343,8 +345,8 @@ The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to
 ### The pattern's actions (SEL)
 
 On the Pattern, Track, Mixer and Master FX pages, **SEL**'s list has the actions **ERASE TRACK**, **CLEAR PATTERN**
-and **BACK TO STYLE**, for the section playing. With a lead track selected, **ERASE TRACK** becomes **ERASE LD1
-IN ROW n** and **ERASE LD1**. To copy the pattern into P01–P16, hold **SAVE** and press
+and **BACK TO STYLE**, for the section playing (and on SEQ and EDIT, **SLOTS**). With a lead track selected,
+**ERASE TRACK** becomes **ERASE LD1 IN ROW n**, **ERASE LD1** and **QUANTISE LD1 ROW n**. To copy the pattern into P01–P16, hold **SAVE** and press
 a white key on SEQ.
 
 ## Lead tracks
@@ -372,12 +374,16 @@ the row plays. Recording again over a row adds to it.
 - **A second part:** turn ALGORITHM to **LD2**; recording goes on into it.
 - **Erase:** on EDIT, **SEL**'s list has **ERASE LD1 IN ROW 3** (the row playing, else SONG's cursor row)
   and **ERASE LD1** (the whole song's), each asking first.
+- **Quantise:** **SEL**'s **QUANTISE LD1 ROW 3** moves that row's LD1 notes to the nearest line of the Pattern
+  page's grid (shown on the row: 16, 8T, ...). Record with the grid off to play freely, then quantise. HOME + REC
+  undoes it in one step.
 - **Sound:** the Track page shows the lead's program and channel; its type is always "as played" over
-  the whole keyboard. The Mixer and Mixer tone pages have its strip (black keys 9 and 10 pick LD1, LD2).
+  the whole keyboard. **KNOB 4 Velocity** sets how hard the notes you record from then on are (the keys have no
+  velocity; 100 at first). The Mixer and Mixer tone pages have its strip (black keys 9 and 10 pick LD1, LD2).
 - **Mutes:** on the SONG page, black keys 9 and 10 mute LD1 and LD2 on the cursor's row.
 - REC in FREE or LOOP says "LEADS RECORD IN A SONG". Deleting a row that has lead notes asks first.
 - Lead notes share the 16 user-pattern slots: a song's melodies take one slot (about 420 notes), a second
-  when they outgrow it. "NO FREE SLOT" or "LEAD FULL" means none is left.
+  when they outgrow it. "NO FREE SLOT" or "LEAD FULL" means none is left: see [Slots](#slots).
 
 ## Sound
 
@@ -466,6 +472,18 @@ lead take, or one pass of a pattern recording. Polly keeps up to 32 steps (fewer
 on; switching songs or turning it off starts afresh. It works while playing. Not undone: the tempo turned
 while playing, and the Setup page and Master FX. What undo brings back is saved like any change.
 
+### Slots
+
+The 16 slots hold the user patterns (P01–P16), the songs' lead notes and each song's own loops (once they
+differ from the factory's). When they are full, Polly says **NO FREE SLOT** (or NO FREE PATTERN) and the footer
+says **SEL: SLOTS**: press SEL then, or pick **SLOTS** at the end of SEL's list on SEQ or EDIT, to see what fills
+them: "P03 · Funk A · S1" (a pattern and the songs playing it), "S2 leads 1/2", "S1 loops", "free". The header
+counts the free ones.
+
+On a slot, **SEL** frees it (stopped; it asks first): a pattern goes back to the style in the songs that play it
+(its notes are erased, and that can't be undone), a lead part's notes are erased, a song's loops go back to the
+factory's ("S1'S LOOPS BACK TO FACTORY?"). HOME goes back.
+
 ### The song's actions (SEL)
 
 On the SONG pages, **SEL**'s list has **PLAY FROM ROW** (the row the cursor is on), **INSERT ROW**,
@@ -483,6 +501,11 @@ Press **GLO** for Setup.
 | KNOB 1 Clock | **MIDI in** (the default): Polly keeps its own time, and follows MIDI clock, start and stop whenever they come in. **internal**: it ignores MIDI clock |
 | KNOB 2 MIDI out | **on** (the default): the tracks go out over USB on their channels, with their sounds and mixer, and MIDI clock with start and stop while Polly keeps time. **off**: nothing goes out |
 | KNOB 3 Lights | **on**: keys light as you play, and the other buttons glow. **notes**: keys light, no glow. **off**: neither |
+| KNOB 4 Click | **rec** (the default): a woodblock on every beat while you record, high on the bar's first. **on**: whenever Polly plays. **off**: only the count-in |
+
+The click is on MIDI channel 16 (it goes to MIDI out too), a little under the band, and the tracks' mutes don't
+silence it. REC's count-in, the beats before a take starts at the next bar line (a track, or a new loop on HOME),
+always clicks, even with the click off.
 
 The last row shows the QY70 bank: none, the number of styles, "damaged" or "old format".
 
@@ -593,12 +616,12 @@ button's pages.
 | LOOP 2 | ARP, SELECT | Length | Beats | Name | | The next loop |
 | Pattern | SEQ | Grid | | | Mute | The section's pattern |
 | Pattern setup | SEQ, SELECT | Bars | Beats | Letter | Character | The section's pattern |
-| Track | EDIT | Program | Type | Low | High | Program family |
+| Track | EDIT | Program | Type | Low | High (a lead: Velocity) | Program family |
 | Track keys | EDIT, SELECT | High key | Channel | | | |
 | Mixer | LFO | Volume | Pan | Reverb | Chorus | |
 | Mixer tone | LFO, SELECT | Bright | Reso | | | |
 | Master FX | FX | Reverb | Reverb level | Chorus | Chorus level | |
 | Style | ENV | Intro | Main A | Main B | Style | Style |
 | Style 2 | ENV, SELECT | Fill AB | Fill BA | Ending | Style | Style |
-| Setup | GLO | Clock | MIDI out | Lights | | |
+| Setup | GLO | Clock | MIDI out | Lights | Click | |
 | Panel | GLO, SELECT | | | | | |

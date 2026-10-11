@@ -3966,6 +3966,127 @@ static void test_lead_record_restart(void)
     arr_leads(0);
 }
 
+/* ---- the click: a woodblock on channel 16 on each beat line (high on the bar's first), not muted by the tracks,
+ * MIDI out as the notes; off: nothing, except the count-in (a track waiting for its bar line, arr_count_in) */
+static int clicks(const stub_msg_t *log, int n, int from, int note)   /* note-ons on channel 16 (note -1: any) */
+{
+    int k = 0;
+    for (int i = from; i < n; i++)
+        k += log[i].st == 0x9F && log[i].d2 && (note < 0 || log[i].d1 == note);
+    return k;
+}
+static void test_click(void)
+{
+    int i, n;
+    reset();
+    loops_reset();
+    pattern_one();
+    arr_load_pattern(SA, &P);
+    arr_set_tempo(120);
+    arr_play(1);
+    run_to(2 * 44100);
+    CHECK(clicks(stub_log, stub_n, 0, -1) == 0, "off (the default): no click");
+    arr_play(0);
+    run_blocks(2);
+    /* ON: every beat, the bar's first high; the tracks muted, it still clicks; its sounds on channel 16 */
+    stub_n = 0;
+    stub_frame = 0;
+    arr_click(ARR_CLICK_ON, 0);
+    for (int t = 0; t < ARR_TRACKS; t++)
+        arr_track_mute(t, 1);
+    arr_midi_out_on(1);
+    arr_play(1);
+    run_to(2 * 44100 + 512);                    /* 4 beats of 0.5 s, and bar 2's downbeat */
+    i = find(stub_log, stub_n, 0, 0x9F, ARR_CLICK_HI);
+    CHECK(near(stub_log, i, 0.f), "beat 1: high, at 0 (%d)", i);
+    i = find(stub_log, stub_n, 0, 0x9F, ARR_CLICK_LO);
+    CHECK(near(stub_log, i, 24 * FPT), "beat 2: low, at 0.5 s (%u)", i >= 0 ? stub_log[i].frame : 0);
+    i = find(stub_log, stub_n, i + 1, 0x9F, ARR_CLICK_LO);
+    CHECK(near(stub_log, i, 48 * FPT), "beat 3: low");
+    i = find(stub_log, stub_n, i + 1, 0x9F, ARR_CLICK_LO);
+    CHECK(near(stub_log, i, 72 * FPT), "beat 4: low");
+    i = find(stub_log, stub_n, i + 1, 0x9F, ARR_CLICK_HI);
+    CHECK(near(stub_log, i, 96 * FPT), "bar 2: high (%u)", i >= 0 ? stub_log[i].frame : 0);
+    CHECK(clicks(stub_log, stub_n, 0, -1) == 5, "5 clicks (%d)", clicks(stub_log, stub_n, 0, -1));
+    CHECK(find(stub_log, stub_n, 0, 0xCF, ARR_CLICK_PROG) >= 0 && find(stub_log, stub_n, 0, 0xBF, 7) >= 0,
+          "the woodblock and its level on channel 16");
+    i = find(stub_log, stub_n, 0, 0xBF, 7);
+    CHECK(i >= 0 && stub_log[i].d2 == ARR_CLICK_VOL, "its level under the band");
+    n = 0;
+    for (i = 0; i < stub_n; i++)
+        n += is_on(&stub_log[i]) && (stub_log[i].st & 15) != 15;
+    CHECK(n == 0, "the tracks muted: only the click (%d)", n);
+    CHECK(clicks(out_log, out_n, 0, -1) == 5, "MIDI out: the clicks (%d)", clicks(out_log, out_n, 0, -1));
+    CHECK(find(out_log, out_n, 0, 0xCF, ARR_CLICK_PROG) >= 0, "MIDI out: its program");
+    arr_play(0);
+    run_blocks(2);
+    CHECK(offs_match(out_log, out_n), "MIDI out: every click ended");
+    CHECK(offs_match(stub_log, stub_n), "the synth: every click ended");
+    /* MIDI out full: no click out (and no note-off for it); the synth still clicks */
+    for (int t = 0; t < ARR_TRACKS; t++)
+        arr_track_mute(t, 0);
+    stub_n = 0;
+    out_n = 0;
+    ring_cap = 8;                             /* the reserve: no room for a note */
+    ring_used = 0;
+    ring_drain = 0;
+    arr_play(1);
+    run_to(stub_frame + 44100);
+    CHECK(clicks(stub_log, stub_n, 0, -1) >= 2, "a full ring: the synth clicks");
+    CHECK(clicks(out_log, out_n, 0, -1) == 0, "a full ring: no click out");
+    arr_play(0);
+    run_blocks(2);
+    CHECK(find(out_log, out_n, 0, 0x8F, ARR_CLICK_HI) < 0 && find(out_log, out_n, 0, 0x8F, ARR_CLICK_LO) < 0,
+          "no note-off out for a click not sent");
+    ring_cap = ring_drain = 100000;
+    ring_used = 0;
+    arr_midi_out_on(0);
+    run_blocks(1);
+    /* REC: only while recording (the engine's, or the app's REC) */
+    arr_click(ARR_CLICK_REC, 0);
+    stub_n = 0;
+    arr_play(1);
+    run_to(stub_frame + 44100);
+    CHECK(clicks(stub_log, stub_n, 0, -1) == 0, "REC, not recording: none");
+    arr_record(5, 1);
+    run_to(stub_frame + 44100);
+    CHECK(clicks(stub_log, stub_n, 0, -1) == 2, "REC, recording: clicks (%d)", clicks(stub_log, stub_n, 0, -1));
+    arr_record(5, 0);
+    run_blocks(1);
+    n = stub_n;
+    run_to(stub_frame + 44100);
+    CHECK(clicks(stub_log, stub_n, n, -1) == 0, "recording off: none");
+    arr_click(ARR_CLICK_REC, 1);
+    run_to(stub_frame + 44100);
+    CHECK(clicks(stub_log, stub_n, n, -1) == 2, "the app's REC (a chord take): clicks");
+    arr_play(0);
+    run_blocks(2);
+    /* OFF: the count-in still clicks (a track waiting for its bar line), then nothing once it records */
+    arr_click(ARR_CLICK_OFF, 1);
+    stub_n = 0;
+    stub_frame = 0;
+    arr_play(1);
+    run_to((uint32_t)(30 * FPT));               /* beat 2 */
+    arr_record(5, ARR_REC_BAR);
+    run_to((uint32_t)(95 * FPT));
+    CHECK(clicks(stub_log, stub_n, 0, ARR_CLICK_LO) == 2 && clicks(stub_log, stub_n, 0, ARR_CLICK_HI) == 0,
+          "the count-in: beats 3, 4 (%d %d)", clicks(stub_log, stub_n, 0, ARR_CLICK_LO), clicks(stub_log, stub_n, 0, ARR_CLICK_HI));
+    n = stub_n;
+    run_to((uint32_t)(3 * 96 * FPT));
+    CHECK(arr_rec_wait == 0 && clicks(stub_log, stub_n, n, -1) == 0, "recording, CLICK off: none");
+    arr_record(5, 0);
+    run_blocks(1);
+    /* the app's count-in: the next two beats */
+    n = stub_n;
+    arr_count_in(arr_beats + 3);              /* (arr_beats: the beat sounding) */
+    run_to(stub_frame + 3 * 44100);
+    CHECK(clicks(stub_log, stub_n, n, -1) == 2, "arr_count_in: two beats (%d)", clicks(stub_log, stub_n, n, -1));
+    arr_count_in(0);
+    arr_play(0);
+    run_blocks(2);
+    CHECK(offs_match(stub_log, stub_n), "every click ended");
+}
+
 int main(void)
 {
     test_timing();
@@ -4061,6 +4182,7 @@ int main(void)
     test_record_as_played_fold();
     test_record_from_bar();
     test_long_pattern();
+    test_click();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

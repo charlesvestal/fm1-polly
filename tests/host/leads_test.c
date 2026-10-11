@@ -110,6 +110,41 @@ static void test_fix(void)
     CHECK(lead_at(&L, 1)->vel == 50, "of the same note twice, the later kept");
     CHECK(leads_fix(&L, L.part[0].n, L.part[1].n) == 0 && L.n == 3, "as it is now: nothing moves");
 }
+/* QUANTISE ROW: a row's notes of one track to the grid; the row in order, the same note twice: one; others untouched */
+static void test_quantise(void)
+{
+    leads_clear(&L);
+    add(0, 130, 60, 0);                          /* row 1, LD1: 130 -> 120 (16ths), 470 -> 480, 1810 -> 1800 */
+    add(0, 470, 62, 0);
+    add(0, 1810, 64, 0);
+    add(0, 365, 67, 1);                          /* LD2: not touched */
+    add(0, 0, 62, 0);                            /* LD1 D at 0; and one at 50: lands on it (the later kept) */
+    {
+        lead_ev_t e;
+        lead_set(&e, 0, 50, 240, 62, 33, 0, 0);
+        leads_insert(&L, &e, LEAD_MAX, 0);
+    }
+    add(1, 1915, 65, 0);                         /* row 2, 4 beats long (1920): 1915 -> the line before its end, 1800 */
+    add(2, 5, 66, 0);                            /* row 3: not touched */
+    CHECK(L.n == 8 && ordered(), "8 notes");
+    CHECK(leads_quantise(&L, 0, 0, ARR_PPQ / 4, 0) == 4, "row 1's LD1: four moved");
+    CHECK(L.n == 7 && ordered(), "one merged, in order (%d)", L.n);
+    CHECK(lead_pos(lead_at(&L, 0)) == 0 && lead_at(&L, 0)->note == 62 && lead_at(&L, 0)->vel == 33, "D on 0: the later one kept");
+    CHECK(lead_pos(lead_at(&L, 1)) == 120 && lead_pos(lead_at(&L, 2)) == 365 && lead_trk(lead_at(&L, 2)) == 1 &&
+              lead_pos(lead_at(&L, 3)) == 480 && lead_pos(lead_at(&L, 4)) == 1800, "120, LD2's 365 as it was, 480, 1800");
+    CHECK(leads_quantise(&L, 0, 0, ARR_PPQ / 4, 0) == 0, "again: nothing moves");
+    CHECK(leads_quantise(&L, 1, 0, ARR_PPQ / 4, 4 * ARR_PPQ) == 1 && lead_pos(lead_at(&L, L.row0[1])) == 1800,
+          "at the row's end: the line before");
+    CHECK(lead_pos(lead_at(&L, L.row0[2])) == 5, "row 3 untouched");
+    CHECK(leads_quantise(&L, 2, -1, 1, 0) == 0, "grid off: nothing");
+    /* a part's notes erased (SLOTS' FREE): part 1's move up */
+    leads_clear(&L);
+    for (int i = 0; i < LEAD_PART_NOTES + 5; i++)
+        add(i / 40, (uint32_t)(i % 40) * 60u, 60, 0);
+    CHECK(L.n == LEAD_PART_NOTES + 5 && L.part[1].n == 5, "two parts");
+    CHECK(leads_erase_at(&L, 0, LEAD_PART_NOTES) == LEAD_PART_NOTES && L.n == 5 && L.part[1].n == 0 && ordered(),
+          "part 0's erased: part 1's notes are part 0's");
+}
 static void test_defaults(void)
 {
     lead_trk_t t;
@@ -117,6 +152,7 @@ static void test_defaults(void)
     CHECK(t.program == 80 && t.chan == 6 && t.vol == 100 && t.pan == 64, "LD1: GM 81 on channel 7");
     lead_trk_default(&t, 1);
     CHECK(t.program == 48 && t.chan == 7, "LD2: GM 49 on channel 8");
+    CHECK(t.vel == 100, "recorded at velocity 100");
 }
 int main(void)
 {
@@ -125,6 +161,7 @@ int main(void)
     test_parts();
     test_erase_rows();
     test_fix();
+    test_quantise();
     test_defaults();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)

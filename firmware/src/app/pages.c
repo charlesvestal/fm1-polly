@@ -51,6 +51,7 @@ static const char *const TYPE_SHORT[NXT] = {"Bypass", "Parall.", "Chord1", "Chor
 static const char *const REV_NAME[5] = {"Off", "Large hall", "Hall", "Chamber", "Room"};
 static const char *const REV_SHORT[5] = {"off", "L.hall", "Hall", "Chamb.", "Room"};
 static const char *const LIGHTS_NAME[3] = {"off", "on", "notes"};
+static const char *const CLICK_NAME[3] = {"off", "rec", "on"};   /* ARR_CLICK_* */
 static const char *const MODE_NAME[3] = {"FREE", "LOOP", "SONG"};   /* ARR_* */
 static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 #define NNAME_CHARS ((int)sizeof NAME_CHARS - 1)
@@ -140,7 +141,8 @@ static struct {
     void (*ask_yes)(void);                           /* what SEL does */
     uint8_t copy_to, copy_src;                       /* SAVE + white key: the loop / pattern asked about, the loop copied */
     /* what an action acts on, taken when it is asked for (a question's yes acts on what it asked about) */
-    struct { uint8_t loop, prog, song, trk, slot, lrow, ltrk; } tgt;   /* lrow: a row (255 all), ltrk: a lead 0, 1 */
+    struct { uint8_t loop, prog, song, trk, slot, lrow, ltrk, free; } tgt;   /* lrow: a row (255 all), ltrk: a lead 0, 1;
+                                                      * free: SLOTS' slot */
     uint8_t pick_prog, pick_song;                    /* the lists' choices: LOAD PROGRESSION, COPY SONG TO */
     uint32_t wait_t;                                 /* a queued song change: since when it waits for silence */
     uint32_t mute_t;                                 /* the mute knob's last detent */
@@ -169,6 +171,9 @@ static struct {
     uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
                                                       * footer's hint showing (ui.c rec_as_played) */
     uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
+    uint8_t click_sent;                              /* the click's mode and the app's REC as the engine has them (+1) */
+    uint32_t count_sent;                             /* ... a free take's count-in (arr_count_in) */
+    uint32_t slots_until;                            /* a NO FREE SLOT said: until then SEL opens SLOTS (the footer says) */
 } ui;
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
@@ -178,18 +183,25 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 
 /* SEL: the screen as a list. Its knobs' values (each page of its button: KNOB rows), then MORE (settings on no
  * page) and the actions (ACTION: do it, PICK: a choice first). Built afresh to draw it; sel and top stay */
-enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK };
+/* SUB: another list (SLOTS); SLOT: a row of that one (id: the slot) */
+enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
-       A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, NACTIONS };
+       A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_SLOTS, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR LOOP", "PLAY FROM ROW", "INSERT ROW", "DELETE ROW",
                                                   "CLEAR SONG", "COPY SONG TO", "ERASE TRACK", "CLEAR PATTERN",
-                                                  "BACK TO STYLE", "ERASE LD IN ROW", "ERASE LD"};
+                                                  "BACK TO STYLE", "ERASE LD IN ROW", "ERASE LD", "QUANTISE LD ROW", "SLOTS"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 7                                 /* rows on screen */
 static struct {
     uint8_t open, n, sel, top;
+    uint8_t slots;                                   /* the SLOTS list (SEL's SLOTS: the 16 shared slots) */
+    uint8_t back_sel, back_top;                      /* the list it came from: its row (HOME goes back there) */
     struct { const char *name; char val[12]; uint8_t kind, id; } row[LIST_ROWS];
 } lst;
+/* the 16 shared slots as the SLOTS list shows them ("P03|Funk A|S1", "S2 leads 1/2", "S1 loops", "free"), made when
+ * it opens and after a FREE (ui.c slots_scan: it reads the flash); kind SLOT_* (SLOT_NONE: free) */
+static char slot_txt[ARR_USER_PATTERNS][28];
+static uint8_t slot_kind[ARR_USER_PATTERNS];
 
 static void song_head(const char *what);
 /* track t muted: in SONG the engine's (the row's, or by hand until the next row); else the song's mute (every
@@ -431,11 +443,13 @@ static void draw_header(void)
     char t[40];
     int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords || ui.take || ui.song_rec, ext = arr_ext;
     int sel = home_shown();
-    int un = unsaved(), ask = ui.ask;
+    int un = unsaved(), ask = ui.ask, slots = lst.open && lst.slots, nfree = 0;
+    for (int i = 0; slots && i < ARR_USER_PATTERNS; i++)
+        nfree += slot_kind[i] == SLOT_NONE;
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)rec << 11 |
                                        (uint32_t)ext << 12 | (uint32_t)sel << 13 | (uint32_t)ask << 14 |
                                        (uint32_t)csong()->tempo << 16);
-    h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].sty << 8);
+    h = hash(h, (uint32_t)proj.song | (uint32_t)songs.song[proj.song].sty << 8 | (uint32_t)slots << 24 | (uint32_t)nfree << 25);
     for (int k = 0; k < ARR_NSECT; k++)              /* the sections on user patterns ("Pop, A user") */
         h = hash(h, songs.song[proj.song].style[k] < ARR_USER_PATTERNS);
     if (ui.page == P_LOOP || ui.page == P_LOOP2) {   /* "L3 Verse   in 3 rows" */
@@ -463,6 +477,13 @@ static void draw_header(void)
     } else if (msg) {
         int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
         text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
+    } else if (slots) {                              /* SLOTS: "Slots   3 free" */
+        int32_t x = cv_text(8, 4, &FONT_B, "Slots", K_TEXT);
+        if (nfree)
+            cat_s(itoa_u((uint32_t)nfree, t), " of 16 free");
+        else
+            cat_s(t, "none free");
+        cv_text(x + 10, 5, &FONT_S, t, nfree ? K_DIM : K_ACCENT);
     } else if (sel) {                                /* HOME held: what it does with the keys, PRESETS */
         cv_text(8, 4, &FONT_B, "HOME + a key", K_TEXT);
         cv_text(232 - text_w(&FONT_XS, "PRESETS: song"), 5, &FONT_XS, "PRESETS: song", K_DIM);
@@ -1798,7 +1819,7 @@ static void draw_track(void)
     uint32_t h = hash(2166136261u, (uint32_t)s | (uint32_t)sel_trk() << 4 | (uint32_t)k2 << 8);
     char a[16], b[16];
     h = hash(h, t->program | (uint32_t)t->chan << 8 | (uint32_t)t->x.type << 16 | (uint32_t)t->x.hikey << 24);
-    h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8 | (uint32_t)t->flags << 16);
+    h = hash(h, t->x.lo | (uint32_t)t->x.hi << 8 | (uint32_t)t->flags << 16 | (uint32_t)(app.lead ? sel_lead()->vel : 0) << 24);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
@@ -1826,6 +1847,10 @@ static void draw_track(void)
             cv_text(70, 36, &FONT_B, GM_PROGRAM[t->program & 127u], K_TEXT);
         if (!k2)
             cv_text(10, 64, &FONT_S, GM_FAMILY[(t->program & 127u) / 8u], K_DIM);
+        if (app.lead && !k2) {                   /* the velocity its notes are recorded with */
+            itoa_u(sel_lead()->vel, cat_s(a, "velocity "));
+            cv_text(230 - text_w(&FONT_S, a), 64, &FONT_S, a, K_TEXT);
+        }
     }
     {   /* the range over the whole MIDI keyboard */
         int32_t x0 = 10, w = 220, y = 96, lx = x0 + t->x.lo * w / 127, hx = x0 + t->x.hi * w / 127;
@@ -2008,9 +2033,9 @@ static void draw_style(void)
 }
 static void setup_row(int32_t y, const char *name, const char *val)
 {
-    cv_round(8, y, 224, 26, 6, K_PANEL);
-    cv_text(18, y + 4, &FONT_S, name, K_DIM);
-    cv_text(222 - text_w(&FONT_B, val), y + 4, &FONT_B, val, K_TEXT);
+    cv_round(8, y, 224, 24, 6, K_PANEL);
+    cv_text(18, y + 3, &FONT_S, name, K_DIM);
+    cv_text(222 - text_w(&FONT_B, val), y + 3, &FONT_B, val, K_TEXT);
 }
 static void bank_text(char *t)                       /* the QY70 bank: "128 styles", "none", "damaged", "old format" */
 {
@@ -2023,17 +2048,19 @@ static void bank_text(char *t)                       /* the QY70 bank: "128 styl
 static void draw_setup(void)
 {
     uint32_t h = hash(2166136261u, 8192u + proj.clock + ((uint32_t)proj.mout << 2) + ((uint32_t)proj.leds << 8) +
-                                       ((uint32_t)(qb_status() + 8) << 12));
+                                       ((uint32_t)(qb_status() + 8) << 12) + ((uint32_t)proj.click << 24));
     char t[16];
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
     setup_row(2, "Clock", proj.clock ? "MIDI in" : "internal");
-    setup_row(30, "MIDI out", proj.mout ? "on" : "off");
-    setup_row(58, "Lights", LIGHTS_NAME[proj.leds % 3u]);
+    setup_row(28, "MIDI out", proj.mout ? "on" : "off");
+    setup_row(54, "Lights", LIGHTS_NAME[proj.leds % 3u]);
+    setup_row(80, "Click", proj.click == ARR_CLICK_ON ? "every beat" : proj.click == ARR_CLICK_REC ? "when recording"
+                                                                      : "count-in only");
     bank_text(t);
-    setup_row(86, "QY70 styles", t);
+    setup_row(106, "QY70 styles", t);
     cv_blit(0, MAIN_Y);
 }
 static void draw_panel(void)
@@ -2197,7 +2224,10 @@ static void edit_knobs(knob_t *k)
         note_name(t->x.lo, b);
         kv(&k[2], "Low", b, t->x.lo, 127);
         note_name(t->x.hi, b);
-        kv(&k[3], "High", b, t->x.hi, 127);
+        if (app.lead)                            /* a lead: the velocity its notes are recorded with */
+            kn(&k[3], "Velocity", sel_lead()->vel, 127);
+        else
+            kv(&k[3], "High", b, t->x.hi, 127);
         break;
     case P_TRACK2:
         if (t->x.hikey >= XT_NOKEY)
@@ -2319,6 +2349,7 @@ static void song_page_knobs(knob_t *k)
         kv(&k[0], "Clock", proj.clock ? "MIDI" : "intern.", proj.clock, 1);
         kv(&k[1], "MIDI out", proj.mout ? "on" : "off", proj.mout, 1);
         kv(&k[2], "Lights", LIGHTS_NAME[proj.leds % 3u], proj.leds, 2);
+        kv(&k[3], "Click", CLICK_NAME[proj.click % 3u], proj.click, 2);
         break;
     default: break;
     }
@@ -2540,11 +2571,19 @@ static void page_footer(char *t)
         cat_s(t, "HOLD ANY BUTTON: WHAT IT DOES");
         return;
     }
+    if (!lst.open && plat_ms() < ui.slots_until) {   /* NO FREE SLOT said: where to see what fills them */
+        cat_s(t, "NO FREE SLOT|SEL: SLOTS, FREE ONE");
+        return;
+    }
     if (lst.open && lst.n) {
         int k = lst.row[lst.sel].kind;
         cat_s(t, k == LK_NAME ? "ALGO: LETTER|SEL: NEXT|HOME: BACK"
                : k == LK_ACTION ? "SELECT: MOVE|SEL: DO IT|HOME: BACK"
-               : k == LK_PICK ? "ALGO: PICK|SEL: DO IT|HOME: BACK" : "SELECT: MOVE|ALGO: CHANGE|HOME: BACK");
+               : k == LK_PICK ? "ALGO: PICK|SEL: DO IT|HOME: BACK"
+               : k == LK_SUB ? "SELECT: MOVE|SEL: OPEN|HOME: BACK"
+               : k == LK_SLOT ? (slot_kind[lst.row[lst.sel].id] == SLOT_NONE ? "SELECT: MOVE|HOME: BACK"
+                                                                              : "SELECT: MOVE|SEL: FREE|HOME: BACK")
+               : "SELECT: MOVE|ALGO: CHANGE|HOME: BACK");
         return;
     }
     switch (ui.page) {
@@ -2582,7 +2621,7 @@ static void page_footer(char *t)
         cat_s(t, "KNOBS: THE SECTIONS|PRESETS: NEXT STYLE");
         break;
     case P_SETUP:
-        cat_s(t, "KNOBS: CLOCK, MIDI OUT, LIGHTS");
+        cat_s(t, "KNOBS: CLOCK, MIDI OUT, LIGHTS, CLICK");
         break;
     default:
         cat_s(t, "CPU, VOICES, VERSION");
@@ -2621,12 +2660,16 @@ static void draw_footer(void)
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Loops", "Your chord loops. Play chords.", "REC writes them: at the cursor, or in time."},
     {B_SEQ, PG_ANY, "Pattern", "The section's eight tracks; SELECT: its length and name.", 0},
+    {B_EDIT, PG_ANY & ~CF_NOLEAD, "Lead track", "Its sound; KNOB 4 the velocity its notes are recorded with.",
+     "SEL: QUANTISE a row to SEQ's grid. ALGORITHM: the tracks."},
     {B_EDIT, PG_ANY, "Track", "The selected track's sound and range; SELECT: its keys.",
      "ALGORITHM past C4: the lead tracks LD1, LD2."},
     {B_LFO, PG_ANY, "Mixer", "Volume, pan and sends; SELECT: the tone. Black keys pick the track.", 0},
     {B_FX, PG_ANY, "Master FX", "The reverb and the chorus every track sends to.", 0},
     {B_ENV, PG_ANY, "Style", "The six sections' patterns. PRESETS: the next style.", 0},
-    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights; SELECT: the panel.", 0},
+    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights, the click (off, rec, on); SELECT: the panel.", 0},
+    {B_SEL, PG_TRACK, "Lists", "This page as a list; SLOTS: what fills the 16 slots, FREE one.",
+     "SELECT moves, ALGORITHM changes, HOME goes back."},
     {B_SEL, PG_ANY, "Lists", "This page as a list, MORE, actions.", "SELECT moves, ALGORITHM changes, HOME goes back."},
     {B_SAVE, PG_SONG, "Save", "Tap: save.", "Rows: a white key adds one by itself."},
     {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
@@ -2734,6 +2777,13 @@ static void list_build(void)
     knob_t k[4];
     char *nm = list_name();
     lst.n = 0;
+    if (lst.slots) {                                 /* SLOTS: the 16, as scanned */
+        for (int i = 0; i < ARR_USER_PATTERNS; i++)
+            list_add(slot_txt[i], 0, LK_SLOT, i);
+        if (lst.sel >= lst.n)
+            lst.sel = (uint8_t)(lst.n - 1);
+        return;
+    }
     if (keep == P_HOME)
         f = keep, n = 1;
     else if (song_pg(keep))                          /* SONG: its three pages */
@@ -2777,16 +2827,21 @@ static void list_build(void)
         list_add(ACTION_NAME[A_COPY_SONG], v, LK_PICK, A_COPY_SONG);
     } else if (keep >= P_PATTERN && keep <= P_MASTER) {
         if (app.lead) {                              /* a lead: its notes in a row ("the cursor's / playing"), all */
-            static char er[24], ea[16];
+            static char er[24], ea[16], qr[24];
             char *e = cat_s(cat_s(cat_s(er, "ERASE "), TRACK_NAME[sel_trk()]), " IN ROW ");
             itoa_u((uint32_t)lead_row() + 1u, e);
             cat_s(cat_s(ea, "ERASE "), TRACK_NAME[sel_trk()]);
+            e = cat_s(cat_s(cat_s(qr, "QUANTISE "), TRACK_NAME[sel_trk()]), " ROW ");
+            itoa_u((uint32_t)lead_row() + 1u, e);
             list_add(er, 0, LK_ACTION, A_ERASE_LEAD_ROW);
             list_add(ea, 0, LK_ACTION, A_ERASE_LEAD);
+            list_add(qr, GRID_NAME[proj.quant % ARR_NQ], LK_ACTION, A_QUANT_LEAD_ROW);
         } else
             list_add(ACTION_NAME[A_ERASE_TRACK], 0, LK_ACTION, A_ERASE_TRACK);
         list_add(ACTION_NAME[A_CLEAR_PATTERN], 0, LK_ACTION, A_CLEAR_PATTERN);
         list_add(ACTION_NAME[A_BACK_TO_STYLE], 0, LK_ACTION, A_BACK_TO_STYLE);
+        if (keep <= P_TRACK2)                        /* SEQ, EDIT: what fills the 16 slots */
+            list_add(ACTION_NAME[A_SLOTS], 0, LK_SUB, A_SLOTS);
     }
     if (lst.sel >= lst.n)
         lst.sel = (uint8_t)(lst.n ? lst.n - 1 : 0);
@@ -2832,7 +2887,15 @@ static void draw_list(void)
             continue;
         }
         cv_round(6, y, 222, LIST_RH - 1, 5, on ? K_TEAL : K_PANEL);
-        if (k == LK_KNOB) {
+        if (k == LK_SLOT) {                          /* "3  P03 . Funk A . S1" (free: dim) */
+            int id = lst.row[i].id;
+            char n[4];
+            itoa_u((uint32_t)id + 1u, n);
+            text_c(20, y + 1, &FONT_XS, n, dim);
+            segs(36, y, &FONT_B, lst.row[i].name, slot_kind[id] == SLOT_NONE ? dim : fg);
+            if (slot_kind[id] != SLOT_NONE)
+                glyph_enter(208, y + 5, fg);
+        } else if (k == LK_KNOB) {
             cv_text(14, y, &FONT_S, lst.row[i].name, dim);
             text_fit(218 - text_w(&FONT_B, v), y, &FONT_B, v, 120, fg);
         } else if (k == LK_NAME) {                   /* the letters, the one ALGORITHM turns underlined */
@@ -2846,14 +2909,19 @@ static void draw_list(void)
             }
         } else {
             cv_text(14, y, &FONT_B, lst.row[i].name, fg);
-            if (k == LK_PICK) {
+            if (k == LK_SUB)                         /* another list */
+                glyph_pick(213, y + 4, fg);
+            else if (k == LK_PICK) {
             {
                 int32_t room = 206 - (14 + text_w(&FONT_B, lst.row[i].name) + 6), w = text_w(&FONT_S, v);
                 text_fit(206 - (w < room ? w : room), y, &FONT_S, v, room, fg);
             }
                 glyph_pick(213, y + 4, fg);
-            } else
+            } else {
+                if (*v)                              /* (QUANTISE: the grid) */
+                    cv_text(202 - text_w(&FONT_S, v), y, &FONT_S, v, dim);
                 glyph_enter(208, y + 5, fg);
+            }
         }
     }
     if (lst.n > LIST_SHOWN) {                        /* where in the list */

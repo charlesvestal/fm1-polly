@@ -40,7 +40,9 @@ wait 50
 expect xlo5 55
 tap SEL
 spin SELECT 20
-turn SELECT -2
+# (ERASE TRACK: the third from the end; the time two detents took, as the takes below were timed with)
+spin SELECT -3
+wait 159
 tap SEL
 expect asking 1
 tap SEL

@@ -42,7 +42,8 @@ static void test_defaults(void)
 {
     static songs_t s;
     CHECK(project_songs_load(&s) != 0, "nothing stored: defaults");
-    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 8u, "format 8");
+    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 9u, "format 9");
+    CHECK(s.song[1].lead[0].vel == 100 && s.song[1].lead[1].vel == 100, "the leads recorded at velocity 100");
     CHECK(s.song[2].lead[0].program == 80 && s.song[2].lead[0].chan == 6 && s.song[2].lead[1].program == 48 &&
               s.song[2].lead[1].chan == 7 && s.song[2].lead[1].vol == 100, "the lead tracks: LD1 GM 81 on 7, LD2 GM 49 on 8");
     CHECK(s.song[0].nrows == 0 && s.song[0].intro && s.song[0].ending && s.song[0].tempo == arr_style_tempo(0), "an empty song at its style's tempo");

@@ -93,7 +93,7 @@ void plat_play_red(int red) { (void)red; }      /* the device's PLAY colour: gre
 #define MQ 256
 static uint32_t min_q[MQ], mi_w, mi_r;
 static FILE *midi_log;
-static uint32_t midi_out_count, clock_out_count, note_on_count;
+static uint32_t midi_out_count, clock_out_count, note_on_count, click_count;
 int plat_midi_in(uint32_t *pkt)
 {
     if (mi_r == mi_w)
@@ -106,6 +106,8 @@ void plat_midi_out(uint32_t pkt)
     midi_out_count++;
     if (((pkt >> 8) & 0xF0) == 0x90 && (pkt >> 24))
         note_on_count++;
+    if (((pkt >> 8) & 0xFF) == 0x9F && (pkt >> 24))
+        click_count++;
     if (((pkt >> 8) & 0xFF) == 0xF8) {
         clock_out_count++;
         return;
@@ -402,6 +404,10 @@ static int expect(const char *what, const char *val)
     int got;
     if (!strcmp(what, "voices"))                  /* the synth's voices sounding */
         got = gm_voices;
+    else if (!strcmp(what, "clicks_out"))         /* the click's note-ons out (channel 16) since hitreset */
+        got = (int)click_count;
+    else if (!strcmp(what, "click"))              /* Setup's CLICK: 0 off, 1 rec, 2 on */
+        got = proj.click;
     else if (!strcmp(what, "notes_out"))          /* note-ons out (MIDI out on: every note played) since hitreset */
         got = (int)note_on_count;
     else if (!strcmp(what, "level"))              /* the output's peak, percent */
@@ -636,24 +642,25 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "lead_count", 10))    /* lead_countK_R: lead K's (1, 2) notes in row R (1..; 0: all rows) */
         got = leads_count(&leads, atoi(strrchr(what, '_') + 1) - 1, (what[10] - '1') & 1);
     else if (!strncmp(what, "lsnd", 4) && strchr(what, '_')) {
-        /* lsndK_prog / _chan / _vol / _pan / _rev / _cho / _bright: lead K's (1, 2) sound, the song's (prog 1..128, chan 1..16);
+        /* lsndK_prog / _chan / _vol / _pan / _rev / _cho / _bright / _vel: lead K's (1, 2) sound, the song's (prog 1..128, chan 1..16);
          * engsndK_prog: the engine's copy (leads.trk) */
         const lead_trk_t *l = &csong()->lead[(what[4] - '1') & 1];
         const char *f = strchr(what, '_') + 1;
         got = !strcmp(f, "prog") ? l->program + 1 : !strcmp(f, "chan") ? l->chan + 1 : !strcmp(f, "vol") ? l->vol
             : !strcmp(f, "pan") ? l->pan : !strcmp(f, "rev") ? l->rev : !strcmp(f, "cho") ? l->cho
-            : !strcmp(f, "bright") ? (l->bright ^ 64) & 127 : -1;
+            : !strcmp(f, "bright") ? (l->bright ^ 64) & 127 : !strcmp(f, "vel") ? l->vel : -1;
     } else if (!strncmp(what, "engsnd", 6) && strstr(what, "_prog"))
         got = leads.trk[(what[6] - '1') & 1].program + 1;
     else if (!strncmp(what, "row_lmute", 9))      /* row_lmuteN: row N's lead mutes, bit 0 LD1, bit 1 LD2 */
         got = csong()->row[(atoi(what + 9) - 1) % ARR_ROWS].lmute;
     else if (!strncmp(what, "lead", 4) && strchr(what, '_') && what[4] >= '0' && what[4] <= '9') {
-        /* leadI_row / _pos / _note / _root / _trk / _len: lead note I (1..) of the list; -1 none */
+        /* leadI_row / _pos / _note / _root / _trk / _len / _vel: lead note I (1..) of the list; -1 none */
         int i = atoi(what + 4) - 1;
         const char *f = strchr(what, '_') + 1;
         const lead_ev_t *e = i >= 0 && i < leads.n ? lead_at_c(&leads, (uint32_t)i) : 0;
         got = !e ? -1 : !strcmp(f, "row") ? e->row + 1 : !strcmp(f, "pos") ? (int)lead_pos(e) : !strcmp(f, "note") ? e->note
-            : !strcmp(f, "root") ? lead_root(e) : !strcmp(f, "trk") ? lead_trk(e) + 1 : !strcmp(f, "len") ? (int)lead_len(e) : -1;
+            : !strcmp(f, "root") ? lead_root(e) : !strcmp(f, "trk") ? lead_trk(e) + 1 : !strcmp(f, "len") ? (int)lead_len(e)
+            : !strcmp(f, "vel") ? e->vel : -1;
     } else if (!strncmp(what, "slot_kind", 9)) {  /* slot_kindN (1..16): SLOT_NONE 0, PATTERN 1, LEAD 2, OTHER 3, LOOPS 4 */
         slot_info_t si;
         got = project_slot_info((atoi(what + 9) - 1) & 15, &si, &dbg_pat);
@@ -695,6 +702,11 @@ static int expect(const char *what, const char *val)
         got = proj.quant;
     else if (!strcmp(what, "grid_bar"))           /* the Grid knob's bar, as drawn: its fill */
         got = grid_fill();
+    else if (!strcmp(what, "slots_list"))         /* the SLOTS list on screen */
+        got = lst.open && lst.slots;
+    else if (!strncmp(what, "slot_shown", 10))    /* slot_shownN (1..16): its kind as SLOTS shows it (0 free, 1 pattern,
+                                                   * 2 lead part, 4 loops) */
+        got = slot_kind[(atoi(what + 10) - 1) & 15];
     else if (!strcmp(what, "list_open"))          /* SEL's list on screen */
         got = lst.open;
     else if (!strcmp(what, "list_sel"))           /* the list's row picked, 0.. */
@@ -890,8 +902,10 @@ int main(int argc, char **argv)
             }
             style_all(found);
             run_ms(20);
-        } else if (!strcmp(cmd, "hitreset"))
+        } else if (!strcmp(cmd, "hitreset")) {
             memset(trk_hits, 0, sizeof trk_hits);
+            click_count = 0;
+        }
         else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);
         else if (!strcmp(cmd, "poke_user_songs")) {   /* host-only: songs 1 and 2 on user patterns P01..P06, P07..P12 */

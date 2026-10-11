@@ -13,7 +13,8 @@
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
 #define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 8u                  /* 8: no loops (each song's are in a slot); older: reset (Polly is prerelease) */
+#define SONGS_FORMAT 9u                  /* 9: a lead's velocity; 8: no loops (each song's are in a slot); older: reset
+                                         * (Polly is prerelease) */
 
 typedef struct {
     uint32_t magic, format;
@@ -31,7 +32,8 @@ typedef struct {
     uint8_t cho_type, cho_level;          /* the master chorus: preset 0..3; 0..127 (0 off) */
     uint8_t clock;                        /* 0 internal (MIDI clock in ignored), 1 MIDI (followed when it comes) */
     uint8_t mout;                         /* MIDI out: the tracks on their channels, the clock */
-    uint8_t rsv[4];
+    uint8_t click;                       /* the click: ARR_CLICK_OFF, REC (while recording or counting in), ON */
+    uint8_t rsv[3];
 } project_t;
 
 extern project_t proj;
@@ -77,6 +79,7 @@ int project_loops_slot(int song);
 int project_loops_load(int song, loops_part_t *p, int8_t *slot);
 int project_loops_save(int song, loops_part_t *p, int8_t *slot);
 int project_loops_free(int song);
+int project_slot_clear(int i);                   /* a lead part's or a song's loops' slot let go (its header, n 0) */
 void pattern_empty(pattern_t *p);
 void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */
 int song_style_valid(int st);                          /* a pattern number a song may hold */

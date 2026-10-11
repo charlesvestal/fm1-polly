@@ -36,7 +36,7 @@ volatile uint32_t arr_ticks;
 
 /* ------------------------------------------------------------ commands --- */
 enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_MODE, C_TRANSPOSE, C_LIVE,
-       C_REC, C_NOTE, C_QUANT, C_ERASE };
+       C_REC, C_NOTE, C_QUANT, C_ERASE, C_CLICK, C_COUNT };
 #define QN 64u
 static uint32_t q[QN], qb[QN];
 static volatile uint32_t q_w, q_r;
@@ -118,6 +118,11 @@ void arr_key(int note, int on, int vel)
 {
     post(C_NOTE, (uint32_t)(note & 0x7F) | (uint32_t)(on ? vel & 0x7F : 0) << 8, 0);
 }
+void arr_click(int mode, int rec)
+{
+    post(C_CLICK, (uint32_t)(mode >= ARR_CLICK_OFF && mode <= ARR_CLICK_ON ? mode : ARR_CLICK_OFF), rec != 0);
+}
+void arr_count_in(uint32_t beat) { post(C_COUNT, 0, beat); }
 void arr_set_quant(int q) { post(C_QUANT, (uint32_t)(q >= 0 && q < ARR_NQ ? q : ARR_Q_16), 0); }
 void arr_erase_track(int trk)
 {
@@ -428,10 +433,16 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
     on_out(h);
     arr_track_hit[ti] = arr_ticks;
 }
+/* the click (arr.h): its note held here, apart from the tracks (no mute, no chord) */
+static track_t ck;
+static uint8_t ck_mode, ck_rec;                    /* ARR_CLICK_*; the app's REC on */
+static uint32_t ck_until;                          /* the app's count-in: the beats before this one click */
+#define CK_LEN (ARR_PPQ / 8)                       /* a click's length, ticks */
 static void all_off(void)
 {
     for (int t = 0; t < ARR_ALLTRK; t++)
         track_off(&tk[t]);
+    track_off(&ck);
 }
 
 /* ---------------------------------------------------------- controllers --- */
@@ -1670,7 +1681,52 @@ static void ends_due(void)
             else if ((int32_t)(e - m) < 0)
                 m = e;
         }
+    if (ck.nh && (int32_t)(ck.h[0].end - arr_ticks) <= 0)
+        note_end(&ck, 0);
+    else if (ck.nh && (int32_t)(ck.h[0].end - m) < 0)
+        m = ck.h[0].end;
     next_end = m;
+}
+/* a beat line (down: its bar's first): the click, when wanted. Its sounds to the synth each time (the channel is the
+ * click's), to MIDI out when they differ from what went (the sounds' priority: room beyond a note's) */
+static void click_beat(int down)
+{
+    static const uint8_t CC[4] = {7, 10, 91, 93}, V[4] = {ARR_CLICK_VOL, 64, 0, 0};
+    const uint32_t c = ARR_CLICK_CHAN;
+    int count = (rec_on && rec_wait) || beat_now < ck_until;
+    uint32_t note = down ? ARR_CLICK_HI : ARR_CLICK_LO;
+    held_t *h;
+    if (!count && ck_mode != ARR_CLICK_ON && !(ck_mode == ARR_CLICK_REC && (rec_on || ck_rec)))
+        return;
+    if (ons_left <= 0)
+        return;
+    ons_left--;
+    track_off(&ck);
+    gm_midi_now(0xC0u | c, ARR_CLICK_PROG, 0, at);
+    for (int k = 0; k < 4; k++)
+        gm_midi_now(0xB0u | c, CC[k], V[k], at);
+    if (mout) {
+        if (out_sent[c][0] != ARR_CLICK_PROG && out_room(2)) {
+            arr_midi_out(0xC0u | c, ARR_CLICK_PROG, 0);
+            out_sent[c][0] = ARR_CLICK_PROG;
+        }
+        if (out_sent[c][1] != ARR_CLICK_VOL && out_room(2)) {
+            arr_midi_out(0xB0u | c, 7, ARR_CLICK_VOL);
+            out_sent[c][1] = ARR_CLICK_VOL;
+        }
+    }
+    h = &ck.h[ck.nh++];
+    h->out = h->in = (uint8_t)note;
+    h->vel = (uint8_t)(down ? 100 : 80);
+    h->chan = (uint8_t)c;
+    h->mo = 0;
+    h->fixed = 1;
+    h->blk = blk_count;
+    h->end = arr_ticks + CK_LEN;
+    if ((int32_t)(h->end - next_end) < 0)
+        next_end = h->end;
+    synth_on(c, note, h->vel);
+    on_out(h);
 }
 /* the events on the tick pos (the ones before it, passed over: a place moved on by a reload), and the
  * earliest event after it */
@@ -1812,6 +1868,8 @@ static void tick(int play)
         }
         first_tick = 0;
         p = &pat[cur];
+        if (play)
+            click_beat(pos % bar_len(p) == 0);
         beat_chord(play);                          /* the beat's chord before its notes */
         rec_due();
     }
@@ -2029,6 +2087,11 @@ static void drain(void)
             break;
         case C_NOTE: key_event((int)(a & 0x7Fu), (int)(a >> 8 & 0x7Fu)); break;
         case C_QUANT: quant = (uint8_t)a; break;
+        case C_CLICK:
+            ck_mode = (uint8_t)a;
+            ck_rec = (uint8_t)b;
+            break;
+        case C_COUNT: ck_until = b; break;
         case C_ERASE:
             if (erase_pend[cur] && erase_ident[cur] != ident[cur])
                 erase_pend[cur] = 0;
@@ -2197,6 +2260,9 @@ void arr_init(void)                                /* at boot, before the render
         arr_track_hit[t] = 0;
     }
     lead_init();
+    memset(&ck, 0, sizeof ck);
+    ck_mode = ck_rec = 0;
+    ck_until = 0;
     ctl_dirty = ctl_out_dirty = ctl_out_pend = 0;
     chord_owed = 0;
     chord.root = 0;

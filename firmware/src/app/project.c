@@ -22,6 +22,7 @@ void project_defaults(void)
     proj.cho_level = 80;
     proj.clock = 1;
     proj.mout = 1;
+    proj.click = ARR_CLICK_REC;
     for (c = 0; c < GM_NCH; c++) {
         proj.volume[c] = 100;
         proj.pan[c] = 64;
@@ -37,7 +38,7 @@ static int project_valid(void)
         proj.leds > 2u || proj.song >= ARR_SONGS || proj.pattern >= ARR_USER_PATTERNS ||
         proj.trk >= ARR_TRACKS || proj.quant >= ARR_NQ ||
         proj.rev_type > 4u || proj.rev_level > 127u || proj.cho_type > 3u || proj.cho_level > 127u ||
-        proj.clock > 1u || proj.mout > 1u)
+        proj.clock > 1u || proj.mout > 1u || proj.click > ARR_CLICK_ON)
         return 0;
     for (c = 0; c < GM_NCH; c++)
         if (proj.program[c] > 127u || proj.volume[c] > 127u || proj.pan[c] > 127u || proj.reverb[c] > 127u ||
@@ -217,7 +218,7 @@ static void loops_fix(loop_t *t)
         }
     }
 }
-/* a stored object of another format (or none, or damaged): the defaults (format 8: the loops are each song's, in
+/* a stored object of another format (or none, or damaged): the defaults (format 9: a lead's velocity; 8: the loops each song's, in
  * the slots; Polly is prerelease, so no migration). Else every value that indexes or sizes something kept
  * in range: a song's style, tempo and transpose defaulted, intro/ending/at_end forced to 0/1; its
  * rows' loop, sect, rep and key clamped, and nrows at most ARR_ROWS. */
@@ -267,6 +268,8 @@ int project_songs_load(songs_t *s)
             t->cho &= 127u;
             t->bright &= 127u;
             t->reso &= 127u;
+            t->vel = (uint8_t)(t->vel & 127u ? t->vel & 127u : 100u);
+            t->rsv = 0;
         }
     }
     return 0;
@@ -413,6 +416,15 @@ int project_leads_free(int song)
 }
 
 /* ------------------------------------------------------- a song's loops --- */
+int project_slot_clear(int i)
+{
+    lead_hdr_t h;
+    if (i < 0 || i >= ARR_USER_PATTERNS || plat_store_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) != (int)LEAD_HDR ||
+        h.magic != LEAD_MAGIC)
+        return -1;
+    h.n = 0;
+    return plat_store_save((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR);
+}
 int project_loops_slot(int song)
 {
     lead_hdr_t h;

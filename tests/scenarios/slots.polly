@@ -1,0 +1,176 @@
+# POLLY, SLOTS: what fills the 16 shared slots (SEL's last row on SEQ and EDIT, or SEL just after a NO FREE SLOT),
+# and FREE on one (it asks): an unused pattern's notes erased; a song's loops back to the factory's; a pattern a song
+# plays: those sections back to the song's style; a lead part's notes erased.
+# Songs 1 and 2 play P01..P06 and P07..P12; P13..P16 hold notes no song plays: nothing is free.
+wait 300
+poke_full_patterns
+poke_user_songs
+reboot
+wait 300
+expect song1_style1 1
+# ---- the song's loops change (LOAD PROGRESSION into L9, the first empty one): no slot for them: NO FREE SLOT, the
+# footer: SEL: SLOTS
+tap ARP
+expect page 4
+expect app_loop 9
+tap SEL
+spin SELECT 20
+turn SELECT -1
+tap SEL
+wait 50
+expect loops_slot 0
+expect footer_is_NO_FREE_SLOT|SEL:_SLOTS,_FREE_ONE 1
+shot noslot_hint.png
+# SEL now: SLOTS
+tap SEL
+expect slots_list 1
+expect slot_shown1 1
+expect slot_shown7 1
+expect slot_shown13 1
+wait 100
+shot slots_list.png
+# P13 (no song plays it): FREE asks, SEL frees it
+spin SELECT 12
+expect list_sel 12
+expect footer_is_SELECT:_MOVE|SEL:_FREE|HOME:_BACK 1
+tap SEL
+expect asking 1
+wait 100
+shot free_ask_pattern.png
+tap SEL
+wait 50
+expect asking 0
+expect slots_list 1
+expect slot_shown13 0
+expect msgtext_is_SLOT_13_FREE_NOW 1
+expect footer_is_SELECT:_MOVE|HOME:_BACK 1
+wait 100
+shot slots_freed.png
+wait 1400
+shot slots_header.png
+# HOME: back to the page (it came from the hint)
+tap HOME
+expect list_open 0
+expect page 4
+# the loops change again (another progression into L9: it asks): slot 13 is theirs
+tap SEL
+spin SELECT 20
+turn SELECT -1
+spin ALGO 1
+tap SEL
+expect asking 1
+tap SEL
+wait 50
+expect loops_slot 13
+# ---- SEQ's list: SLOTS, its last row; P13 holds S1's loops now: FREE puts them back to the factory's
+tap SEQ
+expect page 6
+press SEL
+wait 1200
+expect card 2
+shot card_sel.png
+release SEL
+expect list_open 0
+tap SEL
+spin SELECT 20
+expect footer_is_SELECT:_MOVE|SEL:_OPEN|HOME:_BACK 1
+wait 100
+shot seq_list_slots.png
+tap SEL
+expect slots_list 1
+expect slot_shown13 4
+spin SELECT 12
+tap SEL
+expect asking 1
+wait 100
+shot free_ask_loops.png
+tap SEL
+wait 50
+expect loops_slot 0
+expect slot_shown13 0
+expect slot_kind13 4
+# HOME: back to SEQ's list (on SLOTS), HOME again: the page
+tap HOME
+expect slots_list 0
+expect list_open 1
+tap HOME
+expect list_open 0
+# ---- P02 (S1's Main A): playing, FREE says stop first; stopped, it asks; yes: Main A plays the song's style again
+tap PLAY
+wait 200
+tap SEL
+spin SELECT 20
+tap SEL
+spin SELECT 1
+tap SEL
+expect asking 0
+expect msgtext_is_FREE_STOP_FIRST 1
+tap PLAY
+wait 100
+tap SEL
+expect asking 1
+wait 100
+shot free_ask_song_pattern.png
+tap SEL
+wait 50
+expect song1_style1 33
+expect slot_shown2 0
+expect msgtext_is_SLOT_2_S1_BACK_TO_STYLE 1
+tap HOME
+tap HOME
+expect list_open 0
+# ---- S1's lead notes: a row, LD1 recorded; its part takes the first free slot (2); FREE erases them
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+expect rows 1
+tap PLAY
+wait 300
+tap PLAY
+wait 100
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 50
+tap PLAY
+wait 500
+tapkey 7
+wait 300
+tapkey 11
+wait 600
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect lead_notes 2
+expect lead_slot1 2
+tap SAVE
+wait 50
+tap SEL
+spin SELECT 20
+tap SEL
+expect slot_shown2 2
+spin SELECT 1
+wait 100
+shot slots_lead.png
+tap SEL
+expect asking 1
+wait 100
+shot free_ask_lead.png
+tap SEL
+wait 50
+expect lead_notes 0
+expect lead_slot1 0
+expect slot_shown2 0
+expect slot_kind2 2
+# undone: the notes back, a slot taken for them again
+tap HOME
+tap HOME
+press HOME
+tap REC
+release HOME
+wait 50
+expect lead_notes 2
+expect lead_slot1 2

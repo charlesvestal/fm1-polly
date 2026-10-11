@@ -16,6 +16,8 @@ static inline void lead_trk_default(lead_trk_t *t, int k)
     t->rev = 40;
     t->cho = 0;
     t->bright = t->reso = 0;                     /* (XOR 64: the neutral 64) */
+    t->vel = 100;                                /* (as the keys play the patterns' tracks) */
+    t->rsv = 0;
 }
 int lead_cmp(const lead_ev_t *a, const lead_ev_t *b);   /* the list's order: < 0, 0 (the same note), > 0 */
 void leads_index(leads_t *l);                    /* row0 from the list */
@@ -25,7 +27,13 @@ void leads_index(leads_t *l);                    /* row0 from the list */
 int leads_insert(leads_t *l, const lead_ev_t *e, int max, int *at);
 /* the notes of row r on (lead track trk, -1 both; r -1: every row) removed; returns how many */
 int leads_erase(leads_t *l, int r, int trk);
-int leads_count(const leads_t *l, int r, int trk);   /* notes of row r (-1 every row), track trk (-1 both) */
+int leads_count(const leads_t *l, int r, int trk);
+/* the notes of row r, track trk (-1 both), each to the nearest line of `grid` ticks from the row's start (a line at
+ * `end`, the row's length in ticks, or past it: the line before; end 0: no end); the row kept in order, two notes
+ * landing on the same place and pitch: the later kept. Lengths kept. Returns the notes moved (0: nothing changed) */
+int leads_quantise(leads_t *l, int r, int trk, uint32_t grid, uint32_t end);
+/* the notes at indexes [from, from + n) removed (a part's: SLOTS' FREE); returns how many */
+int leads_erase_at(leads_t *l, uint32_t from, uint32_t n);   /* notes of row r (-1 every row), track trk (-1 both) */
 /* a row inserted at r (loops.c row_insert): the rows from r one on (the new row has none; a note pushed past the last
  * row goes: their count returned) */
 int leads_row_insert(leads_t *l, int r);

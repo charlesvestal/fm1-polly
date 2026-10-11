@@ -292,10 +292,10 @@ tap PLAY
 release HOME
 expect slot1_trk5_count 25
 expect msgtext_is_REDO_TAKE_C1 1
-# ---- CLEAR PATTERN (SEL on SEQ: the last but one), undone while playing
+# ---- CLEAR PATTERN (SEL on SEQ: the third from the end, before BACK TO STYLE and SLOTS), undone while playing
 tap SEL
 spin SELECT 40
-turn SELECT -1
+turn SELECT -2
 tap SEL
 expect asking 1
 tap SEL
