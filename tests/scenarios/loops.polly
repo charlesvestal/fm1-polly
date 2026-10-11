@@ -509,3 +509,84 @@ wait 100
 # the factory loops' names: 8 characters at most, never cut
 expect loop_name2 Ballad
 expect loop_name7 Flamenco
+# ---- recording, as bars: HOME during a take (the count-in, bar 1, two chords in bar 3, the take ended); LOOP while
+# REC writes in time (the grid follows the playhead)
+expect page 4
+tap HOME
+expect page 0
+spin K4 -16
+wait 50
+expect mode 0
+tap PLAY
+wait 200
+tap REC
+expect take 2
+wait 100
+shot rec_wait.png
+# (the take starts at beat 4, 2000 ms after PLAY): Am on bar 1, F on bar 2, C and G on bar 3 (beats 1 and 3)
+wait 1700
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+wait 500
+shot rec_bar1.png
+wait 1250
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+key 7 up
+wait 1900
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 900
+key 14 down
+key 18 down
+key 21 down
+wait 100
+key 14 up
+key 18 up
+key 21 up
+wait 100
+shot rec_bar3.png
+# REC in bar 4: a 4-bar loop (L11), playing from the next bar line
+wait 2400
+tap REC
+expect take 0
+expect mode 1
+expect loop_bars11 4
+expect loop_ch11_8 0
+expect loop_ch11_10 700
+wait 400
+shot rec_ended.png
+# LOOP, REC writing in time: at bar 3.2 of L11, Em
+tap ARP
+expect page 4
+tap REC
+expect rec_chords 1
+wait 4300
+key 11 down
+key 14 down
+key 18 down
+wait 100
+key 11 up
+key 14 up
+key 18 up
+expect loop_ch11_9 416
+wait 150
+shot loop_rec.png
+tap REC
+expect rec_chords 0
+tap PLAY
+wait 100

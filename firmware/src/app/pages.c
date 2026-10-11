@@ -140,6 +140,8 @@ static struct {
     uint8_t mode_wait;                               /* a MODE asked for while playing waits for the bar line: */
     uint32_t mode_at;                                /* arr_beats there (writing in time waits for it too) */
     int16_t take_last;                               /* the latest beat written */
+    uint32_t wrote_t;                                /* a chord written (REC): when, into which loop, on which beat */
+    uint8_t wrote_loop, wrote_beat;                  /* (it flashes coral on HOME's bars and LOOP's grid a moment) */
     int8_t loop_seen;                                /* arr_loop_now as last seen (app.loop follows its changes) */
     uint8_t role_was;                                /* what the keys did last frame (REC ends when that changes) */
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
@@ -630,9 +632,227 @@ static uint32_t home_chord(void)                     /* the big chord HOME shows
     home_place(&pl);
     return pl.chord;
 }
+/* HOME while chords are recorded (a new loop's take; REC in LOOP, playing or stepping): the loop as bars, so the
+ * hands playing see where they are. A line "REC L9 . bar 3.2" (the take's bar and beat, from its start; REC in
+ * LOOP: the loop's), the chord sounding at its right; under it a cell a bar, four to a row (16 bars show, scrolled
+ * to the bar playing): the bar's number and its chord (big), or its chords (small: "Am  F"), a dot for none. The
+ * bar playing filled teal, its beats marked along its foot; a take's next bar outlined, empty (the take growing);
+ * stepping (stopped): the cursor's bar in a coral ring. A chord just written fills its bar coral a moment. Waiting
+ * for the take's first bar: "starts at the next bar" and the beats left, big, in bar 1's outline */
+#define RG_Y 28                                      /* the bars' top */
+#define RG_X 8
+#define RG_CW 53                                     /* a bar's cell: four to a row, 4 px apart */
+#define FLASH_MS 450u
+/* HOME's eight tracks: lit as they play (bit i of lit), with their sounds; home_lit: those hit just now */
+static uint32_t home_lit(void)
+{
+    uint32_t lit = 0, now = arr_ticks;
+    for (uint32_t i = 0; i < ARR_TRACKS; i++) {
+        uint32_t hit = arr_track_hit[i];
+        if (arr_playing && hit && now - hit < 8u)    /* (stopped: nothing plays, nothing lit) */
+            lit |= 1u << i;
+    }
+    return lit;
+}
+static uint32_t home_tracks_hash(uint32_t h, uint32_t slot, uint32_t lit)
+{
+    h = hash(h, lit | (uint32_t)proj.trk << 8);
+    for (uint32_t i = 0; i < ARR_TRACKS; i++)
+        h = hash(h, app.trk[slot][i].program | (uint32_t)app.trk[slot][i].chan << 8 | (uint32_t)trk_muted((int)i) << 12);
+    return h;
+}
+static void home_tracks(uint32_t slot, uint32_t lit)
+{
+    for (uint32_t i = 0; i < ARR_TRACKS; i++) {
+        int32_t x = 6 + (int32_t)(i / 4u) * 116, y = 87 + (int32_t)(i % 4u) * 11;
+        int on = (int)(lit >> i & 1u), sel = i == proj.trk, mute = trk_muted((int)i);
+        uint16_t fg = on ? K_BG : sel ? K_ACCENT : mute ? K_LINE : K_TEXT;
+        const char *name = trk_sound(&app.trk[slot][i]);
+        if (on)
+            cv_round(x, y, 112, 11, 3, sel ? K_ACCENT : K_TEAL);
+        else if (sel)
+            cv_round(x, y, 112, 11, 3, K_PANEL);
+        cv_text(x + 4, y - 2, &FONT_XS, TRACK_NAME[i], on ? K_BG : K_DIM);
+        text_fit(x + 26, y - 2, &FONT_XS, mute ? "muted" : name, 84, fg);
+    }
+}
+static int wrote_flash(int li)
+{
+    return ui.wrote_t && li == ui.wrote_loop && plat_ms() - ui.wrote_t < FLASH_MS;
+}
+static void draw_home_rec(void)
+{
+    place_t pl;
+    const loop_t *l;
+    int take = ui.take, ovr = arr_override, xp = xpose_now(), li, bpb, len, shown, ghost = 0, focus = -1, fbeat = 0;
+    int cursor = 0, wait = 0, cnt = 0, n, rows, vis, top, ch, fl, fbar = -1, i;
+    uint32_t h, lit;
+    char t[40], *e;
+    if (home_place(&pl))
+        ovr = 0;
+    li = take ? ui.take_loop % ARR_LOOPS : arr_playing && pl.loop >= 0 ? pl.loop : (int)(app.loop % ARR_LOOPS);
+    l = &songs.loop[li];
+    bpb = l->beats ? l->beats : 4;
+    len = loop_len(l);
+    shown = l->bars;
+    if (take == 1)
+        wait = 1;                                    /* from PLAY */
+    else if (take == 2) {
+        int32_t tb = (int32_t)(arr_beats - ui.take_b0);
+        if (tb < 0) {
+            wait = 2;                                /* the count-in: the beats to the take's downbeat */
+            cnt = (int)-tb;
+        } else {
+            focus = (int)tb / bpb;
+            fbeat = (int)tb % bpb;
+            ghost = 1;
+        }
+    } else if (arr_playing) {                        /* REC in LOOP, in time: the loop's bar playing */
+        if (arr_sect == SEC_INTRO)
+            wait = 3;
+        else if (ui.mode_wait || pl.loop != li)
+            wait = 4;
+        else {
+            focus = (int)(pl.lbeat / (uint32_t)bpb);
+            fbeat = (int)(pl.lbeat % (uint32_t)bpb);
+        }
+    } else {                                         /* stepping: the cursor's bar (at the end: the bar to come) */
+        cursor = 1;
+        focus = app.cbeat / bpb;
+        fbeat = app.cbeat % bpb;
+    }
+    if (wait >= 1 && wait <= 2)
+        ghost = 1;                                   /* bar 1, to come */
+    if (focus + 1 > shown)
+        shown = focus + 1;
+    n = shown + ghost;
+    if (n < 1)
+        n = 1;
+    rows = (n + 3) / 4;
+    vis = rows < 4 ? rows : 4;
+    top = (focus + ghost) / 4 - 3;                   /* the bar playing (and the next) in the window */
+    if (top > rows - 4)
+        top = rows - 4;
+    if (top < 0)
+        top = 0;
+    ch = vis == 1 ? 52 : vis == 2 ? 48 : vis == 3 ? 33 : 24;   /* (one row: the tracks under it, as HOME's) */
+    fl = wrote_flash(li);
+    if (fl)
+        fbar = ui.wrote_beat / bpb;
+    h = hash(2166136261u, 0x5EC0u | (uint32_t)li << 16 | (uint32_t)take << 24 | (uint32_t)wait << 26 |
+                              (uint32_t)cursor << 29);
+    h = hash(h, (uint32_t)(focus + 1) | (uint32_t)fbeat << 8 | (uint32_t)shown << 12 | (uint32_t)cnt << 20 |
+                    (uint32_t)(fbar + 1) << 24);
+    h = hash(h, pl.chord | (uint32_t)ovr << 24 | (uint32_t)(xp & 31) << 25);
+    h = hash(h, (uint32_t)bpb | (uint32_t)len << 4 | (uint32_t)top << 12);
+    for (i = 0; i < len && i < ARR_LOOP_BEATS; i++)
+        h = hash(h, l->ch[i]);
+    lit = vis == 1 ? home_lit() : 0;
+    if (vis == 1)
+        h = home_tracks_hash(h, (uint32_t)sect_slot(arr_sect), lit);
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    if (vis == 1)
+        home_tracks((uint32_t)sect_slot(arr_sect), lit);
+
+    {   /* the line: REC's dot, "REC L9 . bar 3.2"; the chord sounding at the right */
+        int32_t x;
+        cv_round(8, 6, 10, 10, 5, RGB(214, 64, 52));
+        loop_label(li, cat_s(t, "REC "));
+        if (wait == 1)
+            cat_s(t + slen(t), "|starts with PLAY");
+        else if (wait == 2)
+            cat_s(t + slen(t), "|starts at the next bar");
+        else if (wait == 3)
+            cat_s(t + slen(t), "|after the Intro");
+        else if (wait == 4)
+            cat_s(t + slen(t), "|from the bar line");
+        else {
+            e = itoa_u((uint32_t)focus + 1u, cat_s(t + slen(t), "|bar "));
+            *e++ = '.';
+            itoa_u((uint32_t)fbeat + 1u, e);
+        }
+        x = segs(24, 2, &FONT_B, t, K_TEXT);
+        if (!wait && pl.chord != 0xFFFFFFu) {    /* the chord sounding, in its box */
+            chord_t c = arr_chord_unpack(pl.chord);
+            int32_t w;
+            if (c.type != CH_NONE) {
+                chord_name(c, t);
+                w = text_w(&FONT_B, t) + 14;
+                if (232 - w > x + 6) {
+                    cv_round(232 - w, 1, w, 20, 6, ovr ? K_ACCENT : K_TEAL);
+                    cv_text(232 - w + 7, 3, &FONT_B, t, K_BG);
+                }
+            }
+        }
+    }
+    for (int b = top * 4; b < (top + vis) * 4 && b < n; b++) {   /* the bars */
+        int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = RG_Y + (b / 4 - top) * (ch + 2);
+        int plays = b == focus && !cursor, cur = b == focus && cursor, out = b >= shown || (cursor && b >= l->bars);
+        int flash = b == fbar, nch = 0, k;
+        int32_t nx;
+        uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL : out ? K_BG : K_PANEL;
+        uint16_t fg = flash || plays ? K_BG : K_TEXT;
+        char nm[4][12];
+        if (cur) {                                   /* the cursor: a coral ring */
+            cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
+            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, fill);
+        } else if (out && !flash) {                  /* a bar to come: its outline */
+            cv_round(x, y, RG_CW, ch, 5, K_LINE);
+            cv_round(x + 1, y + 1, RG_CW - 2, ch - 2, 4, fill);
+        } else
+            cv_round(x, y, RG_CW, ch, 5, fill);
+        itoa_u((uint32_t)b + 1u, t);
+        nx = cv_text(x + 4, ch >= 33 ? y : y + 4, &FONT_XS, t, flash || plays ? K_BG : out ? K_LINE : K_DIM) + 4;
+        for (k = 0; k < bpb; k++) {                  /* its chords */
+            int idx = b * bpb + k;
+            uint16_t v = idx < len && idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME;
+            if (v != LC_SAME && nch < 4)
+                chord_name(chord_shift(lc_unpack(v), xp), nm[nch++]);
+        }
+        if (wait == 2 && b == 0) {                   /* the count-in, big */
+            itoa_u((uint32_t)cnt, t);
+            text_c(x + RG_CW / 2, y + (ch - 32) / 2, &FONT_L, t, K_ACCENT);
+        } else if (nch == 1) {                       /* one chord: as big as fits */
+            int32_t tx = ch >= 33 ? x + 4 : nx, tw = RG_CW - (tx - x) - 3;
+            if (ch >= 44 && text_w(&FONT_L, nm[0]) <= RG_CW - 6)
+                text_c(x + RG_CW / 2, y + 13, &FONT_L, nm[0], fg);
+            else if (text_w(&FONT_B, nm[0]) <= tw)
+                cv_text(tx, ch >= 33 ? y + ch / 2 - 4 : y + 4, &FONT_B, nm[0], fg);
+            else
+                text_fit(tx, ch >= 33 ? y + ch / 2 - 3 : y + 4, &FONT_XS, nm[0], tw, fg);
+        } else if (nch > 1) {                        /* more: small, in order ("Am  F") */
+            e = t;
+            for (k = 0; k < nch; k++)
+                e = cat_s(k ? cat_s(e, "  ") : e, nm[k]);
+            if (ch >= 33 && text_w(&FONT_B, t) <= RG_CW - 7)
+                cv_text(x + 4, y + ch / 2 - 4, &FONT_B, t, fg);
+            else if (ch >= 33)
+                text_fit(x + 4, y + ch / 2 - 3, &FONT_XS, t, RG_CW - 7, fg);
+            else
+                text_fit(nx, y + 4, &FONT_XS, t, RG_CW - (nx - x) - 3, fg);
+        } else if (!out)                             /* none: a dot */
+            cv_round(ch >= 33 ? x + RG_CW / 2 - 2 : (nx + x + RG_CW) / 2 - 2, y + ch / 2 - 2 + (ch >= 33 ? 4 : 0), 4, 4, 1,
+                     flash || plays ? K_BG : K_DIM);
+        if (b == focus) {                            /* its beats along its foot: the one now (and those before) lit */
+            int32_t sw = (RG_CW - 10) / bpb;
+            for (k = 0; k < bpb; k++)
+                cv_rect(x + 5 + k * sw, y + ch - 4, sw - 2, 2,
+                        cursor ? (k == fbeat ? K_ACCENT : K_LINE) : k <= fbeat ? K_BG : K_TEAL_T);
+        }
+    }
+    if (rows > 4) {                                  /* the scroll bar: where the window is */
+        int32_t th = 4 * (ch + 2) - 2, bh = th * 4 / rows, by = RG_Y + th * top / rows;
+        cv_round(236, RG_Y, 3, th, 1, K_PANEL);
+        cv_round(236, by, 3, bh, 1, K_DIM);
+    }
+    cv_blit(0, MAIN_Y);
+}
 static void draw_home(void)
 {
-    uint32_t h, now = arr_ticks, lit = 0, i;
+    uint32_t h, lit, i;
     int sect = arr_sect, next = arr_next_sect, play = arr_playing, blink = (plat_ms() / 300u) & 1u, ovr = arr_override;
     int mode = arr_mode, intro, fresh, has_next, take = ui.take;
     uint32_t slot = (uint32_t)sect_slot(sect), bt;
@@ -643,6 +863,10 @@ static void draw_home(void)
     const loop_t *l;
     if (home_place(&pl))
         ovr = 0;                                     /* (PLAY's chord: the source's colour) */
+    if (ui.take || ui.rec_chords) {                  /* chords recorded: the loop as bars */
+        draw_home_rec();
+        return;
+    }
     l = pl.loop >= 0 ? &songs.loop[pl.loop] : 0;
     bt = l && l->beats ? l->beats : 4u;
     intro = l && play && sect == SEC_INTRO;          /* an Intro holds its chord: the loop starts after it */
@@ -651,11 +875,7 @@ static void draw_home(void)
     if (take == 2)                                   /* the take's beat (below 0: waiting for its downbeat) */
         tb = (int32_t)(arr_beats - ui.take_b0);
     h = hash(2166136261u, pl.chord);
-    for (i = 0; i < ARR_TRACKS; i++) {
-        uint32_t hit = arr_track_hit[i];
-        if (play && hit && now - hit < 8u)       /* (stopped: nothing plays, nothing lit) */
-            lit |= 1u << i;
-    }
+    lit = home_lit();
     h = hash(h, (uint32_t)sect | (uint32_t)next << 4 | (uint32_t)play << 8 | (uint32_t)(next ? blink : 0) << 9 |
                     lit << 10 | (uint32_t)proj.trk << 18 | (uint32_t)ovr << 21 | (uint32_t)mode << 22 |
                     (uint32_t)fresh << 24 | (uint32_t)intro << 25 | (uint32_t)take << 26);
@@ -734,18 +954,7 @@ static void draw_home(void)
             cat_s(t, "no rows yet|SELECT: the SONG page");
         segs(8, STRIP_Y + 14, &FONT_XS, t, K_DIM);
     }
-    for (i = 0; i < ARR_TRACKS; i++) {   /* the eight tracks: lit as they play, with their sounds */
-        int32_t x = 6 + (int32_t)(i / 4u) * 116, y = 87 + (int32_t)(i % 4u) * 11;
-        int on = (int)(lit >> i & 1u), sel = i == proj.trk, mute = trk_muted((int)i);
-        uint16_t fg = on ? K_BG : sel ? K_ACCENT : mute ? K_LINE : K_TEXT;
-        const char *name = trk_sound(&app.trk[slot][i]);
-        if (on)
-            cv_round(x, y, 112, 11, 3, sel ? K_ACCENT : K_TEAL);
-        else if (sel)
-            cv_round(x, y, 112, 11, 3, K_PANEL);
-        cv_text(x + 4, y - 2, &FONT_XS, TRACK_NAME[i], on ? K_BG : K_DIM);
-        text_fit(x + 26, y - 2, &FONT_XS, mute ? "muted" : name, 84, fg);
-    }
+    home_tracks(slot, lit);                          /* the eight tracks: lit as they play, with their sounds */
     cv_blit(0, MAIN_Y);
 }
 
@@ -754,14 +963,15 @@ static void draw_home(void)
  * wraps to two lines, the second's cells under the first's): the chord's name, or a dot for no change; the cursor
  * boxed (coral), the beat playing tinted (teal). The cursor may stand at the loop's end (REC: a chord there makes
  * it longer): its bar shows as an empty row to come. Scrolled so the cursor's bar shows (a scroll bar at the
- * right when not all fit); 4-beat bars: the beats' numbers over their columns */
+ * right when not all fit); 4-beat bars: the beats' numbers over their columns. REC writing in time (playing): no
+ * cursor, the grid follows the bar playing (its number teal), a chord just written fills its cell coral a moment */
 #define LG_X 22                                      /* the cells' left edge (the bar numbers before it) */
 #define LG_W 210                                     /* the cells' width (a scroll bar after it) */
 static void draw_loop(void)
 {
     const loop_t *l = &songs.loop[app.loop % ARR_LOOPS];
     int bpb = l->beats ? l->beats : 4, len = loop_len(l), wrap = bpb >= 5, cbar = app.cbeat / bpb;
-    int bars = l->bars, rows = cbar + 1 > bars ? cbar + 1 : bars, xp = xpose_now(), i;
+    int bars = l->bars, rows, xp = xpose_now(), i, live, fbar, fl;
     int n1 = wrap ? (bpb + 1) / 2 : bpb, cw = LG_W / n1;
     int32_t y0 = wrap ? 2 : 13, ch = 18, gap = wrap ? 6 : 2, rh = (wrap ? 2 * ch + 2 : ch) + gap;
     int32_t visible = (MAIN_H - y0 + gap) / rh, top;
@@ -770,13 +980,20 @@ static void draw_loop(void)
     char t[16];
     place_read(&pl);
     pbeat = arr_playing && pl.loop == (int)(app.loop % ARR_LOOPS) ? pl.lbeat : 0xFFFFFFFFu;
-    top = cbar - (visible - 1) / 2;                  /* the cursor's bar near the middle */
+    live = ui.rec_chords && pbeat != 0xFFFFFFFFu;    /* REC writing in time: the playhead, not the cursor */
+    if (live)
+        cbar = (int)(pbeat / (uint32_t)bpb);
+    rows = live || cbar + 1 <= bars ? bars : cbar + 1;
+    fl = wrote_flash((int)(app.loop % ARR_LOOPS));
+    fbar = fl ? ui.wrote_beat : -1;                  /* (here: the beat written, flashing) */
+    top = cbar - (visible - 1) / 2;                  /* the cursor's bar (writing in time: the bar playing) near the middle */
     if (top > rows - visible)
         top = rows - visible;
     if (top < 0)
         top = 0;
     h = hash(2166136261u, (uint32_t)app.loop | (uint32_t)app.cbeat << 8 | (uint32_t)top << 16 | (uint32_t)rows << 24);
     h = hash(h, (uint32_t)bpb | (uint32_t)(xp + 64) << 8 | (uint32_t)ui.rec_chords << 15 | pbeat << 16);
+    h = hash(h, (uint32_t)(fbar + 1) | (uint32_t)live << 8);
     for (i = 0; i < len && i < ARR_LOOP_BEATS; i++)
         h = hash(h, l->ch[i]);
     if (h == ui.sig[1])
@@ -792,13 +1009,14 @@ static void draw_loop(void)
         int32_t y = y0 + (i - top) * rh;
         int ghost = i >= bars;                       /* the bar to come (the cursor at the loop's end) */
         itoa_u((uint32_t)i + 1u, t);
-        cv_text(LG_X - 5 - text_w(&FONT_XS, t), y + (wrap ? ch - 6 : 3), &FONT_XS, t, i == cbar ? K_TEXT : K_DIM);
+        cv_text(LG_X - 5 - text_w(&FONT_XS, t), y + (wrap ? ch - 6 : 3), &FONT_XS, t,
+                i == cbar ? live ? K_TEAL : K_TEXT : K_DIM);
         for (int k = 0; k < bpb; k++) {
             int idx = i * bpb + k, line = wrap && k >= n1, col = line ? k - n1 : k;
             int32_t x = LG_X + col * cw, yy = y + (line ? ch + 2 : 0), w = cw - 3;
             uint16_t v = idx < len && idx < ARR_LOOP_BEATS ? l->ch[idx] : LC_SAME;
-            int cur = idx == app.cbeat, plays = (uint32_t)idx == pbeat;
-            uint16_t fill = plays ? K_TEAL_T : ghost ? K_BG : K_PANEL;
+            int cur = idx == app.cbeat && !live, plays = (uint32_t)idx == pbeat, flash = idx == fbar;
+            uint16_t fill = flash ? K_ACCENT : plays ? K_TEAL_T : ghost ? K_BG : K_PANEL;
             if (cur) {                               /* the cursor: a coral ring round the cell */
                 cv_round(x, yy, w, ch, 4, K_ACCENT);
                 cv_round(x + 2, yy + 2, w - 4, ch - 4, 2, fill);
@@ -809,9 +1027,9 @@ static void draw_loop(void)
                 cv_round(x, yy, w, ch, 4, fill);
             if (v != LC_SAME) {
                 chord_name(chord_shift(lc_unpack(v), xp), t);
-                text_fit(x + 5, yy + 3, &FONT_XS, t, w - 8, K_TEXT);
+                text_fit(x + 5, yy + 3, &FONT_XS, t, w - 8, flash ? K_BG : K_TEXT);
             } else
-                cv_round(x + w / 2 - 2, yy + ch / 2 - 2, 4, 4, 1, ghost ? K_LINE : K_DIM);
+                cv_round(x + w / 2 - 2, yy + ch / 2 - 2, 4, 4, 1, flash ? K_BG : ghost ? K_LINE : K_DIM);
         }
     }
     if (rows > visible) {                            /* the scroll bar: where the window is */

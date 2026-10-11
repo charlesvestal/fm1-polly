@@ -612,6 +612,10 @@ static int chord_write(int i, int b, chord_t c)
     if (r < 0) {
         loop_name_l(i, t);
         say("LOOP FULL", t);
+    } else {
+        ui.wrote_t = plat_ms();
+        ui.wrote_loop = (uint8_t)i;
+        ui.wrote_beat = (uint8_t)b;
     }
     return r;
 }
