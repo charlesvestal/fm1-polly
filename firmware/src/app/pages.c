@@ -2866,10 +2866,10 @@ static void draw_footer(void)
     cv_blit(0, FOOT_Y);
 }
 
-/* the encoders' line, over the footer: what SELECT, ALGORITHM, PRESETS do here, as input() and presets() do it
- * ("SELECT page 1/2|ALGO C1|PRESETS family": a part's first word the encoder, the rest its job; "|" between parts).
- * A part is left out where its encoder does nothing; a question: none (the knobs change nothing, the footer says
- * SEL / HOME) */
+/* the encoders' line, over the footer: what turning SELECT, ALGORITHM, PRESETS changes here, as input() and
+ * presets() do it ("SELECT page|ALGO instrument|PRESETS next prog": a part's first word the encoder, the rest
+ * what it changes; "|" between parts; where you are is the tag's and the dots' job, not this line's). A part is
+ * left out where its encoder does nothing; a question: none (the knobs change nothing, the footer says SEL / HOME) */
 static void enc_line(char *t)
 {
     int g = page_group(ui.page), n = PAGE_BTN[g].n, held = home_shown(), p = ui.page;
@@ -2881,18 +2881,16 @@ static void enc_line(char *t)
     if (held)                                        /* HOME held: the tempo */
         e = cat_s(t, "SELECT tempo");
     else if (lst.open && lst.n)
-        e = cat_s(t, "SELECT move");
-    else if (n > 1) {                                /* the button's next page: "page 1/2" */
-        e = itoa_u((uint32_t)(p - PAGE_BTN[g].first) + 1u, cat_s(t, "SELECT page "));
-        e = itoa_u((uint32_t)n, cat_s(e, "/"));
-    }
+        e = cat_s(t, "SELECT scroll");
+    else if (n > 1)                                  /* the button's pages */
+        e = cat_s(t, "SELECT page");
     if (lst.open && lst.n) {                         /* a list: the row's value, its letter, its choice */
         int k = lst.row[lst.sel].kind;
-        const char *a = k == LK_KNOB ? "change" : k == LK_NAME ? "letter" : k == LK_PICK ? "pick" : 0;
+        const char *a = k == LK_KNOB ? "change" : k == LK_NAME ? "letter" : k == LK_PICK ? "choose" : 0;
         if (a)
-            e = cat_s(cat_s(e, *t ? "|ALGO " : "ALGO "), a);
-    } else                                           /* the instrument (or melody) selected */
-        e = cat_s(cat_s(e, *t ? "|ALGO " : "ALGO "), TRACK_NAME[sel_trk()]);
+            e = cat_s(cat_s(e, *t ? "|ALG " : "ALG "), a);
+    } else                                           /* the instrument (or melody) the keys and EDIT use */
+        e = cat_s(e, *t ? "|ALG instrument" : "ALG instrument");
     {                                                /* (also in a list: the page's) */
         const char *a = held ? "song"
                         : p == P_HOME || p == P_LOOP || p == P_LOOP2 ? "prog"
@@ -2902,7 +2900,7 @@ static void enc_line(char *t)
                         : p == P_TRACK && (sel_arr(&lb)->chan & 15u) != 9u ? "family"   /* (drums: none) */
                         : 0;
         if (a)
-            cat_s(cat_s(e, *t ? "|PRESETS " : "PRESETS "), a);
+            cat_s(cat_s(e, *t ? "|PRE " : "PRE "), a);
     }
 }
 /* the line drawn: each part's encoder dim, its job in the text's colour, the parts spread over the width (a dot
@@ -2933,7 +2931,7 @@ static void draw_enc(void)
         gap = 28;
 #if defined(GM_HOST) && !defined(GM_WEB)        /* the simulator: a line cut, or crowded, is a bug */
     if (n > 1 && gap < 10) {
-        printf("  FAIL encoder line too wide: %s\n", t);
+        printf("  FAIL encoder line too wide: %s | %s | %s (%d px)\n", v[0], n > 1 ? v[1] : "", n > 2 ? v[2] : "", (int)tw);
         msg_too_wide++;
     }
 #endif
