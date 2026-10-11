@@ -990,7 +990,7 @@ static void draw_home(void)
     int32_t tb = 0;
     place_t pl;
     chord_t nc;
-    char t[32];
+    char t[48];                                      /* (the longest line: 38 + 1) */
     const loop_t *l;
     if (home_place(&pl))
         ovr = 0;                                     /* (PLAY's chord: the source's colour) */

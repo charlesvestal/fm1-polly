@@ -133,7 +133,7 @@ static volatile uint32_t so_w, so_r;
 #define MRQ 4096u
 static uint8_t mr_q[MRQ];
 static volatile uint32_t mr_w, mr_r;
-static uint8_t tx_mid;                                  /* 0 between messages, 1 the SysEx ring's, 2 mr_q's */
+static uint8_t tx_mid;                                  /* 0 between messages, 2 a mirror frame half sent */
 #endif
 
 /* MIDI rings: 4-byte USB-MIDI event packets */
@@ -739,8 +739,9 @@ static void ep1_tx(void)
         uint32_t pkt = sx_out_q[so_r % SXQ];
 #if FELUCCA_MIRROR
         if (tx_mid == 2u)
-            break;                                      /* (a mirror frame half sent: it ends first) */
-        tx_mid = (pkt & 15u) == 4u;                     /* CIN 4: the message goes on */
+            break;                                      /* (a mirror frame half sent: it ends first; a SysEx
+                                                         * message half written is sx_busy's, so a writer that
+                                                         * gave up never holds the notes back) */
 #endif
         ep1tx[n] = (uint8_t)pkt;
         ep1tx[n + 1] = (uint8_t)(pkt >> 8);
