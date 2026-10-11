@@ -2528,8 +2528,8 @@ static void page_footer(char *t)
             cat_s(t, "SEL: YES|HOME: NO");
         return;
     }
-    if (home_shown()) {
-        cat_s(t, "WHITE: A LOOP|BLACK: A SECTION");
+    if (home_shown()) {                              /* (the keys: white a loop, black a section; HOME + REC, + PLAY) */
+        cat_s(t, "LOOP, SECTION|REC: UNDO|PLAY: REDO");
         return;
     }
     if (ui.card) {
@@ -2631,14 +2631,16 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
     {B_SAVE, PG_SONG, "Save", "Tap: save.", "Rows: a white key adds one by itself."},
     {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
     {B_REC, PG(P_HOME) | PG(P_LOOP) | PG(P_LOOP2), "Write chords",
-     "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop."},
-    {B_REC, PG_TRACK | CF_NOLEAD, "Record the track", "What the keys play goes into the selected track.", 0},
+     "Into the loop playing: at the cursor, or in time as it plays.", "On HOME in FREE: a new loop. HOME + REC: undo."},
+    {B_REC, PG_TRACK | CF_NOLEAD, "Record the track", "What the keys play goes into the selected track.",
+     "HOME + REC: undo (a pass at a time)."},
     {B_REC, PG_TRACK | CF_LEAD, "Record the lead", "While the song plays, what the keys play goes into the row playing.",
      "PLAY here starts the song; SEL: PLAY FROM ROW on SONG."},
     {B_REC, PG_SONG, "Record the rows", "With PLAY: the loops and sections you pick with HOME + keys,",
-     "and the mutes you change."},
-    {B_REC, PG_ANY, "Record", "Nothing to record on this page.", 0},
-    {B_PLAY, PG_ANY, "Play", "Start and stop. On SONG: the song from row 1 (from a loop: at the next bar).", 0},
+     "and the mutes you change. HOME + REC: undo."},
+    {B_REC, PG_ANY, "Record", "Nothing to record on this page.", "HOME + REC: undo."},
+    {B_PLAY, PG_ANY, "Play", "Start and stop. On SONG: the song from row 1 (from a loop: at the next bar).",
+     "HOME + PLAY: redo."},
     {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT-: back a step. OCT+: skips a step (the chord goes on).", 0},
     {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "OCT+ skips a step (the chord goes on); OCT-: back a step.", 0},
     {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Both held 5 s: update mode."},

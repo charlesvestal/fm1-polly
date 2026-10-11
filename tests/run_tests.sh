@@ -27,6 +27,8 @@ run trs sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/trs_test tests/h
 run chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/chords_test tests/host/chords_test.c firmware/src/dsp/chords.c && $OUT/chords_test"
 run loops sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/loops_test tests/host/loops_test.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/chords.c && $OUT/loops_test"
 run leads sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/leads_test tests/host/leads_test.c firmware/src/dsp/leads.c && $OUT/leads_test"
+# the undo journal: steps over regions, undo / redo by swapping, the ring (count and size), redo gone after an edit
+run journal sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -o $OUT/journal_test tests/host/journal_test.c && $OUT/journal_test"
 run xpose sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/xpose_test tests/host/xpose_test.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/xpose_test"
 run arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/arr_test tests/host/arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/arr_test"
 run project sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src -Ifirmware/src/app -Ifirmware/src/dsp -Ifirmware/hal -Itests/host -o $OUT/project_test tests/host/project_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/project_test"

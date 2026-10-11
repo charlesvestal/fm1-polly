@@ -1,0 +1,356 @@
+# POLLY, undo and redo: HOME + REC takes the last step back, HOME + PLAY puts it back (neither records nor plays). A
+# step is what changed before a pause (1 s), a lead take, or a pass of a pattern track's recording. Each kind once:
+# a chord into L9, CLEAR LOOP, a row added, two rows quickly (one step), a lead take, C1's sound, a recording pass,
+# CLEAR PATTERN (undone while playing). Undone changes are saved (autosave) and kept over a reboot; another song
+# starts with nothing to undo.
+# Keys (octave 0): key K is MIDI 53 + K: A3 4, C4 7, E4 11, G4 14, C5 19, D5 21, E5 23. At 120 BPM a beat is 500 ms.
+wait 300
+# ---- nothing yet: HOME + REC, HOME + PLAY say so; REC does not record, PLAY does not start
+press HOME
+tap REC
+release HOME
+expect msgtext_is_NOTHING_TO_UNDO 1
+expect recording 0
+expect rec_chords 0
+press HOME
+tap PLAY
+release HOME
+expect msgtext_is_NOTHING_TO_REDO 1
+expect playing 0
+shot nothing.png
+# the tempo (HOME's KNOB 2, stopped): a step
+spin K2 15
+expect tempo 120
+wait 1100
+press HOME
+tap REC
+release HOME
+expect tempo 105
+expect msgtext_is_UNDO_TEMPO 1
+press HOME
+tap PLAY
+release HOME
+expect tempo 120
+# the style (HOME's KNOB 1): every section's pattern, one step; undone, the sections play the first style again
+expect song1_sty 32
+expect song1_style1 33
+turn K1 1
+wait 1100
+expect song1_sty 38
+expect song1_style1 39
+press HOME
+tap REC
+release HOME
+expect song1_sty 32
+expect song1_style1 33
+expect slot1_trk5_count 21
+expect tempo 120
+expect msgtext_is_UNDO_STYLE 1
+# the overlay HOME held shows says so
+press HOME
+wait 500
+expect home_shown 1
+expect footer_is_LOOP,_SECTION|REC:_UNDO|PLAY:_REDO 1
+shot home_held.png
+release HOME
+# ---- a chord into L9 (LOOP page, stopped: REC writes at the cursor)
+press HOME
+tapkey w8
+release HOME
+expect app_loop 9
+tap ARP
+expect page 4
+tap REC
+expect rec_chords 1
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 50
+tap REC
+expect rec_chords 0
+expect loop_ch9_0 916
+wait 1100
+expect undo_steps 2
+# HOME + REC on LOOP: undone, and REC does not start writing
+press HOME
+tap REC
+release HOME
+expect rec_chords 0
+expect loop_ch9_0 -1
+expect loop_bars9 0
+expect msgtext_is_UNDO_L9_CHORD 1
+shot undo_chord.png
+press HOME
+tap PLAY
+release HOME
+expect playing 0
+expect loop_ch9_0 916
+expect msgtext_is_REDO_L9_CHORD 1
+shot redo_chord.png
+# ---- CLEAR LOOP (SEL's last action on LOOP), undone, redone, undone again
+tap SEL
+spin SELECT 40
+tap SEL
+expect asking 1
+tap SEL
+expect loop_bars9 0
+press HOME
+tap REC
+release HOME
+expect msgtext_is_UNDO_CLEAR_LOOP 1
+expect loop_bars9 1
+expect loop_ch9_0 916
+shot undo_clear_loop.png
+press HOME
+tap PLAY
+release HOME
+expect msgtext_is_REDO_CLEAR_LOOP 1
+expect loop_bars9 0
+press HOME
+tap REC
+release HOME
+expect loop_ch9_0 916
+# ---- rows: three added (a white key on SONG adds one), a step each; row 3 undone, redone
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+wait 1100
+tapkey w0
+wait 1100
+tapkey w8
+wait 1100
+expect rows 3
+expect row_loop3 9
+press HOME
+tap REC
+release HOME
+expect rows 2
+expect msgtext_is_UNDO_ROW_3 1
+shot undo_row.png
+press HOME
+tap PLAY
+release HOME
+expect playing 0
+expect rows 3
+expect row_loop3 9
+expect msgtext_is_REDO_ROW_3 1
+# two taps in quick succession (row 3, the cursor's, to L2; a row added): one step
+expect cursor 3
+tapkey w1
+wait 300
+tapkey w2
+wait 1100
+expect rows 4
+expect row_loop3 2
+press HOME
+tap REC
+release HOME
+expect rows 3
+expect row_loop3 9
+expect msgtext_is_UNDO_ROWS 1
+# an edit after an undo: what was undone can no longer be redone
+tapkey w3
+wait 1100
+expect rows 4
+press HOME
+tap REC
+release HOME
+expect rows 3
+press HOME
+tap PLAY
+release HOME
+expect rows 4
+press HOME
+tap PLAY
+release HOME
+expect rows 4
+expect msgtext_is_NOTHING_TO_REDO 1
+# ---- a lead take (SONG, Intro off): one step
+turn SELECT 2
+expect page 3
+turn K1 -1
+expect song_intro 0
+turn SELECT -2
+tap PLAY
+wait 300
+tap PLAY
+wait 100
+expect mode 2
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+tap PLAY
+wait 960
+key 7 down
+wait 400
+key 7 up
+wait 600
+key 11 down
+wait 400
+key 11 up
+wait 600
+key 14 down
+wait 400
+key 14 up
+wait 1600
+tap PLAY
+wait 1100
+expect lead_notes 3
+press HOME
+tap REC
+release HOME
+expect lead_notes 0
+expect recording 1
+expect msgtext_is_UNDO_TAKE_LD1 1
+shot undo_take.png
+press HOME
+tap PLAY
+release HOME
+expect playing 0
+expect lead_notes 3
+expect lead2_note 64
+expect msgtext_is_REDO_TAKE_LD1 1
+tap REC
+wait 50
+expect recording 0
+# ---- C1's sound (EDIT, KNOB 1): the section gets a user pattern of its own; undone, both go back
+turn ALGO -4
+expect lead_sel 0
+expect track 5
+expect page 8
+expect trk5_program 1
+expect song1_style1 33
+turn K1 1
+wait 1100
+expect trk5_program 2
+expect song1_style1 2
+press HOME
+tap REC
+release HOME
+expect trk5_program 1
+expect song1_style1 33
+expect msgtext_is_UNDO_C1_SOUND 1
+shot undo_sound.png
+press HOME
+tap PLAY
+release HOME
+expect trk5_program 2
+expect song1_style1 2
+expect msgtext_is_REDO_C1_SOUND 1
+# ---- a recording pass: C1 on SEQ over L1 (LOOP), two passes of the 2-bar pattern (4 s each), a step each
+press HOME
+tapkey w0
+release HOME
+expect mode 1
+tap SEQ
+expect page 6
+expect slot1_trk5_count 21
+tap REC
+wait 1100
+expect recording 1
+tap PLAY
+wait 1000
+tapkey 19
+wait 1000
+tapkey 21
+wait 3000
+expect rec_pass 2
+tapkey 23
+wait 1000
+tapkey 19
+wait 1000
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 1100
+expect slot1_trk5_count 25
+press HOME
+tap REC
+release HOME
+expect slot1_trk5_count 23
+expect msgtext_is_UNDO_TAKE_C1 1
+shot undo_pass.png
+press HOME
+tap REC
+release HOME
+expect slot1_trk5_count 21
+press HOME
+tap PLAY
+release HOME
+expect slot1_trk5_count 23
+press HOME
+tap PLAY
+release HOME
+expect slot1_trk5_count 25
+expect msgtext_is_REDO_TAKE_C1 1
+# ---- CLEAR PATTERN (SEL on SEQ: the last but one), undone while playing
+tap SEL
+spin SELECT 40
+turn SELECT -1
+tap SEL
+expect asking 1
+tap SEL
+wait 100
+expect slot1_nev 0
+tap PLAY
+wait 500
+press HOME
+tap REC
+release HOME
+expect playing 1
+expect slot1_trk5_count 25
+expect msgtext_is_UNDO_CLEAR_PATTERN 1
+shot undo_clear_pattern.png
+wait 1000
+tap PLAY
+wait 300
+# ---- the help cards say so: REC held on SEQ, PLAY held
+press REC
+wait 1100
+expect card 12
+shot card_rec.png
+release REC
+expect recording 0
+press PLAY
+wait 1100
+expect card 11
+shot card_play.png
+release PLAY
+wait 100
+tap PLAY
+wait 300
+expect playing 0
+# ---- what undo left is saved (autosave at rest), and kept over a reboot
+wait 5000
+expect dirty 0
+reboot
+expect rows 4
+expect lead_notes 3
+expect loop_ch9_0 916
+expect undo_steps 0
+press HOME
+tap REC
+release HOME
+expect msgtext_is_NOTHING_TO_UNDO 1
+# ---- another song: nothing to undo there (the history is the song's)
+tap HOME
+expect song 1
+wait 1100
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+expect undo_steps 0
+press HOME
+tap REC
+release HOME
+expect msgtext_is_NOTHING_TO_UNDO 1

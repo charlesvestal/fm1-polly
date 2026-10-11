@@ -14,6 +14,7 @@
  *     + black key 1..5    Intro, Main A, Main B, Fill (AB from Main A, BA from Main B), Ending, from the next bar
  *     + SELECT            the song's tempo
  *     + PRESETS           the song (while playing: after the stop)
+ *     + REC / + PLAY      undo / redo (the journal: below)
  *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 LOOP ("-" FREE, L1..L16; "Song" in a song);
  *   SELECT: SONG's three pages (the rows, the row, the song)
  *   (a page button: always its first page; SELECT, and only SELECT, turns the pages)
@@ -25,6 +26,7 @@
  *                   the pattern to P(n))                                    OCT- / OCT+   the keys' octave (LOOP: the cursor)
  *   SELECT          the button's next / previous page      ALGORITHM   the track (D1..C4, LD1, LD2)   PRESETS   per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
+#include "journal.c"                            /* undo and redo (HOME + REC, HOME + PLAY) */
 
 static void say(const char *a, const char *b)
 {
@@ -155,6 +157,97 @@ static void edits_flush(void)
     }
 }
 
+/* ================================================================ undo === */
+/* HOME + REC undoes, HOME + PLAY redoes (journal.c): the song's settings and rows, its loops, its lead notes, and the
+ * patterns the song plays as the app stores them. A step is what changed before a pause (UNDO_QUIET ms with nothing
+ * touched or held), a lead take or a chord / row take (REC on while playing), or a pass of a pattern track's
+ * recording. Kept in RAM only (the pool), from the song's load: a song change (or a power-off) starts it again.
+ * Regions: the song (its song_t), its loops (sloops.loop), its lead notes (leads, up to the sounds' copy), and one
+ * pattern: the slot touched last (uj_pat_touch, before any change of it: slot_own, slot_style), its before-image kept
+ * in uj_pat and compared with a copy (scratch) at each commit. Not covered: the tempo turned while playing, the
+ * project's settings (the Setup page, the master FX, the keys' octave and track) */
+#define UNDO_QUIET 1000u
+enum { UR_SONG, UR_LOOPS, UR_LEADS, UR_PAT };
+static uj_t uj EN_POOL;
+static song_t uj_song EN_POOL;                   /* the shadows: the song, its loops, its lead notes, one pattern */
+static loop_t uj_loops[ARR_LOOPS] EN_POOL;
+static uint8_t uj_leads[__builtin_offsetof(leads_t, trk)] EN_POOL;
+static pattern_t uj_pat EN_POOL;
+static struct {
+    int8_t slot;                                 /* the slot uj_pat follows, -1 none */
+    uint8_t passing;                             /* a pattern track recording while playing: its passes counted */
+    uint16_t pass;
+    char hint[UJ_LABEL + 1];                     /* what the app says the step is ("CLEAR LOOP"): its first */
+} ujs;
+
+static void undo_hint(const char *t)            /* the step's name, if it has none yet */
+{
+    int i;
+    if (ujs.hint[0])
+        return;
+    for (i = 0; i < UJ_LABEL && t[i]; i++)
+        ujs.hint[i] = t[i];
+    ujs.hint[i] = 0;
+}
+/* the history from here (the song as it is now): at the start, a song change, the bank written */
+static void undo_reset(void)
+{
+    uj_region(&uj, UR_SONG, csong(), &uj_song, sizeof uj_song);
+    uj_region(&uj, UR_LOOPS, sloops.loop, uj_loops, sizeof uj_loops);
+    uj_region(&uj, UR_LEADS, &leads, uj_leads, sizeof uj_leads);
+    uj_region(&uj, UR_PAT, 0, &uj_pat, sizeof uj_pat);
+    for (int r = 0; r < UR_PAT; r++)
+        uj_resync(&uj, r);
+    uj_clear(&uj);
+    ujs.slot = -1;
+    ujs.hint[0] = 0;
+}
+/* the shadows brought to what is there, the history kept: after a save (a lead part's header written, a shared
+ * pattern stored into the slots playing it) */
+static void undo_sync(void)
+{
+    for (int r = 0; r < UR_PAT; r++)
+        uj_resync(&uj, r);
+    if (ujs.slot >= 0)
+        arr_pattern_copy(ujs.slot, &uj_pat);
+}
+/* the changes since the last step, as a step. The pattern followed is compared as it is in the engine (a copy in
+ * scratch: callers hold nothing there); when another pattern took its slot meanwhile (a style picked, a user
+ * pattern loaded) that is no edit of it (the song's style[] is, and undo loads the pattern again), except the first
+ * change of a style's section (copy-on-write: the user pattern starts as the section, its changes are kept) */
+static void undo_commit(void)
+{
+    int s = ujs.slot;
+    uj.r[UR_PAT].live = 0;
+    if (s >= 0) {
+        uint16_t was = uj_song.style[s], now = csong()->style[s];
+        arr_pattern_copy(s, &scratch);
+        if (was != now && !(was >= ARR_USER_PATTERNS && now < ARR_USER_PATTERNS))
+            memcpy(&uj_pat, &scratch, sizeof uj_pat);
+        else {
+            uj.r[UR_PAT].live = (uint8_t *)&scratch;
+            uj.r[UR_PAT].aux = (uint8_t)s;
+        }
+    }
+    if (arr_playing) {                           /* the tempo turned while playing: not a step */
+        uj_song.tempo = csong()->tempo;
+        uj_song.flags = csong()->flags;
+    }
+    uj_commit(&uj, ujs.hint);
+    uj.r[UR_PAT].live = 0;
+    ujs.hint[0] = 0;
+}
+/* slot s's pattern is about to change: followed from here (another slot followed: its changes a step first) */
+static void uj_pat_touch(int s)
+{
+    if (s < 0 || s >= ARR_NSECT || ujs.slot == s)
+        return;
+    if (ujs.slot >= 0)
+        undo_commit();
+    arr_pattern_copy(s, &uj_pat);
+    ujs.slot = (int8_t)s;
+}
+
 /* QY70 bank style b decoded in a qbuf: the one holding it, else the one no slot plays (decoded now: some ms, the
  * render plays on meanwhile); -1: no bank, a damaged record (said), or no buffer free (a song plays one bank style:
  * never) */
@@ -274,6 +367,7 @@ static int slot_own(int s)
     song_t *g = &songs.song[proj.song];
     int p;
     char t[8];
+    uj_pat_touch(s);                             /* (undo: the pattern as it was) */
     if (app.slot_buf[s] >= 0) {                  /* a QY70 section: a pattern of its notes (up to 600) from here */
         arr_pattern_copy(s, &scratch);
         arr_load_pattern(s, &scratch);
@@ -309,6 +403,7 @@ static void lead_write(int on)
     leads.gen++;
     arr_edit(0);
     app.chg++;
+    ui.act_t = plat_ms();
 }
 /* the parts a change from index i touched (the notes before and after) to save */
 static void lead_changed(int i, int before)
@@ -341,6 +436,7 @@ static void lead_add(const arr_lnote_t *n)
     lead_ev_t e;
     int at, rc, before = leads.n;
     lead_set(&e, n->row, n->pos, n->len, n->note, n->vel, n->trk, n->root);
+    undo_hint(n->trk ? "TAKE LD2" : "TAKE LD1");
     for (;;) {
         int room = (app.lslot[0] >= 0) * LEAD_PART_NOTES + (app.lslot[1] >= 0) * LEAD_PART_NOTES, k, p;
         lead_write(1);
@@ -500,7 +596,7 @@ static void watch_takes(void)
  * saved. Slots sharing a user pattern (a song may choose that) get the saved pattern too, by
  * arr_store_pattern (refused while they are recorded into: then they stay unsaved); when two of them were
  * changed, the newest change is kept and the screen says so. */
-static int save_all(void)
+static int save_all_now(void)
 {
     const song_t *sg = &songs.song[proj.song];
     uint32_t done = 0;
@@ -572,6 +668,17 @@ static int save_all(void)
     return rc;
 }
 
+/* (the changes before it are a step of their own; the save writes headers into the lead parts and may store a shared
+ * pattern into the slots playing it: the undo's shadows then follow) */
+static int save_all(void)
+{
+    int rc;
+    undo_commit();
+    rc = save_all_now();
+    undo_sync();
+    return rc;
+}
+
 static void fx_apply(void) { gm_fx(proj.rev_type, proj.rev_level, proj.cho_type, proj.cho_level); }
 
 void app_start(void)
@@ -592,6 +699,7 @@ void app_start(void)
     fx_apply();
     song_load();                                 /* (the song's tempo and transpose) */
     arr_record(sel_trk(), 0);                    /* the keys play the selected track */
+    undo_reset();                                /* nothing to undo at power-on */
 }
 
 /* ------------------------------------------------------------ controls --- */
@@ -1618,6 +1726,7 @@ static void song_change(int s)
     loops_load();                                /* its own loops (stopped: the engine reads them from the next PLAY) */
     song_load();
     leads_load();
+    undo_reset();                                /* undo is the song's: from its load */
     mark_dirty();
     save_all();                                  /* the song picked, kept now: a power-off comes back on it (stopped:
                                                   * the save before already paused nothing that plays) */
@@ -1658,6 +1767,8 @@ static void slot_style(int s, int to)
             return;
         }
     }
+    if (st >= ARR_USER_PATTERNS && to < ARR_USER_PATTERNS)
+        uj_pat_touch(s);                         /* (undo: a user pattern picked for a style's section: its notes kept) */
     songs.song[proj.song].style[s] = (uint16_t)to;
     app.songs_dirty = 1;
     app.chg++;
@@ -1697,6 +1808,7 @@ void app_bank_changed(void)
     qbuf[0].index = qbuf[1].index = -1;
     qb_mount();
     song_load();
+    undo_reset();
 }
 static void style_all(int n);
 /* the Style knob (HOME's KNOB 1; the STYLE pages' KNOB 4, PRESETS there): d styles on from the
@@ -1716,6 +1828,7 @@ static void style_all(int n)
     song_t *g = &songs.song[proj.song];
     if (style_bank(n) && bank_get(n - arr_styles()) < 0)
         return;                                  /* a damaged QY70 style (said): nothing changes */
+    undo_hint("STYLE");
     for (int s = 0; s < ARR_NSECT; s++)
         if (g->style[s] >= ARR_USER_PATTERNS)
             slot_style(s, style_number(n, s));
@@ -1904,6 +2017,8 @@ static void do_load_prog(void)
 {
     int t = ui.tgt.prog % NTEMPLATES, l = ui.tgt.loop % ARR_LOOPS;
     char a[16], b[16];
+    loop_name_l(l, cat_s(b, "LOAD "));
+    undo_hint(b);
     songs_write(1);
     loop_from_template(&sloops.loop[l], t);
     songs_write(0);
@@ -1926,6 +2041,7 @@ static void do_clear_loop(void)
 {
     char t[8];
     int l = ui.tgt.loop % ARR_LOOPS;
+    undo_hint("CLEAR LOOP");
     songs_write(1);
     loop_clear(&sloops.loop[l], l);
     songs_write(0);
@@ -1984,6 +2100,7 @@ static void row_do(int ins, int row)
     song_t *g = csong();
     char t[12];
     itoa_u((uint32_t)row + 1u, cat_s(t, "ROW "));
+    undo_hint(ins ? "INSERT ROW" : "DELETE ROW");
     {
         int r = ins ? (row > g->nrows ? g->nrows : row) : row, before = leads.n;
         songs_write(1);                          /* (the rows and the lead notes in one write: their rows move together) */
@@ -2010,6 +2127,7 @@ static void do_clear_song(void)
     uint8_t mute = g->mute, tempo = g->tempo, fl = g->flags;
     int8_t xp = g->transpose;
     int before = leads.n;
+    undo_hint("CLEAR SONG");
     songs_write(1);                              /* (the engine may be playing its rows) */
     loops_song_clear(g);                         /* (its style and its leads' sounds kept) */
     leads_erase(&leads, -1, -1);                 /* the lead notes go with their rows */
@@ -2117,6 +2235,8 @@ static void do_erase_lead(void)
 {
     int before = leads.n, n;
     char t[24];
+    cat_s(cat_s(t, "ERASE "), TRACK_NAME[ARR_LD1 + ui.tgt.ltrk % ARR_LEADS]);
+    undo_hint(t);
     lead_write(1);
     n = leads_erase(&leads, ui.tgt.lrow == 255u ? -1 : ui.tgt.lrow, ui.tgt.ltrk % ARR_LEADS);
     lead_write(0);
@@ -2146,7 +2266,10 @@ static void do_erase_track(void)
         say("NOT ERASED", "SECTION CHANGED");
         return;
     }
+    char h[16];
     edits_flush();
+    cat_s(cat_s(h, "ERASE "), TRACK_NAME[t]);
+    undo_hint(h);
     slot_own(ui.tgt.slot);
     arr_erase_track(t);
     say("ERASED", TRACK_NAME[t]);
@@ -2168,6 +2291,7 @@ static void do_clear_pattern(void)
 {
     int s = ui.tgt.slot % ARR_NSECT;
     edits_flush();
+    undo_hint("CLEAR PATTERN");
     slot_own(s);
     for (int tries = 0; tries < 8; tries++) {
         uint16_t d = arr_pattern_copy(s, &scratch);
@@ -2205,6 +2329,7 @@ static void act_back_to_style(void)
     if (st >= ARR_USER_PATTERNS)
         say(SECT_NAME[s + 1], "plays the style");
     else if (i >= 0) {
+        undo_hint("BACK TO STYLE");
         slot_style(s, style_number(i, s));       /* (saved first; refused while playing with changes unsaved) */
         if (songs.song[proj.song].style[s] != st) {
             char b[24];
@@ -2244,6 +2369,7 @@ static void action_run(int a)
 static void do_copy_loop(void)
 {
     char a[8], b[20];
+    undo_hint("COPY LOOP");
     songs_write(1);
     sloops.loop[ui.copy_to % ARR_LOOPS] = sloops.loop[ui.copy_src % ARR_LOOPS];
     songs_write(0);
@@ -2262,6 +2388,7 @@ static void do_copy_pattern(void)
     }
     pat_name(to, cat_s(t, "COPIED TO "));
     edits_flush();
+    undo_commit();                               /* (a copy into the flash: not undone; the slots given it followed) */
     for (int j = 0; j < ARR_NSECT; j++)          /* another section plays it, changed: those changes first */
         if (j != s && songs.song[proj.song].style[j] == to && slot_unsaved(j)) {
             pat_name(to, a);
@@ -2284,6 +2411,7 @@ static void do_copy_pattern(void)
             slot_cache(j, &scratch);
             app.saved[j] = arr_dirty[j];
         }
+    undo_sync();
     style_name(st, a);
     say(upcase(a), t);
 }
@@ -2729,6 +2857,7 @@ static void midi_in(void)
     }
 }
 
+static void do_undo(int redo);
 static void input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
@@ -2750,6 +2879,11 @@ static void input(void)
             if (i == B_HOME && ui.ask) {         /* a question: HOME pressed, held or not, is no (its release: nothing) */
                 ask_end(0);
                 ui.btn_used |= m;
+                continue;
+            }
+            if ((i == B_REC || i == B_PLAY) && (btn >> B_HOME & 1u) && !ui.ask) {
+                do_undo(i == B_PLAY);            /* HOME + REC: undo, HOME + PLAY: redo (no take, no start) */
+                ui.btn_used |= m | 1u << B_HOME;
                 continue;
             }
             if (!hold)
@@ -2862,6 +2996,272 @@ static void autosave(void)                       /* at rest only: a flash write 
     app.err_chg = app.chg;
 }
 
+/* ------------------------------------------------------------- undo --- */
+/* the steps: committed at a pause (UNDO_QUIET with nothing held, checked every 8th frame); not while a take records
+ * (REC on while playing: the take is one step), except a pattern track's, a step each pass (from the bar recording
+ * started on) */
+static void undo_tick(void)
+{
+    int rec = arr_recording || ui.rec_want || ui.rec_chords || ui.take || ui.song_rec;
+    if (rec && arr_playing) {
+        if (arr_recording && !app.lead) {
+            int b = clampi(app.hdr[eslot()].bars, 1, ARR_MAXBARS);
+            uint16_t pass = (uint16_t)(arr_rec_bars / b);
+            char t[12];
+            cat_s(cat_s(t, "TAKE "), TRACK_NAME[proj.trk & 7]);
+            undo_hint(t);
+            if (!ujs.passing) {
+                ujs.passing = 1;
+                ujs.pass = pass;
+            } else if (pass != ujs.pass) {
+                ujs.pass = pass;
+                undo_commit();
+            }
+        }
+        return;
+    }
+    ujs.passing = 0;
+    if (ui.btn || ui.keys || plat_ms() - ui.act_t < UNDO_QUIET || (ui.frame & 7u))
+        return;
+    undo_commit();
+}
+
+/* what step k changed, in words, from its runs: "L9 CHORD", "ROW 3", "C1 SOUND", "MAIN A NOTES", "LEAD NOTES" */
+enum { UN_ROW = 1, UN_NROWS, UN_STYLE, UN_STY, UN_TEMPO, UN_XPOSE, UN_MUTES, UN_LEAD, UN_SONG };
+static int un_song(uint32_t o, int *idx)
+{
+    const uint32_t row = __builtin_offsetof(song_t, row), lead = __builtin_offsetof(song_t, lead);
+    if (o >= lead) {
+        *idx = (int)((o - lead) / sizeof(lead_trk_t));
+        return UN_LEAD;
+    }
+    if (o >= row) {
+        *idx = (int)((o - row) / sizeof(row_t));
+        return UN_ROW;
+    }
+    if (o < __builtin_offsetof(song_t, sty)) {
+        *idx = (int)(o / 2u);                    /* (a section's pattern) */
+        return UN_STYLE;
+    }
+    if (o < __builtin_offsetof(song_t, nrows))
+        return UN_STY;                           /* (the song's style) */
+    if (o == __builtin_offsetof(song_t, nrows))
+        return UN_NROWS;
+    if (o == __builtin_offsetof(song_t, tempo) || o == __builtin_offsetof(song_t, flags))
+        return UN_TEMPO;
+    if (o == __builtin_offsetof(song_t, transpose))
+        return UN_XPOSE;
+    if (o == __builtin_offsetof(song_t, mute))
+        return UN_MUTES;
+    return UN_SONG;
+}
+static void undo_name(int k, char *t)
+{
+    int rg, ax, j, mask = uj_mask(&uj, k);
+    uint32_t off, len;
+    *t = 0;
+    if (mask >> UR_PAT & 1u) {                   /* a pattern: its notes, else a track's sound / type / mixer */
+        const uint32_t t0 = __builtin_offsetof(pattern_t, trk), t1 = __builtin_offsetof(pattern_t, nev);
+        int trk = -2, field = -1, notes = 0, hdr = 0, s = uj_aux(&uj, k, UR_PAT);
+        for (j = 0; uj_run(&uj, k, j, &rg, &ax, &off, &len); j++) {
+            uint32_t a = off, b = off + len - 1u;
+            if (rg != UR_PAT)
+                continue;
+            if (b >= t1)
+                notes = 1;
+            if (a < t0)
+                hdr = 1;
+            if (b >= t0 && a < t1) {
+                uint32_t x = (a < t0 ? t0 : a) - t0, y = (b >= t1 ? t1 - 1u : b) - t0;
+                int ta = (int)(x / sizeof(arr_trk_t)), tb = (int)(y / sizeof(arr_trk_t));
+                uint32_t fa = x % sizeof(arr_trk_t), fb = y % sizeof(arr_trk_t);
+                int f = fa < __builtin_offsetof(arr_trk_t, x) ? 0 : fa < __builtin_offsetof(arr_trk_t, vol) ? 1
+                      : fa < __builtin_offsetof(arr_trk_t, mute) ? 2 : 3;
+                int g = fb < __builtin_offsetof(arr_trk_t, x) ? 0 : fb < __builtin_offsetof(arr_trk_t, vol) ? 1
+                      : fb < __builtin_offsetof(arr_trk_t, mute) ? 2 : 3;
+                if (fa >= __builtin_offsetof(arr_trk_t, bright) && fa < __builtin_offsetof(arr_trk_t, flags))
+                    f = 2;                       /* (brightness, resonance: the Mixer's tone page) */
+                if (fb >= __builtin_offsetof(arr_trk_t, bright) && fb < __builtin_offsetof(arr_trk_t, flags))
+                    g = 2;
+                trk = ta == tb && (trk == -2 || trk == ta) ? ta : -1;
+                field = f == g && (field == -1 || field == f) ? f : 4;
+            }
+        }
+        if (notes)
+            cat_s(cat_s(t, SECT_NAME[(s < 0 ? 0 : s) % ARR_NSECT + 1]), " NOTES");
+        else if (trk >= 0 && !hdr && field <= 2)
+            cat_s(cat_s(t, TRACK_NAME[trk & 7]), field == 0 ? " SOUND" : field == 1 ? " TYPE" : " MIXER");
+        else
+            cat_s(t, "PATTERN");
+        return;
+    }
+    if (mask >> UR_LOOPS & 1u) {                 /* a loop: its chords, else its length, its name */
+        int lp = -2, chords = 0, beat = -2, lenf = 0;
+        for (j = 0; uj_run(&uj, k, j, &rg, &ax, &off, &len); j++) {
+            uint32_t a = off, b = off + len - 1u, ch = __builtin_offsetof(loop_t, ch);
+            int la = (int)(a / sizeof(loop_t)), lb = (int)(b / sizeof(loop_t));
+            uint32_t fa = a % sizeof(loop_t), fb = b % sizeof(loop_t);
+            if (rg != UR_LOOPS)
+                continue;
+            lp = la == lb && (lp == -2 || lp == la) ? la : -1;
+            if (fb >= ch || la != lb) {
+                int ba = fa >= ch ? (int)((fa - ch) / 2u) : 0, bb = fb >= ch ? (int)((fb - ch) / 2u) : -2;
+                chords = 1;
+                beat = la == lb && ba == bb && (beat == -2 || beat == ba) ? ba : -1;
+            }
+            if (fa < ch && fa >= __builtin_offsetof(loop_t, bars))
+                lenf = 1;
+        }
+        if (lp < 0)
+            cat_s(t, "LOOPS");
+        else
+            cat_s(loop_name_l(lp, t), chords ? (beat >= 0 ? " CHORD" : " CHORDS") : lenf ? " LENGTH" : " NAME");
+        return;
+    }
+    if (mask >> UR_SONG & 1u) {                  /* the song: a row, its style, tempo, transpose, mutes, a lead's sound */
+        int what = 0, row = -2, sect = -2;
+        for (j = 0; uj_run(&uj, k, j, &rg, &ax, &off, &len); j++) {
+            int wa, wb, ia = 0, ib = 0;
+            if (rg != UR_SONG)
+                continue;
+            wa = un_song(off, &ia);
+            wb = un_song(off + len - 1u, &ib);
+            if (wa == UN_NROWS && wb == UN_NROWS)
+                continue;                        /* (a row added or gone: named by its row) */
+            if ((wa == UN_STYLE || wa == UN_STY) && (wb == UN_STYLE || wb == UN_STY)) {
+                /* the sections' patterns (and the song's style): one section's, or the style */
+                int one = wa == UN_STYLE && wb == UN_STYLE && ia == ib;
+                sect = one && (sect == -2 || sect == ia) ? ia : -1;
+                wa = UN_STYLE;
+            } else if (wa == UN_ROW && wb == UN_ROW) {
+                row = ia == ib && (row == -2 || row == ia) ? ia : -1;
+            } else if (wa != wb || ia != ib)
+                wa = UN_SONG;
+            what = !what || what == wa ? wa : UN_SONG;
+        }
+        if (!what)
+            what = UN_ROW;                       /* (only the row count: a row gone) */
+        switch (what) {
+        case UN_ROW:
+            if (row >= 0)
+                itoa_u((uint32_t)row + 1u, cat_s(t, "ROW "));
+            else
+                cat_s(t, "ROWS");
+            break;
+        case UN_STYLE:
+            if (sect >= 0)
+                cat_s(cat_s(t, SECT_NAME[sect % ARR_NSECT + 1]), " PATTERN");
+            else
+                cat_s(t, "STYLE");
+            break;
+        case UN_TEMPO: cat_s(t, "TEMPO"); break;
+        case UN_XPOSE: cat_s(t, "TRANSPOSE"); break;
+        case UN_MUTES: cat_s(t, "MUTES"); break;
+        case UN_LEAD: cat_s(t, "LEAD SOUND"); break;
+        default: cat_s(t, "SONG"); break;
+        }
+        return;
+    }
+    cat_s(t, "LEAD NOTES");
+}
+
+/* HOME + REC (redo 0), HOME + PLAY (1): the step before (after) the state now taken back (put back), while playing
+ * too, recording or not. Through the same rules as an edit: the loops, rows and lead notes inside arr_edit, a pattern
+ * copied, swapped and stored (arr_store_pattern: again when recorded into meanwhile), the slots whose pattern number
+ * changed loaded again (the pattern a step took for a style's section: its notes swapped back in). What changed is
+ * unsaved after, so autosave keeps it */
+static void do_undo(int redo)
+{
+    int k, mask, s = -1;
+    song_t was;
+    char t[24];
+    edits_flush();
+    undo_commit();                               /* what was just done is a step too */
+    k = redo ? uj_redo_at(&uj) : uj_undo_at(&uj);
+    if (k < 0) {
+        say(redo ? "NOTHING TO REDO" : "NOTHING TO UNDO", 0);
+        return;
+    }
+    mask = uj_mask(&uj, k);
+    t[0] = 0;
+    uj_label_of(&uj, k, t);
+    if (!t[0])
+        undo_name(k, t);
+    if (mask >> UR_PAT & 1u) {                   /* the pattern first: it may have to wait (then nothing changes) */
+        int ok = 0;
+        uint8_t *sh;
+        s = uj_aux(&uj, k, UR_PAT) % ARR_NSECT;
+        if (app.slot_buf[s] >= 0) {              /* (a QY70 section playing: as a pattern, as slot_own makes it) */
+            arr_pattern_copy(s, &scratch);
+            arr_load_pattern(s, &scratch);
+            app.slot_buf[s] = -1;
+        }
+        sh = ujs.slot == s ? (uint8_t *)&uj_pat : 0;
+        for (int tries = 0; tries < 8 && !ok; tries++) {
+            uint16_t d = arr_pattern_copy(s, &scratch);
+            uj_apply(&uj, k, UR_PAT, (uint8_t *)&scratch, sh);
+            if (pattern_valid(&scratch) && arr_store_pattern(s, &scratch, d))
+                ok = 1;
+            else
+                uj_apply(&uj, k, UR_PAT, (uint8_t *)&scratch, sh);   /* (twice: as it was) */
+        }
+        if (!ok) {
+            say(redo ? "REDO" : "UNDO", "NOT NOW");
+            return;
+        }
+        slot_cache(s, &scratch);
+        app.edit_pend &= (uint8_t)~(1u << s);
+        app.edited[s] = 1;                       /* (saved: into its user pattern, if it plays one) */
+    }
+    was = *csong();
+    if (mask & (1u << UR_SONG | 1u << UR_LOOPS | 1u << UR_LEADS)) {
+        songs_write(1);                          /* (the rows, the loops and the lead notes: the render reads them) */
+        uj_apply(&uj, k, UR_SONG, (uint8_t *)csong(), (uint8_t *)&uj_song);
+        uj_apply(&uj, k, UR_LOOPS, (uint8_t *)sloops.loop, (uint8_t *)uj_loops);
+        if (uj_apply(&uj, k, UR_LEADS, (uint8_t *)&leads, uj_leads)) {
+            leads_index(&leads);
+            leads.gen++;
+        }
+        songs_write(0);
+    }
+    uj_moved(&uj, redo);
+    {
+        song_t *g = csong();
+        for (int j = 0; j < ARR_NSECT; j++)      /* a slot given another pattern: loaded (the style's again) */
+            if (was.style[j] != g->style[j] && (j != s || g->style[j] >= ARR_USER_PATTERNS)) {
+                slot_load(j, g->style[j]);
+                if (ujs.slot == j)
+                    arr_pattern_copy(j, &uj_pat);
+            }
+        if (g->tempo != was.tempo)
+            arr_set_tempo(g->tempo);
+        if (g->transpose != was.transpose)
+            arr_set_transpose(g->transpose);
+        if (g->mute != was.mute)
+            mutes_apply();
+        if (memcmp(g->lead, was.lead, sizeof g->lead))
+            lead_sounds_sync();
+        if (app.row > g->nrows)
+            app.row = g->nrows;
+    }
+    if (mask >> UR_LEADS & 1u) {                 /* the lead parts saved again; a part with notes again gets a slot */
+        for (int p = 0; p < LEAD_PARTS; p++)
+            if (leads.part[p].n && app.lslot[p] < 0) {
+                int f = pattern_free();
+                if (f < 0) {
+                    say("NO FREE SLOT", "LEADS NOT KEPT");
+                    break;
+                }
+                app.lslot[p] = (int8_t)f;
+            }
+        app.ldirty = (1u << LEAD_PARTS) - 1u;
+    }
+    app.gen++;
+    app.chg++;
+    ui.act_t = plat_ms();
+    say(redo ? "REDO" : "UNDO", t);
+}
+
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
@@ -2927,6 +3327,7 @@ void ui_frame(void)
         ui.ask = 0;                              /* (a question was about the song before) */
         song_change(s);
     }
+    undo_tick();
     autosave();
     draw_header();
     draw_page();

@@ -475,6 +475,10 @@ static int expect(const char *what, const char *val)
         got = b >= 0 && (lit_btn >> b & 1u);
     } else if (!strncmp(what, "msg_is_", 7))      /* msg_is_WORD: the message showing starts with WORD (1 / 0) */
         got = plat_ms() < ui.msg_until && !strncasecmp(ui.msg[0], what + 7, strlen(what + 7));
+    else if (!strcmp(what, "undo_steps"))         /* the undo journal's steps kept (done and undone) */
+        got = uj.n;
+    else if (!strcmp(what, "undo_at"))            /* how many of them are done (undo takes back the last) */
+        got = uj.cur;
     else if (!strcmp(what, "msg"))                /* a message showing */
         got = plat_ms() < ui.msg_until;
     else if (!strcmp(what, "black_lit")) {        /* the black keys lit, bit i = black key i (b0..b10) */

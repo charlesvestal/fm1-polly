@@ -58,7 +58,7 @@ The white keys are counted from the left, 1 to 16: loop L9 is white key 9.
 | PLAY | Start and stop. On a SONG page: the song from row 1 (while a loop plays, from the next bar); playing, it stops it |
 | REC | Write what the keys play here: chords into the loop (HOME, LOOP; in FREE on HOME a new loop), the selected track (SEQ, EDIT), rows (SONG) |
 | SEL | This page as a list: its values, MORE, and actions (LOAD PROGRESSION, CLEAR LOOP, PLAY FROM ROW…) |
-| HOME | HOME; SELECT for the SONG pages. Held: the shortcuts, on screen: + white key 1–16 a loop, + black key 1–5 a section, + SELECT the tempo, + PRESETS the song |
+| HOME | HOME; SELECT for the SONG pages. Held: the shortcuts, on screen: + white key 1–16 a loop, + black key 1–5 a section, + SELECT the tempo, + PRESETS the song, + REC undo, + PLAY redo |
 | ARP | LOOP: the loop's chords; page 2 its length, beats, name |
 | SEQ | Pattern, page 2 Pattern setup |
 | EDIT | Track, page 2 Track keys |
@@ -453,6 +453,18 @@ Saving pauses the FM-1 for a moment, which is why it waits until you stop.
 
 If two sections of a song play the same user pattern and both were changed, the newest change is kept,
 and Polly says "SHARED PATTERN kept Main B".
+
+### Undo
+
+Hold **HOME** and press **REC** to undo; **HOME** + **PLAY** redoes (neither records nor starts). The header
+says what: "UNDO L9 CHORD", "UNDO ROW 3", "UNDO TAKE LD1", "UNDO CLEAR LOOP", "REDO C1 SOUND", or "NOTHING
+TO UNDO". It covers the song you're on: its loops (chords, length, name, loading, clearing, copying), its
+rows and settings (style, tempo, TRANSPOSE, mutes, the lead tracks' sounds), its lead notes (a take is one
+step; erasing), and its patterns as you change them (sounds, mixer, types, ERASE TRACK, CLEAR PATTERN, BACK
+TO STYLE, and each pass of a recording). A step is what you changed before a pause of about a second, a whole
+lead take, or one pass of a pattern recording. Polly keeps up to 32 steps (fewer after big ones) while it's
+on; switching songs or turning it off starts afresh. It works while playing. Not undone: the tempo turned
+while playing, and the Setup page and Master FX. What undo brings back is saved like any change.
 
 ### The song's actions (SEL)
 
