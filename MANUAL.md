@@ -93,7 +93,8 @@ next thing.
 - **HOME**: Home; **SELECT** then turns to the Song pages. Held: the shortcuts (keys, SELECT, PRESETS, REC, PLAY); in a
   question, no.
 - **ARP**: Progression (the chords: bar, beat, root, type), page 2 its length, beats, bass and name.
-- **SEQ**: Band (the groove's notes, instrument by instrument), page 2 the groove's length and name.
+- **SEQ**: Band (the groove's notes, instrument by instrument; bar, beat: the cursor), page 2 the groove's length and
+  name.
 - **EDIT**: Sound (the instrument's sound and range), page 2 its high key and channel.
 - **LFO**: Mixer, page 2 its tone.
 - **FX**: Effects (reverb and chorus).
@@ -191,6 +192,13 @@ The screen has these bands:
   "REC: STOP".
 
 **Messages** such as "SAVED" or "NEXT GROOVE B" take over the header for a second or so.
+
+**The cursor and the playhead.** Where the knobs and keys write is outlined in thick coral: a chord's cell
+(Progression), a section (Song), a line down the instruments (Band), a melody's first bar (Sound with M1 or M2), with
+the place in words beside it ("bar 2 · beat 3", "section 3 of 6"). What plays is filled teal (a teal line on Band).
+Both show at once: a coral outline round a teal fill is the cursor on the beat playing. Whatever you change flashes
+coral for half a second where it lands: a chord, a section, an instrument's row, a bar of notes just recorded, and
+what undo or redo brings back.
 
 ### The instruments
 
@@ -367,8 +375,8 @@ See [Writing a song](#writing-a-song) for the whole path.
 
 ![The Progression page](docs/img/manual/progression.png)
 
-- **Progression** (ARP): its bars, a chord a beat, and the cursor (the coral ring; the tag says where: "P9 ·
-  BAR 1.3"). KNOB 1–4: **BAR** and **BEAT** move the cursor (BAR keeps the beat; the grid scrolls to it; while
+- **Progression** (ARP): its bars, a chord a beat, and the cursor (the thick coral ring; its bar and beat numbers on
+  coral, "bar 1 · beat 3" under the grid, and the tag: "P9 · BAR 1.3"). While playing, the beat playing is teal. KNOB 1–4: **BAR** and **BEAT** move the cursor (BAR keeps the beat; the grid scrolls to it; while
   REC writes, one bar past the end, where a chord makes the progression longer), **ROOT** and **TYPE** change
   the chord there (TYPE one below maj: "·", no chord there). **OCT−** / **OCT+** move the cursor a beat. Page 2:
   **LENGTH**, **BEATS** (a bar's; each chord stays in its bar: a chord on bar 2 beat 1 is still on bar 2 beat 1),
@@ -389,7 +397,8 @@ See [Writing a song](#writing-a-song) for the whole path.
   section it sets that section's progression. Black keys 1–8 mute the section's instruments, 9 and 10 its melodies
   M1 and M2 (the squares after the gap in MUTE: filled plays, a coral outline is muted). KNOB 1–4 SECTION, PROG,
   GROOVE (A or B, "+ fill" for a fill into the next section), REPEAT; page 2 TRANSPOSE (the section's own, on top of
-  the song's); page 3 INTRO, ENDING, AT END, SONG. While the song plays, the section playing is tinted teal; during
+  the song's); page 3 INTRO, ENDING, AT END, SONG. Under the sections, "section 3 of 6" says where the cursor (the coral ring) is. While the song plays, the
+  section playing is filled teal (inside the ring when the cursor follows it); during
   its Intro, a fill and its Ending the line under the sections says so ("Intro · then section 1", "Fill AB · into
   section 3", "Ending · then the stop").
 - **Home** says where the band is: "progression bar 2.3 / 4" (or "groove bar 1.1 / 2" with no progression);
@@ -415,7 +424,11 @@ Polly records into the selected instrument of the groove (or extra) playing, goi
 ![Recording into C1](docs/img/manual/recording.png)
 
 1. Press **SEQ** for the Band page. It shows the eight instruments of the groove playing, with their
-   notes, and the playhead.
+   notes, the playhead (a teal line) and the cursor: a coral line down the instruments, its place under it
+   ("bar 2 · beat 3"). **KNOB 2** (Bar) and **KNOB 3** (Beat) move it. (Editing notes there is still to come.)
+
+   ![The Band page](docs/img/manual/band.png)
+
 2. Turn **ALGORITHM** to pick the instrument. The keys play its sound.
 3. Press **REC**. The red dot shows in the header and PLAY turns red. The screen shows the groove as
    bars, the instrument's notes in each: "REC C1 · starts with PLAY". The footer says "REC: STOP".
@@ -515,6 +528,9 @@ Notes go into the section playing, at their place on the Band page's grid. You h
 the section plays. Recording again over a section (a punch in) adds notes to what's there; to replace a
 section's melody, erase it first (**SEL**: the list opens on **ERASE M1 IN SECTION n**), then record.
 
+- **Where it is:** with M1 or M2 picked, the Sound page shows the section of the Song page's cursor as bars with the
+  melody's notes (the other melody's dim), and the song's sections under them. Stopped, that section's bar 1 is ringed
+  coral, "section 2 · bar 1": where PLAY and REC start. Playing, the bar playing is teal ("section 2 · bar 3.1").
 - **Punch in:** on the Song page, move the cursor (SECTION) to the section; then on **EDIT**, **REC** and **PLAY**:
   the song starts at that section (REC's screen rings it) and records from its first downbeat. (Or, stopped,
   REC while free or on a progression puts the song on first.)
@@ -621,7 +637,8 @@ and Polly says "SHARED GROOVE KEPT GROOVE B".
 
 Hold **HOME** and press **REC** to undo; **HOME** + **PLAY** redoes (neither records nor starts). The header
 says what: "UNDO P9 CHORD", "UNDO SECTION 3", "UNDO TAKE M1", "UNDO PASS C1", "UNDO CLEAR PROG", "REDO C1 SOUND",
-or "NOTHING TO UNDO". It covers the song you're on: its progressions (chords, length, name, loading, clearing,
+or "NOTHING TO UNDO", and what came back flashes coral: the Progression page's cursor goes to its chord, the Song
+page's cursor to its section (a melody's notes: their section). It covers the song you're on: its progressions (chords, length, name, loading, clearing,
 copying), its sections and settings (style, tempo, TRANSPOSE, mutes, the melodies' sounds), its melody notes (a
 take is one step; erasing, copying a section's), and its grooves as you change them (sounds, mixer, types, ERASE
 INSTRUMENT, CLEAR GROOVE A, BACK TO STYLE, and each pass of a recording). A step is what you changed before a
@@ -800,7 +817,7 @@ on every page. SELECT turns a button's pages.
 | Song 3 | HOME, SELECT ×3 | Intro | Ending | At end | Song | The next section |
 | Progression | ARP | Bar | Beat | Root | Type | The next progression |
 | Progression 2 | ARP, SELECT | Length | Beats | Bass | Name | The next progression |
-| Band | SEQ | Grid | | | Mute | What the groove plays |
+| Band | SEQ | Grid | Bar (the cursor) | Beat (the cursor) | Mute | What the groove plays |
 | Groove length | SEQ, SELECT | Bars | Beats | Letter | Character | What the groove plays |
 | Sound | EDIT | Program | Type | Low (a melody: none) | High (a melody: Velocity) | Program family |
 | Sound 2 | EDIT, SELECT | High key (a melody: none) | Channel | | | |
