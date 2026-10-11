@@ -1,0 +1,173 @@
+# POLLY, HOME in each state: the progression as bars (the same view recording or listening), the big chord over them.
+# FREE stopped and playing (the chord alone, a line under it); LOOP stopped (bar 1 ringed teal: PLAY starts there) and
+# playing (the bar playing teal, its beats, "next"); a 12-bar progression scrolled to the bar playing; LOOP under an
+# Intro; SONG stopped, in its Intro, its sections' passes, a fill coming, the Ending ("next: ..." under the chord);
+# a new progression's take; step writing. Keys: F3 0, A3 4, C4 7, E4 11, G4 14. 120 BPM: a bar is 2000 ms.
+wait 300
+spin K2 15
+expect tempo 120
+expect mode 0
+wait 50
+shot free_stopped.png
+# ---- FREE, playing: a chord from the keys, big
+tap PLAY
+wait 300
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 600
+expect chord_root 0
+shot free_playing.png
+tap PLAY
+wait 200
+# ---- LOOP, stopped: P1's bars, bar 1 ringed (where PLAY starts)
+press HOME
+tapkey w0
+release HOME
+expect mode 1
+expect app_loop 1
+wait 50
+shot loop_stopped.png
+# playing: bar 2 teal, its beats along its foot; next chord by the big one
+tap PLAY
+wait 2700
+expect loop_now 1
+shot loop_playing.png
+# ---- a 12-bar progression (P5 Blues) from the next bar line: two rows, scrolled to the bar playing
+press HOME
+tapkey w4
+release HOME
+wait 2000
+expect loop_now 5
+wait 16500
+shot loop12_playing.png
+tap PLAY
+wait 200
+wait 50
+shot loop12_stopped.png
+# ---- LOOP under an Intro: the bars wait, bar 1 ringed; "starts after the Intro"
+press HOME
+tapkey w0
+tapkey b0
+release HOME
+tap PLAY
+wait 300
+expect sect 1
+shot loop_intro.png
+tap PLAY
+wait 200
+# ---- SONG: P1 x2 (Groove A), P3 (Groove B), P8 (Groove A); Intro and Ending on
+turn SELECT 1
+expect page 1
+tapkey w0
+tapkey w2
+tapkey w7
+expect rows 3
+spin K1 -9
+expect cursor 1
+spin K4 1
+expect row_rep1 2
+spin K1 1
+spin K3 2
+expect row_sect2 2
+tap PLAY
+wait 100
+expect mode 2
+tap PLAY
+wait 200
+tap HOME
+expect page 0
+wait 50
+shot song_stopped.png
+tap PLAY
+wait 300
+expect sect 1
+shot song_intro.png
+# section 1, its first pass (of 2): next, P1 again
+wait 5700
+expect sect 2
+expect row 1
+shot song_row1.png
+# its second pass: a fill in its last bar, then P3 in Groove B
+wait 9000
+expect row 1
+shot song_row1_pass2.png
+wait 4000
+shot song_fill.png
+wait 4000
+expect row 2
+expect sect 3
+shot song_row2.png
+wait 13000
+expect row 3
+shot song_row3.png
+wait 9000
+expect sect 6
+shot song_ending.png
+wait 6000
+expect playing 0
+expect page 0
+# ---- a new progression's take (REC in FREE): the REC line, the bars growing; waiting for PLAY first
+wait 100
+turn K4 -20
+wait 100
+expect mode 0
+tap REC
+expect take 1
+wait 50
+shot rec_wait.png
+tap PLAY
+wait 2300
+expect take 2
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+wait 2000
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+key 7 up
+wait 1500
+shot rec_take.png
+tap REC
+expect take 0
+tap PLAY
+wait 300
+# ---- step writing (REC on HOME stopped, LOOP): the cursor's bar ringed coral
+press HOME
+tapkey w11
+release HOME
+expect app_loop 12
+tap REC
+expect rec_chords 1
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+key 4 down
+key 7 down
+key 11 down
+wait 50
+key 4 up
+key 7 up
+key 11 up
+wait 650
+expect cbeat 8
+shot rec_step.png
+tap REC
+expect rec_chords 0

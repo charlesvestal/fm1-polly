@@ -401,8 +401,15 @@ See [Writing a song](#writing-a-song) for the whole path.
   section playing is filled teal (inside the ring when the cursor follows it); during
   its Intro, a fill and its Ending the line under the sections says so ("Intro · then section 1", "Fill AB · into
   section 3", "Ending · then the stop").
-- **Home** says where the band is: "progression bar 2.3 / 4" (or "groove bar 1.1 / 2" with no progression);
-  stopped, bar 1 and the chords PLAY starts with.
+- **Home** shows the progression as bars, the same whether you listen or write chords: a cell a bar with its
+  chords, the bar playing filled teal with its beats along its foot; stopped, bar 1 ringed teal (PLAY starts there).
+  A long one (the 12-bar blues) shows two rows, scrolled to the bar playing. Over the bars, the chord you hear, big,
+  and the next one; the header says where: "progression bar 2.3 / 4" (or "groove bar 1.1 / 2" with no
+  progression). In a song the header counts "section 2 of 4 · x1 of 2", the bars are the section's progression, and
+  the line under the chord says what comes next: "next: P4 Chorus · Groove B", "next: Fill · P4 Chorus · Groove B"
+  (a fill in this section's last bar), "next: P3 Verse again", "next: Ending". Free, the chord you play is alone,
+  bigger, with "Prog: – · the band follows your chords" under it. While REC writes chords (or a new progression's
+  take) the top line is "REC P9 · bar 3.2" and the chord you write flashes its bar coral.
 
 ![The Song page](docs/img/manual/song.png)
 
@@ -549,7 +556,7 @@ section's melody, erase it first (**SEL**: the list opens on **ERASE M1 IN SECTI
   from then on are (the keys have no velocity; 100 at first). The Mixer and Mixer tone pages have its strip
   (black keys 9 and 10 pick M1, M2).
 - **Mutes:** on the Song page, black keys 9 and 10 mute M1 and M2 in the cursor's section.
-- **On Home**, in a song, M1 and M2 (each with notes) sit at the right of the song's line: plum, coral
+- **On Home**, in a song, M1 and M2 (each with notes) sit at the right of the line under the chord: plum, coral
   while a note sounds, an outline struck through while muted.
 - REC while a progression plays, or free, says "MELODIES RECORD IN A SONG". Deleting a section that has melody
   notes asks first ("SECTION 3 HAS MELODY NOTES: DELETE?").
