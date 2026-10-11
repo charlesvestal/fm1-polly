@@ -1,4 +1,4 @@
-# Polly: shared loops made safe, undo, a click, slots, backup, lead editing (2026-10-11)
+# Polly: per-song loops, undo, a click, slots, backup, lead editing (2026-10-11)
 
 Usability holes the user picked, in this order: 1 2 3 5 6 4. Polly is prerelease: no migrations (an older
 saved format loads as defaults).
@@ -15,8 +15,7 @@ loops. Nothing is shared, so there is nothing to warn about.
   loops need one and none is free (with the SLOTS hint, part 5).
 - Switching songs (only at a stop, as today): the current song's loops are saved if changed, the new song's
   loaded (or the defaults). COPY SONG copies the loops too (a slot for the target if they're not the
-  defaults). CLEAR SONG keeps the loops (as today: rows only) — add CLEAR SONG'S LOOPS? No: CLEAR LOOP per
-  loop is enough.
+  defaults). CLEAR SONG keeps the loops (rows only, as today); CLEAR LOOP clears one.
 - The "in N rows" header counts the current song only (as today, now exact).
 - Format: songs object without loops (format 8); older formats load as defaults (prerelease, no migration).
 
