@@ -1,0 +1,270 @@
+# POLLY, the lead tracks LD1 and LD2 on their screens: a melody recorded over a 4-row song, punched in at row 3, a
+# second part on LD2, erased in a row, played back after a key change and a chord edit, saved, rebooted.
+# Keys (octave 0): key K is MIDI 53 + K: C4 7, D4 9, E4 11, G4 14, A4 16, C5 19. At 120 BPM a beat is 500 ms.
+wait 300
+spin K2 15
+expect tempo 120
+expect loop_bars1 4
+# ---- the song: four rows of L1 (a white key a row), its Intro off
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+tapkey w0
+tapkey w0
+tapkey w0
+expect rows 4
+turn SELECT 2
+expect page 3
+expect song_intro 1
+turn K1 -1
+expect song_intro 0
+turn SELECT -2
+expect page 1
+# ---- EDIT: ALGORITHM past C4 to LD1 (its sound: GM 81, the song's)
+tap EDIT
+expect page 8
+expect track 5
+turn ALGO 4
+expect lead_sel 1
+expect tag_is_LD1_SQUARE_LEAD 1
+expect footer_is_KEYS:_LD1_SQUARE_LEAD|REC:_RECORD 1
+expect lsnd1_prog 81
+wait 1500
+shot track_ld1.png
+turn SELECT 1
+expect page 9
+shot track2_ld1.png
+turn SELECT -1
+# in FREE a lead does not record
+expect mode 0
+tap REC
+wait 50
+expect recording 0
+expect msgtext_is_LEADS_RECORD_IN_A_SONG 1
+shot rec_free.png
+# ---- SONG once (PLAY there, PLAY again: stopped in SONG); back on EDIT, REC arms LD1: it starts with PLAY
+tap HOME
+turn SELECT 1
+tap PLAY
+wait 300
+tap PLAY
+wait 100
+expect mode 2
+expect playing 0
+tap EDIT
+tap REC
+wait 50
+expect recording 1
+expect rec_shown 1
+expect msgtext_is_RECORD_LD1_FROM_PLAY 1
+wait 1500
+shot lead_armed.png
+# PLAY here: the song from row 1; the keys go into LD1 at their places (row 1: C4 E4 G4, row 2: A4 C5)
+tap PLAY
+wait 960
+key 7 down
+wait 400
+key 7 up
+wait 600
+key 11 down
+wait 400
+key 11 up
+wait 600
+key 14 down
+wait 400
+key 14 up
+wait 2600
+expect row 1
+expect lead_count1_1 3
+shot lead_rec_row1.png
+wait 3000
+expect row 2
+wait 1000
+key 16 down
+wait 400
+key 16 up
+wait 600
+key 19 down
+wait 900
+key 19 up
+wait 600
+expect lead_count1_2 2
+shot lead_rec_row2.png
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+expect playing 0
+expect lead_notes 5
+# ---- punch in at row 3: SONG's cursor to row 3, SEL: PLAY FROM ROW 3; back on EDIT, REC (LD1 still selected)
+tap HOME
+turn SELECT 1
+expect page 1
+spin K1 -9
+spin K1 2
+expect cursor 3
+tap SEL
+spin SELECT 9
+expect list_sel 9
+tap SEL
+wait 50
+expect playing 1
+expect row 3
+tap EDIT
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+expect msgtext_is_RECORD_LD1_INTO_THE_SONG 1
+wait 950
+key 9 down
+wait 400
+key 9 up
+wait 600
+key 11 down
+wait 400
+key 11 up
+wait 400
+expect row 3
+expect lead_count1_3 2
+shot lead_punch_row3.png
+# ---- LD2, a second part: ALGORITHM on, recording goes on into LD2 (G4 then E4, held)
+turn ALGO 1
+expect lead_sel 2
+expect recording 1
+expect tag_is_LD2_STRINGS_1 1
+wait 300
+key 14 down
+wait 900
+key 14 up
+wait 100
+key 11 down
+wait 900
+key 11 up
+wait 300
+expect row 3
+expect lead_count2_3 2
+shot lead_ld2.png
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect playing 0
+expect lead_notes 9
+expect lead_count1_0 7
+# ---- erase: back on LD1, SEL's list: ERASE LD1 IN ROW 3 (the cursor's row: it followed the song), asked first
+turn ALGO -1
+expect lead_sel 1
+expect cursor 3
+tap SEL
+expect list_open 1
+spin SELECT 6
+expect list_sel 6
+wait 100
+shot lead_list.png
+tap SEL
+expect asking 1
+wait 100
+shot lead_erase_ask.png
+tap SEL
+wait 50
+expect asking 0
+expect lead_count1_3 0
+expect lead_count2_3 2
+expect lead_notes 7
+# ERASE LD1 (the whole song's): asked, HOME says no
+tap SEL
+spin SELECT 7
+expect list_sel 7
+tap SEL
+expect asking 1
+tap HOME
+wait 50
+expect asking 0
+expect lead_notes 7
+tap EDIT
+# ---- the Mixer: ten strips, LD1's volume by KNOB 1; black key 10 picks LD2; the tone
+tap LFO
+expect page 10
+expect tag_is_MIXER:_LD1 1
+spin K1 -20
+expect lsnd1_vol 80
+wait 100
+shot mixer_leads.png
+tapkey b9
+expect lead_sel 2
+expect tag_is_MIXER:_LD2 1
+turn SELECT 1
+expect page 11
+spin K1 -30
+expect lsnd2_bright 34
+wait 100
+shot tone_leads.png
+tapkey b4
+expect lead_sel 0
+expect track 5
+tapkey b8
+expect lead_sel 1
+# ---- SONG: the rows' lead mutes (black keys 9, 10), after the eight; DELETE ROW on a row with lead notes asks
+tap HOME
+turn SELECT 1
+expect page 1
+spin K1 -9
+expect cursor 1
+tapkey b9
+expect row_lmute1 2
+expect black_dim 512
+wait 100
+shot song_lead_mutes.png
+tapkey b9
+expect row_lmute1 0
+tap SEL
+spin SELECT 11
+expect list_sel 11
+tap SEL
+expect asking 1
+wait 100
+shot delete_row_ask.png
+tap HOME
+wait 50
+expect asking 0
+expect rows 4
+tap HOME
+expect list_open 0
+expect row_sect1 0
+# ---- a key change (TRANSPOSE +2) and a chord edit (L1's first chord, C to D), then the song played whole: the leads
+# play (LD1 five notes in rows 1, 2; LD2 two in row 3), moved by the root's move
+tap HOME
+spin K3 2
+expect transpose 2
+tap ARP
+expect page 4
+expect app_loop 1
+expect loop_ch1_0 0
+turn K1 2
+expect loop_ch1_0 200
+tap HOME
+turn SELECT 1
+hitreset
+tap PLAY
+wait 5000
+tap HOME
+wait 1500
+shot home_leads.png
+wait 36000
+expect playing 0
+expect track_hits9 5
+expect track_hits10 2
+# ---- saved at rest; back after a reboot
+wait 5000
+expect dirty 0
+expect lead_dirty 0
+reboot
+wait 300
+expect lead_notes 7
+expect lead_count1_1 3
+expect lead_count2_3 2
+expect lsnd1_vol 80
+expect transpose 2
