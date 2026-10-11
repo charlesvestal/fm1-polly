@@ -246,28 +246,23 @@ static void slot_load(int s, int style)
     app.edited[s] = (uint8_t)(folded && style < ARR_USER_PATTERNS);   /* saved again, its mutes moved out */
     app.edit_pend &= (uint8_t)~(1u << s);
 }
-/* a user pattern holding nothing: never saved, or saved without notes (loaded into scratch to look) */
-static int pattern_blank(int p)
+/* ---- the shared slots (user patterns and lead parts, project.c) */
+/* the slots the song's lead parts hold or have taken (not saved into yet): no pattern takes them */
+static uint32_t lead_reserved(void)
 {
-    uint8_t h[8];
-    if (plat_store_load((uint32_t)(OBJ_PAT0 + p), h, sizeof h) < 0)
-        return 1;
-    return project_pattern_load(p, &scratch) == 0 && scratch.nev == 0;
+    uint32_t m = 0;
+    for (int k = 0; k < LEAD_PARTS; k++)
+        if (app.lslot[k] >= 0 && app.lslot[k] < ARR_USER_PATTERNS)
+            m |= 1u << app.lslot[k];
+    return m;
 }
-/* the user pattern the copy-on-write takes: one no song plays and that holds nothing (a pattern with notes is
- * never taken, played or not); -1 none */
-static int pattern_free(void)
-{
-    uint32_t used = 0;
-    for (int n = 0; n < ARR_SONGS; n++)
-        for (int k = 0; k < ARR_NSECT; k++)
-            if (songs.song[n].style[k] < ARR_USER_PATTERNS)
-                used |= 1u << songs.song[n].style[k];
-    for (int p = 0; p < ARR_USER_PATTERNS; p++)
-        if (!(used >> p & 1u) && pattern_blank(p))
-            return p;
-    return -1;
-}
+/* slot p holds lead notes (any song's, or the song's taken): never a pattern's */
+static int slot_has_leads(int p) { return (lead_reserved() >> p & 1u) || project_slot_leads(p); }
+/* a slot holding nothing: never saved, or saved without notes (a pattern looked at in scratch), not the leads' */
+static int pattern_blank(int p) { return !(lead_reserved() >> p & 1u) && project_slot_blank(p, &scratch); }
+/* the slot the copy-on-write (and a lead part) takes: one no song plays and that holds nothing (a pattern or a lead
+ * part with notes is never taken, played or not); -1 none */
+static int pattern_free(void) { return project_slot_free(&songs, lead_reserved(), &scratch); }
 /* copy-on-write: before slot s's pattern is changed (recorded into, edited, erased, cleared), a slot playing a
  * style's section gets a user pattern of its own: the first free one (pattern_free) takes the section as it
  * plays now, saved at the next save (or autosave). 0: the slot plays a user pattern; -1: none free (the change
@@ -300,6 +295,76 @@ static int slot_own(int s)
     say("NEW PATTERN", t);
     return 0;
 }
+/* ---- the lead tracks' notes (leads): the song's, loaded with it, written as the engine hands recorded notes over,
+ * saved at rest with the rest (save_all: only the parts changed) */
+/* every write into leads (the engine reads it): held off, done, gen counted */
+static void lead_write(int on)
+{
+    if (on) {
+        arr_edit(1);
+        return;
+    }
+    leads.gen++;
+    arr_edit(0);
+    app.chg++;
+}
+/* the parts a change from index i touched (the notes before and after) to save */
+static void lead_changed(int i, int before)
+{
+    app.ldirty |= (uint8_t)leads_parts_from(i, before, leads.n);
+}
+/* the song's leads' sounds (song_t.lead) to the engine's copy: after they are edited, and at a load */
+static void lead_sounds_sync(void)
+{
+    arr_edit(1);
+    memcpy(leads.trk, csong()->lead, sizeof leads.trk);
+    leads.gen++;
+    arr_edit(0);
+}
+/* the selected song's lead parts from their slots (a song picked: its unsaved changes were saved first) */
+static void leads_load(void)
+{
+    int rc;
+    arr_edit(1);
+    rc = project_leads_load(proj.song, &leads, app.lslot);
+    memcpy(leads.trk, csong()->lead, sizeof leads.trk);
+    leads.gen++;
+    arr_edit(0);
+    app.ldirty = (uint8_t)(rc == 1 ? (1u << LEAD_PARTS) - 1u : 0u);   /* put right (leads_fix): saved so */
+}
+/* a recorded note (arr_lead_take) into the song's leads: the same note at the same place replaces; a part fills,
+ * the next takes a free slot; none: LEAD FULL (NO FREE SLOT for the first) */
+static void lead_add(const arr_lnote_t *n)
+{
+    lead_ev_t e;
+    int at, rc, before = leads.n;
+    lead_set(&e, n->row, n->pos, n->len, n->note, n->vel, n->trk, n->root);
+    for (;;) {
+        int room = (app.lslot[0] >= 0) * LEAD_PART_NOTES + (app.lslot[1] >= 0) * LEAD_PART_NOTES, k, p;
+        lead_write(1);
+        rc = leads_insert(&leads, &e, room, &at);
+        lead_write(0);
+        if (rc >= 0)
+            break;
+        k = app.lslot[0] < 0 ? 0 : 1;            /* full: the next part, in a slot of its own */
+        if (room >= LEAD_MAX || (p = pattern_free()) < 0) {
+            say(k ? "LEAD FULL" : "NO FREE SLOT", k ? "NOTES NOT KEPT" : "LEADS NOT KEPT");
+            return;
+        }
+        app.lslot[k] = (int8_t)p;
+    }
+    if (rc == 0)
+        app.ldirty |= (uint8_t)(at < LEAD_PART_NOTES ? 1u : 2u);
+    else
+        lead_changed(at, before);
+}
+static void leads_poll(void)                     /* the notes the engine recorded (ui_frame) */
+{
+    arr_lnote_t n;
+    while (arr_lead_take(&n))
+        lead_add(&n);
+}
+
 /* MODE: FREE (the keys' chords only), LOOP (app.loop goes round), SONG (the song's rows: from app.row stopped,
  * else from row 1 at the next bar line). Leaving SONG, the song's FREE / LOOP mutes are all sent again (a row's
  * or a hand mute may be sounding) */
@@ -400,6 +465,12 @@ static int save_all(void)
         else
             rc = -1;
     }
+    if (app.ldirty) {                            /* the lead parts changed (a part emptied: its slot let go) */
+        if (project_leads_save(proj.song, &leads, app.lslot, app.ldirty) == 0)
+            app.ldirty = 0;
+        else
+            rc = -1;
+    }
     for (int s = 0; s < ARR_NSECT; s++) {
         int st = sg->style[s], k = s, lost = -1;
         uint16_t d;
@@ -457,6 +528,8 @@ void app_start(void)
     qb_mount();                                  /* the QY70 style bank, if one is installed */
     project_songs_load(&songs);
     arr_loops(songs.loop);                       /* the engine reads the loops from here (writes: arr_edit) */
+    arr_leads(&leads);                           /* ... and the song's lead notes */
+    leads_load();
     arr_set_quant(proj.quant);
     arr_midi_out_on(proj.mout);                  /* the tracks out on their channels */
     fx_apply();
@@ -1436,6 +1509,7 @@ static void song_change(int s)
     proj.song = (uint8_t)s;
     app.row = 0;
     song_load();
+    leads_load();
     mark_dirty();
     save_all();                                  /* the song picked, kept now: a power-off comes back on it (stopped:
                                                   * the save before already paused nothing that plays) */
@@ -1448,8 +1522,11 @@ static void song_change(int s)
  * pattern for that section (Main A's knob: Pop's Main A, Funk's Main A, ...) */
 static int style_step(int s, int st, int d)
 {
-    int si = style_index(st), i = si >= 0 ? ARR_USER_PATTERNS + si : st < ARR_USER_PATTERNS ? st : 0;
-    i = clampi(i + d, 0, ARR_USER_PATTERNS + styles_n() - 1);
+    int si = style_index(st), i = si >= 0 ? ARR_USER_PATTERNS + si : st < ARR_USER_PATTERNS ? st : 0, was = i;
+    int top = ARR_USER_PATTERNS + styles_n() - 1;
+    i = clampi(i + d, 0, top);
+    while (i != was && i < ARR_USER_PATTERNS && slot_has_leads(i))   /* (a slot holding lead notes: passed over) */
+        i = i + (d > 0 ? 1 : -1) < 0 ? was : i + (d > 0 ? 1 : -1);
     return i < ARR_USER_PATTERNS ? i : style_number(i - ARR_USER_PATTERNS, s);
 }
 /* a slot's pattern changed to pattern `to` (a user pattern or a style's section; the STYLE pages', the
@@ -1774,12 +1851,21 @@ static void act_row(int ins)
         return;
     }
     itoa_u(app.row + 1u, cat_s(t, "ROW "));
-    songs_write(1);
-    if (ins)
-        row_insert(g, app.row > g->nrows ? g->nrows : app.row);
-    else
-        row_delete(g, app.row);
-    songs_write(0);
+    {
+        int r = ins ? (app.row > g->nrows ? g->nrows : app.row) : app.row, before = leads.n;
+        songs_write(1);                          /* (the rows and the lead notes in one write: their rows move together) */
+        if (ins) {
+            row_insert(g, r);
+            leads_row_insert(&leads, r);         /* (the copied row gets no lead notes) */
+        } else {
+            row_delete(g, r);
+            leads_row_delete(&leads, r);         /* (its notes go) */
+        }
+        leads.gen++;
+        songs_write(0);
+        if (before)
+            lead_changed(0, before);
+    }
     if (app.row >= ARR_ROWS || (!ins && app.row && app.row >= g->nrows))
         app.row = (uint8_t)(g->nrows ? g->nrows - 1 : 0);
     say(ins ? "INSERTED" : "DELETED", t);
@@ -1790,13 +1876,18 @@ static void do_clear_song(void)
     song_t *g = csong();
     uint8_t mute = g->mute, tempo = g->tempo, fl = g->flags;
     int8_t xp = g->transpose;
+    int before = leads.n;
     songs_write(1);                              /* (the engine may be playing its rows) */
-    loops_song_clear(g);                         /* (its style kept) */
+    loops_song_clear(g);                         /* (its style and its leads' sounds kept) */
+    leads_erase(&leads, -1, -1);                 /* the lead notes go with their rows */
+    leads.gen++;
     g->mute = mute;
     g->tempo = tempo;
     g->flags = fl;                               /* (a tempo set by hand stays the song's) */
     g->transpose = xp;
     songs_write(0);
+    if (before)
+        lead_changed(0, before);
     app.row = 0;
     say("CLEARED", "the song");
 }
@@ -1835,6 +1926,10 @@ static void do_copy_song(void)
             say("FLASH ERROR", "song unchanged");
             return;
         }
+    }
+    if (project_leads_free(to) != 0) {          /* the target's lead notes go with its rows (the source's: not copied) */
+        say("FLASH ERROR", "song unchanged");
+        return;
     }
     songs_write(1);                              /* (not the song playing: no need, but every row write goes so) */
     *d = *g;
@@ -2029,6 +2124,11 @@ static void copy_to(int n)
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET) {
         if (arr_playing) {                       /* a flash write pauses the audio */
             say("COPY", "STOP FIRST");
+            return;
+        }
+        if (slot_has_leads(n)) {                 /* a slot holding lead notes: never a pattern's */
+            pat_name(n, q);
+            say(q, "HOLDS LEAD NOTES");
             return;
         }
         if (n != songs.song[proj.song].style[ui.tgt.slot] && !pattern_blank(n)) {
@@ -2545,6 +2645,7 @@ void ui_frame(void)
     if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     rec_follow_keys();
+    leads_poll();
     if (!arr_recording && !ui.rec_want)
         ui.follow_hint = 0;                      /* (REC off: the hint goes) */
     if (ui.song_rec && !song_page()) {           /* REC on SONG writes from SONG: leaving it ends it */

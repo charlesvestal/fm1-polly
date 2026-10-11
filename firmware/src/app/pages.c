@@ -65,6 +65,9 @@ enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
 
 static songs_t songs EN_POOL;                        /* the four songs (the selected one plays) */
 static pattern_t scratch EN_POOL;                    /* a pattern being loaded, saved or edited */
+/* the selected song's lead notes (arr.h leads_t, two parts as stored: 7.6 KB) and its leads' sounds; the engine
+ * reads it (arr_leads). Written inside arr_edit, gen counted (ui.c lead_write) */
+static leads_t leads EN_POOL;
 /* the QY70 bank's styles decoded (qybank.h): the one the song plays, and one more, so another can be decoded while
  * the first still plays (a slot is re-pointed only once its new style is whole) */
 static qb_style_t qbuf[2] EN_POOL;
@@ -100,6 +103,9 @@ static struct {
                                                       * HOME stops saying "Play a chord" */
     uint8_t picked;                                  /* app.loop was set since start-up (picked, playing, ARP): until
                                                       * then ARP opens the first empty loop */
+    int8_t lslot[LEAD_PARTS];                        /* the slot each lead part of the song is saved in (taken when the
+                                                      * part is first needed: no pattern takes it meanwhile), -1 none */
+    uint8_t ldirty;                                  /* the lead parts changed since loaded or saved (bit k: part k) */
 } app;
 
 /* the input's and the screen's state */
@@ -183,7 +189,7 @@ static int trk_muted(int t)
 /* anything not saved: the project, or a user pattern recorded into */
 static int unsaved(void)
 {
-    if (app.dirty || app.songs_dirty)
+    if (app.dirty || app.songs_dirty || app.ldirty)
         return 1;
     for (int s = 0; s < ARR_NSECT; s++)
         if (songs.song[proj.song].style[s] < ARR_USER_PATTERNS &&

@@ -1,0 +1,55 @@
+# POLLY, the lead tracks' plumbing (before their screens): LD1 armed by a host poke (EDIT's ALGORITHM will select it),
+# a song of one row played, keys recorded into LD1 at their places with the chord's root, played back the next time
+# the song is played, saved at rest into a shared slot, back after a reboot. Keys: C4 7, E4 11, G4 14.
+wait 300
+poke_row 1
+tap HOME
+turn SELECT 1
+expect page 1
+tap PLAY
+wait 50
+expect mode 2
+expect playing 1
+tap EDIT
+expect page 8
+poke_lead_rec 1
+expect recording 1
+wait 9000
+expect row 1
+expect lead_rowtick >0
+key 7 down
+wait 200
+key 7 up
+wait 300
+key 11 down
+wait 200
+key 11 up
+wait 300
+expect lead_notes 2
+expect lead1_note 60
+expect lead1_row 1
+expect lead2_note 64
+expect lead_slot1 1
+expect lead_dirty 1
+expect slot_kind1 0
+poke_lead_rec 0
+wait 12000
+expect playing 0
+# again from row 1 (the song's Intro first): LD1 plays its two notes
+tap HOME
+turn SELECT 1
+hitreset
+tap PLAY
+wait 22000
+expect playing 0
+expect track_hits9 2
+wait 5000
+expect dirty 0
+expect lead_dirty 0
+expect slot_kind1 2
+reboot
+wait 300
+expect lead_notes 2
+expect lead1_note 60
+expect lead2_note 64
+expect lead_slot1 1

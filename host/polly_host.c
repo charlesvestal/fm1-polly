@@ -166,7 +166,7 @@ int qb_flash_read(uint32_t off, void *dst, uint32_t n)
     return 0;
 }
 
-static uint32_t trk_hits[8], trk_last[8];  /* note-ons seen per track since hitreset (arr_track_hit moving) */
+static uint32_t trk_hits[10], trk_last[10];  /* note-ons seen per track since hitreset (arr_track_hit moving; 10: ARR_ALLTRK) */
 
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
@@ -352,7 +352,7 @@ static void run_ms(uint32_t ms)
                 }
             }
             audio_due_ms += 256.0 * 1000.0 / 44100.0;
-            for (k = 0; k < 8; k++)
+            for (k = 0; k < ARR_ALLTRK; k++)
                 if (arr_track_hit[k] != trk_last[k]) {
                     trk_last[k] = arr_track_hit[k];
                     trk_hits[k]++;
@@ -614,8 +614,27 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "pat", 3) && strstr(what, "_nev")) {   /* patN_nev: user pattern N's notes (0..23) */
         project_pattern_load(atoi(what + 3), &dbg_pat);
         got = dbg_pat.nev;
-    } else if (!strncmp(what, "track_hits", 10))  /* track_hitsN (1..8): its note-ons since hitreset */
-        got = (int)trk_hits[(atoi(what + 10) - 1) & 7];
+    } else if (!strncmp(what, "track_hits", 10))  /* track_hitsN (1..10: 9, 10 LD1, LD2): its note-ons since hitreset */
+        got = (int)trk_hits[(unsigned)(atoi(what + 10) - 1) % ARR_ALLTRK];
+    else if (!strcmp(what, "lead_notes"))         /* the song's lead notes (both tracks) */
+        got = leads.n;
+    else if (!strncmp(what, "lead_slot", 9))      /* lead_slotK (1, 2): part K's slot, 1..16, 0 none */
+        got = app.lslot[(atoi(what + 9) - 1) & 1] + 1;
+    else if (!strcmp(what, "lead_dirty"))         /* the lead parts unsaved (bit k part k + 1) */
+        got = app.ldirty;
+    else if (!strcmp(what, "lead_rowtick"))       /* the row playing's place, ticks (arr_row_tick) */
+        got = (int)arr_row_tick;
+    else if (!strncmp(what, "lead", 4) && strchr(what, '_') && what[4] >= '0' && what[4] <= '9') {
+        /* leadI_row / _pos / _note / _root / _trk / _len: lead note I (1..) of the list; -1 none */
+        int i = atoi(what + 4) - 1;
+        const char *f = strchr(what, '_') + 1;
+        const lead_ev_t *e = i >= 0 && i < leads.n ? lead_at_c(&leads, (uint32_t)i) : 0;
+        got = !e ? -1 : !strcmp(f, "row") ? e->row + 1 : !strcmp(f, "pos") ? (int)lead_pos(e) : !strcmp(f, "note") ? e->note
+            : !strcmp(f, "root") ? lead_root(e) : !strcmp(f, "trk") ? lead_trk(e) + 1 : !strcmp(f, "len") ? (int)lead_len(e) : -1;
+    } else if (!strncmp(what, "slot_kind", 9)) {  /* slot_kindN (1..16): SLOT_NONE 0, PATTERN 1, LEAD 2, OTHER 3 */
+        slot_info_t si;
+        got = project_slot_info((atoi(what + 9) - 1) & 15, &si, &dbg_pat);
+    }
     else if (!strncmp(what, "trk", 3) && strstr(what, "_program")) {   /* trkN_program: the playing slot's track N */
         arr_pattern_copy(sect_slot(arr_sect), &dbg_pat);
         got = dbg_pat.trk[(atoi(what + 3) - 1) & 7].program + 1;
@@ -857,6 +876,12 @@ int main(int argc, char **argv)
                 for (int k = 0; k < ARR_NSECT; k++)
                     dbg_songs.song[n].style[k] = (uint16_t)(n * ARR_NSECT + k);
             project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_lead_rec")) {   /* host-only: poke_lead_rec K: lead K (1, 2) selected and armed (the keys
+                                                       * play it, a song's rows record it; 0: back to the track, off), until
+                                                       * EDIT's ALGORITHM selects the leads */
+            int k = atoi(a);
+            arr_record(k >= 1 && k <= 2 ? ARR_LD1 + k - 1 : proj.trk, k >= 1 && k <= 2);
+            run_ms(20);
         } else if (!strcmp(cmd, "poke_row")) {        /* host-only: poke_row L: a row of loop L (1..16) at the song's end
                                                        * (until the SONG screen writes rows) */
             songs_write(1);
