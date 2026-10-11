@@ -107,12 +107,20 @@ static void fx_ramp(void)                         /* each EAS block */
 int gm_host_fx_settled(void) { return rev_wet == rev_to && cho_lvl == cho_to; }   /* the tests */
 #endif
 
+#ifdef GM_HOST
+int16_t gm_host_heard[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* the tests: each
+                                                  * channel's last note-on into the synth (-1 none) */
+#endif
 static void synth_write(uint32_t m, uint32_t at)
 {
     EAS_U8 b[3] = {(EAS_U8)m, (EAS_U8)(m >> 8), (EAS_U8)(m >> 16)};
     uint32_t st = b[0] & 0xF0u;
     if (st == 0xC0u)
         gm_program[b[0] & 15u] = b[1];
+#ifdef GM_HOST
+    if (st == 0x90u && b[2])
+        gm_host_heard[b[0] & 15u] = (int16_t)b[1];
+#endif
     /* a note-on's start within the next block: the voices it starts read it (WT_StartVoice); EAS parses the
      * message at once, so it is cleared again straight after */
     eas->pVoiceMgr->startDelay = (EAS_U8)(st == 0x90u && b[2] ? (at < GM_BLOCK ? at : GM_BLOCK - 1) : 0);

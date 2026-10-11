@@ -54,8 +54,8 @@ Song (S1-S4)
   a sound and its notes.
 - **(yours)**: a groove you changed plays your own copy, "Pop · Groove A (yours)"; BACK TO STYLE gives it back to the
   style.
-- **Tempo**, **Transpose** (the song's, and a section's own on top of it), **Repeat** (a section's), **Mute** (an
-  instrument or a melody; a section's mutes last for that section).
+- **Tempo**, **Transpose** (the song's, and a section's own on top of it; it moves everything, the keys you play
+  too), **Repeat** (a section's), **Mute** (an instrument or a melody; a section's mutes last for that section).
 - **Free**: no progression playing; the band follows the chords you play (Home's KNOB 4 "Prog: –").
 - **Memory**: the 16 places your grooves, melodies and progressions are kept in, shared by the four songs.
 - **Undo / Redo**, **Click** (the woodblock while you record), **Backup** (your songs in a file), **Mirror** (the
@@ -344,8 +344,11 @@ Progression, **SEL**'s list has **LOAD PROGRESSION**: any of Polly's 16 progress
 | 3 Fifties (I–vi–ii–V) | 7 One-four | 11 Mixo (I–♭VII–IV) | 15 Gospel (IV–I) |
 | 4 ii–V–I | 8 Minor (i–VI–III–VII) | 12 Doo-wop | 16 Waltz (3/4) |
 
-**TRANSPOSE** (Home's KNOB 3) moves the progressions and the song to another key, from −6 to +5 semitones.
-The chords you play on the keys aren't moved.
+**TRANSPOSE** (Home's KNOB 3) moves everything to another key, from −6 to +5 semitones, as on an arranger
+keyboard: the progressions, the song, and what you play on the keys too (chords, an instrument's notes, a melody;
+in a song, a section's own TRANSPOSE adds to it). Home's big chord shows the chord you hear. Chords you write and
+notes you record are kept as you heard them: they play back the same, and move with TRANSPOSE when you turn it
+later. MIDI in isn't transposed, and the keys' octave (**OCT−** / **OCT+**) is separate.
 
 ## Progressions and the song
 
@@ -468,9 +471,9 @@ SECTION n**. To copy the groove into a place of memory, hold **SAVE** and press 
 
 Each song has two melodies, **M1** and **M2**, for lines that run along the whole song instead of
 going round with a groove. They play only in a song (Song on Home's PROG knob, or PLAY on the Song
-page). A note belongs to its section, and it is kept as you played it with the chord's root under it: when
+page). A note belongs to its section, and it is kept as you heard it with the chord's root under it: when
 you change that section's chord or TRANSPOSE, or the song's, the melody moves with the root and keeps its
-shape (over the same chord it plays exactly as played).
+shape (over the same chord at the same TRANSPOSE it plays exactly as heard).
 
 **Record a melody over your song:**
 
@@ -670,7 +673,7 @@ The last line shows the QY70 bank: none, the number of styles, "damaged" or "old
 Turn SELECT for the Panel: the processor's load, the voices sounding and the version.
 
 **MIDI in** (USB and the TRS jack) plays Polly's sounds on all 16 channels, as a General MIDI sound
-module, drums on channel 10. It plays alongside the arranger. Controllers 74 (brightness) and 71
+module, drums on channel 10. It plays alongside the arranger, not transposed (TRANSPOSE moves the FM-1's keys only). Controllers 74 (brightness) and 71
 (resonance) move each channel's filter, as the Mixer tone page does.
 
 **USB:** the FM-1 shows up as a class-compliant MIDI device named "Polly FM-1". The FM-1 has no MIDI

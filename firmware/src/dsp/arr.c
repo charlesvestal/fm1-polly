@@ -684,7 +684,8 @@ static void sync(void)                             /* the playing slot reloaded:
 static const uint16_t QUANT_TICKS[ARR_NQ] = {ARR_PPQ / 2, ARR_PPQ / 3, ARR_PPQ / 4, ARR_PPQ / 6, ARR_PPQ / 8, 1};
 enum { R_FREE, R_HELD, R_DONE };
 typedef struct {
-    uint8_t state, key, note, vel, trk, slot;
+    uint8_t state, key, note, vel, trk, slot;      /* key: the key played; snd: the note it sounded (transposed) */
+    uint8_t snd;
     uint8_t ident;                                 /* its slot's pattern (ident) at the key */
     uint8_t pend;                                  /* its start a beat line not played yet: its note over the chord
                                                     * there (rec_resolve), not the one the key was played over */
@@ -694,7 +695,7 @@ typedef struct {
 #define REC_N 8
 static rec_t rec[REC_N];
 #define LIVE_N 16                                  /* keys sounding (arr_key), each with its channel */
-static uint8_t live_key[LIVE_N], live_chan[LIVE_N], live_mo[LIVE_N];
+static uint8_t live_key[LIVE_N], live_note[LIVE_N], live_chan[LIVE_N], live_mo[LIVE_N];   /* the key, the note it sounded */
 static int n_live;
 static uint8_t live_trk = 0xFF, live_cur, live_gen; /* the track whose sounds the keys last had sent */
 static uint8_t rec_on, rec_trk, quant = ARR_Q_16;
@@ -759,7 +760,7 @@ static void ev_insert(int s, int trk, uint32_t tick, uint32_t len, int note, int
 static void rec_resolve(rec_t *r)
 {
     if (r->pend && !busy[r->slot]) {
-        r->note = (uint8_t)trk_inverse(&pat[r->slot].trk[r->trk], r->key, chord);
+        r->note = (uint8_t)trk_inverse(&pat[r->slot].trk[r->trk], r->snd, chord);
         r->pend = 0;
     }
 }
@@ -822,7 +823,7 @@ static void rec_flush(int all)
         }
     }
 }
-static void rec_press(int key, int vel)
+static void rec_press(int key, int snd, int vel)
 {
     const pattern_t *p = &pat[cur];
     uint32_t kpos, kabs, plen = pat_len(p), q = QUANT_TICKS[quant], m;
@@ -847,11 +848,12 @@ static void rec_press(int key, int vel)
     if (rec_wait && (kpos % bar_len(p) != 0 || (int32_t)(kabs - arr_ticks) < 0))
         return;                                    /* waiting for the bar line: only a key landing on it */
     r->key = (uint8_t)key;
+    r->snd = (uint8_t)snd;
     r->vel = (uint8_t)vel;
     r->trk = rec_trk;
     r->slot = cur;
     r->ident = ident[cur];
-    r->note = (uint8_t)trk_inverse(&p->trk[rec_trk], key, chord);
+    r->note = (uint8_t)trk_inverse(&p->trk[rec_trk], snd, chord);   /* the note heard, over C M7 */
     r->pend = (uint8_t)((int32_t)(kabs - arr_ticks) >= 0 && kpos % ARR_PPQ == 0);   /* a beat line ahead */
     r->qpos = (uint16_t)kpos;
     r->qabs = kabs;
@@ -860,7 +862,7 @@ static void rec_press(int key, int vel)
 }
 /* the selected track's sounds (program, volume, pan, sends) for the keys: to the synth, and to MIDI out what
  * it does not have yet, when they were not sent for this track of this pattern */
-static void lead_press(int key, int vel);
+static void lead_press(int key, int snd, int vel);
 static void lead_release(int key, uint32_t end);
 static void lrec_flush(int all);
 static void live_sounds(void)
@@ -895,22 +897,25 @@ static uint32_t lead_chan(int k)
         return ld->trk[k].chan & 15u;
     return k ? 7u : 6u;
 }
+static int keys_by(void);
 static void key_event(int key, int vel)            /* arr_key, in the render: sound it, record it */
 {
     uint32_t chan, kpos;
-    int i;
+    int i, snd = key + keys_by();                  /* the note it sounds: transposed, as everything */
+    snd = snd < 0 ? 0 : snd > 127 ? 127 : snd;
     live_sounds();                                 /* (a lead's: before its channel is taken) */
     chan = rec_trk >= ARR_TRACKS ? lead_chan(rec_trk - ARR_LD1) : pat[cur].trk[rec_trk].chan & 15u;
     for (i = 0; i < n_live && live_key[i] != key; i++)
         ;
     if (i < n_live) {                              /* released, or struck again: its note-off first */
-        gm_midi_now(0x80u | live_chan[i], (uint32_t)key, 0, 0);
-        if (live_mo[i]) {
-            arr_midi_out(0x80u | live_chan[i], (uint32_t)key, 0);
+        gm_midi_now(0x80u | live_chan[i], live_note[i], 0, 0);   /* (the note it sounded: a transpose since */
+        if (live_mo[i]) {                                          /* does not move a note held) */
+            arr_midi_out(0x80u | live_chan[i], live_note[i], 0);
             out_owed--;
         }
         n_live--;
         live_key[i] = live_key[n_live];
+        live_note[i] = live_note[n_live];
         live_chan[i] = live_chan[n_live];
         live_mo[i] = live_mo[n_live];
     }
@@ -923,11 +928,12 @@ static void key_event(int key, int vel)            /* arr_key, in the render: so
         return;
     if (n_live < LIVE_N) {                         /* to MIDI out as the pattern's notes: room for its note-off */
         live_key[n_live] = (uint8_t)key;
+        live_note[n_live] = (uint8_t)snd;
         live_chan[n_live] = (uint8_t)chan;
         live_mo[n_live] = 0;
-        synth_on(chan, (uint32_t)key, (uint32_t)vel);
+        synth_on(chan, (uint32_t)snd, (uint32_t)vel);
         if (mout && out_room(1)) {
-            arr_midi_out(0x90u | chan, (uint32_t)key, (uint32_t)vel);
+            arr_midi_out(0x90u | chan, (uint32_t)snd, (uint32_t)vel);
             live_mo[n_live] = 1;
             out_owed++;
         }
@@ -935,9 +941,9 @@ static void key_event(int key, int vel)            /* arr_key, in the render: so
     }
     if (rec_on && arr_playing && rec_trk >= ARR_TRACKS) {
         if (leads_heard())
-            lead_press(key, vel);
+            lead_press(key, snd, vel);
     } else if (rec_on && arr_playing)
-        rec_press(key, vel);
+        rec_press(key, snd, vel);
 }
 static void erase_track(int s, int trk)
 {
@@ -1184,7 +1190,7 @@ static uint32_t row_ticks(void)
     uint32_t bar = bar_len(&pat[cur]), t = (uint32_t)sn.cur_len * ARR_PPQ;
     return (t + bar - 1) / bar * bar;
 }
-static void lead_press(int key, int vel)           /* a key on a lead, recording, a row playing (a block's start) */
+static void lead_press(int key, int snd, int vel) /* a key on a lead, recording, a row playing (a block's start) */
 {
     lrec_t *r = 0;
     uint32_t q = QUANT_TICKS[quant], back = 0, kt, kabs, m, len;
@@ -1220,7 +1226,7 @@ static void lead_press(int key, int vel)           /* a key on a lead, recording
     }
     r->state = R_HELD;
     r->key = (uint8_t)key;
-    r->note = (uint8_t)key;
+    r->note = (uint8_t)snd;                        /* the note heard, with the root heard (lrec_due) */
     r->vel = (uint8_t)vel;
     r->trk = (uint8_t)(rec_trk - ARR_LD1);
     r->row = rw;
@@ -2009,12 +2015,9 @@ static void clock_in(int msg)
         transport_stop();
 }
 
-/* the chord sounding is the source's (playing, no played chord holding, a loop with chords; not mid-write) */
-static int src_chords(void)
-{
-    return arr_playing && !override && !edit_busy &&
-           ((mode == ARR_LOOP && lp_len(&loops[lp]) > 0) || (mode == ARR_SONG && sn.nrows && lp_len(row_loop(&sn.cur)) > 0));
-}
+/* what the keys are moved by (their chords and notes): the song's transpose, + the row's key in SONG (as the
+ * stored chords: loop_beat's `by`) */
+static int keys_by(void) { return transp + (mode == ARR_SONG && sn.nrows ? sn.cur.key : 0); }
 static void drain(void)
 {
     while (q_r != q_w) {
@@ -2092,18 +2095,19 @@ static void drain(void)
                 lp_next = (uint8_t)b;
             mode_wait = 1;
             break;
-        case C_TRANSPOSE: {                        /* the chord sounding moves by the difference now (a played one
-                                                    * stays): never looked up again, so a held Intro's moves too */
+        case C_TRANSPOSE: {                        /* the chord sounding moves by the difference now, whatever set it
+                                                    * (the source's, the keys'): never looked up again, so a held
+                                                    * Intro's moves too */
             int was = transp;
             transp = (int8_t)(a & 0xFFu);
             if (edit_busy)                         /* the table being written: the move at the first block after */
                 xp_pend = (int8_t)(xp_pend + transp - was);
-            else if (src_chords())
+            else
                 chord_change(shifted(chord, transp - was), 1);
             break;
         }
-        case C_LIVE:                               /* the keys: until the source's next change */
-            chord_change(arr_chord_unpack(a), 1);
+        case C_LIVE:                               /* the keys (as played, transposed): until the source's next change */
+            chord_change(shifted(arr_chord_unpack(a), keys_by()), 1);
             override = mode != ARR_FREE;
             break;
         case C_REC:
@@ -2159,8 +2163,7 @@ static void block(uint32_t frames)
     drain();
     lead_sounds();                                 /* the leads' sounds when wanted and changed (not mid-write) */
     if (xp_pend && !edit_busy) {                   /* a transpose during a write: the chord sounding moves now */
-        if (src_chords())
-            chord_change(shifted(chord, xp_pend), 1);
+        chord_change(shifted(chord, xp_pend), 1);
         xp_pend = 0;
     }
     if (chord_wait && !edit_busy && arr_playing) {

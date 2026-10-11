@@ -4184,6 +4184,134 @@ static void test_click(void)
     CHECK(offs_match(stub_log, stub_n), "every click ended");
 }
 
+/* TRANSPOSE moves everything, as an arranger keyboard's: the keys' chords (FREE, LOOP, SONG with the row's key on
+ * top) and the keys' notes on a track or a lead; what is recorded plays back as it was heard, and moves with the
+ * transpose after */
+static void test_keys_transpose(void)
+{
+    static const uint8_t c[] = {60, 64, 67}, f[] = {53, 57, 60};
+    static const chord_t c2[2] = {{0, CH_MAJ, CH_NOBASS}, {7, CH_MAJ, CH_NOBASS}};
+    static const int lo[2] = {0, 0}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    int k;
+    /* FREE: C played at +2 sounds D; the transpose back moves it (the keys' chord too) */
+    reset();
+    loops_reset();
+    load_slots(4);
+    arr_set_transpose(2);
+    arr_play(1);
+    run_to((uint32_t)(0.05f * BAR));
+    CHECK(arr_keys_held(c, 3) == 1, "FREE: C recognised");
+    run_to((uint32_t)(0.6f * BAR));
+    CHECK(root_at(0.25f * BAR) == 2 && arr_chord_unpack(arr_chord_now).root == 2, "FREE +2: C played sounds D (%d)", root_at(0.25f * BAR));
+    arr_set_transpose(-1);
+    run_to((uint32_t)(1.1f * BAR));
+    CHECK(root_at(BAR) == 11 && arr_chord_unpack(arr_chord_now).root == 11, "transpose -1: the keys' chord moves, B (%d)", root_at(BAR));
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "FREE: offs match");
+    /* LOOP: F played over the loop's C at +2: G, held until the loop's change (its G, +2: A) */
+    reset();
+    loops_reset();
+    load_slots(4);
+    loop_bars(0, 4, 2, c2);
+    arr_set_transpose(2);
+    arr_mode_loop(0);
+    arr_play(1);
+    run_to((uint32_t)(0.3f * BAR));
+    arr_keys_held(f, 3);
+    run_to((uint32_t)(0.9f * BAR));
+    CHECK(root_at(0.5f * BAR) == 7 && arr_override == 1, "LOOP +2: F played sounds G, held (%d)", root_at(0.5f * BAR));
+    arr_set_transpose(3);
+    run_blocks(1);
+    CHECK(arr_chord_unpack(arr_chord_now).root == 8 && arr_override == 1, "+3: the keys' chord moves, G#, still held (%d)",
+          arr_chord_unpack(arr_chord_now).root);
+    run_to((uint32_t)(1.1f * BAR));
+    CHECK(root_at(BAR) == 10, "the loop's G at +3: A# (%d)", root_at(BAR));
+    arr_play(0);
+    run_blocks(1);
+    /* SONG: the row's key on top (+2, key -3: -1): F played sounds E */
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    SG.row[0].key = -3;
+    arr_set_transpose(2);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_to((uint32_t)(0.3f * BAR));
+    CHECK(root_at(0.f) == 11, "SONG row 1: C, +2 -3: B (%d)", root_at(0.f));
+    arr_keys_held(f, 3);
+    run_to((uint32_t)(0.9f * BAR));
+    CHECK(root_at(0.5f * BAR) == 4, "SONG +2, key -3: F played sounds E (%d)", root_at(0.5f * BAR));
+    run_to((uint32_t)(1.1f * BAR));
+    CHECK(root_at(BAR) == 2, "row 2 (key 0): its C at +2, D (%d)", root_at(BAR));
+    arr_play(0);
+    run_blocks(1);
+    arr_leads(0);
+    /* a track's keys: A4 at +2 sounds B4 over Bm7 (Am7 moved), stored as C4 (Chord 1), played back as B4; at 0, A4 */
+    rec_start(5);
+    arr_set_transpose(2);
+    key_at(25.f, 69, 1);
+    run_blocks(1);
+    CHECK(find(stub_log, stub_n, 0, 0x93, 71) >= 0 && find(stub_log, stub_n, 0, 0x93, 69) < 0, "A4 at +2 sounds B4");
+    arr_set_transpose(0);                        /* while held: the note-off is B4's */
+    key_at(30.f, 69, 0);
+    run_blocks(1);
+    k = 0;
+    for (int i = 0; i < stub_n; i++)
+        k += is_off(&stub_log[i]) && (stub_log[i].st & 15) == 3 ? (stub_log[i].d1 == 71 ? 1 : 100) : 0;
+    CHECK(k == 1, "B4 ended, nothing else (%d)", k);
+    arr_set_transpose(2);
+    run_to((uint32_t)(40 * FPT));
+    arr_pattern_copy(SA, &R);
+    CHECK(R.trk[5].count == 1 && R.ev[R.trk[5].first].note == 60, "stored over C M7: C4 (%d)", R.trk[5].count ? R.ev[R.trk[5].first].note : -1);
+    run_to((uint32_t)(96 * FPT + 40 * FPT));
+    CHECK(ons_in(0x93, 71, 96 * FPT, 136 * FPT) == 1, "the next pass at +2: B4, as heard");
+    arr_set_transpose(0);
+    run_to((uint32_t)(2 * 96 * FPT + 40 * FPT));
+    CHECK(ons_in(0x93, 69, 2 * 96 * FPT, 2 * 96 * FPT + 40 * FPT) == 1, "at 0: A4 (it moved with the chord)");
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "track keys: offs match");
+    /* a lead: G4 at +2 sounds A4, recorded as A4 over D (C +2); played back A4; at 0, over C: G4 */
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    SG.at_end = 1;
+    arr_set_transpose(2);
+    arr_record(ARR_LD1, 1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    key_at(47.f, 67, 1);
+    key_at(53.f, 67, 0);
+    run_blocks(2);
+    CHECK(find(stub_log, stub_n, 0, 0x96, 69) >= 0, "G4 on LD1 at +2 sounds A4");
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].note == 69 && n[0].root == 2, "recorded as heard: A4 over D (%d: %d %d)", k, k ? n[0].note : -1, k ? n[0].root : -1);
+    if (k == 1) {
+        lead_ev_t e;
+        lead_set(&e, n[0].row, n[0].pos, n[0].len, n[0].note, n[0].vel, n[0].trk, n[0].root);
+        arr_edit(1);
+        leads_insert(&LD, &e, LEAD_MAX, 0);
+        LD.gen++;
+        arr_edit(0);
+    }
+    run_to((uint32_t)(2 * BAR + 60 * FPT));
+    CHECK(on_at(0x96, 69, 192.f + 48.f), "the next time round at +2: A4, as heard");
+    arr_set_transpose(0);
+    run_to((uint32_t)(4 * BAR + 60 * FPT));
+    CHECK(on_at(0x96, 67, 384.f + 48.f), "at 0: G4 (moved with the root)");
+    arr_play(0);
+    arr_record(4, 0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "lead keys: offs match");
+    arr_leads(0);
+}
+
 int main(void)
 {
     test_timing();
@@ -4283,6 +4411,7 @@ int main(void)
     test_record_from_bar();
     test_long_pattern();
     test_click();
+    test_keys_transpose();
     printf("%d checks, %d failed\n", checks, fails);
     if (fails)
         return 1;

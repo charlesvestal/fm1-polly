@@ -21,7 +21,7 @@
  *   reboot                       re-run boot from the simulated flash (persistence test)
  *   clock N [MS]                 N MIDI clocks in (F8), MS apart (default 21: 119 bpm)
  *   flash_fail 0|1               every flash save fails (1) or works (0)
- *   hitreset                     restart the tracks' note-on counts (expect track_hitsN) and notes_out
+ *   hitreset                     restart the tracks' note-on counts (expect track_hitsN), notes_out and heard_chN
  *   bank FILE                    a QY70 style bank image (tools/qy70_codec.py --image) written into the flash, as
  *                                tools/qy70_install.py writes it on the device; mounted, the song reloaded.
  *                                FILE "out:NAME": NAME in OUTDIR
@@ -580,7 +580,10 @@ static int expect(const char *what, const char *val)
         got = proj.program[(atoi(what + 7) - 1) & 15] + 1;
     else if (!strcmp(what, "dirty"))              /* anything not saved */
         got = unsaved();
-    else if (!strcmp(what, "chord_root"))         /* the chord now: root 0..11 (C = 0), type CH_* */
+    else if (!strncmp(what, "heard_ch", 8)) {     /* heard_chN: the last note-on into the synth on channel N (1..16), -1 none */
+        extern int16_t gm_host_heard[16];
+        got = gm_host_heard[(atoi(what + 8) - 1) & 15];
+    } else if (!strcmp(what, "chord_root"))       /* the chord now: root 0..11 (C = 0), type CH_* */
         got = (int)(arr_chord_now & 0xFFu);
     else if (!strcmp(what, "chord_type"))
         got = (int)(arr_chord_now >> 8 & 0xFFu);
@@ -1109,8 +1112,11 @@ int main(int argc, char **argv)
             style_all(found);
             run_ms(20);
         } else if (!strcmp(cmd, "hitreset")) {
+            extern int16_t gm_host_heard[16];
             memset(trk_hits, 0, sizeof trk_hits);
             click_count = 0;
+            for (int c = 0; c < 16; c++)
+                gm_host_heard[c] = -1;
         }
         else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);

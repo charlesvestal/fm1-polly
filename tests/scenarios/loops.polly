@@ -91,7 +91,7 @@ key 14 up
 wait 50
 expect cbeat 8
 expect loop_bars12 2
-# with TRANSPOSE +2, D played is stored as C (it plays as D)
+# with TRANSPOSE +2, D played sounds E: stored as D (it plays back as E, as heard)
 spin K3 2
 expect transpose 2
 key 9 down
@@ -102,7 +102,7 @@ key 9 up
 key 13 up
 key 16 up
 wait 50
-expect loop_ch12_8 0
+expect loop_ch12_8 200
 expect loop_bars12 3
 expect cbeat 12
 shot home_step.png

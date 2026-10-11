@@ -1,0 +1,132 @@
+# POLLY, TRANSPOSE moves everything, as an arranger keyboard's: the keys' chords and notes too. What the keys write or
+# record plays back as it was heard, and moves with TRANSPOSE after. (MIDI in is not transposed.)
+# Keys (octave 0): key K is MIDI 53 + K: C4 7, E4 11, G4 14. At 120 BPM a beat is 500 ms.
+# Chords as expected: root * 100 + CH_* (maj 0).
+wait 300
+spin K2 15
+expect tempo 120
+# ---- FREE: C played at +2 sounds D (the big chord on HOME says so)
+expect mode 0
+spin K3 2
+expect transpose 2
+tap PLAY
+wait 200
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 100
+expect chord_root 2
+expect home_chord_root 2
+shot transpose_free.png
+# TRANSPOSE moved: the keys' chord moves with it
+spin K3 -2
+wait 50
+expect chord_root 0
+spin K3 3
+wait 50
+expect chord_root 3
+spin K3 -1
+wait 50
+expect transpose 2
+expect chord_root 2
+tap PLAY
+wait 100
+# ---- a chord written at +2 (step, into P12): C played, D heard; stored as C, played back as D
+press HOME
+tapkey w11
+release HOME
+expect mode 1
+expect app_loop 12
+tap REC
+expect rec_chords 1
+key 7 down
+key 11 down
+key 14 down
+wait 50
+key 7 up
+key 11 up
+key 14 up
+wait 50
+expect loop_ch12_0 0
+expect chord_root 2
+tap REC
+expect rec_chords 0
+tap PLAY
+wait 300
+expect loop_now 12
+expect chord_root 2
+# TRANSPOSE after: it moves
+spin K3 1
+wait 50
+expect chord_root 3
+spin K3 -1
+wait 50
+expect chord_root 2
+tap PLAY
+wait 100
+# ---- a melody recorded at +2: C4 played over the song's C sounds D4; stored as D4 over D, played back as D4
+# the song: two rows of P1 (C G Am F), its Intro off
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+tapkey w0
+expect rows 2
+turn SELECT 2
+expect page 3
+turn K1 -1
+expect song_intro 0
+turn SELECT -2
+tap HOME
+turn SELECT 1
+tap PLAY
+wait 300
+tap PLAY
+wait 100
+expect mode 2
+expect playing 0
+# EDIT: ALGORITHM to LD1; REC arms it, PLAY starts the song from row 1
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+hitreset
+tap PLAY
+wait 960
+key 7 down
+wait 400
+expect heard_ch7 62
+key 7 up
+wait 1600
+expect lead_notes 1
+expect lead1_note 62
+expect lead1_root 2
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+expect playing 0
+# again from row 1: D4, as heard
+hitreset
+tap PLAY
+wait 1500
+expect heard_ch7 62
+tap PLAY
+wait 100
+# TRANSPOSE +4 after: it moves with the song, E4
+tap HOME
+spin K3 2
+expect transpose 4
+hitreset
+tap PLAY
+wait 1500
+expect heard_ch7 64
+tap PLAY
+wait 100

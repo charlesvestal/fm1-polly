@@ -176,6 +176,7 @@ static struct {
     uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
                                                       * footer's hint showing (ui.c rec_as_played) */
     uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
+    uint8_t ksound_note[NKEYS];                      /* ... and its note (transposed) */
     uint8_t click_sent;                              /* the click's mode and the app's REC as the engine has them (+1) */
     uint32_t count_sent;                             /* ... a free take's count-in (arr_count_in) */
     uint32_t slots_until;                            /* a NO FREE SLOT said: until then SEL opens SLOTS (the footer says) */

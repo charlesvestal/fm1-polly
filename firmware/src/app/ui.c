@@ -859,7 +859,9 @@ static void ask_end(int yes);
  * nearest beat of the loop as it plays (arr_loop_beat, the next one past half a beat, round the end), overdubbed.
  * While the chord's keys stay held, a chord growing (A C E, then G) rewrites the same beat; a key lifted and a
  * new chord: the next beat (playing: the next beat if it is the same one; stopped: the next step). A chord is stored
- * minus the transposition it plays at (xpose_now: TRANSPOSE, + the row's KEY in SONG), so it plays back as played.
+ * minus the transposition it plays at (xpose_now: TRANSPOSE, + the row's KEY in SONG), so it plays back as heard:
+ * the keys' chords sound transposed (the engine moves them, as it moves the stored ones), so one from the keys is
+ * stored as played.
  * Writing past the end makes the loop longer, a bar at a time (loop_write); past 64 beats: LOOP FULL.
  * REC on HOME in FREE is a new loop's take (free_take_*): its chords land on the nearest beat from its start. */
 static char *loop_name_l(int i, char *t);
@@ -923,7 +925,7 @@ static int rec_loop(void)
     int ln = arr_loop_now;
     return arr_playing && ln >= 0 && ln < ARR_LOOPS ? ln : app.loop % ARR_LOOPS;
 }
-/* chord c (as played) on beat b of loop i: 0 written, -1 LOOP FULL (said) */
+/* chord c (as heard: transposed) on beat b of loop i: 0 written, -1 LOOP FULL (said) */
 static int chord_write(int i, int b, chord_t c)
 {
     int r;
@@ -983,6 +985,7 @@ static void chord_played(const uint8_t *n, int cnt)
     int prev = ui.centry, l, b;
     if ((!ui.take && !ui.rec_chords) || !chord_recognize(n, cnt, &ch))
         return;
+    ch = chord_shift(ch, xpose_now());           /* as heard (the engine moves the keys' chords too) */
     l = ui.take ? ui.take_loop : rec_loop();
     if (prev >= 0 && !ui.clifted) {              /* the chord still being built: its beat again */
         chord_write(l, prev, ch);
@@ -1243,10 +1246,11 @@ static void chord_sound(int k, int on)
         }
         ui.ksound |= 1u << k;
         ui.ksound_ch[k] = (uint8_t)ch;
-        gm_midi(0x90u | ch, ui.knote[k], 90);
+        ui.ksound_note[k] = (uint8_t)clampi(ui.knote[k] + xpose_now(), 0, 127);   /* transposed, as everything */
+        gm_midi(0x90u | ch, ui.ksound_note[k], 90);
     } else if (ui.ksound >> k & 1u) {
         ui.ksound &= ~(1u << k);
-        gm_midi(0x80u | ui.ksound_ch[k], ui.knote[k], 0);
+        gm_midi(0x80u | ui.ksound_ch[k], ui.ksound_note[k], 0);
     }
 }
 static void song_key(int k);

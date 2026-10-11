@@ -337,9 +337,11 @@ void arr_mode_song(const song_t *s, int r);
 extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row), its pass (0..rep-1) */
 extern volatile uint16_t arr_mutes;               /* the tracks muted now (rows and hand mutes), bit t track t; bits 8, 9
                                                    * LD1, LD2 (ARR_LD1 + k) */
-/* -6..+5: loops and songs (not the keys' chords). The chord sounding moves at once by the difference (a chord
- * from the keys stays; the Intro's and the Ending's held chord moves too; during a write, at the first block
- * after it); the next chords come transposed */
+/* -6..+5: everything, as an arranger keyboard's: loops and songs, and the keys (their chords, arr_keys_held, and
+ * their notes, arr_key; in SONG with the row's key on top, as the stored chords). The chord sounding moves at once
+ * by the difference, whatever set it (the keys' too; the Intro's and the Ending's held chord; during a write, at the
+ * first block after it); the next chords come transposed. A key held keeps its note (its note-off is the note it
+ * sounded). MIDI in is not transposed (it never comes here) */
 void arr_set_transpose(int semis);
 extern volatile uint8_t arr_mode;                /* ARR_* now (a change asked for: from its bar line) */
 extern volatile int8_t arr_loop_now;             /* the loop playing (LOOP, or the song's row), -1 none */
@@ -348,7 +350,8 @@ extern volatile uint8_t arr_override;            /* a chord from the keys holds 
 extern volatile uint32_t arr_beats;              /* beats since PLAY (REC in FREE measures its take with it) */
 /* live chords (fingered): the keys held, as MIDI notes, called on every change (one caller: the main loop).
  * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord; in LOOP
- * and SONG it holds until the source's next chord change; keys lifted one by one never re-recognise. 1 = a new chord; 0 = none (no key pressed, fewer
+ * and SONG it holds until the source's next chord change; keys lifted one by one never re-recognise. The chord
+ * sounding is the one recognised moved by the transpose (+ the row's key in SONG: arr_set_transpose). 1 = a new chord; 0 = none (no key pressed, fewer
  * than 3 pitch classes, or no type fits): the chord stays as it was. The app calls arr_keys_held(0, 0) when
  * chord entry (CHORD) is switched on, so keys already held then count as pressed anew. */
 int arr_keys_held(const uint8_t *notes, int n);
@@ -357,7 +360,8 @@ int arr_keys_held(const uint8_t *notes, int n);
 void arr_track_mute(int trk, int on);
 /* ---- loop recording, into the playing pattern (its slot's copy here: arr_pattern_copy reads it back).
  * arr_key: a key played (vel 0 or on 0: released), from the main loop. It sounds at once on the selected track's
- * channel (the app sends it nowhere else); with recording on and playing, it is also written into that track:
+ * channel (the app sends it nowhere else), moved by the transpose (arr_set_transpose: the note heard is the one
+ * recorded, here or into a lead); with recording on and playing, it is also written into that track:
  * its start the nearest tick to the key's block, quantised to the nearest grid line (a key just before the
  * loop's start lands on tick 0), its length to the release (at least one quantum), stored over C M7 by the
  * inverse of the track's type over the chord now (xpose_inverse). A note still held when the loop wraps ends
