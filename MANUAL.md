@@ -280,17 +280,23 @@ Polly records into the selected track of the section playing, as a loop.
 1. Press **SEQ** for the Pattern page. It shows the eight tracks of the section playing, with their
    notes, and the playhead.
 2. Turn **ALGORITHM** to pick the track. The keys play its sound.
-3. Press **REC**. The red dot shows in the header and PLAY turns red.
+3. Press **REC**. The red dot shows in the header and PLAY turns red. The screen shows the pattern as
+   bars, the track's notes in each: "REC C1 · starts with PLAY".
 4. Press **PLAY** and play. The pattern loops, and each pass adds to what's there (overdub). You hear
-   a new note from the next pass.
+   a new note from the next pass. The line says where you are: "REC C1 · bar 3/4 · pass 2", and from
+   the second pass "pass 2: adding".
 5. Press **REC** again to stop recording. The pattern plays on.
 
 Good to know:
 
 - **The grid** (Pattern page KNOB 1) moves notes to the nearest 8th, 8th
   triplet, 16th, 16th triplet or 32nd, or "off" for none. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
-- **Notes follow the chords.** What you play is stored as if over C major 7, so it follows later
-  chords like the style's own parts.
+- **As played.** The first time you record into a Chord 1, Chord 2 or Bass track, Polly switches it to
+  Parallel and says so: "C1: AS PLAYED". A note plays back as you played it over the chord it was
+  played on, and moves with the root over another chord, keeping its shape. The Track page (EDIT)
+  shows the type; set it back there if you want (Polly won't switch it again).
+- **REC while playing** starts at the next bar line: the screen counts the beats down in that bar.
+  A note played just before the bar line lands on it. The passes count from there.
 - **Press REC before PLAY** and, with no song, the section you're recording into plays at once,
   without the Intro.
 - **A section change ends the take**: a fill, an ending, or a song's next row. Polly says "RECORD OFF
@@ -318,8 +324,9 @@ The Pattern page's **PRESETS** picks the pattern for the section playing: P01 to
 
 ![Pattern setup](docs/img/manual/pattern_setup.png)
 
-- **KNOB 1** bars, 1 to 8. **KNOB 2** beats a bar, 2 to 7. Notes past a shortened length are kept,
-  just not played.
+- **KNOB 1** bars, 1 to 16. **KNOB 2** beats a bar, 2 to 7. Notes past a shortened length are kept,
+  just not played. The Pattern page shows a pattern longer than 8 bars by halves, "bars 9-16 of 16",
+  following the playhead.
 - **KNOB 3** picks a letter of the name, **KNOB 4** changes it. Names are eight letters, digits, "-"
   and "#".
 

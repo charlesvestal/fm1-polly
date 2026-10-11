@@ -1283,27 +1283,37 @@ static void pat_title(int s, char *t)
         e--;
     *e = 0;
 }
-static void pattern_head(int s, uint32_t *h)
+/* the Pattern page shows 8 bars at most: a longer pattern by halves (the playhead's), "bars 9-16 of 16" */
+#define PAT_WIN 8
+static void pattern_head(int s, int win)
 {
     char t[24];
     int32_t x = pill(8, 0, 0, SECT_NAME[s + 1], sect_colour(s + 1), K_BG);
-    (void)h;
     pat_title(s, t);
     cv_text(x + 8, 2, &FONT_B, t, K_TEXT);
     {                                            /* "2 bars, 4/4, CM7": its length and source chord */
         char *e = t;
-        *e++ = (char)('0' + app.hdr[s].bars);
+        if (win >= 0) {                          /* (a window of a longer one: "bars 9-16 of 16") */
+            e = itoa_u((uint32_t)win * PAT_WIN + 1u, cat_s(e, "bars "));
+            *e++ = '-';
+            e = itoa_u((uint32_t)(win * PAT_WIN + PAT_WIN < app.hdr[s].bars ? win * PAT_WIN + PAT_WIN : app.hdr[s].bars), e);
+            itoa_u(app.hdr[s].bars, cat_s(e, " of "));
+            cv_text(232 - text_w(&FONT_XS, t), 3, &FONT_XS, t, K_DIM);
+            return;
+        }
+        e = itoa_u(app.hdr[s].bars, e);
         e = cat_s(e, app.hdr[s].bars == 1 ? " bar, " : " bars, ");
         *e++ = (char)('0' + app.hdr[s].beats);
         cat_s(e, "/4, CM7");
     }
     cv_text(232 - text_w(&FONT_XS, t), 3, &FONT_XS, t, K_DIM);
 }
-/* the 8 tracks as mini piano rolls over the pattern's length, the playhead, the mutes */
+/* the 8 tracks as mini piano rolls over the pattern's length (up to 8 bars; a longer one by halves, the one the
+ * playhead is in), the playhead, the mutes */
 static void draw_pattern(void)
 {
-    int s = pslot(), play = arr_playing, i;
-    uint32_t len = (uint32_t)app.hdr[s].bars * app.hdr[s].beats * ARR_PPQ, h, pos, bar, bt;
+    int s = pslot(), play = arr_playing, i, nb = app.hdr[s].bars, win = -1, wbars = nb;
+    uint32_t blen = (uint32_t)app.hdr[s].beats * ARR_PPQ, len, w0 = 0, h, pos, bar, bt;
     const int32_t X0 = 26, W = 208;
     int32_t ph;
     view_refresh(s);
@@ -1311,17 +1321,23 @@ static void draw_pattern(void)
         bar = arr_bar;
         bt = arr_beat_tick;
     } while (bar != arr_bar);
-    pos = bar * app.hdr[s].beats * ARR_PPQ + bt;
+    pos = bar * blen + bt;
+    if (nb > PAT_WIN) {                          /* the half the playhead is in (stopped: where it stopped) */
+        win = (int)(bar < (uint32_t)nb ? bar : 0u) / PAT_WIN;
+        wbars = nb - win * PAT_WIN < PAT_WIN ? nb - win * PAT_WIN : PAT_WIN;
+        w0 = (uint32_t)win * PAT_WIN * blen;
+    }
+    len = (uint32_t)wbars * blen;
     if (!len)
         len = 1;
-    ph = play && pos < len ? X0 + (int32_t)(pos * (uint32_t)W / len) : -1;
+    ph = play && pos >= w0 && pos < w0 + len ? X0 + (int32_t)((pos - w0) * (uint32_t)W / len) : -1;
     h = hash(hash(2166136261u, (uint32_t)s | (uint32_t)proj.trk << 4 | (uint32_t)(ph + 1) << 8), vw.dirty);
-    h = hash(hash(h, vw.gen), arr_recording);
+    h = hash(hash(h, vw.gen), arr_recording | (uint32_t)(win + 1) << 8);
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    pattern_head(s, &h);
+    pattern_head(s, win);
     for (i = 0; i < ARR_TRACKS; i++) {
         const arr_trk_t *tr = &view.trk[i];
         int32_t y = 20 + i * 14, b;
@@ -1329,8 +1345,8 @@ static void draw_pattern(void)
         uint32_t n, e = (uint32_t)tr->first + tr->count, lo = 127, hi = 0;
         cv_text(4, y - 2, &FONT_XS, TRACK_NAME[i], sel ? K_ACCENT : mute ? K_LINE : K_DIM);
         cv_round(X0, y, W, 12, 3, sel ? (arr_recording ? RGB(246, 214, 204) : K_TEAL_T) : K_PANEL);
-        for (b = 1; b < app.hdr[s].bars; b++)  /* bar lines */
-            cv_rect(X0 + b * W / app.hdr[s].bars, y + 1, 1, 10, K_LINE);
+        for (b = 1; b < wbars; b++)              /* bar lines */
+            cv_rect(X0 + b * W / wbars, y + 1, 1, 10, K_LINE);
         if (e > view.nev)
             e = view.nev;
         for (n = tr->first; n < e; n++) {
@@ -1342,9 +1358,9 @@ static void draw_pattern(void)
         for (n = tr->first; n < e; n++) {
             const arr_ev_t *v = &view.ev[n];
             int32_t x, w, yy;
-            if (v->tick >= len)
-                continue;                        /* past a shortened length: kept, not played */
-            x = X0 + (int32_t)((uint32_t)v->tick * (uint32_t)W / len);
+            if (v->tick < w0 || v->tick >= w0 + len || v->tick >= (uint32_t)nb * blen)
+                continue;                        /* another half; past a shortened length: kept, not played */
+            x = X0 + (int32_t)((uint32_t)(v->tick - w0) * (uint32_t)W / len);
             w = (int32_t)((uint32_t)v->len * (uint32_t)W / len);
             w = w < 2 ? 2 : w > X0 + W - x ? X0 + W - x : w;
             yy = y + 8 - (hi > lo ? (int32_t)((v->note - lo) * 7u / (hi - lo)) : 3);
@@ -1355,6 +1371,137 @@ static void draw_pattern(void)
     }
     if (ph >= 0)
         cv_rect(ph, 18, 1, 8 * 14, K_ACCENT);
+    cv_blit(0, MAIN_Y);
+}
+/* SEQ / EDIT while a track is recorded (REC on, or waiting for its bar line): the pattern as bars, HOME's recording
+ * view (draw_home_rec) for a track. A line "REC C1 . bar 3/4 . pass 2" (the pattern's bar; the passes counted from
+ * the bar recording started on), under it "pass 2: adding" from the second pass (the notes of the passes before play
+ * meanwhile), else the track's sound and the grid; then a cell a bar, four to a row (16 bars: four rows): the bar
+ * playing teal with its beats along its foot, the track's notes as small ticks in their bars (at their place, by
+ * pitch). Waiting: "starts at the next bar" and the beats left, big, in that bar's coral outline (stopped: "starts
+ * with PLAY", bar 1 outlined) */
+static int trk_rec_shown(void)
+{
+    return (ui.page == P_PATTERN || ui.page == P_PATSET || ui.page == P_TRACK || ui.page == P_TRACK2) &&
+           (arr_recording || ui.rec_want);
+}
+#define TR_Y 36                                      /* the bars' top */
+static void draw_trk_rec(void)
+{
+    int s = pslot(), trk = proj.trk & 7, nb = app.hdr[s].bars, bpb = app.hdr[s].beats, play = arr_playing;
+    int wait = !arr_recording || arr_rec_wait, focus = -1, fbeat = 0, next = -1, cnt = 0, pass = 1, rows, ch, b, k;
+    uint32_t blen, bar, bt, h, n, e, lo = 127, hi = 0;
+    const arr_trk_t *tr;
+    char t[48], *p;
+    if (nb < 1)
+        nb = 1;
+    if (bpb < 1)
+        bpb = 4;
+    blen = (uint32_t)bpb * ARR_PPQ;
+    view_refresh(s);
+    tr = &view.trk[trk];
+    do {
+        bar = arr_bar;
+        bt = arr_beat_tick;
+    } while (bar != arr_bar);
+    if (bar >= (uint32_t)nb)
+        bar = 0;
+    if (play) {
+        focus = (int)bar;
+        fbeat = (int)(bt / ARR_PPQ);
+    }
+    if (wait) {                                      /* the bar it starts on, the beats to it */
+        next = play ? (focus + 1) % nb : 0;
+        cnt = play ? bpb - fbeat : 0;
+    } else
+        pass = arr_rec_bars / nb + 1;
+    rows = (nb + 3) / 4;
+    ch = (MAIN_H - TR_Y - 2 - 3 * (rows - 1)) / rows;
+    if (ch > 72)
+        ch = 72;
+    e = (uint32_t)tr->first + tr->count;
+    if (e > view.nev)
+        e = view.nev;
+    for (n = tr->first; n < e; n++) {
+        if (view.ev[n].note < lo)
+            lo = view.ev[n].note;
+        if (view.ev[n].note > hi)
+            hi = view.ev[n].note;
+    }
+    h = hash(2166136261u, 0x7EC0u | (uint32_t)s << 16 | (uint32_t)trk << 20 | (uint32_t)wait << 24 | (uint32_t)play << 25);
+    h = hash(h, (uint32_t)(focus + 1) | (uint32_t)fbeat << 8 | (uint32_t)(next + 1) << 12 | (uint32_t)cnt << 20);
+    h = hash(h, (uint32_t)nb | (uint32_t)bpb << 8 | (uint32_t)pass << 12);
+    h = hash(hash(hash(h, vw.dirty), vw.gen), tr->program | (uint32_t)proj.quant << 8);
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    {   /* the line: REC's dot, "REC C1 . bar 3/4 . pass 2"; under it the pass, or the sound and the grid */
+        cv_round(8, 6, 10, 10, 5, RGB(214, 64, 52));
+        p = cat_s(cat_s(t, "REC "), TRACK_NAME[trk]);
+        if (wait)
+            cat_s(p, play ? "|starts at the next bar" : "|starts with PLAY");
+        else {
+            p = itoa_u((uint32_t)focus + 1u, cat_s(p, "|bar "));
+            *p++ = '/';
+            p = itoa_u((uint32_t)nb, p);
+            itoa_u((uint32_t)pass, cat_s(p, "|pass "));
+        }
+        segs(24, 2, &FONT_B, t, K_TEXT);
+        if (pass > 1) {
+            itoa_u((uint32_t)pass, cat_s(t, "pass "));
+            cat_s(t + slen(t), ": adding");
+            p = t;
+            cv_text(24, 20, &FONT_XS, p, K_ACCENT);
+        } else {
+            p = cat_s(cat_s(t, trk_sound(tr)), "|grid ");
+            cat_s(p, GRID_NAME[proj.quant % ARR_NQ]);
+            segs(24, 20, &FONT_XS, t, K_DIM);
+        }
+    }
+    for (b = 0; b < nb; b++) {                       /* the bars */
+        int32_t x = RG_X + (b % 4) * (RG_CW + 4), y = TR_Y + (b / 4) * (ch + 3), ax, aw, ay, ah, nh;
+        int plays = b == focus, cin = b == next;
+        uint16_t fill = plays ? K_TEAL : K_PANEL, fg = plays ? K_BG : K_TEXT;
+        if (cin) {                                   /* the bar recording starts on: a coral ring */
+            cv_round(x, y, RG_CW, ch, 5, K_ACCENT);
+            cv_round(x + 2, y + 2, RG_CW - 4, ch - 4, 3, plays ? K_TEAL : K_BG);
+        } else
+            cv_round(x, y, RG_CW, ch, 5, fill);
+        itoa_u((uint32_t)b + 1u, t);
+        ax = ch >= 30 ? x + 4 : cv_text(x + 4, y + ch / 2 - 7, &FONT_XS, t, plays ? K_BG : K_DIM) + 3;
+        if (ch >= 30)
+            cv_text(x + 4, y, &FONT_XS, t, plays ? K_BG : cin ? K_ACCENT : K_DIM);
+        aw = x + RG_CW - 4 - ax;
+        ay = ch >= 30 ? y + 16 : y + 3;
+        ah = y + ch - 7 - ay;
+        nh = ah >= 30 ? 3 : 2;
+        if (cin && cnt) {                            /* the count-in, big */
+            itoa_u((uint32_t)cnt, t);
+            if (ch >= 36)
+                text_c(x + RG_CW / 2, y + (ch - 32) / 2, &FONT_L, t, K_ACCENT);
+            else
+                text_c(x + RG_CW / 2, y + (ch - 16) / 2, &FONT_B, t, K_ACCENT);
+            continue;
+        }
+        for (n = tr->first; n < e; n++) {            /* the track's notes in this bar: ticks */
+            const arr_ev_t *v = &view.ev[n];
+            uint32_t b0 = (uint32_t)b * blen;
+            int32_t nx, nw, ny;
+            if (v->tick < b0 || v->tick >= b0 + blen)
+                continue;
+            nx = ax + (int32_t)((v->tick - b0) * (uint32_t)aw / blen);
+            nw = (int32_t)((uint32_t)v->len * (uint32_t)aw / blen);
+            nw = nw < 2 ? 2 : nw > ax + aw - nx ? ax + aw - nx : nw;
+            ny = ay + ah - nh - (hi > lo ? (int32_t)((v->note - lo) * (uint32_t)(ah - nh) / (hi - lo)) : (ah - nh) / 2);
+            cv_rect(nx, ny, nw, nh, fg);
+        }
+        if (plays) {                                 /* its beats along its foot: the one now (and those before) lit */
+            int32_t sw = (RG_CW - 10) / bpb;
+            for (k = 0; k < bpb; k++)
+                cv_rect(x + 5 + k * sw, y + ch - 4, sw - 2, 2, k <= fbeat ? K_BG : K_TEAL_T);
+        }
+    }
     cv_blit(0, MAIN_Y);
 }
 /* the pattern's length, beats and name */
@@ -1370,7 +1517,7 @@ static void draw_patset(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    pattern_head(s, &h);
+    pattern_head(s, -1);
     itoa_u(app.hdr[s].bars, t);
     cv_text(16, 18, &FONT_L, t, K_TEXT);
     cv_text(16, 50, &FONT_XS, app.hdr[s].bars == 1 ? "bar" : "bars", K_DIM);
@@ -1404,7 +1551,9 @@ static void draw_track(void)
     cv_begin(240, MAIN_H, K_BG);
     {
         int32_t x = pill(8, 0, 0, TRACK_NAME[proj.trk], K_TEAL, K_BG);
-        cv_text(x + 8, 2, &FONT_B, TYPE_NAME[t->x.type % NXT], K_DIM);
+        x = cv_text(x + 8, 2, &FONT_B, TYPE_NAME[t->x.type % NXT], K_DIM);
+        if (t->x.type == XT_PARALLEL)            /* (recorded into: notes as played, moved by the chord's root) */
+            cv_text(x + 6, 3, &FONT_XS, "as played", K_TEAL);
     }
     if ((t->chan & 15u) == 9u) {
         cv_text(10, 28, &FONT_L, "Drum kit", K_TEXT);
@@ -2435,6 +2584,8 @@ static void draw_page(void)
         draw_home();
     else if (ui.page == P_LOOP || ui.page == P_LOOP2)
         draw_loop();
+    else if (trk_rec_shown())
+        draw_trk_rec();
     else if (ui.page == P_PATTERN)
         draw_pattern();
     else if (ui.page == P_PATSET)

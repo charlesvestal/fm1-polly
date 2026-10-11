@@ -1,0 +1,155 @@
+# POLLY, record: a C1 melody recorded on SEQ over a looping 4-bar chord loop (L1, Pop: C G Am F) into a 4-bar user
+# pattern. The first REC switches C1 (Chord 1) to Parallel, "as played": each note is stored over the chord's root
+# (key - root) and plays back as played over the same chord. REC counts in to the next bar line; the passes count
+# from there ("pass 2: adding"). Then the pattern goes to 16 bars (the Pattern page by halves).
+# Keys (octave 0): key K is MIDI 53 + K: F4 12, A4 16, C5 19, D5 21, E5 23. At 120 BPM a beat is 500 ms, a bar 2 s.
+wait 300
+spin K2 15
+expect tempo 120
+# LOOP L1 (HOME + white key 1)
+press HOME
+tapkey w0
+release HOME
+expect mode 1
+expect app_loop 1
+# SEQ, track C1, a clean track: ERASE TRACK (the section gets a user pattern of its own)
+tap SEQ
+expect page 6
+expect track 5
+expect type5 2
+tap SEL
+spin SELECT 20
+turn SELECT -2
+tap SEL
+expect asking 1
+tap SEL
+wait 100
+expect slot1_trk5_count 0
+expect song1_style1 0
+# Pattern setup: 4 bars
+turn SELECT 1
+expect page 7
+expect slot1_bars 2
+turn K1 2
+wait 100
+expect slot1_bars 4
+turn SELECT -1
+expect page 6
+# REC stopped: armed, it starts with PLAY's downbeat
+tap REC
+wait 50
+expect recording 1
+expect rec_wait 1
+expect rec_shown 1
+expect type5 1
+expect msgtext_is_C1:_AS_PLAYED_MAIN_A 1
+shot rec_armed.png
+tap REC
+wait 50
+expect recording 0
+expect rec_shown 0
+# ---- playing: REC counts in to the next bar line (bar 2), the keys sounding only meanwhile
+tap PLAY
+wait 600
+tap REC
+wait 50
+expect recording 1
+expect rec_wait 1
+expect type5 1
+expect msg_is_RECORD 1
+shot rec_countin.png
+# a key during the count-in sounds, is not kept
+tapkey 7
+# bar 2 (G): D5 -> D5 - G (67)
+wait 1150
+expect rec_wait 0
+expect rec_pass 1
+key 21 down
+wait 300
+key 21 up
+# bar 3 (Am): A4 -> C4 (60); two beats on, C5 -> Eb4 (63)
+wait 1700
+key 16 down
+wait 300
+key 16 up
+wait 700
+key 19 down
+wait 300
+key 19 up
+# bar 4 (F): F4 -> C4 (60)
+wait 700
+key 12 down
+wait 300
+key 12 up
+wait 200
+shot rec_pass1.png
+expect rec_pass 1
+# bar 1 (C): E5 as it is (76); pass 1 ends after it, at bar 2's line
+wait 1380
+key 23 down
+wait 300
+key 23 up
+wait 1900
+expect bar 1
+expect rec_pass 2
+wait 300
+shot rec_pass2.png
+# pass 2 adds: bar 3 (Am), a beat in, G4 -> Bb3 (58)
+wait 2080
+key 14 down
+wait 300
+key 14 up
+wait 500
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+# the notes as played, over each chord's root: E5 (C), D5 (G), A4 G4 C5 (Am), F4 (F)
+expect slot1_trk5_count 6
+expect slot1_trk5_note0 76
+expect slot1_trk5_tick0 0
+expect slot1_trk5_note1 67
+expect slot1_trk5_tick1 1920
+expect slot1_trk5_note2 60
+expect slot1_trk5_tick2 3840
+expect slot1_trk5_note3 58
+expect slot1_trk5_tick3 4320
+expect slot1_trk5_note4 63
+expect slot1_trk5_tick4 4800
+expect slot1_trk5_note5 60
+expect slot1_trk5_tick5 5760
+# REC again: C1 stays Parallel (switched once); set back to Chord 1 by hand, REC keeps it
+tap EDIT
+expect page 8
+shot track_asplayed.png
+turn K2 1
+expect type5 2
+tap REC
+wait 50
+expect type5 2
+tap REC
+wait 50
+turn K2 -1
+expect type5 1
+# ---- 16 bars: Pattern setup's BARS to 16; the Pattern page by halves (the playhead's)
+tap SEQ
+turn SELECT 1
+expect page 7
+turn K1 14
+wait 100
+expect slot1_bars 16
+shot patset16.png
+turn SELECT -1
+expect page 6
+shot pat16.png
+tap PLAY
+wait 18500
+expect bar 9
+shot pat16_second.png
+tap REC
+wait 1600
+shot rec16.png
+tap REC
+tap PLAY
+wait 100

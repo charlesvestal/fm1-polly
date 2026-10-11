@@ -519,10 +519,31 @@ static void set_transpose(int x)
     arr_set_transpose(x);
     song_touched();
 }
+/* recording as played: a Chord 1 / 2 or Bass track recorded into the first time becomes Parallel (its notes stored
+ * over the root: they play as played over the chord they were played on, moved by the root over another), said; once
+ * (ARR_TF_ASPLAYED: a type set back by hand stays). Stored into the arranger now, before the first note. 1: switched */
+static int rec_as_played(int s, int trk)
+{
+    arr_trk_t *t = &app.trk[s][trk & 7];
+    if ((t->flags & ARR_TF_ASPLAYED) || (t->x.type != XT_CHORD1 && t->x.type != XT_CHORD2 && t->x.type != XT_BASS))
+        return 0;
+    t->x.type = XT_PARALLEL;
+    t->flags |= ARR_TF_ASPLAYED;
+    edited(s);
+    edits_flush();
+    return 1;
+}
 static void set_track(int t)
 {
     proj.trk = (uint8_t)(t & 7);
-    arr_record(proj.trk, arr_recording);         /* recording goes on, into this track */
+    if (arr_recording && rec_as_played(eslot(), proj.trk)) {
+        char m[16];
+        arr_record(proj.trk, ARR_REC_BAR);       /* recording goes on, into this track */
+        say(cat_s(cat_s(m, TRACK_NAME[proj.trk]), ": AS PLAYED"), trk_sound(&app.trk[eslot()][proj.trk]));
+        mark_dirty();
+        return;
+    }
+    arr_record(proj.trk, arr_recording ? ARR_REC_BAR : 0);   /* recording goes on, into this track */
     say(TRACK_NAME[proj.trk], trk_sound(&app.trk[eslot()][proj.trk]));
     mark_dirty();
 }
@@ -1278,10 +1299,13 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         }
         if (on)
             slot_own(s);                         /* recording into a style's section: a user pattern first */
-        arr_record(proj.trk, on);
+        if (on && rec_as_played(s, proj.trk))    /* (before the first note) */
+            cat_s(cat_s(a, TRACK_NAME[proj.trk]), ": AS PLAYED");
+        else
+            cat_s(cat_s(a, "RECORD "), TRACK_NAME[proj.trk]);
+        arr_record(proj.trk, on ? ARR_REC_BAR : 0);   /* from the next bar line (stopped: from PLAY) */
         ui.rec_want = (uint8_t)on;
         ui.rec_seen = 0;
-        cat_s(cat_s(a, "RECORD "), TRACK_NAME[proj.trk]);
         if (!on)
             say("RECORD OFF", 0);
         else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: say which */
@@ -1378,7 +1402,7 @@ static void song_change(int s)
     if (unsaved() && save_all() != 0) {
         say("NOT SAVED", "SONG KEPT");
         if (rec)
-            arr_record(proj.trk, 1);             /* as it was */
+            arr_record(proj.trk, ARR_REC_BAR);   /* as it was */
         return;
     }
     proj.song = (uint8_t)s;
