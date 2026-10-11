@@ -3,6 +3,7 @@
  * MIDI-in channels' program, volume, pan, reverb and chorus. Patterns and songs have their own objects.
  * Part of the unity build, after app.h. */
 #include "../dsp/loops.h"
+#include "../dsp/leads.h"
 #include "../dsp/templates.h"                 /* LOAD PROGRESSION (the lists) */
 
 project_t proj;
@@ -139,10 +140,14 @@ int project_pattern_load(int i, pattern_t *p)
     return -1;
 }
 
+static int lead_hdr(int i, lead_hdr_t *h);
 int project_pattern_save(int i, const pattern_t *p)
 {
+    lead_hdr_t h;
     if (i < 0 || i >= ARR_USER_PATTERNS)
         return -1;
+    if (lead_hdr(i, &h) && h.n)                      /* a lead part's slot: never overwritten by a pattern */
+        return -2;
     return plat_store_save((uint32_t)(OBJ_PAT0 + i), p, sizeof *p);
 }
 
@@ -157,6 +162,8 @@ void song_default(song_t *g, int n)
     g->sty = ARR_FACTORY0;
     loops_song_clear(g);
     g->tempo = (uint8_t)arr_style_tempo(0);
+    for (int k = 0; k < ARR_LEADS; k++)
+        lead_trk_default(&g->lead[k], k);
 }
 static void songs_defaults(songs_t *s)
 {
@@ -199,8 +206,8 @@ void song_style_derive(song_t *g)
         g->sty = (uint16_t)b;
 }
 
-/* a stored object of another format (or none, or damaged): the defaults (16 loops and songs of rows are new
- * in format 6; Polly is unreleased, so no migration). Else every value that indexes or sizes something kept
+/* a stored object of another format (or none, or damaged): the defaults (the lead tracks' sounds are new in format
+ * 7; Polly is prerelease, so no migration). Else every value that indexes or sizes something kept
  * in range: a loop with beats or bars out of bounds cleared (else its chords, each a chord this firmware can
  * play, else no change); a song's style, tempo and transpose defaulted, intro/ending/at_end forced to 0/1; its
  * rows' loop, sect, rep and key clamped, and nrows at most ARR_ROWS. */
@@ -250,9 +257,145 @@ int project_songs_load(songs_t *s)
                 r->rep = 1;
             if (r->key < -6 || r->key > 5)
                 r->key = 0;
+            r->lmute &= 3u;
+        }
+        for (int k = 0; k < ARR_LEADS; k++) {       /* the lead tracks' sounds: in MIDI's ranges */
+            lead_trk_t *t = &g->lead[k];
+            t->program &= 127u;
+            t->chan &= 15u;
+            t->vol &= 127u;
+            t->pan &= 127u;
+            t->rev &= 127u;
+            t->cho &= 127u;
+            t->bright &= 127u;
+            t->reso &= 127u;
         }
     }
     return 0;
 }
 
 int project_songs_save(const songs_t *s) { return plat_store_save(OBJ_SONGS, s, sizeof *s); }
+
+/* ------------------------------------------------------- the shared slots --- */
+/* a lead part's header (its first LEAD_HDR bytes) as stored in slot i: 1 = one, in range */
+static int lead_hdr(int i, lead_hdr_t *h)
+{
+    if (plat_store_load((uint32_t)(OBJ_PAT0 + i), h, LEAD_HDR) != (int)LEAD_HDR)
+        return 0;
+    return h->magic == LEAD_MAGIC && h->kind == LEAD_KIND && h->song < ARR_SONGS && h->part < LEAD_PARTS &&
+           h->n <= LEAD_PART_NOTES;
+}
+int project_slot_info(int i, slot_info_t *si, pattern_t *buf)
+{
+    lead_hdr_t h;
+    memset(si, 0, sizeof *si);
+    if (i < 0 || i >= ARR_USER_PATTERNS)
+        return si->kind = SLOT_OTHER;
+    if (plat_store_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) < 0)
+        return si->kind = SLOT_NONE;
+    if (h.magic == LEAD_MAGIC) {
+        if (!lead_hdr(i, &h))
+            return si->kind = SLOT_OTHER;
+        si->song = h.song;
+        si->part = h.part;
+        si->n = h.n;
+        return si->kind = SLOT_LEAD;
+    }
+    if (project_pattern_load(i, buf) != 0)
+        return si->kind = SLOT_OTHER;
+    si->n = buf->nev;
+    return si->kind = SLOT_PATTERN;
+}
+int project_slot_blank(int i, pattern_t *buf)
+{
+    slot_info_t si;
+    project_slot_info(i, &si, buf);
+    return si.kind == SLOT_NONE || si.kind == SLOT_OTHER || si.n == 0;
+}
+int project_slot_leads(int i)
+{
+    lead_hdr_t h;
+    return i >= 0 && i < ARR_USER_PATTERNS && lead_hdr(i, &h) && h.n > 0;
+}
+int project_slot_free(const songs_t *s, uint32_t reserved, pattern_t *buf)
+{
+    uint32_t used = reserved;
+    for (int n = 0; n < ARR_SONGS; n++)
+        for (int k = 0; k < ARR_NSECT; k++)
+            if (s->song[n].style[k] < ARR_USER_PATTERNS)
+                used |= 1u << s->song[n].style[k];
+    for (int p = 0; p < ARR_USER_PATTERNS; p++)
+        if (!(used >> p & 1u) && project_slot_blank(p, buf))
+            return p;
+    return -1;
+}
+int project_leads_load(int song, leads_t *l, int8_t *slot)
+{
+    lead_hdr_t h;
+    int n[LEAD_PARTS] = {0, 0}, moved, any = 0;
+    slot[0] = slot[1] = -1;
+    l->part[0].n = l->part[1].n = 0;
+    for (int i = 0; i < ARR_USER_PATTERNS; i++) {
+        int k, got;
+        if (!lead_hdr(i, &h) || h.song != song || !h.n || slot[h.part] >= 0)
+            continue;                                /* (a second slot for the same part: the first wins) */
+        k = h.part;
+        got = plat_store_load((uint32_t)(OBJ_PAT0 + i), &l->part[k], sizeof l->part[k]);
+        if (got != (int)(LEAD_HDR + 9u * h.n) || l->part[k].n != h.n)
+            continue;                                /* (damaged: as none) */
+        slot[k] = (int8_t)i;
+        n[k] = h.n;
+        any = 1;
+    }
+    moved = leads_fix(l, n[0], n[1]);
+    if (slot[0] < 0 && slot[1] >= 0 && l->part[1].n == 0) {   /* only part 1 was found: its notes are part 0's now */
+        slot[0] = slot[1];
+        slot[1] = -1;
+        moved = 1;
+    }
+    return any ? moved : -1;
+}
+int project_leads_save(int song, leads_t *l, int8_t *slot, unsigned dirty)
+{
+    int rc = 0;
+    for (int k = 0; k < LEAD_PARTS; k++) {
+        lead_part_t *p = &l->part[k];
+        if (!(dirty >> k & 1u))
+            continue;
+        p->magic = LEAD_MAGIC;
+        p->kind = LEAD_KIND;
+        p->song = (uint8_t)song;
+        p->part = (uint8_t)k;
+        p->rsv = 0;
+        p->rsv2 = 0;
+        if (p->n) {
+            if (slot[k] < 0 || slot[k] >= ARR_USER_PATTERNS) {
+                rc = rc ? rc : -2;
+                continue;
+            }
+            if (plat_store_save((uint32_t)(OBJ_PAT0 + slot[k]), p, LEAD_HDR + 9u * p->n) != 0)
+                rc = -1;
+        } else if (slot[k] >= 0) {                   /* none left: the slot free again (an empty part) */
+            uint16_t n = p->n;
+            p->n = 0;
+            if (plat_store_save((uint32_t)(OBJ_PAT0 + slot[k]), p, LEAD_HDR) != 0)
+                rc = -1;
+            else
+                slot[k] = -1;
+            p->n = n;
+        }
+    }
+    return rc;
+}
+int project_leads_free(int song)
+{
+    lead_hdr_t h;
+    int rc = 0;
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)
+        if (lead_hdr(i, &h) && h.song == song && h.n) {
+            h.n = 0;
+            if (plat_store_save((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) != 0)
+                rc = -1;
+        }
+    return rc;
+}
