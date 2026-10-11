@@ -34,8 +34,8 @@ a { color: var(--accent); }
 .dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--rule); display: inline-block; flex: none; }
 .dot.on { background: var(--teal); }
 .dot.wait { background: #e2a63c; }
-#status { flex: 1 1 14rem; }
-.nums { color: var(--muted); font-variant-numeric: tabular-nums; }
+#status { flex: 1 1 14rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nums { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; min-width: 19ch; text-align: right; }
 .stage { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-start; justify-content: center; }
 .big { flex: none; max-width: 100%; }
 .big canvas { display: block; width: 480px; max-width: calc(100vw - 54px); aspect-ratio: 1; image-rendering: pixelated; image-rendering: crisp-edges;
@@ -459,7 +459,9 @@ setInterval(() => {
 setInterval(() => {
   const b = mirror.stats.bytes - lastBytes, f = painted - lastPainted;
   lastBytes = mirror.stats.bytes; lastPainted = painted;
-  nums.textContent = `${f} fps · ${b >= 1024 ? (b / 1024).toFixed(1) + " kB" : b + " B"}/s` + (mirror.stats.gaps ? ` · ${mirror.stats.gaps} gaps` : "");
+  /* fixed width: the bar never reflows as the numbers change */
+  nums.textContent = `${String(f).padStart(2, "\u2007")} fps · ${(b / 1024).toFixed(1).padStart(5, "\u2007")} kB/s`;
+  nums.title = mirror.stats.gaps ? `${mirror.stats.gaps} gaps (dropped and resent)` : "";
 }, 1000);
 addEventListener("pagehide", () => send(0));
 }
