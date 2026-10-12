@@ -1385,10 +1385,50 @@ static void draw_loop(void)
 #define SG_MUTE_Y 102                                /* the cursor section's mutes */
 /* the row's section knob (on screen: its groove) */
 static const char *const ROW_SECT_NAME[ROW_NSECT] = {"A", "A + fill", "B", "B + fill"};
-static void glyph_play(int32_t x, int32_t y, uint16_t c)    /* the row playing: a small triangle */
+/* the section playing's clock: a ring of radius r round (cx, cy) filled clockwise from 12 o'clock to f/1024 of the way
+ * round (the angle a diamond's, |x| + |y|: no trigonometry, a degree or two off at 11 px) */
+static void glyph_clock(int32_t cx, int32_t cy, int32_t r, uint32_t f, uint16_t c)
 {
-    for (int j = 0; j < 4; j++)
-        cv_rect(x + j, y + j, 1, 7 - 2 * j, c);
+    int32_t r2 = (2 * r + 1) * (2 * r + 1), in2 = (2 * r - 2) * (2 * r - 2);
+    for (int32_t py = cy - r; py <= cy + r; py++)
+        for (int32_t px = cx - r; px <= cx + r; px++) {
+            int32_t x = 2 * (px - cx), y = 2 * (cy - py), d2 = x * x + y * y, a = (x < 0 ? -x : x) + (y < 0 ? -y : y);
+            uint32_t q;
+            if (d2 > r2)
+                continue;
+            if (d2 > in2) {                          /* the ring */
+                cv_rect(px, py, 1, 1, c);
+                continue;
+            }
+            if (!a)
+                q = 0;
+            else if (x >= 0 && y > 0)
+                q = (uint32_t)(256 * x / a);
+            else if (x > 0)
+                q = 256u + (uint32_t)(256 * -y / a);
+            else if (y < 0)
+                q = 512u + (uint32_t)(256 * -x / a);
+            else
+                q = 768u + (uint32_t)(256 * y / a);
+            if (q < f)
+                cv_rect(px, py, 1, 1, c);
+        }
+}
+/* how far the section playing has gone, 0..1024 (its progression's beats x REPEAT; arr_row_tick its place) */
+static uint32_t row_done(const row_t *w)
+{
+    int per = loop_len(&sloops.loop[w->loop % ARR_LOOPS]);
+    uint32_t len = (uint32_t)(per > 0 ? per : 4) * (w->rep ? w->rep : 1u) * ARR_PPQ, t = arr_row_tick;
+    return t >= len ? 1024u : t * 1024u / len;   /* (t < 16 bars x 7 beats x 8 passes: no overflow) */
+}
+static int pslot(void);
+/* how far the Intro or the Ending has gone, 0..1024 (the pattern playing: its bars; arr_bar, arr_beat_tick its place) */
+static uint32_t pat_done(void)
+{
+    int s = pslot(), bpb = app.hdr[s].beats ? app.hdr[s].beats : 4;
+    uint32_t blen = (uint32_t)bpb * ARR_PPQ, len = (uint32_t)(app.hdr[s].bars ? app.hdr[s].bars : 1) * blen;
+    uint32_t t = (uint32_t)arr_bar * blen + arr_beat_tick;
+    return t >= len ? 1024u : t * 1024u / len;
 }
 static void text_r(int32_t xr, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
 {
@@ -1436,6 +1476,10 @@ static void draw_song(void)
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
     h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
     h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8);
+    if (play >= 0)                                   /* (its clock: 32 steps round) */
+        h = hash(h, row_done(&g->row[play]) >> 5);
+    else if (st == SEC_INTRO || st == SEC_END)       /* (the Intro's, the Ending's) */
+        h = hash(h, pat_done() >> 5);
     for (i = top; i < n && i < top + SG_SHOWN; i++) {
         const row_t *w = &g->row[i];
         const loop_t *l = &sloops.loop[w->loop % ARR_LOOPS];
@@ -1458,8 +1502,12 @@ static void draw_song(void)
             text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, t, K_ACCENT);
         else if (!st)
             text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, "a white key adds a section", K_DIM);
-        if (st) {
-            int32_t x = sect_pill(8, 0, 0, 15, st, 0);
+        if (st) {                                    /* (the Intro, the Ending: their clock before the pill) */
+            int cl = st == SEC_INTRO || st == SEC_END;
+            int32_t x;
+            if (cl)
+                glyph_clock(10, 7, 6, pat_done(), K_TEXT);
+            x = sect_pill(cl ? 20 : 8, 0, 0, 15, st, 0);
             cv_text(x + 6, cap_y(0, 15, &FONT_S), &FONT_S, stt, K_TEXT);
         }
     }
@@ -1477,8 +1525,8 @@ static void draw_song(void)
             cv_round(3, y + 1, 230, ch - 2, 4, fill);
         } else
             cv_round(2, y, 232, ch, 5, fill);
-        if (pl)
-            glyph_play(5, y + 5, K_BG);
+        if (pl)                                      /* the section playing: its clock, in place of its number */
+            glyph_clock(12, y + 8, 6, row_done(&g->row[i]), K_BG);
         if (ghost) {
             cv_text(SG_LOOP, ty, &FONT_S, "END", on ? K_TEXT : K_DIM);
             continue;
@@ -1490,7 +1538,8 @@ static void draw_song(void)
             uint16_t sc = sect_colour(row_main(w));
             char *e;
             itoa_u((uint32_t)i + 1u, t);
-            text_r(SG_NUM, ty, &FONT_S, t, on || fl || pl ? fg : K_DIM);
+            if (!pl)
+                text_r(SG_NUM, ty, &FONT_S, t, on || fl ? fg : K_DIM);
             /* PROG: "P9" and its name ("empty" an empty loop) */
             itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(t, "P"));
             x = cv_text(SG_LOOP, ty, &FONT_S, t, dim) + 4;

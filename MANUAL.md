@@ -540,9 +540,10 @@ instruments, and black keys 9 and 10 mute its melodies.
 
 Above the sections, "section 3 of 6" shows where the cursor is. The cursor is the coral ring. On END, the
 line shows "a white key adds a section". While the song plays, the section that's playing is filled teal.
-When the cursor follows it, the teal fill sits inside the ring. During the Intro, a fill or the Ending, the
-line above the sections shows it: "Intro · then section 1", "Fill AB · into section 3" or "Ending · then
-stop".
+When the cursor follows it, the teal fill sits inside the ring. In place of its number, a small clock fills
+as the section plays, repeats included. When the clock is full, the next section starts. During the Intro, a
+fill or the Ending, the line above the sections shows it: "Intro · then section 1", "Fill AB · into section 3"
+or "Ending · then stop". The Intro and the Ending have a clock of their own at the start of that line.
 
 The knobs on page 1:
 

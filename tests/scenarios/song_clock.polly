@@ -1,0 +1,35 @@
+# POLLY, the Song page's clocks: the section playing shows how far it has gone, a ring filling clockwise from 12
+# o'clock in place of its number; the Intro and the Ending theirs before their pill over the rows. Two sections of P1
+# (4 bars, Pop 105 BPM: a bar 2286 ms), the first x2.
+wait 300
+tap HOME
+expect page 1
+tapkey w0
+tapkey w0
+expect rows 2
+turn K1 -2
+expect cursor 1
+turn K4 1
+expect row_rep1 2
+tap PLAY
+wait 1500
+expect playing 1
+expect sect 1
+shot clock_intro.png
+wait 3100
+expect sect 2
+expect row 1
+shot clock_0.png
+wait 4570
+shot clock_25.png
+wait 4570
+shot clock_50.png
+wait 4570
+shot clock_75.png
+wait 4570
+expect row 2
+shot clock_next.png
+wait 9200
+expect sect 6
+shot clock_ending.png
+tap PLAY
