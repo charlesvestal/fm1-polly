@@ -124,7 +124,11 @@ expect row_loop1 9
 expect row_loop2 3
 wait 600
 shot song.png
-# ---- Mute an instrument in one section only: on the Song page, its black key (1: D1; on END: the last section's)
+# ---- Mute an instrument in one section only: on the Song page, on the section, its black key (1: D1; on END: nothing)
+tapkey b0
+expect row_mute3 0
+turn K1 -1
+expect cursor 3
 tapkey b0
 expect row_mute3 1
 expect msgtext_is_D1_MUTED 1
@@ -136,7 +140,6 @@ shot song2.png
 turn SELECT -1
 expect page 1
 # ---- Play from section 3: Song, KNOB 1 (Section) to 3, SEL (the list opens on PLAY FROM SECTION 3), SEL
-turn K1 -1
 expect cursor 3
 tap SEL
 expect list_open 1

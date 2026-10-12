@@ -188,6 +188,7 @@ wait 500
 # a section in the song (P6: a song with no sections never plays as the song), C3 muted in it (as the song will be)
 tap HOME
 tapkey w5
+turn K1 -1
 tapkey b6
 expect rows 1
 tap HOME

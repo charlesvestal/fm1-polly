@@ -1563,7 +1563,7 @@ static void song_key(int k)
         return;
     }
     if (r >= g->nrows)
-        r = g->nrows - 1;                        /* the END row: the last row (the one just added) */
+        return;                                  /* the END row: no section, nothing to mute */
     songs_write(1);
     if (b >= ARR_TRACKS)                         /* 9, 10: the lead tracks' */
         g->row[r].lmute ^= (uint8_t)(1u << (b - ARR_TRACKS));

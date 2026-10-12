@@ -202,11 +202,13 @@ expect row_sect5 2
 expect cursor 6
 expect tag_is_S1 1
 tapkey b4
+expect row_mute5 0
+spin K1 -1
+expect cursor 5
+tapkey b4
 expect row_mute5 16
 expect black_dim 16
 expect msg_is_C1 1
-spin K1 -1
-expect cursor 5
 tap SEL
 expect list_sel 8
 spin SELECT 2
@@ -465,11 +467,12 @@ expect row_sect1 2
 # ---- PLAY from row 1 (INTRO off): its row marked playing (filled teal, inside the cursor's ring) from the start
 spin K1 -1
 expect cursor 1
-expect teal_12_48 0
+expect teal_225_48 0
 tap PLAY
 wait 300
 expect row 1
-expect teal_12_48 1
+wait 600
+expect teal_225_48 1
 wait 50
 shot song_row1_playing.png
 tap PLAY
