@@ -1,0 +1,147 @@
+# POLLY, every key sounds: the 200 KB GM set's last waves have no data (wt_200k_samples.c stops 127 samples short), so
+# the top regions of a dozen programs were silent (the Clavinet from note 69, the organs from 90, harmonica, brass,
+# synth brass, saw lead, polysynth, sweep pad from 79-90 on), and notes below a program's lowest region sounded nothing;
+# eas_voicemgt.c VMStartNote takes the nearest region with data. MIDI in on channel 4, each note alone, its peak.
+wait 300
+midi C3 07 00
+wait 600
+peakreset
+midi 93 18 64
+wait 400
+expect peak_db_min -40
+midi 83 18 00
+wait 600
+peakreset
+midi 93 48 64
+wait 400
+expect peak_db_min -40
+midi 83 48 00
+wait 600
+peakreset
+midi 93 60 64
+wait 400
+expect peak_db_min -40
+midi 83 60 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 10 00
+wait 600
+peakreset
+midi 93 60 64
+wait 400
+expect peak_db_min -40
+midi 83 60 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 16 00
+wait 600
+peakreset
+midi 93 30 64
+wait 400
+expect peak_db_min -40
+midi 83 30 00
+wait 600
+peakreset
+midi 93 54 64
+wait 400
+expect peak_db_min -40
+midi 83 54 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 3D 00
+wait 600
+peakreset
+midi 93 54 64
+wait 400
+expect peak_db_min -40
+midi 83 54 00
+wait 600
+peakreset
+midi 93 64 64
+wait 400
+expect peak_db_min -40
+midi 83 64 00
+midi C3 3E 00
+wait 600
+peakreset
+midi 93 5A 64
+wait 400
+expect peak_db_min -40
+midi 83 5A 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 3F 00
+wait 600
+peakreset
+midi 93 5A 64
+wait 400
+expect peak_db_min -40
+midi 83 5A 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 51 00
+wait 600
+peakreset
+midi 93 58 64
+wait 400
+expect peak_db_min -40
+midi 83 58 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 57 00
+wait 600
+peakreset
+midi 93 5A 64
+wait 400
+expect peak_db_min -40
+midi 83 5A 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 5A 00
+wait 600
+peakreset
+midi 93 5A 64
+wait 400
+expect peak_db_min -40
+midi 83 5A 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00
+midi C3 04 00
+wait 600
+peakreset
+midi 93 6C 64
+wait 400
+expect peak_db_min -40
+midi 83 6C 00

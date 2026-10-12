@@ -1879,6 +1879,7 @@ void VMStartVoice (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, EAS_
  * psSynthObject->m_sVoice[free voice num].m_nVelocity is assigned
  *----------------------------------------------------------------------------
 */
+#define EAS_SAMPLES_GIVEN 212050u            /* Polly: wt_200k_samples.c's sample values as generated (8-bit) */
 void VMStartNote (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, EAS_U8 note, EAS_U8 velocity)
 {
     S_SYNTH_CHANNEL *pChannel;
@@ -1957,17 +1958,36 @@ void VMStartNote (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, EAS_U
 
     /* braces here for #if clause */
     {
-        /* EAS voice */
+        /* EAS voice. Polly (fm1-polly): the 200 KB set samples some programs over part of the keyboard only, and a key
+         * outside every region of a melodic program sounded nothing; it takes the nearest region instead (its sample
+         * pitched there, as the region's own notes are). Drums keep exact matches: each key is a sound of its own.
+         * And the set's generated sample data stops short of its last waves (wt_200k_samples.c: 212050 values for
+         * 212177, the rest zeros: waves 144-149, the top regions of the Clavinet, the organs, the harmonica, the brass,
+         * synth leads and pads): a region on those is no region, the nearest live one plays there */
+        EAS_U16 nearest = regionIndex;
+        EAS_I16 gap = 0x7FFF;
         for (;;)
         {
             const S_REGION *pRegion = GetRegionPtr(pSynth, regionIndex);
+            const S_WT_REGION *pWT = (const S_WT_REGION *) pRegion;
+            EAS_I16 d;
+
+            if (pSynth->pEAS->pSampleOffsets[pWT->waveIndex] + pSynth->pEAS->pSampleLen[pWT->waveIndex] > EAS_SAMPLES_GIVEN)
+                goto next_region;                  /* (silent: no data) */
 
             /* check key against this region's keyrange */
             if ((adjustedNote >= pRegion->rangeLow) && (adjustedNote <= pRegion->rangeHigh))
             {
                 VMStartVoice(pVoiceMgr, pSynth, channel, note, velocity, regionIndex);
-                break;
+                return;
             }
+            d = (EAS_I16) (adjustedNote < pRegion->rangeLow ? pRegion->rangeLow - adjustedNote : adjustedNote - pRegion->rangeHigh);
+            if (d < gap)
+            {
+                gap = d;
+                nearest = regionIndex;
+            }
+next_region:
 
             /* last region in program? */
             if (pRegion->keyGroupAndFlags & REGION_FLAG_LAST_REGION)
@@ -1976,6 +1996,8 @@ void VMStartNote (S_VOICE_MGR *pVoiceMgr, S_SYNTH *pSynth, EAS_U8 channel, EAS_U
             /* advance to next region */
             regionIndex++;
         }
+        if (!(pChannel->channelFlags & CHANNEL_FLAG_RHYTHM_CHANNEL) && gap != 0x7FFF)
+            VMStartVoice(pVoiceMgr, pSynth, channel, note, velocity, nearest);
     }
 }
 
