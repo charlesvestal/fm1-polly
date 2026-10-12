@@ -203,6 +203,28 @@ def key_of(name):
     return int(name)
 
 
+def mix(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def glow(d, box, rad, base, col, s, a=1.0, oval=False):
+    """a soft glow round box (held, turned): rings fading from col out into base, then a firm col outline; a: 0..1"""
+    n, st = 6, max(2, int(3.5 * s))
+    for i in range(n, 0, -1):
+        e = i * st
+        c = mix(base, col, a * (1 - i / (n + 1)) * 0.85)
+        bb = [box[0] - e, box[1] - e, box[2] + e, box[3] + e]
+        if oval:
+            d.ellipse(bb, outline=c, width=st + 1)
+        else:
+            d.rounded_rectangle(bb, radius=rad + e, outline=c, width=st + 1)
+    c = mix(base, col, a)
+    if oval:
+        d.ellipse(box, outline=c, width=max(3, int(4 * s)))
+    else:
+        d.rounded_rectangle(box, radius=rad, outline=c, width=max(3, int(4 * s)))
+
+
 class Panel:
     """web/mirror's (web/emu's) panel drawing, in its 1000 x 640 units, scaled by S at (OX, OY)"""
 
@@ -245,11 +267,9 @@ class Panel:
             cx, cy = self.P(x, y)
             d.ellipse([cx - (r + 5) * s, cy - (r + 5) * s, cx + (r + 5) * s, cy + (r + 5) * s], fill=TRAY)
             e = enc.get(lab)
-            if e:
-                a = e["alpha"]
-                col = tuple(int(TRAY[i] + (CORAL[i] - TRAY[i]) * a) for i in range(3))
-                rr = (r + 9) * s
-                d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=col, width=max(2, int(5 * s)))
+            if e and e["alpha"] > 0:                 # turned: a teal glow, as a held button
+                rr = (r + 6) * s
+                glow(d, [cx - rr, cy - rr, cx + rr, cy + rr], 0, BODY, TEAL_L, s, e["alpha"], oval=True)
             d.ellipse([cx - r * s, cy - r * s, cx + r * s, cy + r * s], fill=KNOB, outline=(68, 71, 76), width=2)
             ang = (e["angle"] if e else 0) if lab != "MASTER" else 0
             import math
@@ -273,6 +293,8 @@ class Panel:
         for b, (x, y, w, h) in self.buttons.items():
             lit, held = b in lit_b, b in held_b
             face = CORAL if lit else (60, 95, 91) if held else BTNC
+            if held:                                 # held: a teal glow round it
+                glow(d, self.R(x, y, w, h), 9 * s, TRAY, TEAL_L, s)
             d.rounded_rectangle(self.R(x, y, w, h), radius=9 * s, fill=face,
                                 outline=TEAL_L if held else (74, 77, 82), width=max(2, int((4 if held else 1.5) * s)))
             tc = (42, 20, 10) if lit else LABEL
@@ -290,6 +312,8 @@ class Panel:
                 face = TEAL_L if held else CORAL_L if lit else KEY_W
             else:
                 face = TEAL_L if held else TEAL if lit else KEY_B
+            if held:                                 # held: a teal glow round it
+                glow(d, self.R(x, y, w, h), w * s / 2, TRAY, TEAL_L, s)
             d.rounded_rectangle(self.R(x, y, w, h), radius=w * s / 2, fill=face,
                                 outline=TEAL if held else None, width=max(2, int(4 * s)) if held else 0)
 
@@ -366,7 +390,7 @@ def render(work, events, leds, step, nframes):
                 total += e[3]
                 prev = e[0]
             age = T - last
-            enc[lab] = {"angle": angles[lab], "alpha": max(0.0, 1 - age / 500),
+            enc[lab] = {"angle": angles[lab], "alpha": 1.0 if age < 700 else max(0.0, 1 - (age - 700) / 500),
                         "text": ("+" if total > 0 else "−") + str(abs(total)),
                         "text_a": 1.0 if age < 700 else max(0.0, 1 - (age - 700) / 400), "rise": min(14, age / 60)}
         lb, lw, lbk = leds[n] if n < len(leds) else (set(), "", "")
