@@ -61,6 +61,7 @@ wait 50
 expect recording 1
 expect rec_shown 1
 expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
+expect play_led 3
 wait 1500
 shot lead_armed.png
 # PLAY here: a bar of count-in (the click only, "Count-in 4" up top), then the song from row 1; the keys go into LD1 at
@@ -68,6 +69,7 @@ shot lead_armed.png
 tap PLAY
 wait 300
 expect playing 1
+expect play_led 2
 expect count_in 4
 shot lead_count_in.png
 wait 1700

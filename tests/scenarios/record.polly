@@ -19,9 +19,13 @@ expect page 6
 expect track 5
 expect type5 2
 expect slot1_trk5_count 21
+expect play_led 0
 tap REC
 wait 50
 expect recording 1
+# (armed, stopped: PLAY blinks red, PLAY starts the recording)
+expect play_led 3
+leds
 expect type5 2
 expect msgtext_is_C1_FOLLOWS_CHORDS_(YOURS) 1
 # (the pattern, 2 bars, is shorter than the loop: the footer says SEL makes it 4 first, over the hint)
@@ -30,6 +34,7 @@ shot rec_follows.png
 tap REC
 wait 50
 expect recording 0
+expect play_led 0
 expect footer_is_KEYS_C1|REC_record|SEQ_notes 1
 # said once: REC again, no hint
 tap REC

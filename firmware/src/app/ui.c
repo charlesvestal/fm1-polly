@@ -4120,13 +4120,19 @@ static void input(void)
 }
 
 /* ------------------------------------------------------------- lights --- */
+/* PLAY's light: 0 off, 1 green (playing), 2 red (recording), 3 red blinking (stopped with a recording armed: PLAY
+ * starts it, after its count-in; play_start's test) */
+#define ARMED_BLINK_MS 250u
+static uint8_t play_led;
 static void leds(void)
 {
     uint32_t b = 0, k = 0, i;
     int rec = arr_recording || ui.rec_chords || ui.take || ui.song_rec;
+    int armed = !arr_playing && (ui.rec_want || arr_recording || ui.take || ui.rec_chords || ui.song_rec);
     uint32_t dim = 0;
-    if (arr_playing)
-        b |= 1u << B_PLAY;
+    play_led = (uint8_t)(armed ? 3 : arr_playing ? (rec ? 2 : 1) : 0);
+    if (arr_playing || (armed && (plat_ms() / ARMED_BLINK_MS & 1u) == 0u))
+        b |= 1u << B_PLAY;                       /* (armed: red, on and off, 2 Hz) */
     if (rec)
         b |= 1u << B_REC;
     if (unsaved())
@@ -4154,7 +4160,7 @@ static void leds(void)
     }
     plat_glow(proj.leds == 1);
     plat_keys_dim(dim & ~k);
-    plat_play_red(rec);
+    plat_play_red(rec || armed);
     plat_leds(b, k);
 }
 

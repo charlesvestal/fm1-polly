@@ -729,6 +729,9 @@ static int expect(const char *what, const char *val)
         got = what[11] == 'r' ? c.root : c.type;
     } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
         got = home_shown();
+    else if (!strcmp(what, "play_led"))           /* PLAY's light: 0 off, 1 green, 2 red, 3 red blinking (a recording
+                                                   * armed, stopped: PLAY starts it) */
+        got = play_led;
     else if (!strncmp(what, "lit_", 4)) {         /* lit_BTN: that button's light (1 / 0), as last set */
         int b = find_name(BTN_N, NB, what + 4);
         got = b >= 0 && (lit_btn >> b & 1u);

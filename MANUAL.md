@@ -289,7 +289,8 @@ keys don't sense how hard you press, so every note plays at the same velocity.
 
 ### The lights
 
-- **PLAY** is green while playing, and red while playing and recording.
+- **PLAY** is green while playing, and red while playing and recording. Stopped with a recording waiting
+  (after **REC**), it blinks red: **PLAY** starts the recording, after a bar of count-in.
 - **REC** lights while recording, or while a recording waits for **PLAY**.
 - **SAVE** lights while something isn't saved.
 - The button of the page you're on is lit.
@@ -727,7 +728,7 @@ of the groove or extra that's playing, while it loops.
 
 1. Press **SEQ** to open the Band page.
 2. Turn **ALGORITHM** to pick the instrument. The keys play its sound.
-3. Press **REC**. A coral dot shows in the header, and **REC** lights. The screen shows the groove as bars,
+3. Press **REC**. A coral dot shows in the header, **REC** lights, and **PLAY** blinks red. The screen shows the groove as bars,
    with the instrument's notes in each, and "REC C1 · starts with PLAY". The footer shows "[REC] stop".
 4. Press **PLAY**. The click counts in one bar while the band waits: "Count-in 4" at the top, and the beats
    left large in bar 1. Then the groove starts, and **PLAY** lights red. Play.
