@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* firmware/src/app/teststore.c: a test session's objects in RAM. Saved objects load back byte for byte (random,
  * zeros, runs, every length around the code's run and literal limits); a save replaces the object's old one, the
- * others kept; loads cut at max; an empty object is none; a full pool refuses a save and keeps the old one; the
+ * others kept; a load longer than max refused, a head read its first bytes; an empty object is none; a full pool refuses a save and keeps the old one; the
  * calibration (OBJ_PANEL) and everything with the session off go to the flash; starting or ending drops it all.
  *   cc -std=c99 -Ifirmware/src -o teststore_test tests/host/teststore_test.c && ./teststore_test */
 #include <stdio.h>
@@ -11,6 +11,7 @@
 
 static int flash_loads, flash_saves;
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { (void)obj; (void)dst; (void)max; flash_loads++; return -1; }
+int plat_store_head(uint32_t obj, void *dst, uint32_t n) { (void)obj; (void)dst; (void)n; flash_loads++; return -1; }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len) { (void)obj; (void)src; (void)len; flash_saves++; return 0; }
 
 #include "app/teststore.c"
@@ -70,7 +71,9 @@ int main(void)
             CHECK(same(obj[k], o[k], len[k]), "object %d not the same back after another's save", k);
         CHECK(obj_load(OBJ_PAT0 + 2, b, sizeof b) == -1, "an object never saved: not none");
         memset(b, 0, sizeof b);
-        CHECK(obj_load(obj[3], b, 100) == 100 && !memcmp(b, o[3], 100) && b[100] == 0, "a load not cut at max");
+        CHECK(obj_load(obj[3], b, 100) == -1 && b[0] == 0, "a load longer than max not refused");
+        CHECK(ts_head(obj[3], b, 100) == 100 && !memcmp(b, o[3], 100) && b[100] == 0, "a head read not its first bytes");
+        CHECK(ts_head(obj[3], b, len[3] + 1u) == -1, "a head read longer than the object not refused");
         CHECK(obj_save(OBJ_PAT0 + 4, a, 0) == 0 && obj_load(OBJ_PAT0 + 4, b, sizeof b) == -1, "an empty object: not none");
     }
     /* full: refused, the old one kept */

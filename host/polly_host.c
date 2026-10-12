@@ -156,15 +156,20 @@ static int store_len[OBJ_NOBJ] = { [0 ... OBJ_NOBJ - 1] = -1 };
 static uint32_t store_writes, store_tries;
 static int store_fail;                  /* flash_fail 1: every save fails (a flash error) */
 
-int plat_store_load(uint32_t obj, void *dst, uint32_t max)
+int plat_store_load(uint32_t obj, void *dst, uint32_t max)   /* (as storage.c: the whole object, never cut short) */
 {
     int n;
-    if (obj >= OBJ_NOBJ || (n = store_len[obj]) < 0)
+    if (obj >= OBJ_NOBJ || (n = store_len[obj]) < 0 || (uint32_t)n > max)
         return -1;
-    if ((uint32_t)n > max)
-        n = (int)max;
     memcpy(dst, store[obj], (size_t)n);
     return n;
+}
+int plat_store_head(uint32_t obj, void *dst, uint32_t n)
+{
+    if (obj >= OBJ_NOBJ || store_len[obj] < 0 || (uint32_t)store_len[obj] < n)
+        return -1;
+    memcpy(dst, store[obj], (size_t)n);
+    return (int)n;
 }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len)
 {

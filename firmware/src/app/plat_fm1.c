@@ -98,6 +98,7 @@ uint32_t arr_midi_out_room(void) { return plat_midi_out_room(); }
 uint32_t arr_midi_out_link(void) { return plat_midi_out_link(); }
 
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { return flash_ok ? st_load(obj, dst, max) : -1; }
+int plat_store_head(uint32_t obj, void *dst, uint32_t n) { return flash_ok ? st_load_head(obj, dst, n) : -1; }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len) { return flash_ok ? st_save(obj, src, len) : -9; }
 
 static volatile uint32_t audio_cpu_pct, audio_xruns;

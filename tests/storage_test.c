@@ -9,6 +9,7 @@
 
 static uint8_t nor[0x100000];
 static int fail_after = -1;            /* torn-write injection: stop after N programs */
+static uint32_t flip_at = 0xFFFFFFFFu; /* a program covering this byte lands with a bit of it cleared (a bad write) */
 
 static int st_read(uint32_t off, void *dst, uint32_t n) { memcpy(dst, nor + off, n); return 0; }
 static int st_erase(uint32_t off) { memset(nor + off, 0xFF, 4096); return 0; }
@@ -26,6 +27,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
     }
     for (i = 0; i < n; i++)
         nor[off + i] &= s[i];
+    if (flip_at - off < n)
+        nor[flip_at] &= (uint8_t)(nor[flip_at] - 1u);   /* its lowest set bit cleared */
     return 0;
 }
 #include "../firmware/src/app/plat.h"     /* POLLY: the object map */
@@ -92,6 +95,65 @@ int main(void)
     nor[st_sector(OBJ_PANEL, 0) + 8] ^= 0x01;    /* both headers broken */
     nor[st_sector(OBJ_PANEL, 1) + 8] ^= 0x01;
     bad += check("both headers broken -> nothing", st_load(OBJ_PANEL, got, sizeof got) < 0);
+    /* Felucca 1.5.1's hardening, on Polly's store */
+    {   /* the sequence counter wrapping: 0 after 0xFFFFFFFF is the newer */
+        st_hdr_t h;
+        uint32_t c;
+        memset(nor, 0xFF, sizeof nor);
+        st_save(OBJ_SONGS, a, sizeof a);              /* A: seq 1 */
+        st_save(OBJ_SONGS, b, sizeof b);              /* B: seq 2 */
+        for (c = 0; c < 2; c++) {                     /* A 0xFFFFFFFF, B 0 (headers rewritten in place) */
+            memcpy(&h, nor + st_sector(OBJ_SONGS, c), sizeof h);
+            h.seq = c ? 0u : 0xFFFFFFFFu;
+            h.hcrc = st_crc32(&h, sizeof h - 4u);
+            memcpy(nor + st_sector(OBJ_SONGS, c), &h, sizeof h);
+        }
+        n = st_load(OBJ_SONGS, got, sizeof got);
+        bad += check("seq wrap: 0 after 0xFFFFFFFF wins", n == (int)sizeof b && !memcmp(got, b, sizeof b));
+        bad += check("seq wrap: the next save goes over the older",
+                     st_save(OBJ_SONGS, a, sizeof a) == 0 && st_current(OBJ_SONGS, &h) == 0 && h.seq == 1u &&
+                     st_load(OBJ_SONGS, got, sizeof got) == (int)sizeof a && !memcmp(got, a, sizeof a));
+    }
+    {   /* a header in the wrong place: another object's, or the other copy's, is no copy of this one */
+        st_hdr_t h;
+        memset(nor, 0xFF, sizeof nor);
+        st_save(OBJ_PAT0, a, sizeof a);               /* pattern 0, copy A */
+        memcpy(nor + st_sector(OBJ_PAT0 + 1, 0), nor + st_sector(OBJ_PAT0, 0), 4096);
+        bad += check("another object's sector copied in: not loaded", st_load(OBJ_PAT0 + 1, got, sizeof got) < 0);
+        memcpy(nor + st_sector(OBJ_PAT0, 1), nor + st_sector(OBJ_PAT0, 0), 4096);
+        memcpy(&h, nor + st_sector(OBJ_PAT0, 1), sizeof h);
+        h.seq = 9;                                    /* newer, but it says it is copy A */
+        h.hcrc = st_crc32(&h, sizeof h - 4u);
+        memcpy(nor + st_sector(OBJ_PAT0, 1), &h, sizeof h);
+        bad += check("copy A's header in copy B's sector: ignored", st_current(OBJ_PAT0, &h) == 0 && h.seq == 1u);
+        bad += check("objects past the map refused", st_save(OBJ_NOBJ, a, 10) < 0 && st_load(OBJ_NOBJ, got, sizeof got) < 0);
+    }
+    {   /* an object longer than the buffer: refused, not cut; a head read takes its first bytes */
+        memset(nor, 0xFF, sizeof nor);
+        memset(got, 0, sizeof got);
+        st_save(OBJ_PROJ, a, sizeof a);
+        bad += check("oversize load refused (nothing copied)", st_load(OBJ_PROJ, got, sizeof a - 1u) == -1 && got[0] == 0);
+        bad += check("head read: the first 100 bytes", st_load_head(OBJ_PROJ, got, 100) == 100 && !memcmp(got, a, 100) &&
+                                                        got[100] == 0);
+        bad += check("head read longer than the object refused", st_load_head(OBJ_PROJ, got, sizeof a + 1u) == -1);
+        bad += check("save over the payload limit refused", st_save(OBJ_PROJ, nor, ST_PAYLOAD_MAX + 1u) < 0);
+    }
+    {   /* a save whose header reads back wrong (a bad write) is not reported saved; the old copy stays */
+        st_hdr_t h;
+        memset(nor, 0xFF, sizeof nor);
+        st_save(OBJ_PANEL, a, sizeof a);              /* copy A, seq 1: the next save goes to B */
+        flip_at = st_sector(OBJ_PANEL, 1) + 12u;      /* the new header's length, one bit */
+        n = st_save(OBJ_PANEL, b, sizeof b);
+        flip_at = 0xFFFFFFFFu;
+        bad += check("a header written wrong: the save fails", n == -7);
+        bad += check("... and the old copy loads", st_current(OBJ_PANEL, &h) == 0 &&
+                     st_load(OBJ_PANEL, got, sizeof got) == (int)sizeof a && !memcmp(got, a, sizeof a));
+        flip_at = st_sector(OBJ_PANEL, 1) + ST_PAYLOAD_OFF + 5u;   /* a payload byte */
+        n = st_save(OBJ_PANEL, b, sizeof b);
+        flip_at = 0xFFFFFFFFu;
+        bad += check("a payload byte written wrong: the save fails", n == -7 &&
+                     st_load(OBJ_PANEL, got, sizeof got) == (int)sizeof a && !memcmp(got, a, sizeof a));
+    }
     {   /* POLLY map: every object inside 0x97000..0xDFFFF or at 0xFC000, two sectors, no overlaps */
         uint32_t o, p, ok = 1;
         for (o = 0; o < OBJ_NOBJ; o++) {

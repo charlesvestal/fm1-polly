@@ -51,7 +51,9 @@ static uint32_t ts_code(const uint8_t *s, uint32_t n, uint8_t *d, uint32_t max)
     }
     return o;
 }
-static int ts_load(uint32_t obj, void *dst, uint32_t max)
+/* as storage.c's st_load (head 0: the whole object, refused when longer than max) and st_load_head (head 1: its first
+ * max bytes, refused when shorter) */
+static int ts_load_part(uint32_t obj, void *dst, uint32_t max, int head)
 {
     int32_t e = ts_find(obj);
     uint32_t len, n, i = 0, o = 0;
@@ -62,9 +64,9 @@ static int ts_load(uint32_t obj, void *dst, uint32_t max)
     len = ts_pool[e + 1] | ts_pool[e + 2] << 8;
     n = ts_pool[e + 3] | ts_pool[e + 4] << 8;
     c = ts_pool + e + 5;
-    if (!len)
+    if (!len || (head ? len < max : len > max))
         return -1;                                   /* (an empty object: none, as storage.c's st_load) */
-    if (len > max)
+    if (head)
         len = max;
     while (i < n && o < len) {
         uint32_t k = c[i++];
@@ -81,6 +83,8 @@ static int ts_load(uint32_t obj, void *dst, uint32_t max)
     }
     return (int)len;
 }
+static int ts_load(uint32_t obj, void *dst, uint32_t max) { return ts_load_part(obj, dst, max, 0); }
+static int ts_head(uint32_t obj, void *dst, uint32_t n) { return ts_load_part(obj, dst, n, 1); }
 static int ts_save(uint32_t obj, const void *src, uint32_t len)
 {
     int32_t e;

@@ -43,7 +43,9 @@ uint32_t plat_midi_out_room(void);     /* free slots in the out ring */
 uint32_t plat_midi_out_link(void);     /* changes at each new USB connection */
 
 /* persistent storage (Felucca storage.c objects: A/B sectors, CRC, torn-write safe) */
-int plat_store_load(uint32_t obj, void *dst, uint32_t max);   /* bytes loaded, < 0 = none / bad */
+int plat_store_load(uint32_t obj, void *dst, uint32_t max);   /* the whole object: bytes loaded, < 0 = none / bad /
+                                                               * longer than max (never cut short) */
+int plat_store_head(uint32_t obj, void *dst, uint32_t n);     /* its first n bytes: n, < 0 = none / bad / shorter */
 int plat_store_save(uint32_t obj, const void *src, uint32_t len);   /* 0 = ok */
 #define PLAT_STORE_MAX 3840u           /* bytes per object */
 enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /* 16: ARR_USER_PATTERNS */

@@ -20,7 +20,15 @@ int plat_store_load(uint32_t o, void *dst, uint32_t max)
     uint32_t n;
     if (o >= OBJ_NOBJ || len[o] <= 0)
         return -1;
-    n = (uint32_t)len[o] < max ? (uint32_t)len[o] : max;
+    if ((n = (uint32_t)len[o]) > max)
+        return -1;                                   /* (as storage.c: the whole object, never cut short) */
+    memcpy(dst, obj[o], n);
+    return (int)n;
+}
+int plat_store_head(uint32_t o, void *dst, uint32_t n)
+{
+    if (o >= OBJ_NOBJ || len[o] <= 0 || (uint32_t)len[o] < n)
+        return -1;
     memcpy(dst, obj[o], n);
     return (int)n;
 }

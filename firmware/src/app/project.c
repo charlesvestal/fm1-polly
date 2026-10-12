@@ -16,6 +16,11 @@ static int obj_load(uint32_t obj, void *dst, uint32_t max)
 {
     return ts.on && obj != OBJ_PANEL ? ts_load(obj, dst, max) : plat_store_load(obj, dst, max);
 }
+/* an object's first n bytes (a slot's header: which kind of slot it is, before the whole is loaded) */
+static int obj_head(uint32_t obj, void *dst, uint32_t n)
+{
+    return ts.on && obj != OBJ_PANEL ? ts_head(obj, dst, n) : plat_store_head(obj, dst, n);
+}
 static int obj_save(uint32_t obj, const void *src, uint32_t len)
 {
     return ts.on && obj != OBJ_PANEL ? ts_save(obj, src, len) : plat_store_save(obj, src, len);
@@ -304,7 +309,7 @@ int project_songs_save(const songs_t *s) { return obj_save(OBJ_SONGS, s, sizeof 
 /* a lead part's header (its first LEAD_HDR bytes) as stored in slot i: 1 = one, in range */
 static int lead_hdr(int i, lead_hdr_t *h)
 {
-    if (obj_load((uint32_t)(OBJ_PAT0 + i), h, LEAD_HDR) != (int)LEAD_HDR)
+    if (obj_head((uint32_t)(OBJ_PAT0 + i), h, LEAD_HDR) != (int)LEAD_HDR)
         return 0;
     return h->magic == LEAD_MAGIC && h->kind == LEAD_KIND && h->song < ARR_SONGS && h->part < LEAD_PARTS &&
            h->n <= LEAD_PART_NOTES;
@@ -313,7 +318,7 @@ static int lead_hdr(int i, lead_hdr_t *h)
  * header alone) */
 static int loops_hdr(int i, lead_hdr_t *h)
 {
-    int got = obj_load((uint32_t)(OBJ_PAT0 + i), h, LEAD_HDR);
+    int got = obj_head((uint32_t)(OBJ_PAT0 + i), h, LEAD_HDR);
     if (got != (int)LEAD_HDR || h->magic != LEAD_MAGIC || h->kind != LOOPS_KIND || h->song >= ARR_SONGS)
         return 0;
     return h->n == 0 || h->n == ARR_LOOPS;
@@ -325,8 +330,8 @@ int project_slot_info(int i, slot_info_t *si, pattern_t *buf)
     memset(&h, 0, sizeof h);
     if (i < 0 || i >= ARR_USER_PATTERNS)
         return si->kind = SLOT_OTHER;
-    if (obj_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) <= 0)
-        return si->kind = SLOT_NONE;
+    if (obj_head((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) <= 0)
+        return si->kind = SLOT_NONE;                 /* (none, or shorter than a slot's header: not a pattern) */
     if (h.magic == LEAD_MAGIC) {
         if (loops_hdr(i, &h)) {
             si->song = h.song;
@@ -461,7 +466,7 @@ int project_factory_reset(songs_t *s, pattern_t *buf)
 int project_slot_clear(int i)
 {
     lead_hdr_t h;
-    if (i < 0 || i >= ARR_USER_PATTERNS || obj_load((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) != (int)LEAD_HDR ||
+    if (i < 0 || i >= ARR_USER_PATTERNS || obj_head((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR) != (int)LEAD_HDR ||
         h.magic != LEAD_MAGIC)
         return -1;
     h.n = 0;
