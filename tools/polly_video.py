@@ -11,6 +11,11 @@ Storyboard, one command a line (# comments); the scenario's own commands pass th
 the host counts it: tap 80 ms, press / release / key 2, tapkey 90, spin 1, turn N x GAP), plus:
   cap TITLE | DETAIL          the caption from here on (DETAIL optional)
   head TEXT                   the header line after "Polly" (default: a song from scratch, on the FM-1)
+  still NAME                  a still of the frame a moment from here (the screen and the panel), with --stills DIR:
+                              DIR/NAME.jpg, for a lesson's step
+  poster                      the thumbnail's frame (else the middle), with --poster FILE: a title card over it
+
+  python3 tools/polly_video.py STORY OUT.mp4 [--stills DIR] [--poster FILE.jpg]
   barms MS                    a bar's length (the tempo), for `at`
   anchor NAME                 NAME = the time now (the next command's moment)
   at NAME BARS [MS]           wait until NAME + BARS bars + MS (a float of bars is fine)
@@ -96,6 +101,10 @@ class Expander:
             self.ev("cap", title.strip(), detail.strip())
         elif c == "head":
             self.ev("head", s[5:].strip())
+        elif c == "still":
+            self.ev("still", w[1])
+        elif c == "poster":
+            self.ev("poster", "")
         elif c == "barms":
             self.barms = float(w[1])
         elif c == "anchor":
@@ -402,6 +411,44 @@ def render(work, events, leds, step, nframes):
             print(f"  frame {n}/{nframes}", flush=True)
 
 
+def frame_at(work, t, step, nframes):
+    n = min(max(int(t // step), 0), nframes - 1)
+    return Image.open(os.path.join(work, f"v{n:05d}.png")).convert("RGB")
+
+
+def stills(work, events, step, nframes, out):
+    """each `still`: its frame 0.6 s on (the press shown, the screen answered), the screen and the panel, 960 wide"""
+    os.makedirs(out, exist_ok=True)
+    for e in events:
+        if e[1] == "still":
+            im = frame_at(work, e[0] + 600, step, nframes)
+            ImageDraw.Draw(im).rectangle([810, 850, W, H], fill=CREAM)   # (the caption card's top: gone)
+            im = im.crop((30, 112, W - 40, 896))
+            im = im.resize((960, im.height * 960 // im.width), Image.LANCZOS)
+            im.save(os.path.join(out, e[2] + ".jpg"), quality=86)
+            print(f"  still {e[2]}")
+
+
+def poster(work, events, step, nframes, out):
+    """the thumbnail: the `poster` frame (else the middle), its caption card a title card (the header's text, the
+    length, a play button), its clock gone; 1280 wide"""
+    t = next((e[0] for e in events if e[1] == "poster"), nframes * step // 2)
+    im = frame_at(work, t, step, nframes)
+    d = ImageDraw.Draw(im)
+    head = next((e[2] for e in events if e[1] == "head"), "Polly")
+    mm, ss = divmod(int(nframes * step / 1000), 60)
+    d.rectangle([W - 300, 20, W, 90], fill=CREAM)
+    cy = int(150 + 640 * 1.06 + 30)
+    d.rounded_rectangle([820, cy, W - 60, 1040], radius=18, fill=CARD, outline=RULE, width=2)
+    r, cx, ccy = 52, 820 + 40 + 52, (cy + 1040) // 2
+    d.ellipse([cx - r, ccy - r, cx + r, ccy + r], fill=CORAL)
+    d.polygon([(cx - 16, ccy - 26), (cx - 16, ccy + 26), (cx + 28, ccy)], fill=(255, 250, 241))
+    d.text((cx + r + 30, ccy + 6), head, font=font(AV, 56, 2), fill=INK, anchor="ls")
+    d.text((cx + r + 30, ccy + 52), f"{mm}:{ss:02d}", font=font(AV, 32, 5), fill=MUTED, anchor="ls")
+    im.resize((1280, 720), Image.LANCZOS).save(out, quality=88)
+    print(f"  poster {out}")
+
+
 def parse_leds(stdout):
     out, cur = [], None
     for ln in stdout.splitlines():
@@ -444,6 +491,10 @@ def main():
         return 1 if fails else 0
     leds = parse_leds(r.stdout)
     render(work, x.events, leds, step, x.frame)
+    if "--stills" in a:
+        stills(work, x.events, step, x.frame, a[a.index("--stills") + 1])
+    if "--poster" in a:
+        poster(work, x.events, step, x.frame, a[a.index("--poster") + 1])
     if "--frames-only" in a:
         return 0
     subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-framerate", str(fps), "-i", os.path.join(work, "v%05d.png"),
