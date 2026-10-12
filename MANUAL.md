@@ -210,7 +210,8 @@ The screen has these bands:
 instruments (Band, "bar 2.3" on coral over it), a melody's section and its first bar (Sound with M1 or M2). What plays is filled teal (a
 teal line on Band). Both show at once: a coral outline round a teal fill is the cursor on the beat playing.
 Whatever you change flashes coral for half a second where it lands: a chord, a section, an instrument's row, a bar
-of notes just recorded, and what undo or redo brings back.
+of notes just recorded, and what undo or redo brings back. On Notes only the notes you changed flash (a small mark
+on the song line), so the selected note's ring stays clear while you turn a knob.
 
 **The colours** mean one thing each. **Teal**: sounding now (the bar, beat, section, progression playing; the
 playhead) and nothing else. **Coral**: you (the cursor, an edit's flash, the knob you turned, REC, a chord you play

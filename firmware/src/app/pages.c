@@ -2349,7 +2349,7 @@ static void draw_lead(int rec)
  * the groove or the song (PRESETS zooms: 8, 4, 2, 1 bars, an instrument down to a beat; the window holds the cursor,
  * recording the playhead): by place and pitch, a melody's plum over the other melody's pale, an instrument's ink; the
  * cursor a coral line at its place on the grid (its cell capped coral along the foot), the selected note ringed coral,
- * the playhead teal, the bars whose notes just changed flashing. Over it the readout, coral: "M1 . song bar 9 . Chorus
+ * the playhead teal, the notes an edit just changed flashing (ne_watch). Over it the readout, coral: "M1 . song bar 9 . Chorus
  * bar 1.3 . E5" ("BA . bar 2.3 . A2"; a drum's sound by name, "Snare"); for a melody the song line between, its window
  * marked under it. Notes are selected, not steps: SELECT goes through them in time order (a chord's notes one by one);
  * KNOB 1 moves the cursor through empty places too, where the keys enter notes (ui.c, editor.c) */
@@ -2480,6 +2480,142 @@ static void ne_where(char *t, int full)
 #define NL_W 224
 static struct { uint32_t w0, span, lo, hi; int32_t ly, lh, nh; } nd;   /* the lane being drawn */
 static int32_t ne_x(uint32_t t) { return NL_X + (int32_t)((t < nd.w0 ? 0u : t - nd.w0) * NL_W / nd.span); }
+/* an edit on Notes lights the notes it changed, not their bars (the visibility spec): the selected track's notes in
+ * the window and a window either side (a note moved out of it) kept, as place, length, pitch, velocity; when they
+ * change, those new or changed glow coral FLASH_MS (more as they come: those still there stay lit), a note gone with
+ * nothing new in its place its coral outline. More notes than kept (a busy drum part): the selected note lights */
+#define NF_SNAP 128
+#define NF_MAX 12
+typedef struct { uint32_t t; uint16_t len; uint8_t note, vel; } nf_ev_t;
+static struct {
+    uint32_t ctx, gen, lo, hi;                       /* whose notes and the map; their generation; the range kept */
+    uint8_t ok, n, over, nf, gone;                   /* (over: more than NF_SNAP in the range) */
+    uint32_t t;                                      /* the flash: since when */
+    nf_ev_t ev[NF_SNAP];                             /* the range's notes */
+    nf_ev_t f[NF_MAX];                               /* the notes flashing (gone: outlines) */
+} nfw;
+static nf_ev_t nf_nxt[NF_SNAP];
+static int nf_on(void) { return nfw.nf && nfw.t && plat_ms() - nfw.t < FLASH_MS; }
+static int nf_same(const nf_ev_t *a, const nf_ev_t *b)
+{
+    return a->t == b->t && a->len == b->len && a->note == b->note && a->vel == b->vel;
+}
+static int nf_in(const nf_ev_t *e, const nf_ev_t *l, int n)
+{
+    for (int i = 0; i < n; i++)
+        if (nf_same(e, &l[i]))
+            return 1;
+    return 0;
+}
+static int nf_lit(uint32_t t, int note)              /* a note flashing (not an outline) */
+{
+    if (!nf_on() || nfw.gone)
+        return 0;
+    for (int i = 0; i < nfw.nf; i++)
+        if (nfw.f[i].t == t && nfw.f[i].note == note)
+            return 1;
+    return 0;
+}
+static int nf_take(nf_ev_t *l, uint32_t lo, uint32_t hi, uint8_t *over)   /* the range's notes into l (NF_SNAP) */
+{
+    int n = 0, k = ne_trk();
+    *over = 0;
+    if (app.lead)
+        for (uint32_t i = 0; i < leads.n; i++) {
+            const lead_ev_t *e = lead_at_c(&leads, i);
+            uint32_t t;
+            if (lead_trk(e) != k || (t = nl_time(&ne_m, e)) == ~0u || t < lo || t >= hi)
+                continue;
+            if (n == NF_SNAP) {
+                *over = 1;
+                break;
+            }
+            l[n].t = t;
+            l[n].len = (uint16_t)lead_len(e);
+            l[n].note = e->note;
+            l[n++].vel = e->vel;
+        }
+    else {
+        const arr_trk_t *tr = &view.trk[k];
+        uint32_t end = ne_end();
+        for (uint32_t i = tr->first; i < (uint32_t)tr->first + tr->count && i < view.nev; i++) {
+            const arr_ev_t *e = &view.ev[i];
+            if (e->tick >= end || e->tick < lo || e->tick >= hi)
+                continue;
+            if (n == NF_SNAP) {
+                *over = 1;
+                break;
+            }
+            l[n].t = e->tick;
+            l[n].len = e->len;
+            l[n].note = e->note;
+            l[n++].vel = e->vel;
+        }
+    }
+    return n;
+}
+static void ne_watch(void)                           /* a frame: what changed among the notes flashes (nfw) */
+{
+    uint32_t ctx = hash(hash(ne.who, nd.span), ne_end()), gen, lo, hi, a, b;
+    nf_ev_t f[NF_MAX];
+    int n, i, nf = 0, gone = 0;
+    uint8_t over;
+    if (app.lead)
+        for (i = 0; i <= ne_m.n; i++)
+            ctx = hash(ctx, ne_m.start[i]);
+    gen = app.lead ? hash(hash(2166136261u, leads.gen), leads.n) : hash(hash(2166136261u, vw.dirty), vw.gen);
+    lo = nd.w0 >= nd.span ? nd.w0 - nd.span : 0u;
+    hi = nd.w0 + 2u * nd.span;
+    if (nfw.ok && nfw.ctx == ctx && nfw.gen == gen && nfw.lo == lo)
+        return;
+    n = nf_take(nf_nxt, lo, hi, &over);
+    if (nfw.ok && nfw.ctx == ctx && nfw.gen != gen) {
+        a = lo > nfw.lo ? lo : nfw.lo;               /* (in both ranges: a note across the edge is not new) */
+        b = hi < nfw.hi ? hi : nfw.hi;
+        if (nf_on() && !nfw.gone)                    /* those lit still there stay lit */
+            for (i = 0; i < nfw.nf; i++)
+                if (nf < NF_MAX && nf_in(&nfw.f[i], nf_nxt, n))
+                    f[nf++] = nfw.f[i];
+        if (!over && !nfw.over) {
+            for (i = 0; i < n && nf < NF_MAX; i++)  /* new or changed */
+                if (nf_nxt[i].t >= a && nf_nxt[i].t < b && !nf_in(&nf_nxt[i], nfw.ev, nfw.n) && !nf_in(&nf_nxt[i], f, nf))
+                    f[nf++] = nf_nxt[i];
+            if (!nf)                                 /* only gone: their outlines */
+                for (i = 0; i < nfw.n && nf < NF_MAX; i++)
+                    if (nfw.ev[i].t >= a && nfw.ev[i].t < b && !nf_in(&nfw.ev[i], nf_nxt, n))
+                        f[nf++] = nfw.ev[i], gone = 1;
+        } else if (ne.has)                           /* (too many to tell: the selected) */
+            for (i = 0; i < n && !nf; i++)
+                if (nf_nxt[i].t == ne.k.t && nf_nxt[i].note == ne.k.note)
+                    f[nf++] = nf_nxt[i];
+        if (nf) {
+            memcpy(nfw.f, f, (uint32_t)nf * sizeof f[0]);
+            nfw.nf = (uint8_t)nf;
+            nfw.gone = (uint8_t)gone;
+            nfw.t = plat_ms() | 1u;
+        }
+    } else if (nfw.ctx != ctx)
+        nfw.nf = 0;                                  /* (other notes: nothing flashes) */
+    memcpy(nfw.ev, nf_nxt, (uint32_t)n * sizeof nf_nxt[0]);
+    nfw.n = (uint8_t)n;
+    nfw.over = over;
+    nfw.ctx = ctx;
+    nfw.gen = gen;
+    nfw.lo = lo;
+    nfw.hi = hi;
+    nfw.ok = 1;
+}
+static int ne_box(uint32_t t, uint32_t len, int note, int32_t *x, int32_t *w, int32_t *y)   /* a note's box; 0 out */
+{
+    uint32_t e = t + len;
+    if (t >= nd.w0 + nd.span || e <= nd.w0)
+        return 0;
+    *x = ne_x(t);
+    *w = ne_x(e > nd.w0 + nd.span ? nd.w0 + nd.span : e) - *x - 1;
+    *w = *w < 3 ? 3 : *w > NL_X + NL_W - *x ? NL_X + NL_W - *x : *w;
+    *y = nd.ly + nd.lh - 3 - nd.nh - (int32_t)(((uint32_t)note - nd.lo) * (uint32_t)(nd.lh - 18 - nd.nh) / (nd.hi - nd.lo));
+    return 1;
+}
 static void ne_one(int pass, uint32_t t, uint32_t len, int note, int mine)
 {
     int32_t x, w, y;
@@ -2493,15 +2629,34 @@ static void ne_one(int pass, uint32_t t, uint32_t len, int note, int mine)
     }
     if (pass < 3 && (mine != pass - 1 || (mine && ne.has && t == ne.k.t && note == ne.k.note)))
         return;                                      /* (pass 1 the other melody's, 2 this one's, 3 the selected) */
-    x = ne_x(t);
-    w = ne_x(e > nd.w0 + nd.span ? nd.w0 + nd.span : e) - x - 1;
-    w = w < 3 ? 3 : w > NL_X + NL_W - x ? NL_X + NL_W - x : w;
-    y = nd.ly + nd.lh - 3 - nd.nh - (int32_t)(((uint32_t)note - nd.lo) * (uint32_t)(nd.lh - 18 - nd.nh) / (nd.hi - nd.lo));
+    ne_box(t, len, note, &x, &w, &y);
     if (pass == 3) {                                 /* the selected: ringed coral (the cursor's) */
         cv_rect(x - 3, y - 3, w + 6, nd.nh + 6, K_ACCENT);
         cv_rect(x - 1, y - 1, w + 2, nd.nh + 2, K_BG);
     }
-    cv_rect(x, y, w, nd.nh, !mine ? K_PLUM_P : app.lead ? K_PLUM : K_TEXT);
+    cv_rect(x, y, w, nd.nh, mine && nf_lit(t, note) ? K_ACCENT : !mine ? K_PLUM_P : app.lead ? K_PLUM : K_TEXT);
+}
+static void ne_glow(int over)                        /* the notes an edit changed: a pale coral glow under them (the
+                                                      * selected: round its ring), over them a note gone's outline */
+{
+    int32_t x, w, y;
+    if (!nf_on())
+        return;
+    for (int i = 0; i < nfw.nf; i++) {
+        const nf_ev_t *f = &nfw.f[i];
+        int sel = ne.has && f->t == ne.k.t && f->note == ne.k.note, g = sel ? 5 : 2;
+        if (over != nfw.gone || f->note < nd.lo || f->note > nd.hi ||
+            !ne_box(f->t, ne_drums() ? 1u : f->len, f->note, &x, &w, &y))
+            continue;
+        if (!nfw.gone)
+            cv_rect(x - g, y - g, w + 2 * g, nd.nh + 2 * g, RGB(250, 196, 170));
+        else {
+            cv_rect(x, y, w, 1, K_ACCENT);
+            cv_rect(x, y + nd.nh - 1, w, 1, K_ACCENT);
+            cv_rect(x, y, 1, nd.nh, K_ACCENT);
+            cv_rect(x + w - 1, y, 1, nd.nh, K_ACCENT);
+        }
+    }
 }
 static void ne_each(int pass)                        /* the window's notes, a pass (ne_one) */
 {
@@ -2525,7 +2680,7 @@ static void draw_notes(void)
 {
     const song_t *g = csong();
     int lead = app.lead != 0, k = ne_trk();
-    uint32_t span, end, blen, ph, gr, h, fb = 0, fr = 0, b;
+    uint32_t span, end, blen, ph, gr, h, b;
     char t[80];
     ne_ctx();
     span = ne_span();
@@ -2537,15 +2692,11 @@ static void draw_notes(void)
     nd.span = span;
     nd.ly = lead ? 49 : 22;
     nd.lh = 118 - nd.ly;
-    if (flash_on() && (lead ? fw.id == lead_watch_id(&ne_sm, k)
-                            : fw.id == (3u | (uint32_t)proj.song << 4 | (uint32_t)pslot() << 8 | (uint32_t)k << 12))) {
-        fb = fw.bars;
-        fr = fw.rows;
-    }
+    ne_watch();                                      /* (an edit here: its notes flash, not the bars: nfw) */
     h = hash(hash(2166136261u, ne.t), ne.k.t);
     h = hash(h, ne.k.note | (uint32_t)ne.has << 8 | (uint32_t)ne.zoom << 9 | (uint32_t)k << 12 | (uint32_t)lead << 16 |
                 (uint32_t)ne.erasing << 17 | (uint32_t)proj.quant << 18 | (uint32_t)arr_recording << 22);
-    h = hash(hash(hash(hash(h, nd.w0), ph == ~0u || ph < nd.w0 ? ~0u : (ph - nd.w0) * NL_W / span), fb), fr);
+    h = hash(hash(hash(hash(h, nd.w0), ph == ~0u || ph < nd.w0 ? ~0u : (ph - nd.w0) * NL_W / span), nfw.t), (uint32_t)nf_on());
     h = hash(hash(h, lead ? leads.gen | (uint32_t)leads.n << 16 : vw.dirty | vw.gen << 16), end);
     h = bytes_hash(hash(h, app.gen), g->row, (uint32_t)g->nrows * sizeof(row_t));
     if (lead)
@@ -2572,7 +2723,16 @@ static void draw_notes(void)
         ov_y = 20;
         ov_h = 20;
         ov_bars = (int32_t)(span / blen ? span / blen : 1u);
-        draw_song_line(&ne_sm, &v, k, fr, nd.w0 / blen);
+        draw_song_line(&ne_sm, &v, k, 0u, nd.w0 / blen);
+        if (nf_on()) {                               /* an edit's notes: a small coral mark each on the line */
+            int16_t sx[ARR_ROWS], sw[ARR_ROWS];
+            strip_layout(&ne_sm, sx, sw);
+            for (int i = 0; i < nfw.nf; i++) {
+                int fs = nmap_sect(&ne_m, nfw.f[i].t);
+                if (fs >= 0)
+                    cv_rect(line_x(&ne_sm, sx, sw, fs, nfw.f[i].t - ne_m.start[fs]) - 1, OV_Y + OV_H - 10, 3, 9, K_ACCENT);
+            }
+        }
         ov_y = 37;
         ov_h = 22;
         ov_bars = 4;
@@ -2586,8 +2746,6 @@ static void draw_notes(void)
             cv_rect(x0, nd.ly, x1 - x0 + 3, nd.lh, K_BG);
             break;
         }
-        if (lead ? (fb >> (b & 31u) & 1u) && (fr >> s & 1u) : (fb >> (b & 31u) & 1u) && (fr >> k & 1u))
-            cv_rect(x0, nd.ly + 1, x1 - x0, nd.lh - 2, RGB(250, 214, 196));
         if (span <= 2 * blen)
             for (uint32_t q = a + ARR_PPQ; q < a + blen && q < nd.w0 + span; q += ARR_PPQ)
                 if (q > nd.w0)
@@ -2601,12 +2759,6 @@ static void draw_notes(void)
         else
             itoa_u(b - (lead ? ne_sm.b0[s] : 0u) + 1u, t);
         cv_text(x0 + 3, nd.ly, &FONT_XS, t, first ? K_TEXT : K_DIM);
-    }
-    if (ne.t >= nd.w0 && ne.t < nd.w0 + span) {      /* the cursor: a coral line, its cell's cap along the foot */
-        int32_t cx = ne_x(ne.t), cw = ne_x(ne.t + gr) - cx;
-        cv_rect(cx - 1, nd.ly - 3, 3, nd.lh + 3, K_ACCENT);
-        if (cw >= 6)
-            cv_rect(cx, nd.ly + nd.lh - 4, cw, 4, K_ACCENT);
     }
     nd.lo = 127;                                     /* the pitches: an octave at least, around the notes */
     nd.hi = 0;
@@ -2622,8 +2774,16 @@ static void draw_notes(void)
     }
     nd.nh = (nd.lh - 18) / (int32_t)(nd.hi - nd.lo + 1u);
     nd.nh = nd.nh < 3 ? 3 : nd.nh > 6 ? 6 : nd.nh;
+    ne_glow(0);                                      /* (under the cursor: it stays whole) */
+    if (ne.t >= nd.w0 && ne.t < nd.w0 + span) {      /* the cursor: a coral line, its cell's cap along the foot */
+        int32_t cx = ne_x(ne.t), cw = ne_x(ne.t + gr) - cx;
+        cv_rect(cx - 1, nd.ly - 3, 3, nd.lh + 3, K_ACCENT);
+        if (cw >= 6)
+            cv_rect(cx, nd.ly + nd.lh - 4, cw, 4, K_ACCENT);
+    }
     ne_each(1);
     ne_each(2);
+    ne_glow(1);
     if (ne.has) {
         int i = ne_find();
         uint32_t len = i < 0 ? 1u : lead ? lead_len(lead_at_c(&leads, (uint32_t)i)) : ne_drums() ? 1u : view.ev[i].len;

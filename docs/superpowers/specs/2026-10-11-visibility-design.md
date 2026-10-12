@@ -28,6 +28,10 @@ Screens:
   the same; a changed row flashes; "section 3 of 6" by the cursor.
 - **Home**: the recording bar view already shows position; check the playing bar and the next chord read
   at a glance.
+- **Notes** (the note editor, 2026-10-12): an edit flashes only the notes it changed (filled coral, a pale coral
+  glow round them; a note deleted or erased: its coral outline), never the bar, and on the song line a small coral
+  mark at each, not the whole section; the selected note's coral ring and the cursor line stay whole over it.
+  Elsewhere (Progression's cells, Song's rows, Band's instruments) the cell or row flashes as before.
 - **Messages**: undo / redo flash the place they changed and jump the screen there if it's on another bar.
 
 Checks: screenshots of each screen stopped, playing and right after an edit, read at 240×240; host expects
