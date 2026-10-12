@@ -19,4 +19,4 @@ Change an instrument's sound, mix it, set the effects and move the key.
 [Mixer (LFO)](../../MANUAL.md#mixer-lfo) (mutes, and Mixer tone), [Effects (FX)](../../MANUAL.md#effects-fx),
 [Transpose](../../MANUAL.md#transpose).
 
-Next: 109 Keeping your work.
+Next: [109 Keeping your work](109-keeping-your-work.md)

@@ -18,4 +18,4 @@ Change, move, delete and enter single notes, without recording again.
 [Fixing notes](../../MANUAL.md#fixing-notes) (drums, melodies, zoom and erasing while recording),
 [Undo](../../MANUAL.md#undo).
 
-Next: 108 Making it sound yours.
+Next: [108 Making it sound yours](108-making-it-sound-yours.md)

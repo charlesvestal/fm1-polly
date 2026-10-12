@@ -18,4 +18,4 @@ Record your chords, fix one, set the length, name it, and play it from anywhere.
 [The Progression page (ARP)](../../MANUAL.md#the-progression-page-arp) (writing while stopped, the step, the list),
 [Home's Prog knob](../../MANUAL.md#homes-prog-knob).
 
-Next: 103 Your song.
+Next: [103 Your song](103-your-song.md)

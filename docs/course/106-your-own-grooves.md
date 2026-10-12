@@ -20,4 +20,4 @@ Record an instrument into the style's groove, and the groove becomes yours.
 [Picking a style](../../MANUAL.md#picking-a-style) (keeping your grooves), [Memory](../../MANUAL.md#memory) (copying a
 groove into a place with **SAVE**).
 
-Next: 107 Fixing notes.
+Next: [107 Fixing notes](107-fixing-notes.md)

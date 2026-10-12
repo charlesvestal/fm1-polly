@@ -18,4 +18,4 @@ Pick a style, play chords, and the band follows.
 chord Polly knows), [Changing grooves](../../MANUAL.md#changing-grooves) (the Intro and the other black keys),
 [Tempo](../../MANUAL.md#tempo).
 
-Next: 102 Your own progressions.
+Next: [102 Your own progressions](102-your-own-progressions.md)

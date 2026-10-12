@@ -16,4 +16,4 @@ Play your song in another style, and choose whose tempo it plays at.
 [Picking a style](../../MANUAL.md#picking-a-style) (the tempo, grooves that are yours),
 [(yours): your own copy](../../MANUAL.md#yours-your-own-copy), [Tempo](../../MANUAL.md#tempo).
 
-Next: 105 Recording a melody.
+Next: [105 Recording a melody](105-recording-a-melody.md)

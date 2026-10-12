@@ -20,4 +20,4 @@ python3 tools/polly_backup.py restore my-songs.plb</code></pre></td></tr>
 covers), [Memory](../../MANUAL.md#memory) (what each place holds), [Backup](../../MANUAL.md#backup) (what a backup
 holds, and restoring safely).
 
-Next: 110 With other gear.
+Next: [110 With other gear](110-with-other-gear.md)

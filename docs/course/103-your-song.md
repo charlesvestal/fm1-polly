@@ -17,4 +17,4 @@ Build a song from two progressions, shape its sections, and play it.
 [The Song page (HOME, HOME again)](../../MANUAL.md#the-song-page-home-home-again) (every knob, the mutes, the
 clocks).
 
-Next: 104 Changing styles.
+Next: [104 Changing styles](104-changing-styles.md)

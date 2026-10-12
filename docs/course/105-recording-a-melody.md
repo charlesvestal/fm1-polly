@@ -18,4 +18,4 @@ Record a melody along a short song, punch in on a section, and add a second melo
 [The Song page](../../MANUAL.md#the-song-page-home-home-again), [Good to know](../../MANUAL.md#good-to-know)
 (the grid, quantise).
 
-Next: 106 Your own grooves.
+Next: [106 Your own grooves](106-your-own-grooves.md)
