@@ -19,8 +19,11 @@ Screens:
 - **Band** (a groove's notes): add an edit position: a beat cursor (BAR / BEAT as on Progression, or OCT to
   step) shown as a vertical coral line across the instruments, the selected instrument's row highlighted,
   the playhead teal; notes recorded flash. (Note editing itself is a later step; this gives the place.)
-- **Melodies**: on Sound with a melody selected, the section's bars always shown (not only while recording),
-  the cursor/punch point visible, the melody's notes as ticks, the other melody dimmed.
+- **Melodies**: on Sound with a melody selected, always shown (not only while recording): the whole song as one
+  line (a box a section, as wide as its bars, its progression's name, its groove's tint, the notes as plum ticks,
+  the playhead teal, the section shown outlined), under it four bars running on across the sections (the cursor's
+  bar ringed coral, the bar playing teal), and one readout "song bar 9 · Chorus bar 1" (2026-10-12: one linear
+  timeline, the notes still kept by section); the other melody dimmed.
 - **Song**: the cursor section boxed in coral (thick), the playing section filled teal, distinct even when
   the same; a changed row flashes; "section 3 of 6" by the cursor.
 - **Home**: the recording bar view already shows position; check the playing bar and the next chord read
@@ -53,7 +56,8 @@ Each colour means one thing, on every page:
   bars (dim; the hot one coral); the page dots; the help card's and an instrument's pill (an ink outline); Mixer
   strips (muted: pale); where PLAY starts, stopped (an ink ring: Home's bar 1, HOME held's progression and groove).
   Hints are dim ink, not coral.
-- **Section colours only on the groove pills** (Home, HOME held, Band, Style, Song's GROOVE mark): **Groove A slate,
+- **Section colours only on the groove pills** (Home, HOME held, Band, Style, Song's GROOVE mark; light, a melody's
+  song line): **Groove A slate,
   Groove B amber**; Intro, Fill AB / BA, Ending are neutral outlined pills (one look for both fills).
 - **Plum: the melodies** (M1, M2 pills, strips, mute squares). Drums lose their coral (notes and strips are ink).
 

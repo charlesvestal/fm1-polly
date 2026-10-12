@@ -623,6 +623,17 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (%s: \"%s\")\n", f ? "footer" : "tag", t);
+    } else if (!strncmp(what, "where_is_", 9)) {  /* where_is_WORDS: a melody's readout, exactly ("_": a space, "|": the
+                                                  * dot): "song_bar_9|Chorus_bar_1" */
+        char w[64], t[64];
+        int i;
+        for (i = 0; i < 63 && what[9 + i]; i++)
+            w[i] = what[9 + i] == '_' ? ' ' : what[9 + i];
+        w[i] = 0;
+        lead_where(t);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (where: \"%s\")\n", t);
     } else if (!strncmp(what, "enc_is_", 7)) {   /* enc_is_WORDS: the encoders' line over the footer, exactly ("_": a
                                                   * space, "|": between the encoders; "enc_is_" alone: no line) */
         char w[96], t[96];

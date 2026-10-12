@@ -170,7 +170,7 @@ wait 100
 tap REC
 expect recording 1
 at A 28 -150
-cap 9. Add a melody | One melody along the whole song: it changes from section to section. Section 1: the verse line
+cap 9. Add a melody | The whole song along the top, four bars below; the notes land on both. Section 1: the verse line
 mel A 28 0 1.5 23
 mel A 28 1.5 0.5 21
 mel A 28 2 1 19
@@ -188,7 +188,7 @@ mel A 31 0 1.5 21
 mel A 31 2 1 18
 mel A 31 3 0.8 14
 at A 32 -150
-cap 9. Add a melody | Section 2, the chorus: a higher line that answers the verse, new notes (the take goes on)
+cap 9. Add a melody | Section 2, the chorus: the four bars run on across the boundary; a higher line, new notes
 mel A 32 0 0.5 23
 mel A 32 0.5 1.5 26
 mel A 32 2 1 23
@@ -306,16 +306,25 @@ cap 10. Play it | Section 1, the verse. M1: the verse line
 at S 6 400
 expect row 2
 expect sect 3
-cap 10. Play it | Section 2, the chorus on Groove B (a fill leads in). M1: the chorus line, new notes
+cap 10. Play it | Section 2, the chorus on Groove B (a fill leads in). EDIT: M1's page, the song as one line
+wait 700
+tap EDIT
+expect page 8
+expect lead_sel 1
+cap 10. Play it | M1 along the whole song: the teal line runs through the sections, the four bars below follow it
 at S 10 400
 expect row 3
 expect mutes 7
-cap 10. Play it | Section 3, the breakdown: D1, D2, PC muted. M1: the verse line, varied
+cap 10. Play it | Section 3, the breakdown (D1, D2, PC muted): on into verse 2, M1's varied verse line
 at S 14 400
 expect row 4
-cap 10. Play it | Section 4, the last chorus, twice. M1 too is a tone up with the key change (+2: D, A, Bm, G)
+cap 10. Play it | Section 4, the last chorus, twice: the widest box on the line. M1 a tone up with the key change (+2)
 at S 18 400
-cap 10. Play it | The last chorus again: M1 takes its new ending
+cap 10. Play it | The last chorus again: M1 takes its new ending. HOME, SELECT: back to the Song page
+tap HOME
+wait 400
+turn SELECT 1
+expect page 1
 at S 22 400
 expect sect 6
 cap 10. Play it | The Ending, and the song stops by itself

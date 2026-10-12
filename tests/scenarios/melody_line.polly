@@ -1,0 +1,248 @@
+# POLLY, a melody's view as one line along the song (Sound with M1 / M2, and its recording): the whole song end to end
+# over a lane of four bars that runs on across the sections, one readout "song bar 9 . Chorus bar 1".
+# P1 named Verse, P2 Chorus (4 bars each); the song Verse, Chorus (Groove B), Verse, Chorus (Groove B, x2), no Intro.
+# 120 BPM: a bar 2000 ms. Keys (octave 0): key K is MIDI 53 + K: C4 7, D4 9, E4 11, G4 14, A4 16, C5 19.
+wait 300
+spin K2 15
+expect tempo 120
+# ---- the names: P1 Verse, P2 Chorus (Progression page 2, KNOB 4)
+press HOME
+tapkey w0
+release HOME
+tap ARP
+turn SELECT 1
+expect page 5
+turn K4 1
+expect loop_name1 Verse
+press HOME
+tapkey w1
+release HOME
+tap ARP
+turn SELECT 1
+expect page 5
+turn K4 2
+expect loop_name2 Chorus
+expect loop_bars1 4
+expect loop_bars2 4
+# ---- the song: Verse, Chorus, Verse, Chorus; the choruses Groove B, the last x2; no Intro
+tap HOME
+turn SELECT 1
+expect page 1
+tapkey w0
+tapkey w1
+tapkey w0
+tapkey w1
+expect rows 4
+expect row_loop2 2
+spin K1 -9
+spin K1 1
+expect cursor 2
+turn K3 2
+expect row_sect2 2
+spin K1 2
+expect cursor 4
+turn K4 1
+expect row_rep4 2
+turn SELECT 1
+expect page 2
+turn K2 -1
+expect song_intro 0
+turn SELECT -1
+expect page 1
+# ---- stopped: Sound with M1, the Song page's cursor on section 2: "song bar 5 . Chorus bar 1", ringed coral
+spin K1 -2
+expect cursor 2
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+expect where_is_song_bar_5|Chorus_bar_1 1
+wait 1500
+shot stopped.png
+# ---- recording from section 1 (the cursor back there; REC, PLAY), a line across the verse into the chorus
+tap HOME
+turn SELECT 1
+expect page 1
+spin K1 -9
+expect cursor 1
+tap EDIT
+tap REC
+wait 50
+expect recording 1
+expect where_is_song_bar_1|Verse_bar_1 1
+tap PLAY
+expect playing 1
+wait 960
+key 7 down
+wait 400
+key 7 up
+wait 600
+key 11 down
+wait 400
+key 11 up
+wait 600
+key 14 down
+wait 900
+key 14 up
+wait 600
+key 16 down
+wait 900
+key 16 up
+wait 600
+key 14 down
+wait 400
+key 14 up
+wait 300
+key 11 down
+wait 600
+key 11 up
+expect where_is_song_bar_4|Verse_bar_4.3 1
+shot rec_verse_end.png
+wait 800
+key 19 down
+wait 900
+key 19 up
+wait 300
+key 21 down
+wait 400
+key 21 up
+wait 200
+key 19 down
+wait 300
+key 19 up
+wait 50
+expect row 2
+expect where_is_song_bar_6|Chorus_bar_2.1 1
+expect lead_count1_1 6
+expect lead_count1_2 3
+shot rec_into_chorus.png
+# the take goes on through verse 2 and the last chorus; REC off, the song stopped
+wait 6700
+tapkey 16
+wait 2000
+tapkey 14
+wait 6000
+tapkey 19
+wait 8000
+tapkey 21
+wait 300
+expect row 4
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+expect playing 0
+expect lead_count1_3 2
+expect lead_count1_4 2
+# ---- playing the 4-section song from the Song page; on EDIT (M1): the playhead along the line, the lane in verse 2
+tap HOME
+turn SELECT 1
+expect page 1
+tap PLAY
+expect playing 1
+tap EDIT
+expect page 8
+wait 18150
+expect row 3
+expect where_is_song_bar_10|Verse_bar_2.1 1
+shot playing.png
+# ---- M2, M1 dim under it: ALGORITHM on; REC counts in to the next bar, a few notes in verse 2
+turn ALGO 1
+expect lead_sel 2
+tap REC
+wait 50
+expect recording 1
+wait 300
+shot m2_countin.png
+wait 1800
+tapkey 9
+wait 500
+tapkey 12
+wait 500
+tapkey 16
+wait 500
+tapkey 12
+wait 300
+shot m2_rec.png
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect playing 0
+expect lead_count2_3 4
+shot m2_stopped.png
+# ---- a long song: ten more sections (P3-P8 the ready-made ones, then verse, chorus...), some repeated; the line keeps
+# every section, narrow ones shortened, a run of the same progression named once
+turn ALGO -1
+expect lead_sel 1
+tap HOME
+turn SELECT 1
+expect page 1
+spin K1 9
+tapkey w2
+tapkey w3
+tapkey w4
+tapkey w4
+tapkey w4
+tapkey w5
+tapkey w6
+tapkey w7
+tapkey w0
+tapkey w1
+expect rows 14
+spin K1 -20
+spin K1 4
+expect cursor 5
+turn K4 3
+spin K1 3
+expect cursor 8
+turn K3 2
+spin K1 3
+expect cursor 11
+turn K4 7
+spin K1 -2
+expect cursor 9
+tap EDIT
+expect lead_sel 1
+wait 1500
+shot long_stopped.png
+tap PLAY
+wait 9300
+expect row 2
+shot long_playing.png
+tap PLAY
+wait 100
+# ---- 32 sections (the most), some x8: the line still holds every one, 1 px apart
+tap HOME
+turn SELECT 1
+spin K1 30
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+tapkey w0
+tapkey w1
+expect rows 32
+turn K4 7
+spin K1 -9
+spin K1 -9
+spin K1 -9
+spin K1 -9
+spin K1 20
+expect cursor 21
+turn K4 7
+tap EDIT
+wait 1500
+shot long32.png

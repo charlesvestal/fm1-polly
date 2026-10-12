@@ -205,7 +205,7 @@ The screen has these bands:
 
 **The cursor and the playhead.** Where the knobs and keys write is outlined in thick coral: a chord's cell
 (Progression, its bar and beat numbers on coral), a section (Song, "section 3 of 6" by it), a line down the
-instruments (Band, "bar 2.3" on coral over it), a melody's first bar (Sound with M1 or M2). What plays is filled teal (a
+instruments (Band, "bar 2.3" on coral over it), a melody's section and its first bar (Sound with M1 or M2). What plays is filled teal (a
 teal line on Band). Both show at once: a coral outline round a teal fill is the cursor on the beat playing.
 Whatever you change flashes coral for half a second where it lands: a chord, a section, an instrument's row, a bar
 of notes just recorded, and what undo or redo brings back.
@@ -559,9 +559,9 @@ shape (over the same chord at the same TRANSPOSE it plays exactly as heard).
 2. Press **EDIT** and turn **ALGORITHM** past C4 to **M1**. The keys play its sound (a square lead; M2
    is strings).
 3. Press **REC**. The click counts in to the next bar line ("REC M1 · starts at the next bar", the beats
-   left big in that bar); during the Intro it waits for section 1. Play along. The screen says where you are,
-   "REC M1 · section 3 · bar 2.3", shows the section as bars with your notes in it, and the song's sections
-   underneath, the one playing in teal.
+   left big in that bar); during the Intro it waits for section 1. Play along. Under "REC M1" the screen says where the
+   next note lands, "song bar 6 · Chorus bar 2.1", and shows the song as one line with your notes landing
+   on it (see *Where it is* below).
 4. Press **REC** again to stop recording. The song plays on. Stopping the song stops recording too
    ("RECORD OFF SONG STOPPED"), so the next PLAY doesn't record over the song.
 
@@ -569,9 +569,22 @@ Notes go into the section playing, at their place on the Band page's grid. You h
 the section plays. Recording again over a section (a punch in) adds notes to what's there; to replace a
 section's melody, clear it first (**SEL**: the list opens on **CLEAR M1 IN SECTION n**), then record.
 
-- **Where it is:** with M1 or M2 picked, the Sound page shows the section of the Song page's cursor as bars with the
-  melody's notes (the other melody's dim), and the song's sections under them. Stopped, that section's bar 1 is ringed
-  coral, "section 2 · bar 1": where PLAY and REC start. Playing, the bar playing is teal ("section 2 · bar 3.1").
+- **Where it is:** with M1 or M2 picked, the Sound page shows the song as one line, whether it plays or not:
+  - **The whole song** across the top, its sections end to end, each as wide as its bars (REPEAT counted),
+    named after its progression ("Verse", "Chorus x2"; shortened when narrow, and a run of the same progression
+    named once), slate for Groove A, amber for Groove B. The melody's notes are plum ticks along it (the other
+    melody's pale), and while the song plays a teal line runs through it. The section you're in is outlined: teal
+    while it plays, coral for the Song page's cursor when stopped. A short line under it marks the four bars shown
+    below.
+  - **Four bars** under it, running on from section to section: the bar before the place, the place and two
+    after. A section's first bar carries its name and a divider; the others their number in the section. The
+    notes are placed by time and pitch (the other melody's pale), the bar playing is teal with its beats, notes
+    just recorded flash their bar coral.
+  - **One readout** over them: "song bar 9 · Chorus bar 1". Stopped, it's the Song page's cursor section's
+    first bar, ringed coral: where PLAY FROM SECTION and REC's punch in start. Playing, the bar and beat in teal
+    ("Chorus bar 3.2"); recording, where the next note lands, in coral.
+
+  ![A melody recording along the song](docs/img/manual/melody.png)
 - **Punch in:** on the Song page, move the cursor (SECTION) to the section; then on **EDIT**, **REC** and **PLAY**:
   the song starts at that section (REC's screen rings it) and records from its first downbeat. (Or, stopped,
   REC while free or on a progression puts the song on first.)
