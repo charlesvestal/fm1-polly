@@ -1,0 +1,26 @@
+# POLLY, Notes and the Bass rule, yes: the bass plays as written (Type Chord 1, one undo step), the readout plain.
+wait 300
+press HOME
+tapkey w0
+release HOME
+tap PLAY
+wait 2000
+tap SEQ
+turn ALGO -1
+tap SEQ
+expect page 17
+spin K2 5
+expect asking 1
+tap SEL
+expect asking 0
+expect slot1_trk4_xtype 2
+expect slot1_trk4_note0 41
+expect notes_where_is_BA|bar_1.1|F2 1
+wait 300
+shot bass_written.png
+# ---- undo: the Bass rule back (the pitch edit stays: a step of its own)
+press HOME
+tap REC
+release HOME
+expect slot1_trk4_xtype 4
+expect slot1_trk4_note0 41

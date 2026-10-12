@@ -844,6 +844,11 @@ carry their number, and a section's first bar carries its name.
   there's none, the cursor is on an empty place.
 - **Change pitch.** **KNOB 2** (Pitch) changes the selected note's pitch. For a drum, it changes the sound:
   Snare, Closed hat and so on.
+- **Bass notes on a chord change.** A style's bass plays the chord's root on the first note after each chord
+  change, whatever that note is written as. So when you change the pitch of a bass note on a beat, Polly asks
+  "BASS PLAYS THE ROOT HERE. AS WRITTEN?" once for that groove. **SEL** (yes) makes the bass play every note
+  as written: its Type becomes Chord 1 (see [Sound](#sound-edit)), and **HOME** + **REC** undoes it. **HOME**
+  (no) keeps the rule, and the readout says so by the note: "F2, root on changes".
 - **Change length.** **KNOB 3** (Length) changes the note's length, one grid step per detent. The length
   shows in beats ("1/2", "1 1/2"). Hold **SEL** for finer steps.
 - **Change velocity.** **KNOB 4** (Velocity) sets how hard the note plays.
@@ -900,7 +905,7 @@ set its ends.
 | Parallel | Riffs | Moves with the chord's root and keeps its shape. |
 | Chord 1 | Chords, arpeggios | Each note moves to the matching note of the new chord. |
 | Chord 2 | Pads | Like Chord 1, but each note stays close to the one before, for smooth voice leading. |
-| Bass | Bass lines | Like Chord 1, and the first note after a chord change is the root, or the slash bass. |
+| Bass | Bass lines | Like Chord 1, and the first note after a chord change is the root, or the slash bass, whatever it's written as. |
 
 ### Sound 2 (EDIT, SELECT)
 

@@ -160,6 +160,32 @@ static void ne_select(int32_t e)                 /* SELECT: the next notes (SEL 
     }
     ne.kind = 0;
 }
+/* the Bass rule (xpose.c: a Bass-type instrument's first note after a chord change plays the root): an edit that it
+ * would not let you hear (ne_lands) asks once a groove whether the instrument should play as written, Chord 1 (as Bass
+ * without the rule; Sound 2's Type). Yes: one undo step; no: the rule stays, asked no more for this groove */
+static uint8_t ne_bass_asked;                    /* the slots asked (bit s), until a restart */
+static int8_t ne_bass_s, ne_bass_t;
+static void ne_bass_yes(void)
+{
+    int s = ne_bass_s, t = ne_bass_t;
+    undo_hint("PLAY AS WRITTEN");
+    undo_commit();
+    app.trk[s][t].x.type = XT_CHORD1;
+    edited(s);
+    edits_flush();
+    say("PLAYS AS WRITTEN", "TYPE: CHORD 1");
+}
+static void ne_lands_ask(void)
+{
+    int s = pslot();
+    view_refresh(s);                             /* (the edit just stored: its notes) */
+    if (!ne_lands() || (ne_bass_asked >> s & 1u) || ui.ask)
+        return;
+    ne_bass_asked |= (uint8_t)(1u << s);
+    ne_bass_s = (int8_t)s;
+    ne_bass_t = (int8_t)(proj.trk & 7);
+    ask("BASS PLAYS THE ROOT HERE. AS WRITTEN?", ne_bass_yes);
+}
 static void ne_knob(int kn, int32_t e)
 {
     uint32_t g = ne_grid(), end, len = 0, mx;
@@ -192,6 +218,7 @@ static void ne_knob(int kn, int32_t e)
         ne_kind(NE_PITCH);
         while (n != ne.k.note && ne_do(NE_MOVE, ne.k.t, n, 0, 0, 0) < 0 && n + d >= 0 && n + d <= 127)
             n += d;
+        ne_lands_ask();
     } else if (kn == 2) {                        /* LENGTH: a grid step (SEL held: fine), the groove's length at most */
         uint32_t st = fine ? 10u : g, lo = fine ? 10u : len < g ? len : g;
         int32_t nl = (int32_t)len + accel(EN_K3, e) * (int32_t)st;
@@ -224,6 +251,8 @@ static void ne_key(int note)
     ne_kind(NE_ADD);
     if (ne_do(NE_ADD, ne.t, note, ne_grid(), app.lead ? sel_lead()->vel : 100, 0) < 0 && app.lead)
         say("NO SECTION", "HERE");
+    else if (!app.lead)
+        ne_lands_ask();
 }
 static void ne_key_up(void)
 {

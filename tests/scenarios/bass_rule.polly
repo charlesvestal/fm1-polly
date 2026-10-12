@@ -1,0 +1,33 @@
+# POLLY, Notes and the Bass rule (xpose.c: a Bass-type instrument's first note after a chord change plays the root).
+# A pitch edit the rule would hide (BA's downbeat C2 to F2, P1 changing chord every bar) asks once a groove whether
+# the bass should play as written (Type Chord 1): no keeps the rule (the readout says so), yes switches, undo puts it
+# back; not asked again for that groove.
+wait 300
+press HOME
+tapkey w0
+release HOME
+tap PLAY
+wait 2000
+tap SEQ
+turn ALGO -1
+expect track 4
+tap SEQ
+expect page 17
+expect slot1_trk4_xtype 4
+expect notes_where_is_BA|bar_1.1|C2 1
+# ---- C2 to F2: the question; HOME: no, the rule stays and the readout says it
+spin K2 5
+expect slot1_trk4_note0 41
+expect asking 1
+wait 300
+shot bass_ask.png
+tap HOME
+expect asking 0
+expect slot1_trk4_xtype 4
+expect notes_where_is_BA|bar_1.1|F2,_root_on_changes 1
+wait 300
+shot bass_root.png
+# ---- asked once a groove: another edit there, no question
+spin K2 2
+expect slot1_trk4_note0 43
+expect asking 0

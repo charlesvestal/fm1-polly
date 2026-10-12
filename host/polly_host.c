@@ -856,7 +856,7 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "slot", 4) && strstr(what, "_bank"))    /* slotN_bank: 1 plays a QY70 style's section */
         got = app.slot_buf[atoi(what + 4) % ARR_NSECT] >= 0;
     else if (!strncmp(what, "slot", 4) && strstr(what, "_trk") && (strstr(what, "_note") || strstr(what, "_tick") ||
-                                                                strstr(what, "_count"))) {
+                                                                strstr(what, "_count") || strstr(what, "_xtype"))) {
         /* slotS_trkT_noteI / _tickI: the arranger's slot S's track T (1..8), its event I (0..): pitch, tick (-1 none);
          * slotS_trkT_count: its notes */
         const char *q = strstr(what, "_trk") + 4, *f = strchr(q, '_');
@@ -866,6 +866,8 @@ static int expect(const char *what, const char *val)
         tr = &dbg_pat.trk[t];
         if (f && !strncmp(f, "_count", 6))
             got = tr->count;
+        else if (strstr(what, "_xtype"))           /* slotS_trkT_xtype: its follow type (XT_*: 2 Chord 1, 4 Bass) */
+            got = tr->x.type;
         else if (i < 0 || i >= tr->count)
             got = -1;
         else

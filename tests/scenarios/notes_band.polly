@@ -20,10 +20,14 @@ shot band_bass.png
 spin K2 2
 expect ne_note 38
 expect slot1_trk4_note0 38
-expect msg_is_GROOVE 1
+# (the question below takes the header from GROOVE A NOW YOURS; the tag says yours)
 expect tag_is_S1>Pop>Groove_A_(yours)>BA_Finger_Bass 1
 wait 300
 shot band_bass_edit.png
+# (a downbeat the Bass rule plays as the root: asked once whether to play it as written; no here, bass_rule.polly)
+expect asking 1
+tap HOME
+expect asking 0
 # ---- D1: kick and closed hat at bar 1.1, one by one (by pitch); the hat a pedal hat (named)
 turn ALGO -3
 expect track 1

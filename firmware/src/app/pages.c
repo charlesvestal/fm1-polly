@@ -2438,6 +2438,27 @@ static int ne_find(void)
 {
     return app.lead ? nl_find(&leads, &ne_m, ne_trk(), ne.k) : np_find(&view, ne_trk(), ne.k);
 }
+/* the selected note, if the Bass rule plays the chord's root in its place (xpose.c: the first note of a Bass-type
+ * instrument after a chord change, the root whatever it was written as): a Bass-type track's (not switched to "as
+ * played"), not written as a C, the first of its track on its beat (where the progression's chords change). Notes says
+ * so by the note, and asks once a groove at an edit there (editor.c ne_lands_ask) */
+static int ne_lands(void)
+{
+    const arr_trk_t *k = &app.trk[pslot()][proj.trk & 7], *vt = &view.trk[proj.trk & 7];
+    const arr_ev_t *x;
+    int i;
+    uint32_t b0;
+    if (app.lead || !ne.has || k->x.type != XT_BASS || (k->flags & ARR_TF_ASPLAYED) || (i = ne_find()) < 0)
+        return 0;
+    x = &view.ev[i];
+    if (x->note % 12 == 0)
+        return 0;
+    b0 = x->tick - x->tick % ARR_PPQ;
+    for (uint32_t j = vt->first; j < (uint32_t)vt->first + vt->count && j < view.nev; j++)
+        if (view.ev[j].tick >= b0 && view.ev[j].tick < x->tick)
+            return 0;
+    return 1;
+}
 static int ne_near(nkey_t *k, int dir)
 {
     return app.lead ? nl_near(&leads, &ne_m, ne_trk(), k, dir) : np_near(&view, ne_trk(), ne_end(), k, dir);
@@ -2533,8 +2554,12 @@ static void ne_where(char *t, int full)
     p = itoa_u(b + 1u, p);
     *p++ = '.';
     p = itoa_u(ne.t % blen / ARR_PPQ + 1u, p);
-    if (ne.has)
-        ne_name(ne.k.note, cat_s(p, "|"));
+    if (ne.has) {
+        p = cat_s(p, "|");
+        ne_name(ne.k.note, p);
+        if (ne_lands())                              /* (heard as the root where the chord changes on its beat) */
+            cat_s(p + slen(p), ", root on changes");
+    }
 }
 #define NL_X 8
 #define NL_W 224
