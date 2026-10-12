@@ -24,6 +24,7 @@ int main(void)
     CHECK(!strcmp(name(7, CH_NONE, CH_NOBASS), "G"), "%s", name(7, CH_NONE, CH_NOBASS));
     CHECK(!strcmp(name(2, CH_MAJ, 2), "D"), "slash equal to the root is not shown: %s", name(2, CH_MAJ, 2));
     CHECK(!strcmp(chord_type_name(CH_MINMAJ7), "mM7"), "mM7");
+    CHECK(!strcmp(chord_type_name(CH_NONE), "-"), "no chord: the one dash, as the Type knob's (%s)", chord_type_name(CH_NONE));
 
     /* degree tables: the chord's own tones where it has them */
     {

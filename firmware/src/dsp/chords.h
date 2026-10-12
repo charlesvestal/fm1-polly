@@ -18,7 +18,7 @@ typedef struct {
     uint8_t bass;   /* 0..11, or CH_NOBASS */
 } chord_t;
 
-const char *chord_type_name(int type);           /* "", "add9", "M7", ... ("---" for CH_NONE) */
+const char *chord_type_name(int type);           /* "", "add9", "M7", ... ("-" for CH_NONE) */
 char *chord_name(chord_t c, char *buf);          /* "Bm7/E"; buf >= 12 bytes; returns the end */
 /* the chord's pitch for each degree, semitones over the root: its own tones where it has them (root, 3rd,
  * 5th, 7th, and the tensions it names), the implied scale's notes for the rest */

@@ -449,7 +449,8 @@ There are 25 chord types.
 | | 7(#11) | mM7 | |
 | | 7(#5) | m7(b5) | |
 
-A progression with no chords in it yet shows "---". With "---", every instrument just moves with the root.
+Where a beat has no chord of its own, the Progression page's Type knob shows "–". A progression with no
+chords in it yet plays "–" too: every instrument just moves with the root.
 
 ### Transpose
 

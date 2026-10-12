@@ -4,7 +4,7 @@
 
 static const char *const TYPE_NAME[CH_NTYPES] = {"", "add9", "M7", "M7(9)", "6", "aug", "7", "7(9)", "7(#9)", "7(b9)",
     "7(13)", "7(b13)", "7(#11)", "7(#5)", "7sus4", "sus4", "m", "madd9", "m7", "m7(9)", "m7(11)", "m6", "mM7",
-    "m7(b5)", "dim", "---"};
+    "m7(b5)", "dim", "-"};                 /* (CH_NONE, no chord yet: the one dash the screens show for "no chord") */
 static const char *const NOTE[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 
 /* per type: semitones over the root for R, 9, 3, 11, 5, 13, 7 (DEG_* order). The chord's own tones where it
