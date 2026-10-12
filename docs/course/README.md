@@ -1,16 +1,12 @@
-# Polly course
+# Polly School
 
-Short lessons, each with a video and a picture for every step. Take them in order. For every detail, see the
+Short lessons, each with a video and a picture for every step. Start with 101 and take them in order. For every detail, see the
 [manual](../../MANUAL.md).
 
-The videos start from a new Polly. Lessons 102 to 108 start with a new song, so what you did in the lessons
-before doesn't get in the way: on the Song page (**HOME** on the Home page), press **SEL**, turn **SELECT** to NEW
-SONG and press **SEL** twice. The song is then as on a new Polly. Undo (hold **HOME** and press **REC**) brings
-the old one back. To keep a song you made, switch to another one first: hold **HOME** and turn **PRESETS**.
+The lessons build on each other: each one starts where the one before ended.
 
 | Lesson | What you do |
 | --- | --- |
-| [Quick start](../../QUICKSTART.md) | Write a verse and a chorus, and play them as a song. |
 | [101 Playing live](101-playing-live.md) | Pick a style, play chords, change grooves, and end with the Ending. |
 | [102 Your own progressions](102-your-own-progressions.md) | Record chords, fix one, change the length, name it, and switch progressions. |
 | [103 Your song](103-your-song.md) | Add and remove sections, set their grooves, repeats and mutes, and play the song. |

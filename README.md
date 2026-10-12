@@ -9,8 +9,7 @@ Polly is private for now.
 You can try it in the browser at <https://charles.pizza/qy/>. That's an internal test build, and it's
 unlisted.
 
-- [QUICKSTART.md](QUICKSTART.md): switch on and write your first song in eight steps.
-- [The course](docs/course/README.md): ten short lessons, each with a video.
+- [School](docs/course/README.md): ten short lessons, each with a video. Start here.
 - [MANUAL.md](MANUAL.md): the full manual. Its [cheat sheet](MANUAL.md#cheat-sheet) has the words and the
   common tasks on one page.
 

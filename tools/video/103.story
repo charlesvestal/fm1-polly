@@ -1,31 +1,32 @@
-# Polly 103, your song (docs/course/103-your-song.md), from a fresh boot, with a pause on each step's caption before
-# its first move and after its last (tools/polly_video.py tools/video/103.story OUT.mp4).
-# Two ready-made progressions, P1 Pop and P2 Ballad (4 bars each). Pop, 105 BPM: a bar 2285.714 ms.
+# Polly 103, your song (docs/course/103-your-song.md), where 102 ended (hidden: 101 and 102 replayed), with a pause
+# on each step's caption before its first move and after its last (tools/polly_video.py tools/video/103.story OUT.mp4).
+# Two ready-made progressions, P1 Pop and P2 Ballad (4 bars each). Funk (101's), 100 BPM: a bar 2400 ms.
 # The song: 1 P1 (drums muted), 2 P2 on Groove B x2, 3 P1; Intro and Ending on. Anchor S: PLAY.
 head 103 Your song
-barms 2285.714
+# ---- where 102 ended: Funk, stopped on the Progression page's page 2, P9 Verse on Home, the song empty
+hide
+include 102.story
+expect playing 0
+expect page 5
+expect tempo 100
+expect loop_name9 Verse
+expect rows 0
+show
+barms 2400
 cap Your song | Build a song from two progressions, remove a section, shape the others, and play it.
 wait 3500
 # ---- 1. sections
-cap 1. Add sections | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
+cap 1. Add sections | Press HOME for the Home page, and HOME again for the Song page.
 wait 2500
+expect page 5
+tap HOME
+wait 900
 expect page 0
 tap HOME
 wait 900
 expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
 expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
+wait 1000
 cap 1. Add sections | Press white keys 1, 2, 1 and 2.
 wait 2500
 expect page 1

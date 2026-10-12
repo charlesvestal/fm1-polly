@@ -2,6 +2,8 @@
 
 Send Polly's band to a computer, follow its clock, play from a keyboard and mirror the screen.
 
+Starts where [109](109-keeping-your-work.md) ended. Any song works.
+
 [![110 With other gear, the video (20 seconds)](../video/110.jpg)](../video/110.mp4)
 
 <table>

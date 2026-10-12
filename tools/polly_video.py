@@ -22,6 +22,15 @@ the host counts it: tap 80 ms, press / release / key 2, tapkey 90, spin 1, turn 
   chord HOLD K K K...         the keys down together, held HOLD ms, up
   note HOLD K                 one key, held HOLD ms
   mel NAME BAR BEAT DUR K     key K at NAME + BAR bars + BEAT beats (+10 ms), held 85 % of DUR beats (4 beats a bar)
+
+Setup that isn't filmed (a lesson that starts where the one before ended):
+  hide                        from here nothing is recorded: no frames, no events (captions, stills, the panel), no
+                              audio; the commands still run on the host (expects too). Only before the video starts
+  show                        the video starts here: frame 0, the clock at 0:00, the WAV (song.wav) from here
+  include FILE                FILE's commands (a storyboard; relative to this one's folder, else to the repository),
+                              run hidden: its captions, stills, poster, head, hide and show are left out, its barms
+                              and anchors are its own. Includes nest (104 includes 103, which includes 102, ...)
+A storyboard with neither starts its video at its first command.
 """
 import json
 import os
@@ -47,14 +56,30 @@ class Expander:
         self.events = []            # [t, kind, name, value]
         self.anchors = {}
         self.barms = 2000.0
+        self.hidden = False         # hide ... show: run, not recorded
+        self.inc = 0                # include depth (> 0: hidden, hide / show ignored)
+        self.started = False        # the video has begun (its frame 0)
+        self.t0 = 0                 # the simulated time of frame 0
+        self.wavname = "song.wav"
+
+    def begin(self):
+        """the video's frame 0, here: the clock and the frames count from now, the WAV starts"""
+        self.started = True
+        self.t0 = self.t
+        self.next_shot = self.t
+        self.out.append(f"wav {self.wavname}")
 
     def shots_due(self):
+        if self.hidden:
+            return
+        if not self.started:
+            self.begin()
         while self.next_shot <= self.t:
-            self.out.append(f"echo F {self.frame} {self.t}\n")
+            self.out.append(f"echo F {self.frame} {self.t - self.t0}\n")
             self.out.append("leds")
             self.out.append(f"fbdump f{self.frame:05d}.raw")
             self.frame += 1
-            self.next_shot = self.frame * self.step
+            self.next_shot = self.t0 + self.frame * self.step
 
     def prim(self, line, cost):
         self.shots_due()
@@ -65,14 +90,18 @@ class Expander:
         ms = int(round(ms))
         while ms > 0:
             self.shots_due()
-            n = min(ms, self.next_shot - self.t)
+            n = ms if self.hidden else min(ms, self.next_shot - self.t)
             self.out.append(f"wait {n}")
             self.t += n
             ms -= n
         self.shots_due()
 
     def ev(self, kind, name, value=0):
-        self.events.append([self.t, kind, name, value])
+        if self.hidden:
+            return
+        if not self.started:
+            self.begin()
+        self.events.append([self.t - self.t0, kind, name, value])
 
     def press(self, b):
         self.ev("btn", b, 1)
@@ -90,17 +119,47 @@ class Expander:
         self.ev("enc", e, n)
         self.prim(f"spin {e} {n}", 1)
 
-    def line(self, raw):
+    def include(self, path, base):
+        for p in (os.path.join(base, path), os.path.join(ROOT, path)):
+            if os.path.exists(p):
+                break
+        else:
+            raise SystemExit(f"include {path}: no such storyboard")
+        keep = (self.hidden, self.barms, dict(self.anchors))
+        self.hidden = True
+        self.inc += 1
+        self.anchors = {}
+        for raw in open(p):
+            self.line(raw, os.path.dirname(os.path.abspath(p)))
+        self.inc -= 1
+        self.hidden, self.barms, self.anchors = keep
+
+    def line(self, raw, base="."):
         s = raw.strip()
         if not s or s.startswith("#"):
             return
         w = s.split()
         c = w[0]
-        if c == "cap":
+        if c == "include":
+            self.include(s[8:].strip(), base)
+        elif c == "hide":
+            if self.inc:
+                return
+            if self.started:
+                raise SystemExit("hide: only before the video starts (the first frame, caption or press)")
+            self.hidden = True
+        elif c == "show":
+            if self.inc:
+                return
+            self.hidden = False
+            if not self.started:
+                self.begin()
+        elif c == "cap":
             title, _, detail = s[4:].partition("|")
             self.ev("cap", title.strip(), detail.strip())
-        elif c == "head":
-            self.ev("head", s[5:].strip())
+        elif c == "head":                   # (the whole video's: kept while hidden, but not from an include)
+            if not self.inc:
+                self.events.append([0, "head", s[5:].strip(), 0])
         elif c == "still":
             self.ev("still", w[1])
         elif c == "poster":
@@ -161,9 +220,12 @@ class Expander:
 
 def expand(story, step, wav):
     x = Expander(step)
-    x.prim(f"wav {wav}", 0)
+    x.wavname = wav
+    base = os.path.dirname(os.path.abspath(story))
     for raw in open(story):
-        x.line(raw)
+        x.line(raw, base)
+    if not x.started:
+        raise SystemExit("storyboard: nothing shown (a hide with no show)")
     x.shots_due()
     x.prim("wavstop", 0)
     return x
@@ -504,7 +566,7 @@ def main():
     scen = os.path.join(work, "video.polly")
     open(scen, "w").write("\n".join(x.out) + "\n")
     json.dump(x.events, open(os.path.join(work, "events.json"), "w"))
-    print(f"scenario: {len(x.out)} lines, {x.t} ms, {x.frame} frames")
+    print(f"scenario: {len(x.out)} lines, {x.t} ms ({x.t - x.t0} shown), {x.frame} frames")
     r = subprocess.run([HOST, scen, work], capture_output=True, text=True)
     open(os.path.join(work, "host.log"), "w").write(r.stdout + r.stderr)
     fails = [ln for ln in r.stdout.splitlines() if ln.startswith("FAIL") or ln.startswith("line ")]

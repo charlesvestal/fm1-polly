@@ -1,50 +1,29 @@
-# Polly 105, recording a melody (docs/course/105-recording-a-melody.md), from a fresh boot, with a pause on each
-# step's caption before its first move and after its last (tools/polly_video.py tools/video/105.story OUT.mp4).
-# Pop, 105 BPM: a bar 2285.714 ms. The song: section 1 P1 Pop (C G Am F), section 2 P2 Ballad (Am F C G), the
-# style's Intro (2 bars) and Ending (2 bars). Keys (octave 0): key K is MIDI 53 + K: C4 7, D4 9, E4 11, F4 12,
-# G4 14, A4 16, B4 18, C5 19, D5 21, E5 23, F5 24, G5 26.
-# Anchor A: PLAY (the Intro: A 0-1, section 1 A 2-5, section 2 A 6-9, the Ending A 10-11).
+# Polly 105, recording a melody (docs/course/105-recording-a-melody.md), where 104 ended (hidden: 101 to 104
+# replayed), with a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/105.story OUT.mp4).
+# Pop (104's), 105 BPM: a bar 2285.714 ms. 103's song: section 1 P1 Pop (C G Am F, the drums muted), section 2 P2
+# Ballad (Am F C G) on Groove B x2, section 3 P1; the style's Intro (2 bars); At end "again" (104's).
+# Keys (octave 0): key K is MIDI 53 + K: C4 7, D4 9, E4 11, F4 12, G4 14, A4 16, B4 18, C5 19, D5 21, E5 23, F5 24,
+# G5 26.
+# Anchor A: PLAY (the Intro: A 0-1, section 1 A 2-5, section 2 A 6-13: its first pass A 6-9).
 head 105 Recording a melody
+# ---- where 104 ended: Pop, stopped on Home, in the song (three sections, At end again)
+hide
+include 104.story
+expect playing 0
+expect page 0
+expect tempo 105
+expect knob1_is_Pop 1
+expect knob4_is_Song 1
+expect rows 3
+expect song_at_end 1
+show
 barms 2285.714
-cap Recording a melody | Record a melody along a short song, add notes to one section, and record a second melody.
+cap Recording a melody | Record a melody along your song, add notes to one section, and record a second melody.
 wait 3500
 expect tempo 105
-# ---- 1. a short song
-cap 1. Make a short song | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
-wait 2500
-expect page 0
-tap HOME
-wait 900
-expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
-expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
-cap 1. Make a short song | Press white keys 1 and 2: P1 Pop, then P2 Ballad.
-wait 2500
-expect page 1
-wait 700
-tapkey w0
-wait 600
-tapkey w1
-still 1-song
-wait 2000
-expect rows 2
-expect row_loop1 1
-expect row_loop2 2
-expect row_sect1 0
-expect row_sect2 0
-# ---- 2. M1, armed
-cap 2. Start recording M1 | Press PLAY. Press EDIT, turn ALGORITHM past C4 to M1, and press REC. Recording starts after the Intro.
+# ---- 1. M1, armed
+cap 1. Start recording M1 | Press PLAY. Press EDIT, turn ALGORITHM past C4 to M1, and press REC. Recording starts after the Intro.
 wait 2500
 anchor A
 tap PLAY
@@ -61,9 +40,9 @@ tap REC
 expect recording 1
 expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 still 2-arm
-# ---- 3. the line, across both sections (M1: section 1 A 2-5, section 2 A 6-9)
+# ---- 2. the line, across sections 1 and 2 (M1: section 1 A 2-5, section 2's first pass A 6-9)
 at A 2 -150
-cap 3. Play a melody | Play across both sections. The top line shows the whole song, with four bars below it.
+cap 2. Play a melody | Play across sections 1 and 2. The top line shows the whole song, with four bars below it.
 mel A 2 0 1.5 23
 expect sect 2
 expect row 1
@@ -81,7 +60,7 @@ mel A 5 0 2 19
 mel A 5 2 1 16
 mel A 5 3 0.8 12
 at A 6 -150
-cap 3. Play a melody | Section 2: the notes land on the line and in the four bars. Press REC to stop recording.
+cap 2. Play a melody | Section 2: the notes land on the line and in the four bars. Press REC, then PLAY, to stop.
 mel A 6 0 1 23
 expect row 2
 mel A 6 1 0.5 24
@@ -102,7 +81,9 @@ mel A 9 2 1.8 18
 at A 10 -180
 tap REC
 expect recording 0
-at A 12 300
+at A 10 600
+tap PLAY
+wait 300
 expect playing 0
 # M1: 14 notes in each section, as played (E5 first, F4 the last of section 1; F5 in section 2)
 expect lead_count1_1 14
@@ -112,19 +93,19 @@ expect lead1_note 76
 expect lead14_note 65
 expect lead15_row 2
 expect lead16_note 77
-# ---- 4. punch in on section 2 (stopped at the song's end: the cursor back on section 1)
+# ---- 3. punch in on section 2
 wait 1200
-cap 4. Add to section 2 | HOME twice, KNOB 1 (Section) to section 2. EDIT, REC, then PLAY: a bar of clicks counts in. Play.
+cap 3. Add to section 2 | Press HOME for the Home page, and HOME again for the Song page. The cursor is on section 2, where the song stopped.
 wait 2500
 tap HOME
 wait 400
 tap HOME
 wait 700
 expect page 1
-expect cursor 1
-turn K1 1
 expect cursor 2
-wait 900
+wait 2000
+cap 3. Add to section 2 | Press EDIT, then REC, then PLAY: a bar of clicks counts in, then section 2 plays. Play.
+wait 2500
 tap EDIT
 wait 500
 expect page 8
@@ -136,11 +117,11 @@ tap PLAY
 wait 10
 expect row 2
 expect count_in 4
-# a bar of count-in (P 0-1: the click only), then section 2 from P 1; over F (section 2's bar 2): C5 F5 E5, each a
+# a bar of count-in (P 0-1: the click only), then section 2 (Groove B) from P 1; over F (section 2's bar 2): C5 F5 E5, each a
 # little late
 at P 1 300
 expect count_in 0
-expect sect 2
+expect sect 3
 mel P 2 2.1 0.45 19
 still 4-punch
 mel P 2 2.6 0.45 24
@@ -155,8 +136,8 @@ expect recording 0
 expect cursor 2
 expect lead_count1_1 14
 expect lead_count1_2 17
-# ---- 5. M2: strings, from section 2 (the cursor), a held line under M1
-cap 5. Record M2 | Turn ALGORITHM to M2. Press REC, then PLAY, and play after the count-in. M1's notes show pale under it.
+# ---- 4. M2: strings, from section 2 (the cursor), a held line under M1
+cap 4. Record M2 | Turn ALGORITHM to M2. Press REC, then PLAY, and play after the count-in. M1's notes show pale under it.
 wait 2500
 turn ALGO 1
 expect lead_sel 2

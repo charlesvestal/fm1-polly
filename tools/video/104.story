@@ -1,43 +1,25 @@
-# Polly 104, changing styles (docs/course/104-changing-styles.md), from a fresh boot, with a pause on each step's
-# caption before its first move and after its last (tools/polly_video.py tools/video/104.story OUT.mp4).
-# A song of P1 Pop and P2 Ballad, At end "again", so it plays round. Pop 105 BPM, Funk 100, Rock 120.
+# Polly 104, changing styles (docs/course/104-changing-styles.md), where 103 ended (hidden: 101 to 103 replayed), with
+# a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/104.story OUT.mp4).
+# 103's song (1 P1, 2 P2 on Groove B x2, 3 P1), At end "again", so it plays round. Funk 100 BPM, Rock 120, Pop 105.
 head 104 Changing styles
-cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
-wait 3500
-# ---- 1. a song that plays round
-cap 1. Set up a song | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
-wait 2500
-expect page 0
-tap HOME
-wait 900
-expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
-expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
-cap 1. Set up a song | Press white keys 1 and 2.
-wait 2500
-expect page 1
-tapkey w0
-wait 700
-tapkey w1
-wait 1000
-expect rows 2
+# ---- where 103 ended: Funk, stopped on the Song page's page 2, three sections
+hide
+include 103.story
+expect playing 0
+expect page 2
+expect tempo 100
+expect rows 3
 expect row_loop1 1
 expect row_loop2 2
-cap 1. Set up a song | Turn SELECT to page 2, and KNOB 4 (At end) to again. Press PLAY: the song plays round.
+expect row_loop3 1
+expect knob4_is_stop 1
+show
+cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
+wait 3500
+# ---- 1. the song, round and round
+cap 1. Play the song round | Turn KNOB 4 (At end) to again. Press PLAY: the song plays round and round.
 wait 2500
-turn SELECT 1
-wait 800
 turn K4 1
 still 1-song
 expect song_at_end 1
@@ -46,11 +28,10 @@ tap PLAY
 wait 300
 expect playing 1
 expect mode 2
-expect tempo 105
+expect tempo 100
 wait 6000
-expect row 1
-# ---- 2. Funk: the same sections and chords, Funk's band and tempo
-cap 2. Change the style | Press HOME for the Home page. Turn KNOB 1 (Style) to Funk.
+# ---- 2. Rock: the same sections and chords, Rock's band and tempo
+cap 2. Change the style | Press HOME for the Home page. Turn KNOB 1 (Style) to Rock.
 wait 2500
 tap HOME
 wait 1000
@@ -58,34 +39,34 @@ expect page 0
 expect knob4_is_Song 1
 turn K1 1
 still 2-style
-expect knob1_is_Funk 1
-expect tempo 100
+expect knob1_is_Rock 1
+expect tempo 120
 wait 1000
 expect mode 2
-expect rows 2
+expect rows 3
 expect row_loop1 1
 expect row_loop2 2
 poster
-cap 2. Change the style | The song keeps its sections and chords. The band and the tempo are Funk's.
+cap 2. Change the style | The song keeps its sections and chords. The band and the tempo are Rock's.
 wait 9000
 expect playing 1
 expect mode 2
 # ---- 3. a tempo of your own: kept when the style changes
 cap 3. Set your own tempo | Turn KNOB 2 (Tempo) to 90.
 wait 2500
-turn K2 -10 120
+turn K2 -30 70
 expect tempo 90
 wait 2000
-cap 3. Set your own tempo | Turn KNOB 1 to Rock. Rock's band plays, and your tempo stays.
+cap 3. Set your own tempo | Turn KNOB 1 back to Funk. Funk's band plays, and your tempo stays.
 wait 2500
-turn K1 1
+turn K1 -1
 still 3-tempo
-expect knob1_is_Rock 1
+expect knob1_is_Funk 1
 expect tempo 90
-expect msgtext_is_TEMPO_KEPT_90_(ROCK_120) 1
+expect msgtext_is_TEMPO_KEPT_90_(FUNK_100) 1
 wait 6000
 # ---- 4. the style's tempo again
-cap 4. Use the style's tempo | Press SEL for the page's list. It opens on STYLE TEMPO 120. Press SEL again.
+cap 4. Use the style's tempo | Press SEL for the page's list. It opens on STYLE TEMPO 100. Press SEL again.
 wait 2500
 tap SEL
 wait 300
@@ -96,16 +77,22 @@ wait 2000
 tap SEL
 wait 300
 expect list_open 0
-expect tempo 120
-expect msgtext_is_TEMPO_120_THE_STYLE'S 1
+expect tempo 100
+expect msgtext_is_TEMPO_100_THE_STYLE'S 1
 wait 3000
-cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 back to Funk: 100.
+cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 to Pop: 105.
 wait 2500
 turn K1 -1
-expect knob1_is_Funk 1
-expect tempo 100
+expect knob1_is_Pop 1
+expect tempo 105
 wait 4000
 expect playing 1
 expect mode 2
+cap 4. Use the style's tempo | Press PLAY to stop.
+wait 2000
+tap PLAY
+wait 300
+expect playing 0
+wait 1500
 cap Next: 105 | Recording a melody.
 wait 4000

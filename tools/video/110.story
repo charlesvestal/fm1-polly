@@ -1,9 +1,16 @@
-# Polly 110, with other gear (docs/course/110-with-other-gear.md), from a fresh boot, with a pause on each step's
-# caption before its first move and after its last (tools/polly_video.py tools/video/110.story OUT.mp4).
+# Polly 110, with other gear (docs/course/110-with-other-gear.md), where 109 ended (hidden: 101 to 109 replayed), with
+# a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/110.story OUT.mp4).
 # Only the device's part: Setup's MIDI out and Clock (both on from a fresh boot: the knob turned right keeps them on
 # and the box says what they do). The keyboard, the DAW and the browser's mirror are on the page, not in the video
 # (MIDI in and clock in were checked with polly_host's midi / clock commands, which a storyboard can't send).
 head 110 With other gear
+# ---- where 109 ended: stopped, the Memory list closed; Setup as on a new Polly
+hide
+include 109.story
+expect playing 0
+expect list_open 0
+show
 cap With other gear | Send Polly's band to a computer, follow its clock, play from a keyboard and mirror the screen.
 wait 3500
 # ---- 1. MIDI out

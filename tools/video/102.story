@@ -1,34 +1,23 @@
-# Polly 102, your own progressions (docs/course/102-your-own-progressions.md), from a fresh boot, with a pause on each
-# step's caption before its first move and after its last (tools/polly_video.py tools/video/102.story OUT.mp4).
-# Pop, 105 BPM: a bar 2285.714 ms. Keys (octave 0): F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14.
+# Polly 102, your own progressions (docs/course/102-your-own-progressions.md), where 101 ended (hidden: 101 replayed),
+# with a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/102.story OUT.mp4).
+# Funk (101's), 100 BPM: a bar 2400 ms. Keys (octave 0): F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14.
 # Am 4 7 11, F 0 4 7, C 7 11 14, G 2 6 9. White key 1 = key 0, white key 9 = key 14. Anchor A: PLAY.
 head 102 Your own progressions
-barms 2285.714
+# ---- where 101 ended: Funk, stopped on Home, free, the song empty, P9 the first empty progression
+hide
+include 101.story
+expect playing 0
+expect page 0
+expect tempo 100
+expect knob1_is_Funk 1
+expect knob4_is_- 1
+expect rows 0
+show
+barms 2400
 cap Your own progressions | Record your chords, fix one, set the length, name it, and play it from anywhere.
 wait 3500
 # ---- 1. record: REC late in bar 0 counts in to bar 1; Am F C G on bars 1-4; REC just before bar 5
-cap 1. Record a progression | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
-wait 2500
-expect page 0
-tap HOME
-wait 900
-expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
-expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
-tap HOME
-wait 1000
-expect page 0
 cap 1. Record a progression | On the Home page, press PLAY, then REC. A click counts in to the next bar.
 wait 2500
 anchor A
@@ -109,7 +98,7 @@ expect loop_name9 Verse
 wait 3000
 # ---- 5. from anywhere: P1, then P9 again
 cap 5. Switch progressions | Hold HOME and press white key 1. P1, the first ready-made progression, plays from the next bar.
-wait 2500
+at A 24 200
 press HOME
 wait 300
 note 900 0
@@ -120,7 +109,7 @@ wait 2600
 expect loop_now 1
 wait 2500
 cap 5. Switch progressions | Hold HOME and press white key 9. Your Verse comes back at the next bar.
-wait 2500
+at A 28 200
 press HOME
 wait 300
 still 5-anywhere
@@ -129,5 +118,11 @@ release HOME
 wait 2600
 expect loop_now 9
 wait 3000
+cap 5. Switch progressions | Press PLAY to stop.
+wait 2000
+tap PLAY
+wait 300
+expect playing 0
+wait 1500
 cap Next: 103 | Your song.
 wait 4000

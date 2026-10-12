@@ -1,37 +1,47 @@
-# Polly 106, your own grooves (docs/course/106-your-own-grooves.md), from a fresh boot, with a pause on each step's
-# caption before its first move and after its last (tools/polly_video.py tools/video/106.story OUT.mp4).
-# Pop, 105 BPM: a bar 2285.714 ms. Pop's Groove A is 2 bars; its C2 (Clean Guitar) has no notes, so the first REC
-# makes it "as played". The band plays free, on C. Keys (octave 0): key K is MIDI 53 + K: C4 7, E4 11, G4 14, A4 16,
-# C5 19, D5 21, E5 23, G5 26. Anchor A: PLAY (Groove A from A 0).
+# Polly 106, your own grooves (docs/course/106-your-own-grooves.md), where 105 ended (hidden: 101 to 105 replayed),
+# with a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/106.story OUT.mp4).
+# Pop (104's), 105 BPM: a bar 2285.714 ms. Out of the song (Home's Prog on "-"), on Groove A (stopped in section 2,
+# Polly would start on its Groove B). Pop's Groove A is 2 bars; its C2 (Clean Guitar) has no notes, so the first REC
+# makes it "as played". The band plays free, on the song's last chord. Keys (octave 0): key K is MIDI 53 + K: C4 7,
+# E4 11, G4 14, A4 16, C5 19, D5 21, E5 23, G5 26. Anchor A: PLAY (Groove A from A 0).
 head 106 Your own grooves
+# ---- where 105 ended: Pop, stopped on the Sound page on M2, in the song (stopped in section 2)
+hide
+include 105.story
+expect playing 0
+expect page 8
+expect tempo 105
+expect lead_sel 2
+expect rows 3
+expect lead_count1_2 17
+expect song1_style1 33
+show
 barms 2285.714
 cap Your own grooves | Record an instrument into the style's groove, and the groove becomes yours.
 wait 3500
 expect tempo 105
 expect song1_style1 33
-# ---- 1. an instrument
-cap 1. Pick an instrument | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
+# ---- 1. free, Groove A, an instrument
+cap 1. Pick an instrument | Press HOME for the Home page. Turn KNOB 4 (Prog) down, past P1, to "-". The band plays free, outside the song.
 wait 2500
-expect page 0
 tap HOME
 wait 900
-expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
-expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
-tap HOME
-wait 1000
 expect page 0
+expect knob4_is_Song 1
+turn K4 -2 400
+expect knob4_is_- 1
+expect mode 0
+wait 1500
+cap 1. Pick an instrument | Hold HOME and press black key 2 for Groove A.
+wait 2500
+press HOME
+wait 300
+note 900 b1
+wait 300
+expect next_sect 2
+release HOME
+wait 1500
 cap 1. Pick an instrument | Press PLAY. Press SEQ for the Band page, and turn ALGORITHM to C2. Its row is empty.
 wait 2500
 anchor A
@@ -42,8 +52,9 @@ expect sect 2
 tap SEQ
 wait 700
 expect page 6
-expect track 5
-turn ALGO 1
+expect track 8
+expect lead_sel 2
+turn ALGO -4 300
 expect track 6
 expect slot1_trk6_count 0
 still 1-instrument
@@ -55,7 +66,9 @@ at A 3 900
 tap REC
 expect recording 1
 expect msgtext_is_C2:_AS_PLAYED_GROOVE_A_(YOURS) 1
-expect song1_style1 0
+# (Memory's place 1 holds 105's melodies: the copy goes into place 2)
+expect slot_kind1 2
+expect song1_style1 1
 mel A 4 0 1 19
 expect rec_wait 0
 expect rec_pass 1
@@ -109,7 +122,7 @@ tap SEL
 wait 50
 expect asking 0
 expect msgtext_is_GROOVES_KEPT_(YOURS) 1
-expect song1_style1 0
+expect song1_style1 1
 expect song1_style2 40
 expect tempo 100
 wait 3000
@@ -138,7 +151,7 @@ wait 50
 expect list_open 0
 expect msgtext_is_BACK_TO_FUNK 1
 expect song1_style1 39
-expect slot_kind1 1
+expect slot_kind2 1
 wait 2500
 cap Next: 107 | Fixing notes.
 wait 4000

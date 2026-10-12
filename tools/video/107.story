@@ -1,48 +1,38 @@
-# Polly 107, fixing notes (docs/course/107-fixing-notes.md), from a fresh boot, with a pause on each step's caption
-# before its first move and after its last (tools/polly_video.py tools/video/107.story OUT.mp4).
-# Pop, 105 BPM, the band playing Groove A over C. Notes on BA (the bass): C2 at bar 1.1 (tick 0), C2 at 1.1.4 (360),
-# ... 480 ticks a beat, the grid 16ths (120). Keys (octave 0): key K is MIDI 53 + K: G3 2.
+# Polly 107, fixing notes (docs/course/107-fixing-notes.md), where 106 ended (hidden: 101 to 106 replayed), with a
+# pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/107.story OUT.mp4).
+# Funk (106's), 100 BPM: a bar 2400 ms, the band free on Groove A. Funk's Groove A on BA (the bass), 18 notes: C2 at
+# bar 1.1 (tick 0), C2 at 1.1.3 (240), C3 at 1.1.4 (360), B1 at 1.2.3 (720), ... 480 ticks a beat, the grid 16ths
+# (120). C2 at 1.1 goes to E2 and moves one step, to 1.1.2 (an empty place), then is deleted.
+# Keys (octave 0): key K is MIDI 53 + K: G3 2.
 head 107 Fixing notes
-barms 2285.714
+# ---- where 106 ended: Funk, stopped on the Band page on C2, free, Groove A Funk's again
+hide
+include 106.story
+expect playing 0
+expect page 6
+expect tempo 100
+expect track 6
+expect song1_style1 39
+show
+barms 2400
 cap Fixing notes | Change, move, delete and enter single notes, without recording again.
 wait 3500
 # ---- 1. open Notes
-cap 1. Open Notes | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
-wait 2500
-expect page 0
-tap HOME
-wait 900
-expect page 1
-tap SEL
-wait 700
-turn SELECT 4 200
-wait 700
-expect list_sel 12
-tap SEL
-wait 900
-expect asking 1
-tap SEL
-wait 900
-expect asking 0
-expect rows 0
-expect msgtext_is_NEW_SONG_S1 1
-tap HOME
-wait 1000
-expect page 0
-cap 1. Open Notes | Press PLAY. Press SEQ for the Band page, turn ALGORITHM to BA, then press SEQ again.
+cap 1. Open Notes | Press PLAY. On the Band page, turn ALGORITHM to BA, the bass, then press SEQ.
 wait 2500
 tap PLAY
 expect playing 1
+expect sect 2
 wait 1500
-tap SEQ
 expect page 6
-wait 1000
-turn ALGO -1
+expect track 6
+turn ALGO -2 300
 expect track 4
 wait 1000
 tap SEQ
 expect page 17
-expect tag_is_S1>Pop>Groove_A>BA_Finger_Bass 1
+expect tag_is_S1>Funk>Groove_A>BA_Finger_Bass 1
 still 1-notes
 wait 2500
 # ---- 2. pick a note
@@ -50,7 +40,7 @@ cap 2. Pick a note | Turn SELECT. It steps from note to note, and the line at th
 wait 2500
 turn SELECT 1 600
 turn SELECT 1 600
-expect ne_at 1200
+expect ne_at 360
 turn SELECT -2 600
 expect ne_at 0
 expect ne_note 36
@@ -88,11 +78,11 @@ cap 5. Move it | Hold SEL and turn SELECT. The note moves one grid step per dete
 wait 2500
 press SEL
 wait 300
-turn SELECT 2 500
+turn SELECT 1 500
 still 4-move
 wait 1000
 release SEL
-expect ne_at 240
+expect ne_at 120
 expect ne_note 40
 wait 2500
 # ---- 5. delete and enter
@@ -104,7 +94,7 @@ expect ne_note -1
 wait 2500
 cap 6. Delete a note, enter one | Turn KNOB 1 (Place) to an empty place, then play a key. The note goes in there.
 wait 2500
-turn K1 -2 400
+turn K1 -1 400
 expect ne_t 0
 expect ne_note -1
 wait 800
@@ -114,7 +104,7 @@ still 5-enter
 wait 900
 key 2 up
 expect ne_t 120
-expect slot1_trk4_count 10
+expect slot1_trk4_count 18
 wait 2500
 # ---- 6. undo
 cap 7. Undo | Hold HOME and press REC. The last edit is undone, and the header says what.
@@ -127,7 +117,13 @@ still 6-undo
 wait 900
 release HOME
 expect ne_note -1
-expect slot1_trk4_count 9
+expect slot1_trk4_count 17
 wait 2500
+cap 7. Undo | Press PLAY to stop.
+wait 2000
+tap PLAY
+wait 300
+expect playing 0
+wait 1500
 cap Next: 108 | Making it sound yours.
 wait 4000

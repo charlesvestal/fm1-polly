@@ -1,9 +1,20 @@
-# Polly 109, keeping your work (docs/course/109-keeping-your-work.md), from a fresh boot, with a pause on each step's
-# caption before its first move and after its last (tools/polly_video.py tools/video/109.story OUT.mp4).
-# Nothing plays: saving, undo, songs and Memory, all stopped. C1's sound (EDIT, KNOB 1) makes Groove A yours: a
-# change to save and undo, and a place in Memory to free. Polly saves by itself ~4 s after the last move: SAVE goes
+# Polly 109, keeping your work (docs/course/109-keeping-your-work.md), where 108 ended (hidden: 101 to 108 replayed),
+# with a pause on each step's caption before its first move and after its last
+# (tools/polly_video.py tools/video/109.story OUT.mp4).
+# Nothing plays: saving, undo, songs and Memory, all stopped. C1's sound (EDIT, KNOB 1: 108's Rock Organ, one step
+# on) is a change to save and undo. Memory holds three places: S1's Groove A (yours) (107, 108), S1's melodies (105),
+# and 106's copy in place 2, which no song plays (given back to the style): the one freed. Polly saves by itself ~4 s after the last move: SAVE goes
 # in before that. The backup (step 5) is on the computer: not in the video.
 head 109 Keeping your work
+# ---- where 108 ended: Funk, stopped on Home, saved; Groove A yours (107's notes, 108's sounds), transpose D
+hide
+include 108.story
+expect playing 0
+expect page 0
+expect track 5
+expect trk5_program 19
+expect transpose 2
+show
 cap Keeping your work | Save, undo, switch songs, free Memory, and back up to your computer.
 wait 3500
 expect dirty 0
@@ -16,7 +27,7 @@ expect page 8
 expect track 5
 wait 900
 turn K1 1
-expect trk5_program 2
+expect trk5_program 20
 expect dirty 1
 wait 900
 still 1-unsaved
@@ -40,7 +51,7 @@ press REC
 wait 800
 release REC
 expect msgtext_is_UNDO_C1_SOUND 1
-expect trk5_program 1
+expect trk5_program 19
 expect recording 0
 wait 400
 release HOME
@@ -53,7 +64,7 @@ press PLAY
 wait 800
 release PLAY
 expect msgtext_is_REDO_C1_SOUND 1
-expect trk5_program 2
+expect trk5_program 20
 expect playing 0
 wait 400
 release HOME
@@ -91,29 +102,35 @@ turn SELECT 9 150
 wait 500
 tap SEL
 expect slots_list 1
-expect slottext1_is_S1:_Groove_A_(yours)|Pop 1
-expect memrow1_is_S1:_Groove_A_(yours)|Pop 1
-expect memrow2_is_free 1
+expect memrow1_is_S1:_Groove_A_(yours)|Funk 1
+expect memrow2_is_S1:_melodies 1
+expect memrow3_is_No_song:_groove_(yours)|Pop 1
+expect memrow4_is_free 1
 expect memrow16_is_free 1
 still 4-memory
 wait 1000
 poster
 wait 1500
-cap 4. Open Memory | 16 places keep your grooves (yours) and melodies, for all four songs. The header shows how many are used.
+cap 4. Open Memory | Memory's 16 places keep your grooves (yours) and melodies, for all four songs. The header shows how many are used.
 wait 2500
-cap 5. Free a place | Place 1 is selected. Press SEL, and Polly asks first.
+cap 5. Free a place | Turn SELECT to place 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks first.
 wait 2500
 expect list_sel 0
+turn SELECT 2 400
+expect list_sel 2
+wait 800
 tap SEL
 expect asking 1
 still 5-free
 wait 1800
-cap 5. Free a place | Press SEL again. The groove goes back to the style, and your copy's notes are gone.
+cap 5. Free a place | Press SEL again. The place is free, and the copy's notes are gone.
 wait 2000
 tap SEL
 expect asking 0
-expect slottext1_is_free 1
-expect trk5_program 1
+expect slottext2_is_free 1
+expect memrow3_is_free 1
+expect memrow1_is_S1:_Groove_A_(yours)|Funk 1
+expect trk5_program 20
 wait 2500
 tap HOME
 wait 400

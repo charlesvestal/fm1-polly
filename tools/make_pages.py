@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Make Polly's site for GitHub Pages (https://charlesvestal.github.io/fm1-polly/):
 
-  index.html                     what Polly is, and the ways in: install, quick start, school, manual
-  school/index.html              the course (docs/course/README.md); quickstart.html (QUICKSTART.md), the first
+  index.html                     what Polly is, and the ways in: install, school, manual
+  school/index.html              the course (docs/course/README.md); quickstart.html: a redirect to 101 (the quick start's old address), the first
                                  lesson; NNN-name.html (docs/course/NNN-name.md); img/ (docs/course/img)
   manual/index.html              the manual (MANUAL.md), with its contents beside it
   img/                           the manual's pictures (docs/img)
@@ -17,7 +17,7 @@
                                  checks the directory). Left out with --no-emu
   firmware/polly-VERSION.fwsc    the package the installer writes; also the download
 
-Every page gets Polly's header (the name, home; Quick start, School, Manual, Install, Mirror, Backup, Emulator). The
+Every page gets Polly's header (the name, home; School, Manual, Install, Mirror, Backup, Emulator). The
 docs are rendered as they are at the time (tools/site_md.py) and their links rewritten to the site: the docs to their
 pages (anchors kept, GitHub's), the web pages to theirs, other files of the repository to GitHub.
 
@@ -47,7 +47,6 @@ SITE = "https://charlesvestal.github.io/fm1-polly/"
 # a repository path -> its page on the site (directories end in /)
 ROUTES = {
     "MANUAL.md": "manual/",
-    "QUICKSTART.md": "school/quickstart.html",
     "docs/course/README.md": "school/",
     "README.md": "",
     "web/polly_installer.html": "install/",
@@ -57,7 +56,7 @@ ROUTES = {
 }
 PREFIXES = [("docs/course/img/", "school/img/"), ("docs/img/", "img/"), ("docs/video/", "video/")]
 
-NAV = [("quickstart", "Quick start", "school/quickstart.html"), ("school", "School", "school/"),
+NAV = [("school", "School", "school/"),
        ("manual", "Manual", "manual/"), ("install", "Install", "install/"), ("mirror", "Mirror", "mirror/"),
        ("backup", "Backup", "backup/"), ("emu", "Emulator", "emu/")]
 
@@ -443,8 +442,8 @@ def render(md_path, kind, page):
 
 
 def lessons():
-    """[(md path, site page, short title)] in the course's order: the quick start, then docs/course/NNN-*.md"""
-    out = [("QUICKSTART.md", "school/quickstart.html", "Quick start")]
+    """[(md path, site page, short title)] in the course's order: docs/course/NNN-*.md"""
+    out = []
     for p in sorted((SRC / "docs" / "course").glob("[0-9][0-9][0-9]-*.md")):
         t = re.search(r"^# (.+)$", p.read_text(encoding="utf-8"), re.M)
         out.append((f"docs/course/{p.name}", f"school/{p.stem}.html", t.group(1).strip() if t else p.stem))
@@ -495,8 +494,7 @@ def landing(version, pkg_name, emu):
 </section>
 
 <nav class="ways" aria-label="Learn Polly">
-  <a href="school/quickstart.html"><strong>Quick start</strong><span>From switching on to your first song, in a few minutes.</span></a>
-  <a href="school/"><strong>School</strong><span>Ten short lessons, each with a video, from playing live to MIDI.</span></a>
+  <a href="school/"><strong>School</strong><span>Ten short lessons, each with a video. Start here.</span></a>
   <a href="manual/"><strong>Manual</strong><span>Every page, knob and setting, with a cheat sheet up front.</span></a>
   {emu_way}
 </nav>
@@ -587,12 +585,15 @@ def main(argv):
     W("manual/index.html", page_html(f"Polly · {title or 'Manual'}", f"The manual for {desc}: every page, knob and setting.",
                                      "manual/index.html", "manual", man, version, emu, extra_body=TOC_JS))
 
-    # School: its index, the quick start, the lessons
+    # the quick start's old address (v0.1's notes link it): to the first lesson
+    W("school/quickstart.html", '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=101-playing-live.html">'
+                                '<link rel="canonical" href="101-playing-live.html"><a href="101-playing-live.html">101 Playing live</a>')
+    # School: its index, the lessons
     order = [("docs/course/README.md", "school/index.html", "All lessons")] + lessons()
     for md_path, page, short in order:
-        kind = "school" if page == "school/index.html" else "quickstart" if md_path == "QUICKSTART.md" else "lesson"
+        kind = "school" if page == "school/index.html" else "lesson"
         body, heads, title = render(md_path, kind, page)
-        cur = "quickstart" if kind == "quickstart" else "school"
+        cur = "school"
         menu = lessons_menu(page, "" if kind == "school" else short, order)
         doc = f'<main class="doc">\n{menu}\n{body}\n{pager(page, order)}\n</main>'
         t = "Polly · School" if kind == "school" else f"Polly · {short}"
