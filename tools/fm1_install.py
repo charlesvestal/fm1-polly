@@ -319,7 +319,7 @@ class Updater:
         ota = self.wait_for(lambda i: i.loader, DELAY["wait_loader"])
         if not ota:
             raise InstallError("noloader", "the update loader did not appear. Replug the USB cable and "
-                                           "run the install again: the FM-1 stays in update mode until it is done")
+                                           "run the install again")
         return ota
 
     def write(self, ota, image, step):
@@ -333,7 +333,7 @@ class Updater:
         if not finished:
             raise InstallError("lost" if lost else "stopped",
                                f"the loader {'was disconnected' if lost else 'stopped answering'} after "
-                               f"{served} requests. Replug the USB cable and run the install again to finish")
+                               f"{served} requests. Replug the USB cable and run the install again")
         step("write", 100)
 
     def verify(self, product, step):
@@ -424,7 +424,7 @@ def run(a, backend, out, ask):
         raise not_found(up)
     print(f"device:  {dev.id.text}  ({dev.name})" + ("  in update mode: the write will be finished" if dev.id.loader else ""),
           file=out)
-    if not a.yes and not ask("Install? Do not unplug the FM-1 while writing. [y/N] "):
+    if not a.yes and not ask("Install? Charge the FM-1 first; keep the computer awake and the cable in until it is done. [y/N] "):
         dev.link.close()
         print("cancelled", file=out)
         return 1
@@ -464,7 +464,7 @@ def main(argv=None, backend=None, out=sys.stdout, ask=ask_tty):
         print(f"error: {e}", file=sys.stderr)
         return EXIT.get(e.code, 1)
     except KeyboardInterrupt:
-        print("\ninterrupted: if the FM-1 is in update mode, run the install again to finish", file=sys.stderr)
+        print("\ninterrupted: if the FM-1 is still in update mode, run the install again", file=sys.stderr)
         return 130
 
 

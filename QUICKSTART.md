@@ -6,7 +6,8 @@ along. This page takes you from switching on to your first song in a few minutes
 ## Install
 
 Install Polly with the web installer (`web/polly_installer.html`, in Chrome or Edge). Or install it over USB
-from this repository with `python3 tools/fm1_install.py polly.fwsc`.
+from this repository with `python3 tools/fm1_install.py polly.fwsc`. Charge the FM-1 first, and keep the
+computer awake and the USB cable in until the install is done.
 
 ## The controls you need
 

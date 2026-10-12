@@ -76,7 +76,8 @@ python3 tools/fm1_install.py build/polly.fwsc
 python3 tools/fm1_install.py --info          # identity of the connected FM-1
 ```
 
-Installing firmware is at your own risk. Hold OCT− and OCT+ for 5 seconds for Felucca's update
+Installing firmware is at your own risk. Charge the FM-1 first, and keep the computer awake and the cable
+in until the install is done: an update cut off by a flat battery is not picked up again. Hold OCT− and OCT+ for 5 seconds for Felucca's update
 mode. If the FM-1 no longer starts but reaches the chip's update mode (4C4A:8057 on USB),
 `tools/fm1_rescue.sh` puts stock firmware back from a Mac; otherwise recovery needs
 [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
