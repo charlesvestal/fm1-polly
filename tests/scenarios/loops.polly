@@ -162,7 +162,7 @@ poke_row 3
 poke_row 12
 tap PLAY
 wait 100
-turn SELECT 1
+tap HOME
 expect page 1
 tap PLAY
 wait 50

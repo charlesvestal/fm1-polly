@@ -91,7 +91,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | fix a chord | Press **ARP**. Move to the chord with **KNOB 1** (Bar) and **KNOB 2** (Beat). Turn **KNOB 3** (Root) or **KNOB 4** (Type). For its bass note, turn **SELECT** to page 2 and turn **KNOB 3** (Bass). |
 | delete a chord | Press **ARP** and move to the chord with **KNOB 1** and **KNOB 2**. Press **SEL**. The list opens on CLEAR CHORD. Press **SEL** again. |
 | lengthen a progression | Press **ARP**, turn **SELECT** to page 2 and turn **KNOB 1** (Length). |
-| add a section to the song | Press **HOME** and turn **SELECT** to the Song page. Press white key *n*. This adds a section that plays P*n*. |
+| add a section to the song | Press **HOME** until you're on the Song page (on Home, press it once more). Press white key *n*. This adds a section that plays P*n*. |
 | play from section 3 | On the Song page, turn **KNOB 1** (Section) to 3 and press **SEL**. The list opens on PLAY FROM SECTION 3. Press **SEL** again. |
 | change an instrument's sound | Press **EDIT**, turn **ALGORITHM** to the instrument and turn **KNOB 1** (Sound). |
 | mute an instrument | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Mute). Turn it again to unmute. To mute it in one section only, press its black key on the Song page. |
@@ -108,7 +108,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | **PLAY** | Starts and stops. On the Song page, it plays the song. |
 | **REC** | Records what the keys play on this page: chords, an instrument, a melody or sections. |
 | **SEL** | Shows this page as a list, with its actions. When Polly asks a question, **SEL** means yes. |
-| **HOME** | Opens Home. Turn **SELECT** from there for the Song pages. Hold **HOME** for the shortcuts. When Polly asks a question, **HOME** means no. |
+| **HOME** | Opens Home. On Home, opens the Song page. Hold **HOME** for the shortcuts. When Polly asks a question, **HOME** means no. |
 | **ARP** | Opens Progression, where you edit chords. |
 | **SEQ** | Opens Band, the groove's notes instrument by instrument. Press it again for Notes, where you fix single notes. |
 | **EDIT** | Opens Sound, the instrument's sound and range. |
@@ -142,7 +142,7 @@ are counted from the left, 1 to 16, so progression P9 is white key 9.
 3. **Write your chorus.** Press **HOME** and turn **KNOB 4** anticlockwise, past P1, to "–". The band is
    free again. Press **REC**, play C, G, Am and F, then press **REC**. That's P10. Name it "Chorus" the same
    way: **ARP**, **SELECT** to page 2, **KNOB 4** (Name).
-4. **Build the song.** Press **HOME**, then turn **SELECT** to the Song page. Press white keys 9, 10, 9 and
+4. **Build the song.** Press **HOME** twice: once for Home, again for the Song page. Press white keys 9, 10, 9 and
    10, in that order. Each press adds a section. You now have verse, chorus, verse, chorus.
 5. **Shape it.** **KNOB 1** (Section) moves between the sections. On a chorus, turn **KNOB 3** (Groove) to
    B for the busier groove. The other chorus sections follow. Turn **KNOB 4** (Repeat) to x2 to play that
@@ -173,7 +173,7 @@ more, and the [page by page](#page-by-page) table shows every page.
 | **PLAY** | Starts and stops. On a Song page, it plays the song from section 1. If a progression is playing, the song starts at the next bar. Press it again to stop. |
 | **REC** | Records what the keys play here. On Home and Progression, it writes chords into the progression. On Home while free, it starts a new progression. On Band and Sound, it records the selected instrument, or a melody in a song. On Song, it writes sections. |
 | **SEL** | Shows the page as a list. The list opens on the page's first action, such as LOAD PROGRESSION, PLAY FROM SECTION or CLEAR C1. Turn **SELECT** up to reach the page's values and MORE. The list covers the knobs. The bottom line shows what **SELECT**, **ALGORITHM**, **SEL** and **HOME** do in it. |
-| **HOME** | Opens Home. Turn **SELECT** for the two Song pages. |
+| **HOME** | Opens Home. Press it again on Home for the Song page, and again to go back. Turn **SELECT** on the Song page for its second page. |
 | **HOME**, held | Shows the shortcuts on screen. Press white key 1–16 for a progression, or black key 1–5 for a groove or an extra. Turn **SELECT** to set the tempo, or **PRESETS** to change the song. Press **REC** to undo, or **PLAY** to redo. |
 | **SEQ** | Band: the groove's notes. Page 2 is Groove length. Press **SEQ** again on either page for Notes, the note editor. **SEQ** in Notes goes back to Band. |
 | **EDIT** | Sound. Page 2 is Sound 2, with the high key and the channel. A melody has the Sound page only. |
@@ -190,8 +190,11 @@ more, and the [page by page](#page-by-page) table shows every page.
 ![Home while a progression plays](docs/img/manual/home.png)
 
 Each page button lights while you're on one of its pages. Pressing it always opens its first page. Some
-buttons have two pages, and **HOME** has three: Home and the two Song pages. Turn **SELECT** for the next
-page. The dots over the knobs show which page you're on.
+buttons have two pages. Turn **SELECT** for the next page. The dots over the knobs show which page you're on.
+
+**HOME** switches between Polly's two places: Home, where you play and write progressions, and the Song
+page, where you put them in order. Press **HOME** to go to Home, and press it again to go to the Song page.
+The Song page has two pages of its own; turn **SELECT** for the second.
 
 The screen has five bands, from top to bottom.
 
@@ -216,6 +219,7 @@ instrument · [PRESET] section".
 
 - SELECT turns the button's pages, and the dots show which one you're on. When a button has only one page,
   SELECT isn't listed.
+- On Home, the line starts with "[HOME] song": press **HOME** there for the Song page.
 - ALGO picks the instrument or melody the keys play. The line lists it on the pages that show an
   instrument: Band, Groove length, Sound and the two Mixer pages.
 - PRESET steps through the progressions on Home and Progression, the sections on Song, the grooves on
@@ -514,7 +518,7 @@ Home's **KNOB 4** (Prog) chooses what steers the band.
 - P1–P16 plays that progression. While playing, it starts at the next bar.
 - In a song, the knob shows "Song". Turning it leaves the song.
 
-### The Song page (HOME, SELECT)
+### The Song page (HOME, HOME again)
 
 ![The Song page](docs/img/manual/song.png)
 
@@ -1205,8 +1209,8 @@ On every page, holding **HOME** and turning **PRESETS** picks the song. **SELECT
 | Page | Button | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
 | --- | --- | --- | --- | --- | --- | --- |
 | Home | HOME | Style | Tempo | Transpose | Prog | The next progression |
-| Song | HOME, SELECT | Section | Prog | Groove | Repeat | The next section |
-| Song 2 | HOME, SELECT ×2 | Transpose (the section's) | Intro | Ending | At end | The next section |
+| Song | HOME on Home | Section | Prog | Groove | Repeat | The next section |
+| Song 2 | HOME on Home, SELECT | Transpose (the section's) | Intro | Ending | At end | The next section |
 | Progression | ARP | Bar | Beat | Root | Type | The next progression |
 | Progression 2 | ARP, SELECT | Length | Beats | Bass | Name | The next progression |
 | Band | SEQ | Grid | Bar (the cursor) | Beat (the cursor) | Mute | What the groove plays |

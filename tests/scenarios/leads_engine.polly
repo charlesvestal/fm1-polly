@@ -4,7 +4,6 @@
 wait 300
 poke_row 1
 tap HOME
-turn SELECT 1
 expect page 1
 tap PLAY
 wait 50
@@ -37,7 +36,7 @@ wait 12000
 expect playing 0
 # again from row 1 (the song's Intro first): LD1 plays its two notes
 tap HOME
-turn SELECT 1
+tap HOME
 hitreset
 tap PLAY
 wait 22000

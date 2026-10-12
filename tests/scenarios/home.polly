@@ -61,7 +61,7 @@ shot loop_intro.png
 tap PLAY
 wait 200
 # ---- SONG: P1 x2 (Groove A), P3 (Groove B), P8 (Groove A); Intro and Ending on
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w0
 tapkey w2

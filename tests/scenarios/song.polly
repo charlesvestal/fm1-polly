@@ -107,10 +107,10 @@ turn SELECT 1
 expect page 5
 spin K4 2
 expect loop_name10 Chorus
-# ---- the song: HOME, SELECT; 9, 9 (a row each), row 2 retapped 10; REPEAT by its knob (verse x2, chorus)
+# ---- the song: HOME, HOME; 9, 9 (a row each), row 2 retapped 10; REPEAT by its knob (verse x2, chorus)
 tap HOME
 expect page 0
-turn SELECT 1
+tap HOME
 expect page 1
 expect tag_is_S1 1
 expect footer_is_WHITE_progression|BLACK_mutes 1
@@ -304,7 +304,7 @@ tap PLAY
 wait 500
 expect mode 1
 expect loop_now 10
-turn SELECT 1
+tap HOME
 expect page 1
 tap PLAY
 wait 50
@@ -358,8 +358,6 @@ expect mode 0
 wait 50
 shot home_norows.png
 tap HOME
-expect page 0
-turn SELECT 1
 expect page 1
 tap REC
 expect song_rec 1
@@ -440,7 +438,7 @@ expect song_rec 0
 wait 50
 shot home_song.png
 # ---- SECTION on a row: the loop's other rows on the old Main follow (song 2: L9 Main B, L9 Main A, L10 Main A)
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 -9
 expect cursor 1

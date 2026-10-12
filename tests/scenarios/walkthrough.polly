@@ -148,10 +148,10 @@ turn K4 2
 expect loop_name10 Chorus
 wait 50
 shot 3_named.png
-# ---- 4. Build the song: HOME, SELECT to SONG; white keys 9, 10, 9, 10: a row each
+# ---- 4. Build the song: HOME, HOME to SONG; white keys 9, 10, 9, 10: a row each
 tap HOME
 expect page 0
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w8
 tapkey w9

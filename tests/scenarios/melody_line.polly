@@ -26,7 +26,7 @@ expect loop_bars1 4
 expect loop_bars2 4
 # ---- the song: Verse, Chorus, Verse, Chorus; the choruses Groove B, the last x2; no Intro
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w0
 tapkey w1
@@ -60,7 +60,7 @@ wait 1500
 shot stopped.png
 # ---- recording from section 1 (the cursor back there; REC, PLAY), a line across the verse into the chorus
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 -9
 expect cursor 1
@@ -136,7 +136,7 @@ expect lead_count1_3 2
 expect lead_count1_4 2
 # ---- playing the 4-section song from the Song page; on EDIT (M1): the playhead along the line, the lane in verse 2
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tap PLAY
 expect playing 1
@@ -176,7 +176,7 @@ shot m2_stopped.png
 turn ALGO -1
 expect lead_sel 1
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 9
 tapkey w2
@@ -214,7 +214,7 @@ tap PLAY
 wait 100
 # ---- 32 sections (the most), some x8: the line still holds every one, 1 px apart
 tap HOME
-turn SELECT 1
+tap HOME
 spin K1 30
 tapkey w0
 tapkey w1

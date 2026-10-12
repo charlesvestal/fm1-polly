@@ -101,10 +101,10 @@ turn K4 2 300
 wait 1500
 expect loop_name10 Chorus
 # ---- 7. the song
-cap 7. Build the song | HOME, SELECT to the Song page; white keys 9, 10, 9, 10: verse, chorus, verse, chorus
+cap 7. Build the song | HOME twice: Home, then the Song page; white keys 9, 10, 9, 10: verse, chorus, verse, chorus
 tap HOME
 wait 600
-turn SELECT 1
+tap HOME
 wait 900
 expect page 1
 tapkey w8
@@ -291,7 +291,7 @@ cap 10. Play it | From the top, on the Song page: the Intro, the sections with f
 wait 900
 tap HOME
 wait 500
-turn SELECT 1
+tap HOME
 wait 900
 expect page 1
 anchor S
@@ -320,10 +320,10 @@ at S 14 400
 expect row 4
 cap 10. Play it | Section 4, the last chorus, twice: the widest box on the line. M1 a tone up with the key change (+2)
 at S 18 400
-cap 10. Play it | The last chorus again: M1 takes its new ending. HOME, SELECT: back to the Song page
+cap 10. Play it | The last chorus again: M1 takes its new ending. HOME twice: back to the Song page
 tap HOME
 wait 400
-turn SELECT 1
+tap HOME
 expect page 1
 at S 22 400
 expect sect 6

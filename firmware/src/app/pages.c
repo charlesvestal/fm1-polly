@@ -42,10 +42,11 @@ enum { P_HOME, P_SONG, P_SONG2, P_SONG3, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P
 static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Song", "Song", "Progression", "Progression", "Band",
                                               "Groove length", "Sound", "Sound 2", "Mixer", "Mixer tone", "Effects",
                                               "Style", "Style", "Setup", "Status", "Notes"};
-/* the page buttons: a button opens its first page, SELECT the next (the tag's dots: which). HOME's three: HOME, then
- * SONG's two pages (P_SONG3, once a third, is no longer shown: its knobs are on P_SONG2; the numbers stay) */
+/* the page buttons: a button opens its first page, SELECT the next (the tag's dots: which). HOME: Home, one page; on
+ * Home, HOME again: Song, two pages (as X0X: the pattern, again the song; P_SONG3, once a third, is no longer shown:
+ * its knobs are on P_SONG2; the numbers stay) */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_HOME, 3}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
+    {B_HOME, P_HOME, 1}, {B_HOME, P_SONG, 2}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
     {B_FX, P_MASTER, 1}, {B_ENV, P_STYLE, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_group(int p)                         /* the PAGE_BTN entry page p is on (Notes: SEQ's) */
@@ -3999,6 +4000,8 @@ static void enc_line(char *t)
     }
     if (n > 1)                                       /* the button's pages */
         e = cat_s(t, "SELECT page");
+    else if (p == P_HOME)                            /* (HOME again: Song) */
+        e = cat_s(t, "HOME song");
     if (p >= P_PATTERN && p <= P_TONE)               /* the instrument (or melody) the keys and the page show */
         e = cat_s(e, *t ? "|ALGO instrument" : "ALGO instrument");
     {

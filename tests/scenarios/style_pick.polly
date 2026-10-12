@@ -8,7 +8,7 @@
 wait 300
 expect mode 0
 # ---- the Song page with no sections: PLAY starts nothing
-spin SELECT 1
+tap HOME
 expect page 1
 expect rows 0
 tap PLAY

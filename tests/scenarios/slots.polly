@@ -123,7 +123,7 @@ tap HOME
 expect list_open 0
 # ---- S1's lead notes: a row, LD1 recorded; its part takes the first free slot (2); FREE erases them
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w0
 expect rows 1

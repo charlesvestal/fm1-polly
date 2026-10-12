@@ -13,8 +13,8 @@ from this repository with `python3 tools/fm1_install.py polly.fwsc`.
 - **KNOB 1–4**: set the four values shown at the bottom of the screen. Each knob's name is shown there too.
 - **PLAY**: starts and stops.
 - **REC**: starts recording. Press it again to stop.
-- **HOME**: opens the Home page, where you pick a style and play. Hold it for shortcuts, which show on the
-  screen.
+- **HOME**: opens the Home page, where you pick a style and play. Press it again for the Song page, where
+  you build a song. Hold it for shortcuts, which show on the screen.
 - **SELECT** (the encoder): turn it to move to a button's next page.
 - **SEL** (the button): opens a list of what you can do on this page. When Polly asks a question, **SEL**
   means yes and **HOME** means no.
@@ -52,7 +52,7 @@ You'll write a verse and a chorus, build a song from them, and play it.
    band plays) anticlockwise, past P1, to "–". The band is free again and follows your hands. Press **REC**,
    play C, G, Am and F, then press **REC**. That's P10, the next empty one. Name it "Chorus" the same way as
    in step 3.
-5. **Build the song.** Press **HOME**, then turn **SELECT** to the Song page. On this page each white key
+5. **Build the song.** Press **HOME** twice: once for Home, again for the Song page. On this page each white key
    adds a section that plays that progression: white key 9 adds P9, white key 10 adds P10. Press white keys
    9, 10, 9 and 10. You now have four sections: verse, chorus, verse, chorus.
 6. **Make the chorus bigger.** Turn **KNOB 1** (Section) to choose section 2, the first chorus. Turn

@@ -149,7 +149,6 @@ wait 300
 # ---- a song of two rows of L1 (white key 1 twice), row 1 on Main B (the other follows); INTRO off; PLAY: it plays to
 # its Ending and stops: SEQ shows row 1's section (Main B), not the Ending
 tap HOME
-turn SELECT 1
 expect page 1
 tapkey w0
 tapkey w0

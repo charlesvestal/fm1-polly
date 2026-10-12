@@ -124,7 +124,7 @@ expect loop_bars3 4
 # (playing from Home: PLAY on a Song page with no sections starts nothing, it stops)
 tap PLAY
 wait 200
-turn SELECT 1
+tap HOME
 expect page 1
 tap SEL
 expect list_sel 8
@@ -220,7 +220,7 @@ expect loop_bars5 12
 # 9, INSERT ROW 10, DELETE ROW 11, CLEAR SONG 12, COPY SONG TO 13): a row; COPY
 # SONG TO Song 3 (empty: no question); again: Song 3 has a row now, a question; PLAY meanwhile, then SEL: STOP FIRST
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tap SEL
 turn SELECT 1

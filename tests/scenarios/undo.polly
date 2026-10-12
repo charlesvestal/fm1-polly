@@ -116,7 +116,7 @@ release HOME
 expect loop_ch9_0 916
 # ---- rows: three added (a white key on SONG adds one), a step each; row 3 undone, redone
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w0
 wait 1100

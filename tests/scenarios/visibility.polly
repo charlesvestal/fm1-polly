@@ -134,7 +134,7 @@ shot band_rec_undo.png
 wait 600
 # ---- Song: three sections of P9; the cursor ringed coral (thick), "section 2 of 3"
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w8
 tapkey w8
@@ -223,7 +223,6 @@ tap PLAY
 wait 300
 # ---- Home: stopped, playing (the playing beat underlined teal), stepping with REC (the cursor ringed; from bar 2 beat
 # 3, where Progression left it): a chord written flashes its bar, undo flashes it again and takes the cursor back
-tap HOME
 tap HOME
 expect page 0
 press HOME

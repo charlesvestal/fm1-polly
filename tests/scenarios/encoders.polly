@@ -1,7 +1,8 @@
 # POLLY, the encoders' line (over the footer): what SELECT, ALGORITHM, PRESETS do on each page, as they do it.
-# SELECT: the button's next page (one page: nothing), HOME held the tempo. ALGORITHM: the instrument (or melody) the
-# keys play, said only where an instrument is on screen (Band, Groove length, Sound, Mixer, Mixer tone; elsewhere it
-# still picks one). PRESETS: the next progression (Home, Progression), section (Song), groove (Band), style (Style),
+# SELECT: the button's next page (one page: nothing, except Home: "HOME song"), HOME held the tempo. ALGORITHM: the
+# instrument (or melody) the keys play, said only where an instrument is on screen (Band, Groove length, Sound,
+# Mixer, Mixer tone; elsewhere it still picks one). PRESETS: the next progression (Home, Progression), section
+# (Song), groove (Band), style (Style),
 # family (Sound; drums: nothing), HOME held the song. A list, a question, a help card: no line (the list covers it;
 # the footer says what SELECT, ALGORITHM, SEL, HOME do). On screen the encoders are SELECT, ALGO, PRESET (round pills),
 # the buttons and keys keycaps. A screenshot of every page.
@@ -10,7 +11,7 @@
 wait 300
 expect page 0
 expect track 5
-expect enc_is_SELECT_page|PRESET_prog 1
+expect enc_is_HOME_song|PRESET_prog 1
 shot home.png
 # HOME held (the overlay): the tempo, the song
 press HOME
@@ -22,7 +23,7 @@ release HOME
 wait 50
 expect page 0
 # Song's two pages
-turn SELECT 1
+tap HOME
 expect page 1
 expect enc_is_SELECT_page|PRESET_section 1
 shot song.png
@@ -30,7 +31,7 @@ turn SELECT 1
 expect page 2
 expect enc_is_SELECT_page|PRESET_section 1
 shot song2.png
-turn SELECT 1
+tap HOME
 expect page 0
 # Progression (ALGORITHM picks the instrument here too, unsaid: none on screen)
 tap ARP

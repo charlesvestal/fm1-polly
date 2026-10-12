@@ -71,7 +71,6 @@ wait 100
 # ---- a melody recorded at +2: C4 played over the song's C sounds D4; stored as D4 over D, played back as D4
 # the song: two rows of P1 (C G Am F), its Intro off
 tap HOME
-turn SELECT 1
 expect page 1
 tapkey w0
 tapkey w0
@@ -82,7 +81,7 @@ turn K2 -1
 expect song_intro 0
 turn SELECT -1
 tap HOME
-turn SELECT 1
+tap HOME
 tap PLAY
 wait 300
 tap PLAY

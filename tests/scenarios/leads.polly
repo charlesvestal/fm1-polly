@@ -7,7 +7,7 @@ expect tempo 120
 expect loop_bars1 4
 # ---- the song: four rows of L1 (a white key a row), its Intro off
 tap HOME
-turn SELECT 1
+wait 80
 expect page 1
 tapkey w0
 tapkey w0
@@ -48,7 +48,7 @@ tap PLAY
 wait 100
 # ---- SONG once (PLAY there, PLAY again: stopped in SONG); back on EDIT, REC arms LD1: it starts with PLAY
 tap HOME
-turn SELECT 1
+tap HOME
 tap PLAY
 wait 300
 tap PLAY
@@ -103,7 +103,7 @@ expect playing 0
 expect lead_notes 5
 # ---- punch in at row 3: SONG's cursor to row 3; on EDIT, REC (LD1 still selected), PLAY: the song from row 3
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 -9
 spin K1 2
@@ -209,7 +209,7 @@ tapkey b8
 expect lead_sel 1
 # ---- SONG: the rows' lead mutes (black keys 9, 10), after the eight; DELETE ROW on a row with lead notes asks
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 -9
 expect cursor 1
@@ -246,7 +246,7 @@ expect loop_ch1_0 0
 turn K3 2
 expect loop_ch1_0 200
 tap HOME
-turn SELECT 1
+tap HOME
 hitreset
 tap PLAY
 wait 5000
@@ -288,7 +288,7 @@ tap SEQ
 turn K1 3
 expect quant 5
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 spin K1 -9
 spin K1 3
@@ -341,7 +341,7 @@ expect lead8_pos 1320
 expect lead9_pos 2160
 # row 4 again, REC on LD1: its notes on the grid lines
 tap HOME
-turn SELECT 1
+tap HOME
 expect cursor 4
 tap SEL
 tap SEL

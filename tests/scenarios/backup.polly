@@ -10,7 +10,7 @@ expect pat1_nev 3
 expect loop_ch9_0 918
 backup out:polly.plb
 # ---- changed: the tempo by hand (saved by the autosave), a pattern and the songs in the flash
-tap HOME
+expect page 0
 spin K2 5
 expect tempo 105
 wait 5000

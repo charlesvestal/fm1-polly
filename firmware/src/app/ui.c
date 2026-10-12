@@ -16,7 +16,7 @@
  *     + PRESETS           the song (while playing: after the stop)
  *     + REC / + PLAY      undo / redo (the journal: below)
  *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 PROG ("-" free, P1..P16; "Song" in a song);
- *   SELECT: Song's three pages (the sections, a section's transpose, the song)
+ *   HOME on Home: Song (HOME again: Home); SELECT there: Song's two pages (the sections, a section's transpose)
  *   (a page button: always its first page; SELECT, and only SELECT, turns the pages)
  *   ARP Progression (x2), SEQ Band (x2: the groove's notes; its length; SEQ again: Notes, the note editor, editor.c),
  *   EDIT Sound (x2), LFO Mixer (x2), FX Effects,
@@ -1624,14 +1624,14 @@ static void song_knob(int k, int32_t e)
     songs_write(0);
 }
 
-/* the page buttons (PAGE_BTN, pages.c): always the button's first page (HOME: HOME, from SONG's pages too); SELECT,
- * and only SELECT, turns the pages, both ways */
+/* the page buttons (PAGE_BTN, pages.c): always the button's first page; HOME on Home: Song (and from Song's pages,
+ * or anywhere else: Home). SELECT, and only SELECT, turns the pages, both ways */
 static void arp_open(void);
 static int page_button(int b)
 {
     for (uint32_t i = 0; i < NPAGE_BTN; i++)
         if (PAGE_BTN[i].btn == b) {
-            ui.page = PAGE_BTN[i].first;
+            ui.page = b == B_HOME && ui.page == P_HOME ? P_SONG : PAGE_BTN[i].first;
             ui.touched = -1;
             if (b == B_ARP)
                 arp_open();

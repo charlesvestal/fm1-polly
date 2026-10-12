@@ -23,7 +23,7 @@ turn SELECT 1
 turn K4 2
 expect loop_name2 Chorus
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w0
 tapkey w1

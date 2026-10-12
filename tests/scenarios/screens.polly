@@ -19,7 +19,7 @@ shot list_home_free.png
 tap HOME
 expect list_open 0
 expect footer_is_KEYS_chords|REC_new_progression 1
-expect enc_is_SELECT_page|PRESET_prog 1
+expect enc_is_HOME_song|PRESET_prog 1
 expect tag_is_S1>free 1
 # free: a chord played, then playing (the groove's bar at the right, the chord teal while the band plays it)
 key 7 down
@@ -135,7 +135,7 @@ tap REC
 tap PLAY
 wait 600
 # ---- the Song page: sections, the two pages, playing
-turn SELECT 1
+tap HOME
 expect page 1
 expect tag_is_S1 1
 expect enc_is_SELECT_page|PRESET_section 1
@@ -155,7 +155,9 @@ shot song2.png
 turn K3 1
 expect song_ending 1
 turn SELECT 1
-expect page 0
+expect page 1
+turn SELECT -1
+expect page 2
 turn SELECT 1
 expect page 1
 wait 600
@@ -303,7 +305,7 @@ shot card_melody.png
 release EDIT
 turn ALGO -4
 tap HOME
-turn SELECT 1
+tap HOME
 press SEL
 wait 1200
 shot card_sel.png
@@ -324,7 +326,7 @@ shot card_rec_prog.png
 release REC
 # ---- a question
 tap HOME
-turn SELECT 1
+tap HOME
 tap SEL
 turn SELECT 3
 tap SEL

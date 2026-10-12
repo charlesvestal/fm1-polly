@@ -2,23 +2,27 @@
 # keys by screen, HOME held + a key / SELECT / PRESETS, HOME's LOOP knob, the song's tempo and transpose.
 # Pages: 0 Home, 1-2 Song (3: no longer shown), 4-5 Progression, 6 Band, 7 Groove length, 8 Sound, 9 Sound 2,
 # 10 Mixer, 11 Mixer tone, 12 Effects, 13-14 Style, 15 Setup, 16 Status
+# Home is its own page now (SELECT does nothing there); HOME on Home opens Song; HOME anywhere else (Song, Song 2,
+# or any other page) goes back to Home.
 wait 300
 expect page 0
-tap HOME
-expect page 0
 turn SELECT 1
+expect page 0
+tap HOME
 expect page 1
 turn SELECT 1
 expect page 2
 shot song2_dots.png
 turn SELECT 1
-expect page 0
+expect page 1
 turn SELECT -1
 expect page 2
 tap HOME
 expect page 0
-turn SELECT 2
-expect page 2
+turn SELECT 1
+expect page 0
+tap HOME
+expect page 1
 tap HOME
 expect page 0
 tap ARP
@@ -183,7 +187,6 @@ tap PLAY
 wait 500
 # a section in the song (P6: a song with no sections never plays as the song), C3 muted in it (as the song will be)
 tap HOME
-turn SELECT 1
 tapkey w5
 tapkey b6
 expect rows 1
@@ -195,7 +198,7 @@ wait 100
 expect song1_mute 64
 expect mutes 64
 tap HOME
-turn SELECT 1
+tap HOME
 tap PLAY
 wait 50
 expect mode 2

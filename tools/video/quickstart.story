@@ -103,11 +103,11 @@ wait 2500
 expect loop_name10 Chorus
 # ---- 5. the song
 at A 32
-cap 5. Build the song | Press HOME, then turn SELECT to the Song page.
+cap 5. Build the song | Press HOME twice: Home, then the Song page.
 wait 2000
 tap HOME
 wait 1000
-turn SELECT 1
+tap HOME
 wait 1500
 expect page 1
 cap 5. Build the song | Each white key adds a section that plays its progression: 9, 10, 9, 10.

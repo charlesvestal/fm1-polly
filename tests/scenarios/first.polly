@@ -1,5 +1,5 @@
 # POLLY, first: HOME at start-up (FREE, LOOP "-"); the keys play chords there, PLAY starts the band on the chord
-# played; HOME + a white key picks a loop (it goes round); SELECT turns HOME's pages; MIDI in plays the synth on its channels.
+# played; HOME + a white key picks a loop (it goes round); HOME on Home opens Song, HOME again back; MIDI in plays the synth on its channels.
 wait 500
 shot boot.png
 expect page 0
@@ -33,11 +33,11 @@ expect mode 1
 wait 2200
 expect loop_now 1
 shot loop.png
-# SELECT: HOME's next page (SONG), and back
-turn SELECT 1
+# HOME: Song, and back
+tap HOME
 expect page 1
 shot song.png
-turn SELECT -1
+tap HOME
 expect page 0
 tap PLAY
 wait 1000

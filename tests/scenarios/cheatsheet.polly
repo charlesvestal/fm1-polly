@@ -106,9 +106,9 @@ expect page 5
 turn K1 2
 expect loop_bars9 4
 shot progression2.png
-# ---- Add sections to the song: HOME, SELECT (Song), a white key a section (9: P9, 3: P3, 9: P9)
+# ---- Add sections to the song: HOME, HOME again (Song), a white key a section (9: P9, 3: P3, 9: P9)
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 tapkey w8
 tapkey w2
@@ -235,7 +235,7 @@ expect list_open 0
 # ---- Record a melody: Song page, PLAY; EDIT, ALGORITHM past C4 to M1, REC (it waits for the Intro, then counts in to
 # the next bar line), play, REC
 tap HOME
-turn SELECT 1
+tap HOME
 expect page 1
 turn K1 -2
 expect cursor 1
