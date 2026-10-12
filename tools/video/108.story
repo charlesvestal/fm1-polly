@@ -20,17 +20,10 @@ expect knob1_is_Clean_Guitar 1
 still 1-instrument
 wait 2500
 # ---- 2. a sound
-cap 2. Pick a sound | Turn PRESETS to jump a family of eight sounds. One back: the organs.
+cap 2. Pick a sound | Turn KNOB 1 (Sound) down to Rock Organ.
 wait 2500
-turn PRESET -1
-expect trk6_program 17
-expect knob1_is_Drawbar_Organ 1
-expect msgtext_is_GROOVE_A_NOW_YOURS 1
-wait 2500
-cap 2. Pick a sound | Turn KNOB 1 (Sound) through the family to Rock Organ.
-wait 2000
-turn K1 1 600
-turn K1 1 50
+turn K1 -8 250
+turn K1 -1 50
 still 2-sound
 wait 300
 expect trk6_program 19

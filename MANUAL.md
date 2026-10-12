@@ -94,7 +94,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | add a section to the song | Press **HOME** until you're on the Song page (on Home, press it once more). Press white key *n*. This adds a section that plays P*n*. |
 | play from section 3 | On the Song page, turn **KNOB 1** (Section) to 3 and press **SEL**. The list opens on PLAY FROM SECTION 3. Press **SEL** again. |
 | change an instrument's sound | Press **EDIT**, turn **ALGORITHM** to the instrument and turn **KNOB 1** (Sound). |
-| mute an instrument | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Mute). Turn it again to unmute. To mute it in one section only, press its black key on the Song page. |
+| mute an instrument | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted) to yes. Turn it back to no to unmute. To mute it in one section only, press its black key on the Song page. |
 | record a melody | On the Song page, press **PLAY**. Press **EDIT** and turn **ALGORITHM** past C4 to M1. Press **REC**, play, and press **REC** again. |
 | fix one wrong note | Press **SEQ** twice to open Notes. Turn **ALGORITHM** to the instrument or melody. Turn **SELECT** to the note, which is ringed in coral. Turn **KNOB 2** (Pitch). **EDIT** deletes the note. |
 | undo or redo | Hold **HOME** and press **REC** to undo, or **PLAY** to redo. |
@@ -166,7 +166,8 @@ The Song page has two pages of its own; turn **SELECT** for the second.
 
 The screen has five bands, from top to bottom.
 
-- **The header** shows the page's name. On Home, it shows the song instead ("Home S1"). The tempo is at the
+- **The header** shows the page's name, after a small keycap of the button that opens it ("[SEQ] Band"). On Home,
+  it shows the song instead ("Home S1"). The tempo is at the
   right, except on Home, where **KNOB 2** shows it. When MIDI clock sets the tempo, the header shows "ext".
   A coral dot means Polly is recording, and "unsaved" means there's something to save. The header never
   repeats what a knob already shows.
@@ -622,7 +623,7 @@ length page.
 
 - **KNOB 1** (Grid) sets the grid. See *The grid* below.
 - **KNOB 2** (Bar) and **KNOB 3** (Beat) move the cursor.
-- **KNOB 4** (Mute) mutes the selected instrument. Its values are "muted" and "plays".
+- **KNOB 4** (Muted) mutes the selected instrument: yes or no.
 - To fix a single note, press **SEQ** again. See [Fixing notes](#fixing-notes).
 
 ### Good to know

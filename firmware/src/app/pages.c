@@ -562,6 +562,7 @@ static int32_t segs_w(const felucca_font_t *f, const char *s);
  * HOME, whose KNOB 2 says it), REC's dot, "unsaved". The style, a progression's name, the sections: the knobs' and the
  * tag's to say, not the header's. A message replaces it all, a question (SEL: yes, HOME: no) the message. PLAY's
  * count-in (a recording armed): "Count-in 3", the beats left in coral (REC: you), on every page, over a message */
+static const char *const BTN_LABEL[NB];
 static void draw_header(void)
 {
     char t[40];
@@ -625,7 +626,16 @@ static void draw_header(void)
             itoa_u(proj.song + 1u, cat_s(t, "HOME + a key|S"));
             segs(8, 4, &FONT_B, t, K_TEXT);
         } else {
-            int32_t x = cv_text(8, 4, &FONT_B, PAGE_NAME[ui.page], K_TEXT);
+            int32_t x = 8;
+            if (ui.page != P_HOME) {                 /* the button that opens it, a keycap before the name ("[SEQ] Band") */
+                const char *bn = BTN_LABEL[PAGE_BTN[page_group(ui.page)].btn];
+                int32_t w = text_w(&FONT_XS, bn) + 6;
+                cv_round(x, 6, w, 13, 2, K_DIM);
+                cv_round(x + 1, 7, w - 2, 11, 1, K_BG);
+                cv_text(x + 3, cap_y(6, 13, &FONT_XS), &FONT_XS, bn, K_DIM);
+                x += w + 6;
+            }
+            x = cv_text(x, 4, &FONT_B, PAGE_NAME[ui.page], K_TEXT);
             if (ui.page == P_HOME) {                 /* "Home S1" (the tag starts there too) */
                 itoa_u(proj.song + 1u, cat_s(t, " S"));
                 cv_text(x, 4, &FONT_B, t, K_TEXT);
@@ -3684,7 +3694,7 @@ static void edit_knobs(knob_t *k)
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
         kn(&k[1], "Bar", pat_cur(s) / pat_beats(s) + 1, app.hdr[s].bars ? app.hdr[s].bars : 1);   /* the cursor */
         kn(&k[2], "Beat", pat_cur(s) % pat_beats(s) + 1, pat_beats(s));
-        kv(&k[3], "Mute", trk_muted(sel_trk()) ? "muted" : "plays", trk_muted(sel_trk()), 0);
+        kv(&k[3], "Muted", trk_muted(sel_trk()) ? "yes" : "no", trk_muted(sel_trk()), 0);
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);
