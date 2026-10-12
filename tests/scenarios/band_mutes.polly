@@ -1,0 +1,123 @@
+# POLLY, Band's KNOB 4 (Muted) in a song: the section's mute, as the Song page's black keys write it, saved with the
+# song. Stopped: the Song page's cursor's section; playing: the section playing (heard at once). The knob and the tag
+# say which section. Outside a song: the song's mute, every section (as before). The Intro playing: by hand, until the
+# first section.
+wait 300
+# ---- a song of two sections (P1, P2), the cursor on section 2, the song stopped in it (PLAY, PLAY)
+tap HOME
+expect page 1
+tapkey w0
+tapkey w1
+expect rows 2
+turn SELECT 1
+turn K2 -1
+expect song_intro 0
+turn SELECT -1
+tap PLAY
+wait 200
+tap PLAY
+wait 200
+expect mode 2
+expect playing 0
+expect cursor 1
+turn K1 1
+expect cursor 2
+# ---- Band, D1: KNOB 4 mutes it in section 2 (the cursor's), not in section 1, not the song's
+tap SEQ
+expect page 6
+turn ALGO -4
+expect track 1
+expect knob4_is_no 1
+expect knob4name_is_Muted_in_2 1
+wait 200
+turn K4 1
+expect row_mute2 1
+expect row_mute1 0
+expect song1_mute 0
+expect trk1_mute 1
+expect knob4_is_yes 1
+expect msgtext_is_D1_MUTED_IN_SECTION_2 1
+shot band_song_muted.png
+wait 1500
+shot band_song.png
+# again: it plays in section 2
+wait 200
+turn K4 1
+expect row_mute2 0
+expect msgtext_is_D1_PLAYS_IN_SECTION_2 1
+wait 200
+turn K4 1
+expect row_mute2 1
+# the Song page's cursor on section 1: the knob shows section 1's (D1 plays there)
+tap HOME
+tap HOME
+expect page 1
+turn K1 -1
+expect cursor 1
+tap SEQ
+expect trk1_mute 0
+expect knob4_is_no 1
+expect knob4name_is_Muted_in_1 1
+# the cursor on the END row: no section ("-"), a turn says so
+tap HOME
+tap HOME
+turn K1 2
+expect cursor 3
+tap SEQ
+expect knob4_is_- 1
+wait 200
+turn K4 1
+expect msgtext_is_NO_SECTION_AT_THE_CURSOR 1
+expect row_mute1 0
+expect row_mute2 1
+tap HOME
+tap HOME
+turn K1 -2
+expect cursor 1
+tap SEQ
+# ---- playing: the section playing. Section 1 (no Intro): D1 muted in it, heard at once
+tap PLAY
+wait 300
+expect row 1
+expect mutes 0
+wait 200
+turn K4 1
+wait 50
+expect row_mute1 1
+expect mutes 1
+expect msgtext_is_D1_MUTED_IN_SECTION_1 1
+expect knob4name_is_Muted_in_1 1
+shot band_song_playing.png
+# section 2 starts with its own (muted there too); C1 muted in section 2 while it plays
+wait 9000
+expect row 2
+expect mutes 1
+expect knob4name_is_Muted_in_2 1
+turn ALGO 4
+expect track 5
+wait 200
+turn K4 1
+wait 50
+expect row_mute2 17
+expect mutes 17
+tap PLAY
+wait 300
+# ---- saved with the song: a reboot keeps both sections' mutes
+tap SAVE
+expect dirty 0
+reboot
+wait 300
+expect row_mute1 1
+expect row_mute2 17
+expect song1_mute 0
+# ---- outside a song (Free): the song's mute, every section (as before)
+tap SEQ
+turn ALGO -4
+expect track 1
+expect mode 0
+wait 200
+turn K4 1
+expect song1_mute 1
+expect knob4name_is_Muted 1
+expect row_mute1 1
+expect row_mute2 17

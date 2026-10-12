@@ -688,6 +688,19 @@ static int expect(const char *what, const char *val)
         int x = atoi(what + 6), y = strchr(what + 6, '_') ? atoi(strchr(what + 6, '_') + 1) : 0;
         uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_ACCENT;
         got = p == t || p == (uint16_t)(t >> 8 | t << 8);
+    } else if (!strncmp(what, "knob", 4) && what[4] >= '1' && what[4] <= '4' && !strncmp(what + 5, "name_is_", 8)) {
+        /* knobNname_is_WORDS: knob N's name on this page, exactly ("_": a space) */
+        char w[32];
+        knob_t k[4];
+        int i;
+        for (i = 0; i < 31 && what[13 + i]; i++)
+            w[i] = what[13 + i] == '_' ? ' ' : what[13 + i];
+        w[i] = 0;
+        memset(k, 0, sizeof k);
+        page_knobs(k);
+        got = k[what[4] - '1'].name && !strcmp(k[what[4] - '1'].name, w);
+        if (!got)
+            printf("  (knob %c's name: \"%s\")\n", what[4], k[what[4] - '1'].name ? k[what[4] - '1'].name : "");
     } else if (!strncmp(what, "knob", 4) && what[4] >= '1' && what[4] <= '4' && !strncmp(what + 5, "_is_", 4)) {
         /* knobN_is_WORDS: knob N's value on this page, exactly ("_": a space) */
         char w[32];

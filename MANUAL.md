@@ -103,7 +103,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | play from section 3 | On the Song page, turn **KNOB 1** (Section) to 3 and press **SEL**. The list opens on PLAY FROM SECTION 3. Press **SEL** again. |
 | loop the song | On the Song page, turn **SELECT** to page 2 and turn **KNOB 4** (At end) to "again". |
 | change an instrument's sound | Press **EDIT**, turn **ALGORITHM** to the instrument and turn **KNOB 1** (Sound). |
-| mute an instrument in one section | On the Song page, move to the section and press the instrument's black key (1 for D1 … 8 for C4). |
+| mute an instrument in one section | On the Song page, move to the section and press the instrument's black key (1 for D1 … 8 for C4). Or, in the song, press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted in 2). |
 | mute an instrument outside a song | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted). Turn it again to unmute. |
 | record into an instrument | Press **SEQ**, turn **ALGORITHM** to the instrument, press **REC** and then **PLAY**. Play, then press **REC** again. |
 | record a melody | On the Song page, press **PLAY**. Press **EDIT** and turn **ALGORITHM** past C4 to M1. Press **REC**, play, and press **REC** again. |
@@ -1095,8 +1095,12 @@ Mutes belong to the song, not to the groove. Muting never makes a groove yours.
   instrument. It stays muted in every groove and through fills. The mute is saved with the song, and each
   song has its own.
 - **In a song**, each section has its own mutes. Set them on the Song page with black keys 1–10 (see
-  [Changing a section](#changing-a-section)). The Band page's **KNOB 4** then mutes the instrument only until
-  the next section starts. With the Song page's REC on, it writes the mute into the section playing.
+  [Changing a section](#changing-a-section)), or with the Band page's **KNOB 4**, which then reads "Muted in
+  2": it mutes the instrument in that section only, and the mute is saved with the song. While the song
+  plays, it's the section playing, and you hear it at once. When stopped, it's the section at the Song page's
+  cursor. Polly shows "D1 MUTED IN SECTION 2" or "D1 PLAYS IN SECTION 2". With the cursor on END there's no
+  section, and the knob shows "–". While the Intro or the Ending plays, the knob mutes the instrument only
+  until the first section starts.
 - A fill plays with the mutes of the section it leads into. The melodies keep their own section's mutes.
 
 ## Songs and saving

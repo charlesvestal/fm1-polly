@@ -192,7 +192,8 @@ turn K1 -1
 tapkey b6
 expect rows 1
 tap HOME
-# mutes: SEQ's MUTE in LOOP is the song's; in SONG by hand only (the engine's); back in LOOP the song's again
+# mutes: SEQ's MUTE in LOOP is the song's; in SONG the section's (stopped: the Song cursor's, section 1: written into
+# it, as its black keys do, saved with the song); back in LOOP the song's again
 tap SEQ
 spin K4 1
 wait 100
@@ -211,7 +212,9 @@ tap SEQ
 spin K4 1
 wait 100
 expect song1_mute 64
-expect mutes 0
+expect row_mute1 0
+expect trk7_mute 0
+expect msgtext_is_C3_PLAYS_IN_SECTION_1 1
 tap HOME
 spin K4 -1
 wait 100

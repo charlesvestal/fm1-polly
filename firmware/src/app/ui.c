@@ -3639,27 +3639,39 @@ static void bars_to_loop(void)
 }
 #define MUTE_BURST_MS 150u                       /* detents closer than this: one turn */
 /* a track muted / unmuted: the song's (every section), live; not an edit of the pattern (a style's section stays
- * the style's). In SONG by hand only, until the next row (the rows' mutes are theirs) */
+ * the style's). In SONG the section's (as the Song page's black keys: saved with the song): playing, the section
+ * playing (heard now); stopped, the Song page's cursor's (mute_row). The Intro or the Ending playing (no section):
+ * by hand, until the next section */
 static void mute_toggle(int trk)
 {
-    if (trk >= ARR_TRACKS && app.mode != ARR_SONG) {   /* a lead: in a song only (its rows' mutes, by hand) */
+    if (trk >= ARR_TRACKS && app.mode != ARR_SONG) {   /* a lead: in a song only (its rows' mutes) */
         say_no("MELODIES PLAY", "IN A SONG");
         return;
     }
     if (app.mode == ARR_SONG) {
-        int t = trk < ARR_ALLTRK ? trk : 0, on = !(arr_mutes >> t & 1u);
+        int t = trk < ARR_ALLTRK ? trk : 0, r = mute_row(), on;
         song_t *g = csong();
-        arr_track_mute(t, on);
-        if (ui.song_rec && arr_playing && arr_loop_now >= 0 && arr_row < g->nrows) {   /* REC: into the row playing */
-            row_t *w = &g->row[arr_row];
-            songs_write(1);
-            if (t >= ARR_TRACKS)
-                w->lmute = (uint8_t)((w->lmute & ~(1u << (t - ARR_TRACKS))) | (uint32_t)on << (t - ARR_TRACKS));
-            else
-                w->mute = (uint8_t)((w->mute & ~(1u << t)) | (uint32_t)on << t);
-            songs_write(0);
-        }
+        char a[28];
         ui.act_t = plat_ms();
+        if (r < 0) {                             /* the Intro, the Ending: the engine's, until the next section */
+            arr_track_mute(t, !(arr_mutes >> t & 1u));
+            return;
+        }
+        if (r >= g->nrows) {                     /* stopped on the END row: no section */
+            say_no("NO SECTION", "AT THE CURSOR");
+            return;
+        }
+        songs_write(1);
+        if (t >= ARR_TRACKS)
+            g->row[r].lmute ^= (uint8_t)(1u << (t - ARR_TRACKS));
+        else
+            g->row[r].mute ^= (uint8_t)(1u << t);
+        songs_write(0);
+        on = t >= ARR_TRACKS ? g->row[r].lmute >> (t - ARR_TRACKS) & 1u : g->row[r].mute >> t & 1u;
+        if (arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && r == arr_row)
+            arr_track_mute(t, on);               /* the section playing: heard now (its next start would anyway) */
+        itoa_u((uint32_t)r + 1u, cat_s(a, on ? "MUTED IN SECTION " : "PLAYS IN SECTION "));
+        say(TRACK_NAME[t], a);
         return;
     }
     csong()->mute ^= (uint8_t)(1u << (trk & 7));

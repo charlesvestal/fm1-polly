@@ -289,14 +289,28 @@ static char slot_txt[ARR_USER_PATTERNS][40];
 static uint8_t slot_kind[ARR_USER_PATTERNS];
 static uint8_t slot_ord[ARR_USER_PATTERNS];
 
-/* track t muted: in SONG the engine's (the row's, or by hand until the next row); else the song's mute (every
- * section; ui.c gives it to the engine). A lead track (ARR_LD1 + k): the engine's in SONG, else never (leads play
- * only in a song) */
+/* the section Band's Muted knob (ui.c mute_toggle) mutes in, in a song: playing, the section playing (-1: none, the
+ * Intro or the Ending); else the Song page's cursor's (nrows: the END row, none) */
+static int mute_row(void)
+{
+    if (arr_playing && arr_mode == ARR_SONG)
+        return arr_loop_now >= 0 && arr_row < songs.song[proj.song].nrows ? arr_row : -1;
+    return app.row;
+}
+/* track t muted: in SONG playing the engine's (the row's, or by hand in the Intro / Ending), stopped the Song cursor's
+ * section's (what PLAY there plays; the END row: the engine's); else the song's mute (every section; ui.c gives it to
+ * the engine). A lead track (ARR_LD1 + k): the same in SONG, else never (leads play only in a song) */
 static int trk_muted(int t)
 {
-    if (t >= ARR_TRACKS)
-        return app.mode == ARR_SONG && (arr_mutes >> (t < ARR_ALLTRK ? t : ARR_LD1) & 1u);
-    return (app.mode == ARR_SONG ? arr_mutes : songs.song[proj.song].mute) >> (t & 7) & 1u;
+    int r = mute_row(), lead = t >= ARR_TRACKS;
+    const song_t *g = &songs.song[proj.song];
+    if (lead && app.mode != ARR_SONG)
+        return 0;
+    if (app.mode != ARR_SONG)
+        return g->mute >> (t & 7) & 1u;
+    if (!arr_playing && r >= 0 && r < g->nrows)
+        return lead ? g->row[r].lmute >> ((t - ARR_TRACKS) & 1) & 1u : g->row[r].mute >> (t & 7) & 1u;
+    return arr_mutes >> (lead ? (t < ARR_ALLTRK ? t : ARR_LD1) : t & 7) & 1u;
 }
 
 /* anything not saved: the project, or a user pattern recorded into */
@@ -3726,7 +3740,20 @@ static void edit_knobs(knob_t *k)
         kv(&k[0], "Grid", GRID_NAME[proj.quant % ARR_NQ], grid_fill(), ARR_NQ - 1);
         kn(&k[1], "Bar", pat_cur(s) / pat_beats(s) + 1, app.hdr[s].bars ? app.hdr[s].bars : 1);   /* the cursor */
         kn(&k[2], "Beat", pat_cur(s) % pat_beats(s) + 1, pat_beats(s));
-        kv(&k[3], "Muted", trk_muted(sel_trk()) ? "yes" : "no", trk_muted(sel_trk()), 0);
+        {   /* in a song the section's: "Muted in 2" (the section playing, stopped the Song cursor's; on the END row
+             * none: "-"); the Intro / Ending playing, or outside a song: "Muted" */
+            static char mn[16];
+            int r = mute_row(), m = trk_muted(sel_trk());
+            if (app.mode == ARR_SONG && r >= csong()->nrows)
+                kv(&k[3], "Muted", "-", 0, 0);
+            else {
+                if (app.mode == ARR_SONG && r >= 0)
+                    itoa_u((uint32_t)r + 1u, cat_s(mn, "Muted in "));
+                else
+                    cat_s(mn, "Muted");
+                kv(&k[3], mn, m ? "yes" : "no", m, 0);
+            }
+        }
         break;
     case P_PATSET:
         kn(&k[0], "Bars", app.hdr[s].bars, ARR_MAXBARS);
@@ -3982,6 +4009,8 @@ static void draw_knobs(void)
         const char *s = k[i].val;
         while (*s)
             h = hash(h, (uint8_t)*s++);
+        for (s = k[i].name; s && *s; s++)            /* (a name that changes: Band's "Muted in 2") */
+            h = hash(h, (uint8_t)*s);
         h = hash(h, (uint32_t)k[i].num << 8 | (uint32_t)(k[i].name != 0));
     }
     h = hash(h, (uint32_t)now_touch);
@@ -4972,7 +5001,12 @@ static void flash_watch(void)
         view_refresh(s);
         id = 3u | (uint32_t)proj.song << 4 | (uint32_t)s << 8 | (uint32_t)trk << 12;   /* (another groove picked: its
                                                       * instruments that differ flash) */
-        key = hash(hash(hash(2166136261u, vw.dirty), vw.gen), (app.mode == ARR_SONG ? arr_mutes : g->mute) & 0xFFu);
+        {
+            uint32_t mm = 0;                         /* (the mutes as shown: trk_muted) */
+            for (i = 0; i < ARR_TRACKS; i++)
+                mm |= (uint32_t)trk_muted(i) << i;
+            key = hash(hash(hash(2166136261u, vw.dirty), vw.gen), mm);
+        }
         if (fw.ok && fw.id == id && fw.key == key)
             return;
         nb = app.hdr[s].bars < 1 ? 1 : app.hdr[s].bars > 16 ? 16 : app.hdr[s].bars;
