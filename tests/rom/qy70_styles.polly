@@ -1,37 +1,43 @@
 # POLLY, qy70_styles (run by tests/run_tests.sh only when QY70_ROM names your QY70 ROM; the bank image is made
 # from it into OUTDIR, never kept in the repository): three of the QY70's styles played whole on the simulator,
-# each to a WAV in OUTDIR: Bossa over the Jazz template, Big Band over the Blues, 8btRock1 over Pop. The Intro
-# (over a held chord), Main A, the fill into Main B, Main B, the fill back, the Ending.
+# each to a WAV in OUTDIR: Bossa over the Jazz progression (P13), Big Band over the Blues (P5), 8btRock1 over Pop
+# (P1). HOME held: the progression (white key), the Intro first (black key 1: PLAY alone starts on Groove A); then
+# the Intro (over a held chord), Groove A, the fill into Groove B (HOME + black key 4), Groove B, the fill back,
+# the Ending (HOME + black key 5), which plays once and stops.
 wait 300
 bank out:qy70.qyi
 expect bank_count 128
 style qy:Bossa
 expect slot1_bank 1
 expect song1_style1 >511
-press SEL
-key w12 down
-key w12 up
-release SEL
+press HOME
+tapkey w12
+tapkey b0
+release HOME
+expect app_loop 13
+expect next_sect 1
 wait 10
 hitreset
 wav bossa.wav
 peakreset
 tap PLAY
-wait 12000
+wait 200
+expect sect 1
+wait 11800
 expect sect 2
 expect notes_out >20
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 8000
 expect sect 3
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 6000
-press SEL
+press HOME
 tapkey b4
-release SEL
+release HOME
 wait 20000
 expect playing 0
 expect peak_db_max -0.1
@@ -40,30 +46,34 @@ wavstop
 # Big Band over the Blues
 style qy:Big_Band
 expect slot1_bank 1
-press SEL
-key w4 down
-key w4 up
-release SEL
+press HOME
+tapkey w4
+tapkey b0
+release HOME
+expect app_loop 5
+expect next_sect 1
 wait 10
 hitreset
 wav bigband.wav
 peakreset
 tap PLAY
-wait 12000
+wait 200
+expect sect 1
+wait 11800
 expect sect 2
 expect notes_out >20
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 8000
 expect sect 3
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 6000
-press SEL
+press HOME
 tapkey b4
-release SEL
+release HOME
 wait 20000
 expect playing 0
 expect peak_db_max -0.1
@@ -71,30 +81,34 @@ expect peak_db_min -30
 wavstop
 # 8btRock1 over Pop
 style qy:8btRock1
-press SEL
-key w0 down
-key w0 up
-release SEL
+press HOME
+tapkey w0
+tapkey b0
+release HOME
+expect app_loop 1
+expect next_sect 1
 wait 10
 hitreset
 wav 8btrock1.wav
 peakreset
 tap PLAY
-wait 10000
+wait 200
+expect sect 1
+wait 9800
 expect sect 2
 expect notes_out >20
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 8000
 expect sect 3
-press SEL
+press HOME
 tapkey b3
-release SEL
+release HOME
 wait 6000
-press SEL
+press HOME
 tapkey b4
-release SEL
+release HOME
 wait 20000
 expect playing 0
 expect peak_db_max -0.1
