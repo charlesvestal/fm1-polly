@@ -1630,7 +1630,12 @@ static void draw_song(void)
             loop_label(w->loop, t);
             for (e = t; *e && *e != ' '; e++)
                 ;
-            text_fit(x, ty, &FONT_B, l->bars ? (*e ? e + 1 : e) : "empty", SG_SECT - 6 - x, l->bars ? fg : dim);
+            text_fit(x, ty, &FONT_B, l->bars ? (*e ? e + 1 : e) : "empty", SG_SECT - (w->mute || w->lmute ? 22 : 6) - x,
+                     l->bars ? fg : dim);
+            if (w->mute || w->lmute) {               /* MUTES: an ink "M" before the groove, as the instruments' pills */
+                cv_round(SG_SECT - 16, y + 2, 13, ch - 4, 3, fl || pl ? K_BG : K_TEXT);
+                text_c(SG_SECT - 10, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, "M", fl || pl ? fill : K_BG);
+            }
             /* GROOVE: its colour with its letter on it, "+ fill" */
             cv_round(SG_SECT, y + 2, 15, ch - 4, 3, fl || pl ? K_BG : sc);
             text_c(SG_SECT + 8, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, row_main(w) == SEC_B ? "B" : "A", fl || pl ? fill : K_BG);
