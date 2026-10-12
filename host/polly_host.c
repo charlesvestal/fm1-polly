@@ -1035,9 +1035,46 @@ static int expect(const char *what, const char *val)
         got = dbg_songs.song[0].nrows;
     } else if (!strcmp(what, "loop9_ch0")) {       /* song 1's loop 9's beat 0, as saved: root*100 + type, -1 "." */
         int8_t sl;
-        project_loops_load(0, &dbg_loops, &sl);
+        project_songs_load(&dbg_songs);
+        project_loops_load(&dbg_songs, 0, &dbg_loops, &sl);
         got = dbg_loops.loop[8].ch[0] == LC_SAME ? -1 : lc_unpack(dbg_loops.loop[8].ch[0]).root * 100 +
                                                             lc_unpack(dbg_loops.loop[8].ch[0]).type;
+    } else if (!strncmp(what, "saved", 5) && strstr(what, "_loop") && strstr(what, "_ch")) {
+        /* savedS_loopL_chB: song S's (1..4) progression L's (1..16) beat B (0..), as saved (the songs object, or its
+         * slot): root*100 + type, -1 "."; savedS_loopL_bars: its bars */
+        int8_t sl;
+        int s = (what[5] - '1') & 3, l = (atoi(strstr(what, "_loop") + 5) - 1) & 15;
+        uint16_t v;
+        project_songs_load(&dbg_songs);
+        project_loops_load(&dbg_songs, s, &dbg_loops, &sl);
+        v = dbg_loops.loop[l].ch[atoi(strstr(what, "_ch") + 3) % ARR_LOOP_BEATS];
+        got = v == LC_SAME ? -1 : lc_unpack(v).root * 100 + lc_unpack(v).type;
+    } else if (!strncmp(what, "saved", 5) && strstr(what, "_loop") && strstr(what, "_bars")) {
+        int8_t sl;
+        project_songs_load(&dbg_songs);
+        project_loops_load(&dbg_songs, (what[5] - '1') & 3, &dbg_loops, &sl);
+        got = dbg_loops.loop[(atoi(strstr(what, "_loop") + 5) - 1) & 15].bars;
+    } else if (!strncmp(what, "slot_held", 9)) {  /* slot_heldN (1..16): 1 it holds melodies or a song's progressions
+                                                   * (project_slot_held: never a groove's), 0 not */
+        got = project_slot_held((atoi(what + 9) - 1) & 15);
+    } else if (!strncmp(what, "prog_bytes", 10)) {  /* prog_bytesS: song S's (1..4) progressions' bytes in the songs
+                                                     * object, as saved (0 the defaults, -1 in a slot) */
+        project_songs_load(&dbg_songs);
+        got = dbg_songs.plen[(atoi(what + 10) - 1) & 3];
+        got = got == ARR_PLEN_SLOT ? -1 : got;
+    } else if (!strncmp(what, "memrow", 6) && strstr(what, "_is_")) {
+        /* memrowN_is_WORDS: the MEMORY list's row N (1..16, as it is listed: by song, free last) ("_" a space, "|" a
+         * dot) */
+        int n = (atoi(what + 6) - 1) & 15;
+        char w[48];
+        const char *t = slot_txt[slot_ord[n]];
+        snprintf(w, sizeof w, "%s", strstr(what, "_is_") + 4);
+        for (char *c = w; *c; c++)
+            if (*c == '_')
+                *c = ' ';
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (memory row %d: \"%s\")\n", n + 1, t);
     } else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);
@@ -1477,14 +1514,34 @@ int main(int argc, char **argv)
             songs_defaults(&dbg_songs);
             dbg_songs.song[0].tempo = 100;
             dbg_songs.song[0].nrows = 2;
-            project_songs_save(&dbg_songs);
             {
-                chord_t am7 = {9, CH_MIN7, CH_NOBASS};          /* song 1's L9's first beat: A m7 (its loops in P16) */
-                int8_t sl = 15;
+                chord_t am7 = {9, CH_MIN7, CH_NOBASS};          /* song 1's L9's first beat: A m7 (packed in the songs) */
+                int8_t sl = -1;
                 loops_default(dbg_loops.loop);
                 loop_write(&dbg_loops.loop[8], 0, am7);
-                project_loops_save(0, &dbg_loops, &sl);
+                project_loops_store(&dbg_songs, 0, &dbg_loops, &sl);
             }
+            project_songs_save(&dbg_songs);
+        } else if (!strcmp(cmd, "poke_dense_progs")) {   /* host-only: the song's first N progressions (all 16 when no
+                                                          * N) full: 16 bars of 4, a chord on every beat (196 bytes
+                                                          * each packed: 16 of them pass the songs' pool), as if written
+                                                          * on the Progression page */
+            int n = a[0] ? atoi(a) : ARR_LOOPS;
+            songs_write(1);
+            for (int l = 0; l < n && l < ARR_LOOPS; l++) {
+                loop_t *lp = &sloops.loop[l];
+                lp->bars = 16;
+                lp->beats = 4;
+                for (int b = 0; b < ARR_LOOP_BEATS; b++) {
+                    chord_t c = {(uint8_t)((b * 5 + l) % 12), (uint8_t)(b % 2 ? CH_MIN : CH_MAJ), CH_NOBASS};
+                    lp->ch[b] = lc_pack(c);
+                }
+            }
+            songs_write(0);
+        } else if (!strcmp(cmd, "poke_songs_default")) {   /* host-only: the songs object as on a new FM-1, straight
+                                                             * into storage (their packed progressions gone) */
+            songs_defaults(&dbg_songs);
+            project_songs_save(&dbg_songs);
         } else if (!strcmp(cmd, "poke_bad_style")) {   /* host-only: songs with pattern numbers past the styles */
             songs_defaults(&dbg_songs);
             dbg_songs.song[0].style[SEC_A - 1] = (uint16_t)(ARR_FACTORY0 + ARR_NSECT * arr_styles());

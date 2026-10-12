@@ -231,7 +231,8 @@ expect lead_notes 3
 expect lead2_note 64
 expect msgtext_is_REDO_TAKE_M1 1
 expect recording 0
-# ---- C1's sound (EDIT, KNOB 1): the section gets a user pattern of its own; undone, both go back
+# ---- C1's sound (EDIT, KNOB 1): the section gets a user pattern of its own (memory 2: the melodies hold 1, the
+# progressions changed above none: they are kept with the song); undone, both go back
 turn ALGO -4
 expect lead_sel 0
 expect track 5
@@ -241,7 +242,7 @@ expect song1_style1 33
 turn K1 1
 wait 1100
 expect trk5_program 2
-expect song1_style1 2
+expect song1_style1 1
 press HOME
 tap REC
 release HOME
@@ -253,7 +254,7 @@ press HOME
 tap PLAY
 release HOME
 expect trk5_program 2
-expect song1_style1 2
+expect song1_style1 1
 expect msgtext_is_REDO_C1_SOUND 1
 # ---- a recording pass: C1 on SEQ over L1 (LOOP), two passes of the 2-bar pattern (4 s each, after a bar of
 # count-in), a step each

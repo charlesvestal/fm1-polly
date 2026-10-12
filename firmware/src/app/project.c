@@ -234,17 +234,24 @@ static void loops_fix(loop_t *t)
         }
     }
 }
-/* a stored object of another format (or none, or damaged): the defaults (format 9: a lead's velocity; 8: the loops each song's, in
- * the slots; Polly is prerelease, so no migration). Else every value that indexes or sizes something kept
- * in range: a song's style, tempo and transpose defaulted, intro/ending/at_end forced to 0/1; its
- * rows' loop, sect, rep and key clamped, and nrows at most ARR_ROWS. */
+/* a stored object of another format (or none, or damaged): the defaults (format 10: the loops packed in it; 9: a lead's
+ * velocity; 8: the loops each song's, in the slots; Polly is prerelease, so no migration). Else every value that
+ * indexes or sizes something kept in range: a song's style, tempo and transpose defaulted, intro/ending/at_end forced
+ * to 0/1; its rows' loop, sect, rep and key clamped, and nrows at most ARR_ROWS; the packed loops' lengths past the
+ * pool: every song's the defaults (each song's bytes are checked as they are unpacked: project_loops_load). */
 int project_songs_load(songs_t *s)
 {
+    uint32_t used = 0;
     int n = obj_load(OBJ_SONGS, s, sizeof *s);
     if (n != (int)sizeof *s || s->magic != SONGS_MAGIC || s->format != SONGS_FORMAT) {
         songs_defaults(s);
         return -1;
     }
+    for (int i = 0; i < ARR_SONGS; i++)
+        used += s->plen[i] != ARR_PLEN_SLOT ? s->plen[i] : 0u;
+    if (used > ARR_PROG_POOL)
+        for (int i = 0; i < ARR_SONGS; i++)
+            s->plen[i] = 0;
     for (int i = 0; i < ARR_SONGS; i++) {
         song_t *g = &s->song[i];
         for (int k = 0; k < ARR_NSECT; k++)          /* a pattern this firmware lacks: the first factory style's */
@@ -432,10 +439,10 @@ int project_leads_free(int song)
     return rc;
 }
 
-/* FACTORY RESET (Setup's list): the project (Setup, the mixer) and the four songs as on a new FM-1, the 16 places of
- * memory saved empty (grooves, melodies, progressions gone); the panel's calibration and a QY70 bank are the unit's,
- * kept. s, buf: the caller's (both reloaded after). Not atomic: a power cut midway leaves part of it, done again whole.
- * 0, or -1 a write failed */
+/* FACTORY RESET (Setup's list): the project (Setup, the mixer) and the four songs as on a new FM-1 (their progressions
+ * with them: the songs object holds them), the 16 places of memory saved empty (grooves, melodies gone); the panel's
+ * calibration and a QY70 bank are the unit's, kept. s, buf: the caller's (both reloaded after). Not atomic: a power
+ * cut midway leaves part of it, done again whole. 0, or -1 a write failed */
 int project_factory_reset(songs_t *s, pattern_t *buf)
 {
     int rc = 0;
@@ -468,23 +475,77 @@ int project_loops_slot(int song)
             return i;
     return -1;
 }
-int project_loops_load(int song, loops_part_t *p, int8_t *slot)
+/* the songs' pool (songs_t.prog): song n's packed bytes start after songs 0..n-1's (a song in a slot, or with the
+ * defaults: none) */
+static uint32_t prog_bytes(const songs_t *s, int n) { return s->plen[n] != ARR_PLEN_SLOT ? s->plen[n] : 0u; }
+static uint32_t prog_off(const songs_t *s, int song)
 {
-    int i = project_loops_slot(song);
-    *slot = (int8_t)i;
-    if (i >= 0 && obj_load((uint32_t)(OBJ_PAT0 + i), p, sizeof *p) == (int)sizeof *p && p->n == ARR_LOOPS) {
-        loops_fix(p->loop);
-        p->song = (uint8_t)song;
-        return 0;
-    }
-    loops_default(p->loop);                          /* none (or damaged: as none, its slot kept for the next save) */
+    uint32_t o = 0;
+    for (int n = 0; n < song; n++)
+        o += prog_bytes(s, n);
+    return o;
+}
+static uint32_t prog_used(const songs_t *s) { return prog_off(s, ARR_SONGS); }
+/* song n's bytes made len long (their contents then the caller's): the songs after it moved up or down (by hand: no
+ * memmove in the firmware; up from the end, down from the start, so the overlap is fine) */
+static void prog_resize(songs_t *s, int song, uint32_t len)
+{
+    uint32_t off = prog_off(s, song), old = prog_bytes(s, song), end = prog_used(s), i;
+    if (len > old)
+        for (i = end; i-- > off + old;)
+            s->prog[i + len - old] = s->prog[i];
+    else if (len < old)
+        for (i = off + old; i < end; i++)
+            s->prog[i - (old - len)] = s->prog[i];
+    s->plen[song] = (uint16_t)len;
+}
+static void loops_head(loops_part_t *p, int song)   /* the header a slot's copy has (and RAM's: the same) */
+{
     p->magic = LEAD_MAGIC;
     p->kind = LOOPS_KIND;
     p->song = (uint8_t)song;
     p->part = p->rsv = 0;
     p->n = ARR_LOOPS;
     p->rsv2 = 0;
-    return -1;
+}
+int project_loops_load(const songs_t *s, int song, loops_part_t *p, int8_t *slot)
+{
+    int rc = -1;
+    *slot = -1;
+    if (s->plen[song] == ARR_PLEN_SLOT) {            /* in a slot (they did not fit the pool) */
+        int i = project_loops_slot(song);
+        if (i >= 0 && obj_load((uint32_t)(OBJ_PAT0 + i), p, sizeof *p) == (int)sizeof *p && p->n == ARR_LOOPS) {
+            *slot = (int8_t)i;
+            rc = 0;
+        } else
+            loops_default(p->loop);                  /* (none, or damaged: the defaults) */
+    } else if (loops_unpack(p->loop, s->prog + prog_off(s, song), s->plen[song]) == 0 && s->plen[song])
+        rc = 0;                                      /* (damaged: the defaults, loops_unpack's) */
+    loops_fix(p->loop);
+    loops_head(p, song);
+    return rc;
+}
+int project_loops_fit(const songs_t *s, int song, const loop_t *t)
+{
+    int need = loops_pack(t, 0, ARR_PROG_POOL);
+    return need >= 0 && (uint32_t)need <= ARR_PROG_POOL - (prog_used(s) - prog_bytes(s, song));
+}
+int project_loops_store(songs_t *s, int song, loops_part_t *p, int8_t *slot)
+{
+    if (project_loops_fit(s, song, p->loop)) {
+        uint32_t len = (uint32_t)loops_pack(p->loop, 0, ARR_PROG_POOL);
+        prog_resize(s, song, len);
+        loops_pack(p->loop, s->prog + prog_off(s, song), (int)len);
+        return 0;
+    }
+    if (*slot < 0 || *slot >= ARR_USER_PATTERNS)
+        return -2;
+    loops_head(p, song);
+    if (obj_save((uint32_t)(OBJ_PAT0 + *slot), p, sizeof *p) != 0)
+        return -1;
+    prog_resize(s, song, 0);                         /* (its bytes give way to the other songs') */
+    s->plen[song] = ARR_PLEN_SLOT;
+    return 1;
 }
 static int loops_slot_let_go(int i, int song)
 {
@@ -495,32 +556,21 @@ static int loops_slot_let_go(int i, int song)
     h.song = (uint8_t)song;
     return obj_save((uint32_t)(OBJ_PAT0 + i), &h, LEAD_HDR);
 }
-int project_loops_save(int song, loops_part_t *p, int8_t *slot)
-{
-    if (loops_is_default(p->loop)) {
-        if (*slot >= 0 && *slot < ARR_USER_PATTERNS) {
-            if (loops_slot_let_go(*slot, song) != 0)
-                return -1;
-        }
-        *slot = -1;
-        return 0;
-    }
-    if (*slot < 0 || *slot >= ARR_USER_PATTERNS)
-        return -2;
-    p->magic = LEAD_MAGIC;
-    p->kind = LOOPS_KIND;
-    p->song = (uint8_t)song;
-    p->part = p->rsv = 0;
-    p->n = ARR_LOOPS;
-    p->rsv2 = 0;
-    return obj_save((uint32_t)(OBJ_PAT0 + *slot), p, sizeof *p) != 0 ? -1 : 0;
-}
 int project_loops_free(int song)
 {
     lead_hdr_t h;
     int rc = 0;
     for (int i = 0; i < ARR_USER_PATTERNS; i++)
         if (loops_hdr(i, &h) && h.song == song && h.n && loops_slot_let_go(i, song) != 0)
+            rc = -1;
+    return rc;
+}
+int project_loops_tidy(const songs_t *s)
+{
+    lead_hdr_t h;
+    int rc = 0;
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)
+        if (loops_hdr(i, &h) && h.n && s->plen[h.song] != ARR_PLEN_SLOT && loops_slot_let_go(i, h.song) != 0)
             rc = -1;
     return rc;
 }

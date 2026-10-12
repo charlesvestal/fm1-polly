@@ -1,6 +1,7 @@
 # POLLY, FACTORY RESET (Setup's SEL list): everything as on a new FM-1 (Setup's settings, the four songs, the 16 places
-# of memory), after a question; refused while playing. A progression recorded (P9), a groove of yours (C1's sound:
-# copy-on-write into memory), a song's section, the click off and saved; then the reset.
+# of memory), after a question; refused while playing. A progression recorded (P9: saved with the song, packed in the
+# songs object), a groove of yours (C1's sound: copy-on-write into memory), a song's section, the click off and saved;
+# then the reset: the progressions go with the songs.
 wait 300
 tap PLAY
 wait 300
@@ -33,6 +34,9 @@ expect knob4_is_off 1
 tap SAVE
 wait 300
 expect dirty 0
+expect prog_bytes1 >0
+expect saved1_loop9_bars 2
+expect loops_slot 0
 # ---- playing: refused
 tap PLAY
 wait 200
@@ -67,5 +71,10 @@ expect mode 0
 expect click 1
 expect pat0_nev 0
 expect dirty 0
+expect prog_bytes1 0
+expect saved1_loop9_bars 0
 wait 300
 shot reset_done.png
+reboot
+expect loop_bars9 0
+expect loops_slot 0

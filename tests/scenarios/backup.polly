@@ -1,24 +1,50 @@
 # POLLY, backup and restore over USB (tools/polly_backup.py; the device's side, a cut cable, a power cut and the
-# question: tests/backup_test.c): a backup of a known set; the set changed (by hand and in the flash); the backup
-# put back as the device does once SEL answers RESTORE FROM USB?: everything as it was, at once and after a
-# reboot. Refused while playing (STOP FIRST) and when the file is damaged: nothing changes.
+# question: tests/backup_test.c): a backup of a known set (song 1's progressions packed in the songs, song 2's too
+# many for them: in a place of memory); the set changed (by hand and in the flash: the songs as new, so the place
+# song 2's held is let go at start); the backup put back as the device does once SEL answers RESTORE FROM USB?:
+# everything as it was, at once and after a reboot. Refused while playing (STOP FIRST) and when the file is damaged:
+# nothing changes.
 wait 200
 poke_pattern
 reboot
 expect tempo 100
 expect pat1_nev 3
 expect loop_ch9_0 918
+expect prog_bytes1 7
+# song 2: every progression full of chords (host-only): past the songs' room, a place of their own (1: P01 is free)
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+poke_dense_progs
+tap SAVE
+wait 100
+expect loops_slot 1
+expect slot_held1 1
+expect prog_bytes2 -1
+expect saved2_loop16_bars 16
+expect saved2_loop16_ch63 >-1
+press HOME
+turn PRESET -1
+release HOME
+expect song 1
+wait 200
 backup out:polly.plb
-# ---- changed: the tempo by hand (saved by the autosave), a pattern and the songs in the flash
+# ---- changed: the tempo by hand (saved by the autosave), a pattern and the songs in the flash (as new: the first
+# style's tempo, 105; song 2's place let go at start)
 expect page 0
 spin K2 5
 expect tempo 105
 wait 5000
 expect song0_tempo 105
 poke_bad_pattern
+poke_songs_default
 reboot
 expect pat1_nev 0
 expect tempo 105
+expect loop_ch9_0 -1
+expect prog_bytes2 0
+expect slot_held1 0
 # ---- refused while playing: nothing changes
 tap PLAY
 wait 300
@@ -42,9 +68,23 @@ expect tempo 100
 expect song0_tempo 100
 expect loop_ch9_0 918
 expect pat1_nev 3
+expect prog_bytes1 7
+expect prog_bytes2 -1
+expect saved2_loop16_bars 16
+expect saved2_loop16_ch63 >-1
+expect slot_held1 1
 wait 200
 shot restored.png
 reboot
 expect tempo 100
 expect pat1_nev 3
 expect loop_ch9_0 918
+expect prog_bytes2 -1
+expect saved2_loop16_bars 16
+# song 2 picked: its progressions from their place
+press HOME
+turn PRESET 1
+release HOME
+expect song 2
+expect loops_slot 1
+expect loop_bars16 16

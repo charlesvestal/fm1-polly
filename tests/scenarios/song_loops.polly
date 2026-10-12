@@ -1,6 +1,7 @@
-# POLLY, each song owns its loops: song 1's L9 and song 2's L9 are different loops. The defaults (L1-L8 the factory's,
-# L9-L16 empty) take no slot; a song's loops take one when first changed. Two songs with different L9 chords,
-# switched, rebooted: both kept; a third song still has the defaults.
+# POLLY, each song owns its loops: song 1's L9 and song 2's L9 are different loops. They are saved with their song,
+# packed into the songs' own room (only what differs from the defaults: L1-L8 the factory's, L9-L16 empty): no place of
+# memory is taken. Two songs with different L9 chords, switched, rebooted: both kept; a third song still has the
+# defaults (nothing stored for it).
 # Keys: A3 4, C4 7, E4 11 (A minor); D4 9, F#4 13, A4 16 (D major). Chords: root * 100 + CH_* (maj 0, min 16).
 wait 300
 expect song 1
@@ -25,10 +26,14 @@ key 11 up
 wait 50
 tap REC
 expect loop_ch9_0 916
-expect loops_slot 1
+expect loops_slot 0
 wait 5000
 expect dirty 0
-expect slot_kind1 4
+expect slot_kind1 0
+expect prog_bytes1 7
+expect saved1_loop9_ch0 916
+expect saved2_loop9_ch0 -1
+expect saved2_loop9_bars 0
 shot song1_l9.png
 # ---- song 2 (HOME + PRESETS): its own loops, the defaults: L9 empty, L1 the factory's, no slot
 press HOME
@@ -55,7 +60,7 @@ key 16 up
 wait 50
 tap REC
 expect loop_ch9_0 200
-expect loops_slot 2
+expect loops_slot 0
 shot song2_l9.png
 # it plays song 2's L9
 tap PLAY
@@ -71,7 +76,7 @@ turn PRESET -1
 release HOME
 expect song 1
 expect loop_ch9_0 916
-expect loops_slot 1
+expect loops_slot 0
 tap PLAY
 wait 300
 expect chord_root 9
@@ -92,17 +97,21 @@ expect song 2
 expect loop_ch9_0 200
 wait 5000
 expect dirty 0
+expect prog_bytes1 7
+expect prog_bytes2 7
+expect prog_bytes3 0
+expect saved2_loop9_ch0 200
 # ---- off and on: both kept
 reboot
 expect song 2
 expect loop_ch9_0 200
-expect loops_slot 2
+expect loops_slot 0
 press HOME
 turn PRESET -1
 release HOME
 expect song 1
 expect loop_ch9_0 916
-expect loops_slot 1
-expect slot_kind1 4
-expect slot_kind2 4
+expect loops_slot 0
+expect slot_kind1 0
+expect slot_kind2 0
 expect slot_kind3 0

@@ -63,6 +63,83 @@ int loops_is_default(const loop_t *t)
     }
     return 1;
 }
+/* the packed form (loops.h): byte o of the output, kept only while it fits */
+static int put(uint8_t *d, int o, int max, uint32_t v)
+{
+    if (d && o < max)
+        d[o] = (uint8_t)v;
+    return o + 1;
+}
+int loops_pack(const loop_t *t, uint8_t *d, int max)
+{
+    loop_t def;
+    int o = 0;
+    for (int i = 0; i < ARR_LOOPS; i++) {
+        const loop_t *l = &t[i];
+        int nch = 0, named;
+        loops_default_one(&def, i);
+        if (!memcmp(&def, l, sizeof def))
+            continue;                                 /* as the song starts it: nothing */
+        named = memcmp(def.name, l->name, sizeof l->name) != 0;
+        for (int b = 0; b < ARR_LOOP_BEATS; b++)
+            nch += l->ch[b] != LC_SAME;
+        o = put(d, o, max, (uint32_t)i | (named ? 0x80u : 0u));
+        o = put(d, o, max, l->bars);
+        o = put(d, o, max, l->beats);
+        o = put(d, o, max, (uint32_t)nch);
+        for (int k = 0; named && k < (int)sizeof l->name; k++)
+            o = put(d, o, max, (uint8_t)l->name[k]);
+        for (int b = 0; b < ARR_LOOP_BEATS; b++)
+            if (l->ch[b] != LC_SAME) {
+                o = put(d, o, max, (uint32_t)b);
+                o = put(d, o, max, l->ch[b] & 0xFFu);
+                o = put(d, o, max, (uint32_t)l->ch[b] >> 8);
+            }
+    }
+    return o > max ? -1 : o;
+}
+int loops_unpack(loop_t *t, const uint8_t *s, int n)
+{
+    int o = 0, last = -1;
+    loops_default(t);
+    while (o < n) {
+        int i, named, bars, beats, nch, prev = -1;
+        loop_t *l;
+        if (o + 4 > n)
+            goto bad;
+        i = s[o] & 0x7F;
+        named = s[o] >> 7;
+        bars = s[o + 1];
+        beats = s[o + 2];
+        nch = s[o + 3];
+        o += 4;
+        if (i >= ARR_LOOPS || i <= last || beats < 2 || beats > 7 || bars > loop_max_bars(beats) ||
+            nch > ARR_LOOP_BEATS || o + (named ? 8 : 0) + 3 * nch > n)
+            goto bad;                                 /* (in order, each once, in range, whole) */
+        last = i;
+        l = &t[i];
+        l->bars = (uint8_t)bars;
+        l->beats = (uint8_t)beats;
+        if (named) {
+            memcpy(l->name, s + o, sizeof l->name);
+            o += 8;
+        }
+        for (int b = 0; b < ARR_LOOP_BEATS; b++)
+            l->ch[b] = LC_SAME;
+        for (int k = 0; k < nch; k++, o += 3) {
+            int b = s[o];
+            uint16_t v = (uint16_t)(s[o + 1] | s[o + 2] << 8);
+            if (b >= ARR_LOOP_BEATS || b <= prev || v == LC_SAME)
+                goto bad;
+            prev = b;
+            l->ch[b] = v;
+        }
+    }
+    return 0;
+bad:
+    loops_default(t);
+    return -1;
+}
 int loop_write(loop_t *l, int b, chord_t c)
 {
     int bpb = l->beats ? l->beats : 4;

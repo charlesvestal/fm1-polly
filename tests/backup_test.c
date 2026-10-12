@@ -5,8 +5,9 @@
  *     project, the songs and the 16 slots as stored (absent ones absent), the CRCs right; stopped, the unsaved saved
  *     first; the autosave held while it streams
  *   restore: refused while playing (nothing fetched, nothing written); the cable cut at every read, a changed byte
- *     (payload, record, head, tail), a wrong length, HOME at the question: nothing changed; SEL: everything as backed
- *     up, the app reloaded; the panel's calibration and the flash outside the objects never touched
+ *     (payload, record, head, tail), a wrong length, an older Polly's backup (version 1), HOME at the question: nothing
+ *     changed; SEL: everything as backed up, the app reloaded; the panel's calibration and the flash outside the
+ *     objects never touched
  *   a power cut at every flash write of a restore (a program torn in half): after the next boot (rs_boot) the set is
  *     the old one or the new one, whole, never a mix
  *   backup_test IMAGE_OUT   (the image, for tests/polly_backup_test.py) */
@@ -383,6 +384,21 @@ int main(int argc, char **argv)
     rc = restore_rx(img_n + 4, bu_crc(0, img, img_n), 0);
     snap(&now);
     check("a wrong length: refused, nothing changed", rc != 0 && same(&now, &set_b));
+    {   /* a backup of version 1 (the songs' progressions in the slots then): its head whole (CRCs right), refused */
+        uint8_t keep[BU_HEAD + 4];
+        uint32_t tail = img_n - 4u;
+        memcpy(keep, img, BU_HEAD);
+        memcpy(keep + BU_HEAD, img + tail, 4);
+        bu_wr16(img + 4, 1);
+        bu_wr32(img + 12, bu_crc(0, img, 12));
+        bu_wr32(img + tail, bu_crc(0, img, tail));
+        rc = restore();
+        snap(&now);
+        check("a version 1 backup (older songs): RS_E_HEAD, nothing changed", BU_VERSION == 2u && rc == RS_E_HEAD &&
+              same(&now, &set_b));
+        memcpy(img, keep, BU_HEAD);
+        memcpy(img + tail, keep + BU_HEAD, 4);
+    }
     rc = restore_rx(img_n, bu_crc(0, img, img_n) ^ 1u, 0);
     snap(&now);
     check("the host's CRC-32 not the image's: RS_E_TOTAL, nothing changed", rc == RS_E_TOTAL && same(&now, &set_b));

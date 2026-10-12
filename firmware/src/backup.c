@@ -4,7 +4,7 @@
  * SysEx framing (ota.c: F0 pack7(00 59 cmd len24 body ~sum(body)) F7).
  *
  * The image (the backup file, little-endian):
- *   head  "PLYB", u16 version 1, u16 count 18, u32 flags (bit 0: taken while playing, changes not yet saved left
+ *   head  "PLYB", u16 version 2, u16 count 18, u32 flags (bit 0: taken while playing, changes not yet saved left
  *         out), u32 CRC-32 of the 12 bytes before
  *   18 records, in object order: u16 object id, u16 length, u32 CRC-32 of the payload, the payload (length 0: the
  *         object absent; a restore makes it absent)
@@ -57,7 +57,8 @@
 #define RS_ASK_ADDR 0xC1000000u
 #define RS_FAIL_ADDR 0xCF000000u
 #define BU_MAGIC 0x42594C50u                          /* "PLYB" */
-#define BU_VERSION 1u
+#define BU_VERSION 2u                                 /* 2: the songs hold their progressions (format 10); a version 1
+                                                       * backup (theirs in the slots) is refused (RS_E_HEAD) */
 #define BU_NOBJ 18u                                   /* the project, the songs, the 16 slots */
 #define BU_HEAD 16u
 #define BU_REC 8u

@@ -4,7 +4,7 @@
 code made in tests/backup_test.c (firmware/src/backup.c's format, read by the tool's parser); it streams a backup in
 backup.c's frames (128 bytes, then the end frame) and pulls a restore as restore_rx() does (the head, each record,
 its payload in 512s, the tail, then the question and the result). Checked: the backup written byte for byte; a
-restore sent whole and taken only on SEL; playing (STOP FIRST), HOME, a damaged file (nothing sent), not Polly, a
+restore sent whole and taken only on SEL; playing (STOP FIRST), HOME, a damaged file and an older Polly's (version 1) (nothing sent), not Polly, a
 Polly that stops asking. Run from the repo root:  python3 tests/polly_backup_test.py IMAGE"""
 import io
 import os
@@ -166,7 +166,7 @@ out = io.StringIO()
 rc = B.main(["backup", path], backend=dev, out=out)
 ok(rc == 0 and open(path, "rb").read() == img and "done" in out.getvalue(), "backup: exit 0, the file byte for byte")
 out = io.StringIO()
-ok(B.main(["info", path], out=out) == 0 and "slots used" in out.getvalue(), "info: the file's parts")
+ok(B.main(["info", path], out=out) == 0 and "places of memory used" in out.getvalue(), "info: the file's parts")
 out = io.StringIO()
 dev = FakePolly(img, flags=1)
 rc = B.main(["backup", path + "2"], backend=dev, out=out)
@@ -192,6 +192,22 @@ open(path + ".bad", "wb").write(bad)
 dev = FakePolly(other)
 ok(B.main(["restore", path + ".bad", "--yes"], backend=dev, out=io.StringIO()) == 2 and dev.req is None,
    "a damaged file: refused here (exit 2), nothing sent")
+old = bytearray(img)                              # version 1 (the songs' progressions in the slots then), CRCs right
+struct.pack_into("<H", old, 4, 1)
+struct.pack_into("<I", old, 12, zlib.crc32(old[:12]))
+struct.pack_into("<I", old, len(old) - 4, zlib.crc32(old[:-4]))
+open(path + ".v1", "wb").write(old)
+dev = FakePolly(other)
+msg = io.StringIO()
+ok(B.main(["restore", path + ".v1", "--yes"], backend=dev, out=msg) == 2 and dev.req is None and dev.image == other,
+   "an older Polly's backup (version 1): refused here (exit 2), nothing sent")
+try:
+    B.parse(bytes(old))
+    said = ""
+except B.BackupError as e:
+    said = str(e)
+ok("older Polly" in said, "... said so: " + said[:40])
+ok(B.VERSION == 2 and struct.unpack_from("<H", img, 4)[0] == 2, "the device's backups: version 2")
 dev = FakePolly(other, identity="FM-1_906")
 ok(B.main(["restore", path, "--yes"], backend=dev, out=io.StringIO()) == I.EXIT["model"] and dev.image == other,
    "not Polly (X0X's identity): refused")

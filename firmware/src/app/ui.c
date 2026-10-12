@@ -508,8 +508,8 @@ static void leads_poll(void)                     /* the notes the engine recorde
     while (arr_lead_take(&n))
         lead_add(&n);
 }
-/* ---- the song's loops (sloops): its own 16, loaded with it, saved at rest when they changed; a slot of their own
- * once they differ from the defaults */
+/* ---- the song's loops (sloops): its own 16, loaded with it, saved at rest when they changed: packed into the songs
+ * object (songs.prog, the four songs' pool: no place of memory); a slot of their own only when they do not fit it */
 static uint32_t loops_sum(void)                  /* FNV-1a over the 16 loops: did they change since loaded or saved */
 {
     const uint8_t *b = (const uint8_t *)sloops.loop;
@@ -521,8 +521,8 @@ static uint32_t loops_sum(void)                  /* FNV-1a over the 16 loops: di
 static void loops_load(void)                     /* the selected song's (its changes were saved first) */
 {
     arr_edit(1);
-    project_loops_load(proj.song, &sloops, &app.lpslot);
-    for (int i = 0; i < ARR_LOOPS; i++)          /* saved before progressions: an empty one named "Loop 9" is "Prog 9"
+    project_loops_load(&songs, proj.song, &sloops, &app.lpslot);
+    for (int i = 0; i < ARR_LOOPS; i++)         /* saved before progressions: an empty one named "Loop 9" is "Prog 9"
                                                   * now (the default, so the defaults still take no memory) */
         if (loop_name_is(&sloops.loop[i], i, "Loop"))
             loop_set_name_preset(&sloops.loop[i], i, NLOOP_NAMES);
@@ -530,12 +530,12 @@ static void loops_load(void)                     /* the selected song's (its cha
     app.lpsum = loops_sum();
     app.lpdirty = 0;
 }
-/* the loops changed and are not the defaults: a slot for them, if they have none (NO FREE SLOT: they play, not
- * kept). 0: they have one (or need none) */
+/* the loops changed and do not fit the songs' pool (rare: ~170 chord changes in the song, less the other songs'): a
+ * slot for them, if they have none (MEMORY FULL: they play, not kept). 0: they have one (or need none) */
 static int loops_slot_take(void)
 {
     int p;
-    if (app.lpslot >= 0 || loops_is_default(sloops.loop))
+    if (app.lpslot >= 0 || project_loops_fit(&songs, proj.song, sloops.loop))
         return 0;
     if ((p = pattern_free()) < 0) {
         say_noslot("MEMORY FULL", "PROGS NOT KEPT");
@@ -545,8 +545,9 @@ static int loops_slot_take(void)
     app.lpslot = (int8_t)p;
     return 0;
 }
-/* save_all's part: the loops, when they changed (their slot let go when they are the defaults again). A song's loops
- * with no slot free are not kept (said), never a failed save (a song change would be refused) */
+/* save_all's part, before the songs are saved: the loops, when they changed, packed into the songs (songs_dirty: saved
+ * next), or written into their slot (before the songs that say so). A song's loops that do not fit, with no slot free,
+ * are not kept (said), never a failed save (a song change would be refused) */
 static int loops_save(void)
 {
     uint32_t sum = loops_sum();
@@ -558,11 +559,19 @@ static int loops_save(void)
         app.lpdirty = 0;
         return 0;
     }
-    if (project_loops_save(proj.song, &sloops, &app.lpslot) != 0)
+    if (project_loops_store(&songs, proj.song, &sloops, &app.lpslot) < 0)
         return -1;
+    app.songs_dirty = 1;
     app.lpsum = sum;
     app.lpdirty = 0;
     return 0;
+}
+/* after the songs were saved: a slot the song's loops had (or took meanwhile) and no longer need, let go (the songs
+ * saved say they are packed: only now, so a power cut between the two writes never loses them) */
+static void loops_settle(void)
+{
+    if (app.lpslot >= 0 && songs.plen[proj.song] != ARR_PLEN_SLOT && project_loops_tidy(&songs) == 0)
+        app.lpslot = -1;
 }
 
 /* MODE: FREE (the keys' chords only), LOOP (app.loop goes round), SONG (the song's rows: from app.row stopped,
@@ -659,14 +668,15 @@ static int save_all_now(void)
         else
             rc = -1;
     }
+    if (app.lpdirty && loops_save() != 0)        /* the song's loops: packed into the songs (or their slot), first */
+        rc = -1;
     if (app.songs_dirty) {
-        if (project_songs_save(&songs) == 0)
+        if (project_songs_save(&songs) == 0) {
             app.songs_dirty = 0;
-        else
+            loops_settle();                      /* (a slot they no longer need let go) */
+        } else
             rc = -1;
     }
-    if (app.lpdirty && loops_save() != 0)        /* the song's loops (the defaults again: their slot let go) */
-        rc = -1;
     if (app.ldirty) {                            /* the lead parts changed (a part emptied: its slot let go) */
         if (project_leads_save(proj.song, &leads, app.lslot, app.ldirty) == 0)
             app.ldirty = 0;
@@ -742,7 +752,9 @@ void app_start(void)
     if (ts.on)
         qb_unmount();                            /* (a test session: none, as a fresh FM-1) */
     project_songs_load(&songs);
-    arr_loops(sloops.loop);                      /* the engine reads the song's loops from here (writes: arr_edit) */
+    project_loops_tidy(&songs);                  /* (a loops' slot the songs no longer say they are in: a power cut
+                                                  * between a save's two writes; a restore or reset of older songs) */
+    arr_loops(sloops.loop);                     /* the engine reads the song's loops from here (writes: arr_edit) */
     loops_load();
     arr_leads(&leads);                           /* ... and the song's lead notes */
     leads_load();
@@ -768,8 +780,8 @@ static void song_touched(void)
     ui.act_t = plat_ms();
 }
 /* every write into the loops (sloops.loop[]) or a song's rows: the render reads them on beat and bar lines,
- * arr_edit(1) holds it off; done (0), the songs and the song's loops are unsaved (the loops take a slot when they
- * first differ from the defaults: NO FREE SLOT said then) */
+ * arr_edit(1) holds it off; done (0), the songs and the song's loops are unsaved (the loops take a slot only when they
+ * no longer fit the songs' pool: MEMORY FULL said then) */
 static void songs_write(int on)
 {
     arr_edit(on);
@@ -2674,11 +2686,12 @@ static void act_clear_song(void)
     ask(q, do_clear_song);
 }
 /* COPY SONG TO: the song (its rows, settings, styles, loops) into another; its user patterns into ones of the
- * target's; its loops into the target's slot (a free one; the defaults: none, the target's let go) */
+ * target's; its loops packed into the target's room in the songs (the songs saved at once, then a slot the target's
+ * had let go); when they do not fit there, into the target's slot (or a free one) */
 static void do_copy_song(void)
 {
     song_t *g = csong();
-    int to = ui.tgt.song % ARR_SONGS, deflt = loops_is_default(sloops.loop);
+    int to = ui.tgt.song % ARR_SONGS, fits = project_loops_fit(&songs, to, sloops.loop);
     song_t *d = &songs.song[to];
     uint16_t st[ARR_NSECT];
     uint32_t mine = slots_reserved();
@@ -2696,7 +2709,7 @@ static void do_copy_song(void)
     for (int i = 0; i < ARR_NSECT; i++)
         if (st[i] < ARR_USER_PATTERNS)
             mine |= 1u << st[i];
-    if (!deflt && (lp = (int8_t)project_loops_slot(to)) < 0 &&
+    if (!fits && (lp = (int8_t)project_loops_slot(to)) < 0 &&
         (lp = (int8_t)project_slot_free(&songs, mine, &scratch)) < 0) {   /* the loops' slot: the target's, else free */
         say_noslot("NOT COPIED", "MEMORY FULL");
         return;
@@ -2714,14 +2727,18 @@ static void do_copy_song(void)
         say_no("FLASH ERROR", "song unchanged");
         return;
     }
-    if (deflt ? project_loops_free(to) != 0 : project_loops_save(to, &sloops, &lp) != 0) {
+    if (project_loops_store(&songs, to, &sloops, &lp) < 0) {   /* (into songs: saved below; a slot: written now) */
         say_no("FLASH ERROR", "song unchanged");    /* (the header in RAM says `to` now: the song's next save sets it back) */
         return;
     }
-    songs_write(1);                              /* (not the song playing: no need, but every row write goes so) */
+    songs_write(1);                             /* (not the song playing: no need, but every row write goes so) */
     *d = *g;
     memcpy(d->style, st, sizeof st);
     songs_write(0);
+    if (project_songs_save(&songs) == 0) {       /* the target's loops are the songs' now: a slot it had let go */
+        app.songs_dirty = 0;
+        project_loops_tidy(&songs);
+    }
     itoa_u((uint32_t)to + 1u, cat_s(itoa_u(proj.song + 1u, cat_s(a, "S")), " > S"));
     say(a, "copied");
 }
@@ -3043,10 +3060,12 @@ static int songs_n(uint8_t plays)
     return k;
 }
 /* what memory place i holds, in the screen's words, each the same way: the song(s) first, then what, then its name:
- * "S1|Groove A (yours)|Funk" (a user pattern: the section it plays as, the songs playing it, its name if it has one),
- * "no song|groove (yours)|Funk", "S2|melodies 1/2" (a song's lead notes, part 1 of 2), "S1|progressions" (a song's
- * own), "free" */
-static void slot_text(int i, char *t)
+ * "S1: Groove A (yours)|Funk" (a user pattern: the songs playing it, the section it plays as, its name if it has one),
+ * "No song: groove (yours)|Funk", "S2: melodies" (a song's lead notes; "S2: melodies, part 2" its second place),
+ * "S1: progressions" (a song's, only when they did not fit the songs' own room), "free". Returns its place in the
+ * list (slots_scan): song n's 16 n + its section (grooves), + 8 + part (melodies), + 12 (progressions); grooves no song
+ * plays 64; free 80 */
+static int slot_text(int i, char *t)
 {
     slot_who_t w;
     char *e;
@@ -3058,14 +3077,14 @@ static void slot_text(int i, char *t)
         *e++ = (char)('1' + w.song);
         *e = 0;
         if (w.kind == SLOT_LEAD) {
-            e = cat_s(e, "|melodies ");
-            *e++ = (char)('1' + w.part);
-            cat_s(e, "/2");
-        } else
-            cat_s(e, "|progressions");
+            cat_s(e, w.part ? ": melodies, part 2" : ": melodies");
+            return w.song % ARR_SONGS * 16 + 8 + w.part % LEAD_PARTS;
+        }
+        cat_s(e, ": progressions");
+        return w.song % ARR_SONGS * 16 + 12;
     } else if (w.kind == SLOT_PATTERN) {
         char nm[12];
-        int sect = w.sect;
+        int sect = w.sect, first = -1;
         nm[0] = 0;
         if (w.sect >= 0)
             pat_name8(app.hdr[w.sect].name, nm);
@@ -3075,17 +3094,29 @@ static void slot_text(int i, char *t)
             for (int k = 0; k < ARR_NSECT && sect < 0; k++)
                 if (songs.song[n].style[k] == i)
                     sect = k;
-        e = w.plays ? song_list(w.plays, t) : cat_s(t, "no song");
-        e = cat_s(cat_s(cat_s(e, "|"), sect >= 0 ? SECT_NAME[sect % ARR_NSECT + 1] : "groove"), " (yours)");
+        for (int n = ARR_SONGS - 1; n >= 0; n--)     /* (listed with the first song playing it) */
+            if (w.plays >> n & 1u)
+                first = n;
+        e = w.plays ? song_list(w.plays, t) : cat_s(t, "No song");
+        e = cat_s(cat_s(cat_s(e, ": "), sect >= 0 ? SECT_NAME[sect % ARR_NSECT + 1] : "groove"), " (yours)");
         if (nm[0])
             cat_s(cat_s(e, "|"), nm);
-    } else
-        cat_s(t, "free");
+        return first >= 0 ? first * 16 + (sect >= 0 ? sect % ARR_NSECT : 6) : 64;
+    }
+    cat_s(t, "free");
+    return 80;
 }
+/* the 16 read, and listed by song (slot_ord: each place in the order slot_text gives, the same in slot order) */
 static void slots_scan(void)
 {
+    uint8_t at[ARR_USER_PATTERNS];
+    int n = 0;
     for (int i = 0; i < ARR_USER_PATTERNS; i++)
-        slot_text(i, slot_txt[i]);
+        at[i] = (uint8_t)slot_text(i, slot_txt[i]);
+    for (int k = 0; k <= 80; k++)
+        for (int i = 0; i < ARR_USER_PATTERNS; i++)
+            if (at[i] == k)
+                slot_ord[n++] = (uint8_t)i;
 }
 /* MEMORY from a list (HOME: back to it), or from the hint after a MEMORY FULL (HOME: the page) */
 static void slots_open(int from_list)
@@ -3123,6 +3154,7 @@ static void slots_retry(char *a, char *b)
         }
     if (app.lpslot < 0 && !loops_is_default(sloops.loop) && loops_slot_take() == 0 && app.lpslot >= 0) {
         app.lpdirty = 1;
+        app.lpsum = ~loops_sum();                /* (MEMORY FULL took them as said: they differ, saved now) */
         cat_s(a, "PROGS KEPT");
         pat_name(app.lpslot, cat_s(b, "IN "));
     }
@@ -3179,7 +3211,7 @@ static void do_free_slot(void)
         app.ldirty = (1u << LEAD_PARTS) - 1u;
         save_all();
         cat_s(b, "MELODY NOTES CLEARED");
-    } else if (w.kind == SLOT_LOOPS && w.song == proj.song) {
+    } else if (w.kind == SLOT_LOOPS && w.song == proj.song && app.lpslot == i) {
         undo_hint("PROGS FACTORY");
         songs_write(1);
         loops_default(sloops.loop);
@@ -3190,6 +3222,13 @@ static void do_free_slot(void)
         if (project_slot_clear(i) != 0) {
             say_no("NOT FREED", "FLASH ERROR");
             return;
+        }
+        if (w.kind == SLOT_LOOPS && w.song != proj.song && songs.plen[w.song % ARR_SONGS] == ARR_PLEN_SLOT) {
+            songs.plen[w.song % ARR_SONGS] = 0;      /* another song's: the factory's again (the slot first: a power
+                                                      * cut between leaves the songs saying a slot that is gone: the
+                                                      * same) */
+            app.songs_dirty = 1;
+            save_all();
         }
     } else
         return;
@@ -3222,9 +3261,8 @@ static void act_free_slot(int i)
     } else if (w.kind == SLOT_LEAD) {
         e = cat_s(q, "CLEAR S");
         *e++ = (char)('1' + w.song);
-        e = cat_s(e, " MELODIES ");
-        *e++ = (char)('1' + w.part);
-        cat_s(e, "/2?");
+        *e = 0;
+        cat_s(e, w.part ? " MELODIES, PART 2?" : " MELODIES?");
     } else if (w.kind == SLOT_LOOPS) {
         e = cat_s(q, "S");
         *e++ = (char)('1' + w.song);

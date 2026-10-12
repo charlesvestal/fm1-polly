@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* project.c: songs format 8 (songs of rows, per-song tempo and transpose, the lead tracks' sounds; no loops),
- * defaults, old-format reset, and load's clamping; the shared slots (user patterns, lead parts and songs' loops: what
- * each holds, the free one, a pattern never saved over a lead part or loops), the lead parts saved and loaded, and
- * each song's own loops (the defaults take no slot; edited, one; per song; copied; NO FREE SLOT). plat_store_load/save
- * are an in-memory object table (no real flash). */
+/* project.c: songs format 10 (songs of rows, per-song tempo and transpose, the lead tracks' sounds, and each song's
+ * loops packed in the same object), defaults, old-format reset, and load's clamping; the shared slots (user patterns,
+ * lead parts and songs' loops that did not fit: what each holds, the free one, a pattern never saved over a lead part
+ * or loops), the lead parts saved and loaded, and each song's own loops (the defaults: nothing; edited: packed, per
+ * song, the pool shared and moved as a song's grow and shrink; the sizes, typical and worst; past the pool: a slot,
+ * let go once they fit again; a power cut between the two writes; damaged bytes). plat_store_load/save are an
+ * in-memory object table (no real flash). */
 #include <stdio.h>
 #include <string.h>
 #include "../../firmware/src/app/app.h"
@@ -42,7 +44,7 @@ static void test_defaults(void)
 {
     static songs_t s;
     CHECK(project_songs_load(&s) != 0, "nothing stored: defaults");
-    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 9u, "format 9");
+    CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 10u && s.plen[0] == 0 && s.plen[3] == 0, "format 10, no loops stored");
     CHECK(s.song[1].lead[0].vel == 100 && s.song[1].lead[1].vel == 100, "the leads recorded at velocity 100");
     CHECK(s.song[2].lead[0].program == 80 && s.song[2].lead[0].chan == 6 && s.song[2].lead[1].program == 48 &&
               s.song[2].lead[1].chan == 7 && s.song[2].lead[1].vol == 100, "the lead tracks: LD1 GM 81 on 7, LD2 GM 49 on 8");
@@ -62,6 +64,13 @@ static void test_old_format(void)
     s.song[0].nrows = 3;
     project_songs_save(&s);
     CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0 && s.song[0].lead[0].program == 80, "format 7: defaults");
+    memset(&s, 0, sizeof s);
+    s.magic = SONGS_MAGIC;
+    s.format = 9;                                       /* (the loops in the slots: their songs reset, tidy lets them go) */
+    s.song[0].nrows = 3;
+    project_songs_save(&s);
+    CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0, "format 9: defaults");
+    CHECK(plat_store_save(OBJ_SONGS, &s, 944) == 0 && project_songs_load(&s) != 0, "format 9's length (944 bytes): defaults");
 }
 static void test_clamp(void)
 {
@@ -228,63 +237,150 @@ static void test_leads(void)
           "song 4's parts free, song 2's kept");
 }
 /* ------------------------------------------------------------ a song's loops --- */
-static loops_part_t LP, LG;
+static loops_part_t LP, LG, LD;
+/* the first n loops full: 16 bars of 4, a chord on every beat (4 + 64 x 3 = 196 bytes each, packed) */
+static void dense(loop_t *t, int n)
+{
+    loops_default(t);
+    for (int l = 0; l < n; l++) {
+        t[l].bars = 16;
+        t[l].beats = 4;
+        for (int b = 0; b < ARR_LOOP_BEATS; b++) {
+            chord_t c = {(uint8_t)((b * 5 + l) % 12), (uint8_t)(b % 2 ? CH_MIN : CH_MAJ), CH_NOBASS};
+            t[l].ch[b] = lc_pack(c);
+        }
+    }
+}
+/* a song of typical edits: n progressions (from L9 on) renamed, each `chords` chords a bar apart */
+static void typical(loop_t *t, int n, int chords)
+{
+    loops_default(t);
+    for (int l = 8; l < 8 + n; l++) {
+        memcpy(t[l].name, "Verse\0\0\0", 8);
+        for (int k = 0; k < chords; k++) {
+            chord_t c = {(uint8_t)((k * 7) % 12), CH_MAJ7, CH_NOBASS};
+            loop_write(&t[l], k * 4, c);
+        }
+    }
+}
 static void test_loops(void)
 {
-    static songs_t s;
+    static songs_t s, s2;
     slot_info_t si;
     int8_t sl, gs;
+    int n;
     chord_t am = {9, CH_MIN, CH_NOBASS}, d7 = {2, CH_7, CH_NOBASS}, bad = {15, CH_MAJ, CH_NOBASS};
     store_reset();
     project_songs_load(&s);
-    /* the defaults: L1..L8 the factory's, L9..L16 empty; no slot taken, none stored */
-    CHECK(project_loops_load(0, &LP, &sl) == -1 && sl == -1, "nothing stored: the defaults, no slot");
+    /* the defaults: L1..L8 the factory's, L9..L16 empty; nothing stored, no slot */
+    CHECK(project_loops_load(&s, 0, &LP, &sl) == -1 && sl == -1, "nothing stored: the defaults, no slot");
     CHECK(strcmp(LP.loop[0].name, "Pop") == 0 && LP.loop[4].bars == 12 && strcmp(LP.loop[7].name, "Canon") == 0,
           "L1 Pop, L5 Blues, L8 Canon");
     CHECK(LP.loop[8].bars == 0 && strcmp(LP.loop[8].name, "Prog 9") == 0 && strcmp(LP.loop[15].name, "Prog 16") == 0, "L9..L16 empty");
-    CHECK(loops_is_default(LP.loop), "the defaults are the defaults");
-    CHECK(project_loops_save(0, &LP, &sl) == 0 && sl == -1, "the defaults saved: no slot needed");
-    for (int i = 0; i < ARR_USER_PATTERNS; i++)
-        CHECK(len[OBJ_PAT0 + i] == 0, "slot %d untouched by default loops", i + 1);
-    /* an edited loop needs a slot: none given, -2; given, stored (header + 16 loops) */
+    CHECK(loops_is_default(LP.loop) && loops_pack(LP.loop, 0, ARR_PROG_POOL) == 0, "the defaults pack to nothing");
+    CHECK(project_loops_store(&s, 0, &LP, &sl) == 0 && sl == -1 && s.plen[0] == 0, "the defaults stored: nothing");
+    /* an edited loop: packed into the songs (L9: its number, 1 bar, 4 beats, 1 change; the chord: 7 bytes), no slot */
     loop_write(&LP.loop[8], 0, am);
-    CHECK(!loops_is_default(LP.loop), "L9 with a chord: not the defaults");
-    CHECK(project_loops_save(0, &LP, &sl) == -2, "no slot: -2");
-    sl = (int8_t)project_slot_free(&s, 0, &pb);
-    CHECK(sl == 0, "the first free slot");
-    CHECK(project_loops_save(0, &LP, &sl) == 0 && sl == 0 && len[OBJ_PAT0] == (int)sizeof(loops_part_t), "song 1's loops in slot 1");
-    CHECK(project_slot_info(0, &si, &pb) == SLOT_LOOPS && si.song == 0 && si.n == ARR_LOOPS, "slot 1: song 1's loops");
-    CHECK(project_slot_held(0) && !project_slot_blank(0, &pb), "held, never blank");
-    CHECK(project_slot_free(&s, 0, &pb) == 1, "the next free: slot 2");
-    /* song 2, another L9 */
+    CHECK(project_loops_fit(&s, 0, LP.loop), "L9 with a chord fits");
+    CHECK(project_loops_store(&s, 0, &LP, &sl) == 0 && sl == -1 && s.plen[0] == 7, "song 1's: 7 bytes in the songs");
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)
+        CHECK(len[OBJ_PAT0 + i] == 0, "slot %d untouched by packed loops", i + 1);
+    /* song 2: L9 D7 .. A m, L1 renamed (its 4 chords, its name: 4 + 8 + 12): 10 + 24 */
     loops_default(LP.loop);
     loop_write(&LP.loop[8], 0, d7);
     loop_write(&LP.loop[8], 4, am);
-    gs = 5;
-    CHECK(project_loops_save(1, &LP, &gs) == 0, "song 2's loops in slot 6");
-    /* each song's loops back (switching songs: loaded each time) */
-    CHECK(project_loops_load(0, &LG, &gs) == 0 && gs == 0 && LG.loop[8].ch[0] == lc_pack(am) && LG.loop[8].bars == 1,
-          "song 1: L9 A m, slot 1");
-    CHECK(project_loops_load(1, &LG, &gs) == 0 && gs == 5 && LG.loop[8].ch[0] == lc_pack(d7) && LG.loop[8].ch[4] == lc_pack(am) &&
-              LG.loop[8].bars == 2, "song 2: L9 D7 A m, slot 6");
-    CHECK(!memcmp(LG.loop, LP.loop, sizeof LP.loop), "the same 16 loops");
-    CHECK(project_loops_load(2, &LG, &gs) == -1 && gs == -1 && loops_is_default(LG.loop), "song 3: the defaults");
-    CHECK(project_loops_slot(0) == 0 && project_loops_slot(1) == 5 && project_loops_slot(3) == -1, "each song's slot");
-    /* COPY SONG 2 -> 4: its loops into a slot of the target's */
-    project_loops_load(1, &LG, &gs);                     /* (the song playing: song 2) */
-    gs = (int8_t)project_slot_free(&s, 1u << 5, &pb);
-    CHECK(gs == 1 && project_loops_save(3, &LG, &gs) == 0 && gs == 1, "a copy: song 4's loops in slot 2");
-    project_loops_load(1, &LP, &sl);
-    CHECK(project_loops_load(3, &LG, &gs) == 0 && gs == 1 && !memcmp(LG.loop, LP.loop, sizeof LP.loop), "song 4: song 2's loops");
-    /* back to the defaults: the slot let go */
+    memcpy(LP.loop[0].name, "Verse\0\0\0", 8);
+    gs = -1;
+    CHECK(project_loops_store(&s, 1, &LP, &gs) == 0 && gs == -1 && s.plen[1] == 34, "song 2's: 34 bytes");
+    CHECK(project_songs_save(&s) == 0, "the songs saved (one object: %d bytes)", (int)sizeof s);
+    /* each song's loops back from the songs as saved (switching songs: loaded each time) */
+    CHECK(project_songs_load(&s2) == 0 && s2.plen[0] == 7 && s2.plen[1] == 34, "loaded: the lengths");
+    CHECK(project_loops_load(&s2, 0, &LG, &gs) == 0 && gs == -1 && LG.loop[8].ch[0] == lc_pack(am) && LG.loop[8].bars == 1,
+          "song 1: L9 A m");
+    CHECK(project_loops_load(&s2, 1, &LG, &gs) == 0 && LG.loop[8].ch[0] == lc_pack(d7) && LG.loop[8].ch[4] == lc_pack(am) &&
+              LG.loop[8].bars == 2 && !strncmp(LG.loop[0].name, "Verse", 8), "song 2: L9 D7 A m, L1 Verse");
+    CHECK(!memcmp(LG.loop, LP.loop, sizeof LP.loop), "the same 16 loops, byte for byte");
+    CHECK(project_loops_load(&s2, 2, &LG, &gs) == -1 && gs == -1 && loops_is_default(LG.loop), "song 3: the defaults");
+    /* song 1's grow: song 2's bytes move up, kept; shrink to the defaults: down, kept */
+    project_loops_load(&s2, 0, &LG, &gs);
+    loop_write(&LG.loop[9], 0, d7);
+    CHECK(project_loops_store(&s2, 0, &LG, &gs) == 0 && s2.plen[0] == 14, "song 1's grow: 14");
+    CHECK(project_loops_load(&s2, 1, &LD, &gs) == 0 && !memcmp(LD.loop, LP.loop, sizeof LP.loop), "song 2's moved up, whole");
     loops_default(LG.loop);
-    CHECK(project_loops_save(3, &LG, &gs) == 0 && gs == -1 && project_slot_blank(1, &pb) && !project_slot_held(1), "song 4: defaults again, slot 2 free");
-    CHECK(project_slot_info(1, &si, &pb) == SLOT_LOOPS && si.n == 0, "slot 2: freed loops");
-    CHECK(project_loops_load(3, &LG, &gs) == -1 && gs == -1, "song 4: the defaults (its freed slot not found)");
-    /* COPY SONG of default loops: the target's let go */
-    CHECK(project_loops_free(1) == 0 && project_loops_slot(1) == -1 && project_slot_blank(5, &pb), "song 2's loops freed");
-    CHECK(project_loops_slot(0) == 0, "song 1's kept");
-    /* never overwritten by a pattern, never taken by a lead part */
+    CHECK(project_loops_store(&s2, 0, &LG, &gs) == 0 && s2.plen[0] == 0, "song 1's the defaults: nothing");
+    CHECK(project_loops_load(&s2, 1, &LD, &gs) == 0 && !memcmp(LD.loop, LP.loop, sizeof LP.loop), "song 2's moved down, whole");
+    /* the sizes: typical edits (4 progressions of 4..8 chords, named) take ~100..150 bytes a song: four songs, a fifth
+     * of the room; the worst (all 16 full, every beat a chord) 3136, past it */
+    typical(LG.loop, 4, 4);
+    n = loops_pack(LG.loop, 0, ARR_PROG_POOL);
+    CHECK(n == 4 * (12 + 12), "4 progressions of 4 chords, named: %d bytes", n);
+    typical(LG.loop, 4, 8);
+    n = loops_pack(LG.loop, 0, ARR_PROG_POOL);
+    CHECK(n == 4 * (12 + 24) && 4 * n < ARR_PROG_POOL / 4, "4 of 8 chords: %d bytes (x 4 songs: %d of %d)", n, 4 * n, ARR_PROG_POOL);
+    typical(LG.loop, 8, 16);
+    n = loops_pack(LG.loop, 0, ARR_PROG_POOL);
+    CHECK(n == 8 * (12 + 48), "8 of 16 chords: %d bytes", n);
+    dense(LG.loop, 16);
+    CHECK(loops_pack(LG.loop, 0, ARR_PROG_POOL) == -1 && loops_pack(LG.loop, 0, 4000) == 16 * 196, "all 16 full: 3136, past the room");
+    dense(LG.loop, 14);
+    CHECK(loops_pack(LG.loop, 0, ARR_PROG_POOL) == 14 * 196, "14 full: 2744, it fits alone");
+    /* the fallback: dense progressions do not fit: a slot (-2 without one); the song's bytes leave the pool */
+    dense(LG.loop, 16);
+    gs = -1;
+    CHECK(!project_loops_fit(&s2, 0, LG.loop) && project_loops_store(&s2, 0, &LG, &gs) == -2, "past the room, no slot: -2");
+    gs = (int8_t)project_slot_free(&s2, 0, &pb);
+    CHECK(gs == 0, "the first free slot");
+    CHECK(project_loops_store(&s2, 0, &LG, &gs) == 1 && s2.plen[0] == ARR_PLEN_SLOT && len[OBJ_PAT0] == (int)sizeof(loops_part_t),
+          "song 1's in slot 1, whole; the songs say so");
+    CHECK(project_slot_info(0, &si, &pb) == SLOT_LOOPS && si.song == 0 && si.n == ARR_LOOPS, "slot 1: song 1's loops");
+    CHECK(project_slot_held(0) && !project_slot_blank(0, &pb), "held, never blank");
+    CHECK(project_slot_free(&s2, 0, &pb) == 1, "the next free: slot 2");
+    CHECK(project_loops_load(&s2, 1, &LD, &gs) == 0 && !memcmp(LD.loop, LP.loop, sizeof LP.loop), "song 2's kept in the pool");
+    project_songs_save(&s2);
+    project_songs_load(&s2);
+    CHECK(project_loops_load(&s2, 0, &LD, &gs) == 0 && gs == 0 && !memcmp(LD.loop, LG.loop, sizeof LG.loop), "song 1's back from slot 1");
+    CHECK(project_loops_tidy(&s2) == 0 && project_loops_slot(0) == 0, "tidy: a slot its song says it is in, kept");
+    /* the pool shared: song 3 takes 14 full (2744 + song 2's 34: 2778 of 2888); song 4's 15 then do not fit */
+    dense(LG.loop, 14);
+    gs = -1;
+    CHECK(project_loops_store(&s2, 2, &LG, &gs) == 0 && s2.plen[2] == 14 * 196, "song 3's 14 full: packed");
+    dense(LG.loop, 1);
+    CHECK(!project_loops_fit(&s2, 3, LG.loop), "song 4's one full progression: no room left (110 bytes)");
+    loops_default(LG.loop);
+    loop_write(&LG.loop[8], 0, am);
+    CHECK(project_loops_fit(&s2, 3, LG.loop), "... a small edit still fits");
+    /* song 1's packed again (they fit once more): the songs saved first, then tidy lets its slot go */
+    loops_default(LG.loop);
+    loop_write(&LG.loop[8], 0, am);
+    gs = 0;
+    CHECK(project_loops_store(&s2, 0, &LG, &gs) == 0 && s2.plen[0] == 7 && project_loops_slot(0) == 0, "packed; slot 1 not yet let go");
+    CHECK(project_songs_save(&s2) == 0 && project_loops_tidy(&s2) == 0 && project_loops_slot(0) == -1 && project_slot_blank(0, &pb),
+          "saved: slot 1 let go");
+    CHECK(project_slot_info(0, &si, &pb) == SLOT_LOOPS && si.n == 0, "slot 1: freed loops");
+    /* a power cut after a fallback's slot write, before the songs: they say packed (as before), the slot a stale
+     * copy; at start, tidy lets it go */
+    dense(LG.loop, 16);
+    gs = 1;
+    project_loops_store(&s2, 3, &LG, &gs);           /* (song 4's slot written; s2 in RAM says slot, never saved) */
+    project_songs_load(&s);
+    CHECK(s.plen[3] == 0 && project_loops_slot(3) == 1 && project_loops_tidy(&s) == 0 && project_loops_slot(3) == -1,
+          "the songs as saved win; the stale slot let go");
+    /* damaged packed bytes (a loop number out of range): that song's the defaults; the others kept */
+    project_songs_load(&s2);
+    s2.prog[s2.plen[0]] = 0x7F;                      /* (song 2's first byte) */
+    CHECK(project_loops_load(&s2, 1, &LD, &gs) == -1 && loops_is_default(LD.loop), "damaged: song 2's the defaults");
+    CHECK(project_loops_load(&s2, 0, &LD, &gs) == 0 && LD.loop[8].ch[0] == lc_pack(am), "song 1's kept");
+    /* lengths past the pool: every song's the defaults */
+    s2.plen[0] = 3000;
+    project_songs_save(&s2);
+    CHECK(project_songs_load(&s2) == 0 && s2.plen[0] == 0 && s2.plen[1] == 0 && s2.plen[2] == 0, "lengths past the pool: none");
+    /* never overwritten by a pattern, never taken by a lead part (a loops slot: song 1's, by the fallback) */
+    store_reset();
+    project_songs_load(&s);
+    dense(LG.loop, 16);
+    gs = 0;
+    CHECK(project_loops_store(&s, 0, &LG, &gs) == 1, "song 1's in slot 1");
+    project_songs_save(&s);
     pattern_empty(&pb);
     CHECK(project_pattern_save(0, &pb) == -2 && project_slot_info(0, &si, &pb) == SLOT_LOOPS, "a pattern never over a song's loops");
     CHECK(project_pattern_load(0, &pb) != 0 && pb.nev == 0, "a loops slot loads as an empty pattern");
@@ -296,23 +392,38 @@ static void test_loops(void)
     for (int i = 1; i < ARR_USER_PATTERNS; i++)
         put_lead_part(i, 2, i & 1, 1);
     CHECK(project_slot_free(&s, 0, &pb) < 0, "the rest held by leads: NO FREE SLOT (-1)");
-    CHECK(project_loops_load(0, &LG, &gs) == 0 && gs == 0 && LG.loop[8].ch[0] == lc_pack(am), "song 1's loops still there");
-    /* damaged loops in range when loaded */
+    CHECK(project_loops_load(&s, 0, &LD, &gs) == 0 && gs == 0 && !memcmp(LD.loop, LG.loop, sizeof LG.loop), "song 1's still there");
+    /* COPY SONG of loops that fit: packed into the target; free lets go any slot the target had */
+    CHECK(project_loops_free(0) == 0 && project_loops_slot(0) == -1 && project_slot_blank(0, &pb), "song 1's slot freed");
+    /* damaged loops in a slot put in range when loaded (loops_fix: that loop, that beat) */
+    project_loops_load(&s, 0, &LG, &gs);
+    loops_default(LG.loop);
+    loop_write(&LG.loop[8], 0, am);
     LG.loop[1].bars = 20;                                /* too many bars for its beats: cleared */
     LG.loop[2].beats = 9;                                /* out of 2..7: cleared */
     LG.loop[4].ch[0] = lc_pack(bad);                     /* a chord this firmware can't play: that beat only */
     uint16_t kept4 = LG.loop[4].ch[4];
     char name4[8];
     memcpy(name4, LG.loop[3].name, 8);
-    CHECK(project_loops_save(0, &LG, &gs) == 0, "saved as they are");
-    project_loops_load(0, &LG, &gs);
+    CHECK(plat_store_save(OBJ_PAT0, &LG, sizeof LG) == 0, "saved as they are, in slot 1");
+    s.plen[0] = ARR_PLEN_SLOT;
+    project_loops_load(&s, 0, &LG, &gs);
+    CHECK(gs == 0, "from slot 1");
     CHECK(LG.loop[1].bars == 0 && strncmp(LG.loop[1].name, "Prog 2", 8) == 0, "bars too big for its beats: that loop cleared");
     CHECK(LG.loop[2].bars == 0 && strncmp(LG.loop[2].name, "Prog 3", 8) == 0, "beats out of 2..7: that loop cleared");
     CHECK(memcmp(LG.loop[3].name, name4, 8) == 0 && LG.loop[3].bars != 0, "another loop untouched");
     CHECK(LG.loop[4].ch[0] == LC_SAME && LG.loop[4].ch[4] == kept4, "a bad chord: that beat no change, the others kept");
-    /* a short (damaged) loops object: the defaults, its slot kept for the next save */
+    /* packed: the same damage refused whole (loops_unpack: out of range): the defaults */
+    LG.loop[1].bars = 20;
+    {
+        uint8_t b[512];
+        int k = loops_pack(LG.loop, b, sizeof b);
+        CHECK(k > 0 && loops_unpack(LD.loop, b, k) == -1 && loops_is_default(LD.loop), "packed bars out of range: the defaults");
+        CHECK(loops_unpack(LD.loop, b, k - 1) == -1, "cut short: the defaults");
+    }
+    /* a short (damaged) loops slot: the defaults, -1 */
     len[OBJ_PAT0] -= 2;
-    CHECK(project_loops_load(0, &LG, &gs) == -1 && gs == 0 && loops_is_default(LG.loop), "damaged: the defaults, slot 1 kept");
+    CHECK(project_loops_load(&s, 0, &LG, &gs) == -1 && gs == -1 && loops_is_default(LG.loop), "a damaged slot: the defaults");
 }
 int main(void)
 {

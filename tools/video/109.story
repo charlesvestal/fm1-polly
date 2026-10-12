@@ -91,14 +91,17 @@ turn SELECT 9 150
 wait 500
 tap SEL
 expect slots_list 1
-expect slottext1_is_S1|Groove_A_(yours)|Pop 1
-expect slottext2_is_free 1
-expect slottext16_is_free 1
+expect slottext1_is_S1:_Groove_A_(yours)|Pop 1
+expect memrow1_is_S1:_Groove_A_(yours)|Pop 1
+expect memrow2_is_free 1
+expect memrow16_is_free 1
 still 4-memory
 wait 1000
 poster
 wait 1500
-cap 4. Memory | 16 places for your grooves, melodies and progressions. To free one, select it and press SEL.
+cap 4. Memory | 16 places for your grooves and melodies, for all four songs. The header shows how many are used.
+wait 2500
+cap 4. Memory | Progressions don't use memory: they are saved with their song. To free a place, select it and press SEL.
 wait 2500
 expect list_sel 0
 tap SEL

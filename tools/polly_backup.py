@@ -6,8 +6,9 @@
     python3 tools/polly_backup.py restore FILE [--yes] [--port NAME]
     python3 tools/polly_backup.py info FILE
 
-A backup holds everything Polly keeps: the project (Setup, the channels' sounds), the four songs, and the 16 slots
-(user patterns, lead parts, the songs' own loops); not the QY70 styles (tools/qy70_install.py puts them back) and
+A backup holds everything Polly keeps: the project (Setup, the channels' sounds), the four songs (with their
+progressions), and the 16 places of memory (grooves, melodies; a song's progressions only when they did not fit with
+the song); not the QY70 styles (tools/qy70_install.py puts them back) and
 not the panel's calibration. Polly can play on while it is backed up (what is not saved yet is left out then: stop
 first to have it).
 
@@ -31,7 +32,7 @@ import fm1_install as I  # noqa: E402
 
 RS_REQ, BU_REQ, BU_END = 0x41, 0x42, 0x43
 OK_ADDR, ASK_ADDR, FAIL_ADDR = 0xC0000000, 0xC1000000, 0xCF000000
-MAGIC, VERSION, NOBJ, HEAD, REC, PAYLOAD_MAX = b"PLYB", 1, 18, 16, 8, 3840
+MAGIC, VERSION, NOBJ, HEAD, REC, PAYLOAD_MAX = b"PLYB", 2, 18, 16, 8, 3840   # 2: the songs hold their progressions
 OBJ_IDS = [0, 2] + list(range(3, 19))             # firmware/src/app/plat.h: OBJ_PROJ, OBJ_SONGS, OBJ_PAT0 + 0..15
 PLAYING, DECLINED = 10, 11
 ERRORS = {1: "the file's size", 2: "the transfer (a read request unanswered)", 3: "the file's head",
@@ -79,6 +80,9 @@ def parse(image):
     magic, ver, n, flags, hcrc = struct.unpack_from("<4sHHII", image)
     if magic != MAGIC:
         raise BackupError("not a Polly backup")
+    if ver < VERSION and n == NOBJ:
+        raise BackupError(f"a backup from an older Polly (version {ver}: its songs kept their progressions "
+                          f"elsewhere); this Polly cannot restore it")
     if ver != VERSION or n != NOBJ:
         raise BackupError(f"a backup of another version ({ver}, {n} parts)")
     if hcrc != zlib.crc32(image[:12]):
@@ -114,7 +118,7 @@ def build(objs, flags=0):
 def summary(objs):
     parts = [name_of(o) for o, d in objs if d and o < 3]
     slots = sum(1 for o, d in objs if d and o >= 3)
-    return f"{sum(len(d) for _, d in objs)} bytes: " + ", ".join(parts + [f"{slots} of 16 slots used"])
+    return f"{sum(len(d) for _, d in objs)} bytes: " + ", ".join(parts + [f"{slots} of 16 places of memory used"])
 
 
 def find(backend, port):

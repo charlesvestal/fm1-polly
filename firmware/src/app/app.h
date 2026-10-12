@@ -13,8 +13,8 @@
 #define PROJ_MAGIC 0x314D4750u           /* "PGM1" */
 #define PROJ_FORMAT 5u                   /* 5: 480 ticks a beat (patterns and songs of older formats are reset) */
 #define SONGS_MAGIC 0x314E4753u          /* "SGN1" */
-#define SONGS_FORMAT 9u                  /* 9: a lead's velocity; 8: no loops (each song's are in a slot); older: reset
-                                         * (Polly is prerelease) */
+#define SONGS_FORMAT 10u                 /* 10: the songs' loops packed in it (arr.h songs_t.prog); 9: a lead's velocity;
+                                         * 8: no loops (each song's in a slot); older: reset (Polly is prerelease) */
 
 typedef struct {
     uint32_t magic, format;
@@ -48,7 +48,8 @@ int project_pattern_save(int i, const pattern_t *p);
 int project_songs_load(songs_t *s);
 int project_songs_save(const songs_t *s);
 /* the 16 shared slots (OBJ_PAT0 + i): each a user pattern (a bare pattern_t, as stored before), a lead part (arr.h
- * lead_part_t, LEAD_MAGIC first), a song's loops (arr.h loops_part_t, the same header, LOOPS_KIND), or nothing */
+ * lead_part_t, LEAD_MAGIC first), a song's loops when they do not fit the songs' pool (arr.h loops_part_t, the same
+ * header, LOOPS_KIND: rare), or nothing */
 enum { SLOT_NONE, SLOT_PATTERN, SLOT_LEAD, SLOT_OTHER, SLOT_LOOPS };   /* OTHER: unreadable as any (an old format): free */
 typedef struct {
     uint8_t kind, song, part;            /* a lead part's song and part; a song's loops' song */
@@ -70,16 +71,26 @@ int project_leads_save(int song, leads_t *l, int8_t *slot, unsigned dirty);
 int project_leads_free(int song);                 /* every slot holding a part of song n: free (CLEAR / COPY SONG) */
 /* a slot a pattern must not be saved into: it holds a lead part with notes, or a song's loops */
 int project_slot_held(int i);
-/* a song's loops (each song has its own 16; the defaults take no slot). project_loops_slot: the slot holding song n's,
- * -1 none. load: song n's into p (the defaults when none is stored; -1 then, 0 loaded, put in range), *slot its slot
- * (-1 none). save: the defaults: their slot let go (*slot -1); else into *slot (the caller took it: project_slot_free);
- * 0 saved, -1 a flash error, -2 no slot. free: every slot holding song n's let go (COPY SONG of default loops).
+/* a song's loops (each song has its own 16): packed in the songs object (arr.h songs_t.prog, the defaults: nothing),
+ * or, when they do not fit its pool, whole in a slot (plen ARR_PLEN_SLOT).
+ * project_loops_slot: the slot holding song n's, -1 none.
+ * load: song n's from s (and its slot) into p (the defaults when none is stored, or damaged; -1 then, 0 loaded, put
+ *   in range), *slot their slot (-1: packed, or none).
+ * fit: 1 when t packed fits s's pool beside the other songs' (no slot needed).
+ * store: p into s: packed (0; the caller saves the songs, then project_loops_tidy lets a slot they had go), else
+ *   into *slot (the caller took it: project_slot_free; written now, before the songs that say so: 1), -2 no slot,
+ *   -1 a flash error.
+ * free: every slot holding song n's let go. tidy: every loops' slot its song no longer says it is in (s: as saved)
+ *   let go (after a save that packed them; at start, after a power cut between the two writes).
  * The caller holds the engine off (arr_edit) while p is the engine's table */
 int project_loops_slot(int song);
-int project_loops_load(int song, loops_part_t *p, int8_t *slot);
-int project_loops_save(int song, loops_part_t *p, int8_t *slot);
+int project_loops_load(const songs_t *s, int song, loops_part_t *p, int8_t *slot);
+int project_loops_fit(const songs_t *s, int song, const loop_t *t);
+int project_loops_store(songs_t *s, int song, loops_part_t *p, int8_t *slot);
 int project_loops_free(int song);
-int project_factory_reset(songs_t *s, pattern_t *buf);   /* Setup's FACTORY RESET: project, songs, the 16 places */
+int project_loops_tidy(const songs_t *s);
+int project_factory_reset(songs_t *s, pattern_t *buf);   /* Setup's FACTORY RESET: project, songs (and their
+                                                          * progressions), the 16 places */
 int project_slot_clear(int i);                   /* a lead part's or a song's loops' slot let go (its header, n 0) */
 void pattern_empty(pattern_t *p);
 void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */

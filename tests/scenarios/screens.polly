@@ -244,16 +244,21 @@ shot list_melody.png
 tap HOME
 turn ALGO -4
 expect track 5
-# ---- (5) MEMORY: a groove of yours, the song's progressions; every row the same way round
+# ---- (5) MEMORY: a groove of yours; every row the same way round ("S1: what|its name"); the song's progressions
+# (changed above) take no place: they are kept with the song. The header: a gauge, "1 of 16 used"
 # (the song's Intro is yours: recorded into on Band, the song starting with it)
 tap SEL
 turn SELECT 12
 tap SEL
 expect slots_list 1
-expect slottext2_is_S1|Intro_(yours)|Pop 1
-expect slottext1_is_S1|progressions 1
-expect slottext3_is_free 1
+expect slottext1_is_S1:_Intro_(yours)|Pop 1
+expect memrow1_is_S1:_Intro_(yours)|Pop 1
+expect memrow2_is_free 1
+expect slot_shown2 0
+expect loops_slot 0
 shot memory.png
+wait 1500
+shot memory_header.png
 tap HOME
 tap HOME
 # ---- the Mixer, its tone; Effects; (4) Effects' list: its knobs only

@@ -281,11 +281,13 @@ static struct {
     uint8_t back_sel, back_top;                      /* the list it came from: its row (HOME goes back there) */
     struct { const char *name; char val[24]; uint8_t kind, id; } row[LIST_ROWS];
 } lst;
-/* the 16 shared slots as the MEMORY list shows them ("Pop|Groove A (yours)|S1", "S2 melodies 1/2", "S1 progressions",
- * "free"), made when
- * it opens and after a FREE (ui.c slots_scan: it reads the flash); kind SLOT_* (SLOT_NONE: free) */
+/* the 16 places of memory as the MEMORY list shows them ("S1: Groove A (yours)|Funk", "S2: melodies", "free"; "S1:
+ * progressions" only when a song's did not fit the songs' own room), made when it opens and after a FREE (ui.c
+ * slots_scan: it reads the flash); kind SLOT_* (SLOT_NONE: free); slot_ord: the list's order, by song (S1's grooves,
+ * melodies, then S2's, ..., grooves no song plays), the free places last */
 static char slot_txt[ARR_USER_PATTERNS][40];
 static uint8_t slot_kind[ARR_USER_PATTERNS];
+static uint8_t slot_ord[ARR_USER_PATTERNS];
 
 /* track t muted: in SONG the engine's (the row's, or by hand until the next row); else the song's mute (every
  * section; ui.c gives it to the engine). A lead track (ARR_LD1 + k): the engine's in SONG, else never (leads play
@@ -635,13 +637,14 @@ static void draw_header(void)
         alert_box(no ? AL_NO : ui.msg_kind);
         x = cv_text(AL_X, 4, &FONT_B, ui.msg[0], no ? K_BG : K_TEXT);
         text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), no ? K_ACCENT_L : K_ACCENT);
-    } else if (slots) {                              /* MEMORY: "Memory   3 of 16 free" */
-        int32_t x = cv_text(8, 4, &FONT_B, "Memory", K_TEXT);
-        if (nfree)
-            cat_s(itoa_u((uint32_t)nfree, t), " of 16 free");
-        else
-            cat_s(t, "none free");
-        cv_text(x + 10, 4, &FONT_S, t, nfree ? K_DIM : K_ACCENT);
+    } else if (slots) {                              /* MEMORY: "Memory [#########.......] 9 of 16 used": a gauge,
+                                                      * a cell a place (used: ink; all used: coral) */
+        int used = ARR_USER_PATTERNS - nfree;
+        int32_t x = cv_text(8, 4, &FONT_B, "Memory", K_TEXT) + 10;
+        for (int i = 0; i < ARR_USER_PATTERNS; i++)
+            cv_rect(x + i * 5, 7, 4, 10, i < used ? (nfree ? K_TEXT : K_ACCENT) : K_LINE);
+        cat_s(itoa_u((uint32_t)used, t), " of 16 used");
+        cv_text(x + ARR_USER_PATTERNS * 5 + 6, 4, &FONT_S, t, nfree ? K_DIM : K_ACCENT);
     } else {
         int32_t r = 232;
         if (ts.on) {                                 /* a test session (polly_remote.py --fresh): nothing is saved */
@@ -4660,9 +4663,9 @@ static void list_build(void)
     knob_t k[4];
     char *nm = list_name();
     lst.n = 0;
-    if (lst.slots) {                                 /* SLOTS: the 16, as scanned */
+    if (lst.slots) {                                 /* MEMORY: the 16, as scanned, by song (slot_ord) */
         for (int i = 0; i < ARR_USER_PATTERNS; i++)
-            list_add(slot_txt[i], 0, LK_SLOT, i);
+            list_add(slot_txt[slot_ord[i]], 0, LK_SLOT, slot_ord[i]);
         if (lst.sel >= lst.n)
             lst.sel = (uint8_t)(lst.n - 1);
         return;
@@ -4807,8 +4810,8 @@ static void list_paint(int32_t oy)
             continue;
         }
         cv_round(6, y, 222, LIST_RH - 1, 5, on ? K_TEXT : K_PANEL);   /* (the selection: ink, light text) */
-        if (k == LK_SLOT) {                          /* "3  S1|Groove A (yours)|Funk", "S2|melodies 1/2", "S1|progressions",
-                                                      * "free" (dim): its number (SAVE + white key 3 copies a groove
+        if (k == LK_SLOT) {                          /* "3  S1: Groove A (yours)|Funk", "S2: melodies", "free" (dim): its
+                                                      * number (SAVE + white key 3 copies a groove
                                                       * there), what it holds (a long one smaller) */
             int id = lst.row[i].id;
             char nb[4];

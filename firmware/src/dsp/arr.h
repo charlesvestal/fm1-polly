@@ -189,16 +189,22 @@ typedef struct {
     lead_trk_t lead[ARR_LEADS];          /* LD1, LD2's sounds (their notes: leads_t, in the shared slots) */
 } song_t;
 #define SONG_F_TEMPO 1u                  /* its tempo was set by hand: a style picked keeps it */
-/* the four songs' settings and rows (OBJ_SONGS); each song's 16 loops are its own: in RAM the selected song's
- * (loops_part_t), stored in a shared slot only when they are not the defaults */
+/* the four songs' settings and rows (OBJ_SONGS), and each song's 16 loops (its progressions: its own; in RAM the
+ * selected song's, loops_part_t) packed in the rest of the object (loops.h loops_pack: only the loops not as a song
+ * starts them, each only its chord changes). The four songs share one pool, prog[]: song n's bytes after songs
+ * 0..n-1's, plen[n] of them (0: the defaults). Rarely (dense progressions, ~170 chord changes in a song) they do not
+ * fit: that song's go into a shared slot whole, as before (loops_part_t; plen[n] ARR_PLEN_SLOT), so none is lost */
+#define ARR_PROG_POOL 2888                /* the object's 3840 bytes less the head, the songs' 936 and plen */
+#define ARR_PLEN_SLOT 0xFFFFu             /* plen[n]: song n's loops are in a slot (LOOPS_KIND, its song) */
 typedef struct {
     uint32_t magic, format;
     song_t song[ARR_SONGS];
+    uint16_t plen[ARR_SONGS];             /* song n's packed loops' bytes in prog[]; 0 the defaults; ARR_PLEN_SLOT */
+    uint8_t prog[ARR_PROG_POOL];
 } songs_t;
-/* a song's loops as stored in a shared slot (and as the app keeps the selected song's in RAM: the engine reads its
- * loop[], arr_loops): the slots' header (as a lead part's: LEAD_MAGIC, kind LOOPS_KIND, its song, n ARR_LOOPS, 0:
- * the slot is free), then the 16 loops. A song whose loops are the defaults (L1..L8 the factory's, L9..L16 empty)
- * takes no slot */
+/* a song's loops whole: as the app keeps the selected song's in RAM (the engine reads its loop[], arr_loops), and as
+ * stored in a shared slot when they do not fit the songs' pool: the slots' header (as a lead part's: LEAD_MAGIC, kind
+ * LOOPS_KIND, its song, n ARR_LOOPS, 0: the slot is free), then the 16 loops */
 #define LOOPS_KIND 2u
 typedef struct {
     uint32_t magic;                       /* LEAD_MAGIC */
@@ -238,7 +244,7 @@ static inline uint8_t arr_bright(const arr_trk_t *t) { return (uint8_t)((t->brig
 static inline uint8_t arr_reso(const arr_trk_t *t) { return (uint8_t)((t->reso ^ 64u) & 127u); }
 static inline uint8_t arr_xor64(int v) { return (uint8_t)(((unsigned)v & 127u) ^ 64u); }
 _Static_assert(sizeof(pattern_t) <= 3840, "a pattern fits one flash object");
-_Static_assert(sizeof(songs_t) <= 3840, "the songs fit one flash object");
+_Static_assert(sizeof(songs_t) == 3840, "the songs and their packed loops fill one flash object");
 _Static_assert(sizeof(lead_ev_t) == 9 && sizeof(lead_trk_t) == 10, "a lead note 9 bytes, a lead track's sound 10");
 _Static_assert(sizeof(lead_part_t) == LEAD_HDR + 9 * LEAD_PART_NOTES && sizeof(lead_part_t) <= 3840, "a lead part fits a slot");
 _Static_assert(sizeof(lead_hdr_t) == LEAD_HDR, "a lead part's header: 12 bytes, as its notes' offset");

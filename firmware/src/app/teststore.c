@@ -4,8 +4,9 @@
  * saved to RAM (ts_pool), never the flash: at its start none (so everything loads its defaults: the project, the
  * songs, the 16 slots empty), and what the session saves (SAVE, the autosave, a slot taken) kept there, so it loads
  * back as from the flash. Ending it (asked, mirroring off, a restore; a reboot clears RAM) drops all of it and loads
- * the user's own again. Objects are kept run-length coded (a pattern is mostly zeros past its notes); one that does
- * not fit is not saved (as a flash error: NOT SAVED). Part of the unity build (project.c includes it, after plat.h);
+ * the user's own again. Objects are kept run-length coded (a pattern is mostly zeros past its notes; the songs, 3840
+ * bytes with their packed progressions, mostly zeros past those); one that does not fit is not saved (as a flash
+ * error: NOT SAVED). Part of the unity build (project.c includes it, after plat.h);
  * tests/host/teststore_test.c too. */
 #define TS_POOL 12288u
 static struct {

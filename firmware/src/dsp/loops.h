@@ -9,7 +9,15 @@ void loop_clear(loop_t *l, int i);                /* empty (0 bars of 4), named 
 void loop_from_template(loop_t *l, int t);        /* TEMPLATES[t]: a chord a bar, its beats, its name */
 void loops_default_one(loop_t *l, int i);         /* loop i as a song starts with it: L1..L8 the factory's, else empty */
 void loops_default(loop_t *t);                    /* a song's ARR_LOOPS loops as it starts with them */
-int loops_is_default(const loop_t *t);            /* 1: all ARR_LOOPS as loops_default makes them (no slot needed) */
+int loops_is_default(const loop_t *t);            /* 1: all ARR_LOOPS as loops_default makes them (nothing stored) */
+/* a song's 16 loops packed (arr.h songs_t.prog): only the loops not as loops_default makes them, in order, each
+ *   byte 0: its number 0..15, + 0x80 when its name follows (else the default's: "Pop", "Prog 9"),
+ *   bars, beats, n (its chord changes, 0..64), [the name: 8 bytes], then n x (beat 0..63, chord: lc_pack low, high)
+ * (4 + 3 a chord, + 8 renamed: a progression of 8 chords 28..36 bytes; all 16 full, 64 chords each: 3264).
+ * loops_pack: the bytes it takes (written into d when d, never past max), -1 when more than max. loops_unpack: t from
+ * the defaults and n bytes of s; -1 damaged (out of order, out of range, cut short): t the defaults, whole */
+int loops_pack(const loop_t *t, uint8_t *d, int max);
+int loops_unpack(loop_t *t, const uint8_t *s, int n);
 /* chord c on beat b: the loop grows (bar by bar) to hold it. 0 = written, -1 = past ARR_LOOP_BEATS */
 int loop_write(loop_t *l, int b, chord_t c);
 void loop_unwrite(loop_t *l, int b);              /* beat b back to LC_SAME */

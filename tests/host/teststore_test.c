@@ -55,7 +55,8 @@ int main(void)
     /* several objects, one replaced, the others kept */
     {
         static uint8_t o[4][PLAT_STORE_MAX];
-        uint32_t len[4] = {108, 944, 2252, 3760};
+        uint32_t len[4] = {108, 3840, 2252, 3760};      /* the project, the songs (with their packed progressions), a
+                                                         * song's progressions in a slot, a pattern */
         uint32_t obj[4] = {OBJ_PROJ, OBJ_SONGS, OBJ_PAT0 + 1, OBJ_PAT0 + 15};
         ts_set(1);
         for (int k = 0; k < 4; k++) {

@@ -70,7 +70,8 @@ Song (S1–S4)
 - **Mute**: silences an instrument or a melody. A section's mutes last only for that section.
 - **Free**: no progression is playing, so the band follows the chords you play. Home's **KNOB 4** (Prog)
   shows "–".
-- **Memory**: 16 places that keep your grooves, melodies and progressions. The four songs share them.
+- **Memory**: 16 places that keep your grooves and melodies. The four songs share them. Progressions don't
+  use memory: each song keeps its own.
 - **Undo / Redo**: take back a change, or bring it back.
 - **Click**: the woodblock that counts the beats while you record.
 - **Backup**: your songs, kept in a file on a computer.
@@ -680,7 +681,7 @@ YOURS" or "RECORD C1 GROOVE A (YOURS)". From then on, that groove plays your cop
 screen, whatever the Style knob says. This lasts until you choose BACK TO STYLE. Muting an instrument
 doesn't make a copy, because mutes belong to the song, not the groove.
 
-Your copies share the 16 places of memory with the melodies and the songs' own progressions. When no place
+Your copies share the 16 places of memory with the melodies. When no place
 is free, Polly shows MEMORY FULL and "not kept". Your change still plays, but it's lost once you pick
 something else. Free a place (see [Memory](#memory)), and the change is kept there at once: "GROOVE A KEPT
 IN MEMORY 14". You can also hold **SAVE** and press a white key on the Band page to keep a copy in that
@@ -966,7 +967,7 @@ Here you switch songs, save, undo, manage memory and back up your work.
 ### Four songs
 
 Polly holds four songs. Each has its own sections, progressions, melodies, tempo, Transpose, style and
-mutes.
+mutes. A song's progressions are saved with the song, so they never use [memory](#memory).
 
 To change songs, hold **HOME** and turn **PRESETS**, on any page. While playing, the new song waits until
 you stop, and Polly shows "SONG S2 after the stop". That's because loading a song saves first, and saving
@@ -1013,35 +1014,40 @@ back is saved like any other change.
 
 ![Memory](docs/img/manual/memory.png)
 
-Memory has 16 places. They hold your grooves (yours), the songs' melodies, and each song's own
-progressions once they differ from the factory ones.
+Memory has 16 places, for all four songs. They hold your grooves (yours) and the songs' melodies.
+Progressions are saved with their song and don't use memory. (Only a song packed with a great many chords,
+about 170 chord changes or more, has its progressions put in a place of memory. You'll see "S1: progressions"
+then.)
 
 When the places are full, Polly shows MEMORY FULL, and the footer shows "[SEL] memory: free one". Press
 **SEL** then to see what fills them. You can also choose MEMORY at the end of the **SEL** list on SEQ or
 EDIT.
 
-The list shows one place per line, numbered, with the songs first. For example:
+The list shows one place per line, grouped by song: Song 1's first, then Song 2's, and so on. The free
+places come last. For example:
 
-- "S1 · Groove A (yours) · Funk" is a groove of yours. The line shows the songs playing it, what they play
+- "S1: Groove A (yours) · Funk" is a groove of yours. The line shows the songs playing it, what they play
   it as, and its name.
-- "no song · groove (yours)"
-- "S2 · melodies 1/2"
-- "S1 · progressions"
+- "S1: melodies" holds Song 1's melody notes. A song with very long melodies takes a second place,
+  "S1: melodies, part 2".
+- "No song: groove (yours)" is a groove of yours that no song plays now.
 - "free"
 
-The list covers the whole screen, and the header counts the free places. The numbers match the white keys
-that **SAVE** copies a groove to on SEQ ("COPIED TO MEMORY 7").
+The list covers the whole screen. The header shows how much is used, as a gauge and in words: "Memory 9 of
+16 used". The number at the left of each line matches the white keys that **SAVE** copies a groove to on
+SEQ ("COPIED TO MEMORY 7").
 
 To free a place, stop, select it and press **SEL**. Polly asks first.
 
 - A groove of yours goes back to the style in the songs that play it. Its notes are cleared, and this can't
   be undone.
 - A song's melody notes are cleared.
-- A song's progressions go back to the factory ones ("S1'S PROGRESSIONS BACK TO FACTORY?").
+- A song's progressions (only shown when they needed a place) go back to the factory ones ("S1'S
+  PROGRESSIONS BACK TO FACTORY?").
 
 **HOME** goes back. If MEMORY FULL left a change playing but not kept, the change takes the freed place at
 once ("GROOVE A KEPT IN MEMORY 14"). That change can be a groove's sound, a recording or the song's
-progressions.
+melodies.
 
 ### The song's actions (SEL)
 
@@ -1069,8 +1075,8 @@ python3 tools/polly_backup.py restore my-songs.plb
 
 A backup holds everything Polly keeps:
 
-- the four songs
-- the 16 places of memory, with your grooves, melodies and the songs' progressions
+- the four songs, with their progressions
+- the 16 places of memory, with your grooves and melodies
 - the settings: Setup, the channels' sounds and Effects
 
 It doesn't hold the QY70 styles, which you install again from your ROM. It doesn't hold the button
@@ -1084,6 +1090,9 @@ cut cable or a damaged file changes nothing. Even a power cut during the write l
 or the new ones, never a mix.
 
 To see what a backup holds, run `python3 tools/polly_backup.py info my-songs.plb`.
+
+A backup from an older Polly, made before progressions were saved with their songs, can't be restored. The
+tool says so, and nothing changes.
 
 ## Setup and MIDI
 

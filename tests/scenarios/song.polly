@@ -328,6 +328,10 @@ expect list_sel 12
 tap SEL
 expect asking 0
 expect msg2_is_copied 1
+# (song 2's progressions packed with it in the songs, saved at once: no place of memory)
+expect prog_bytes2 >0
+expect saved2_loop9_ch0 916
+expect loops_slot 0
 # ---- REC on SONG: song 2 (emptied), INTRO off, 120 BPM (the song: HOME + PRESETS)
 press HOME
 spin PRESET 1
