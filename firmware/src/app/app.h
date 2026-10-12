@@ -79,6 +79,7 @@ int project_loops_slot(int song);
 int project_loops_load(int song, loops_part_t *p, int8_t *slot);
 int project_loops_save(int song, loops_part_t *p, int8_t *slot);
 int project_loops_free(int song);
+int project_factory_reset(songs_t *s, pattern_t *buf);   /* Setup's FACTORY RESET: project, songs, the 16 places */
 int project_slot_clear(int i);                   /* a lead part's or a song's loops' slot let go (its header, n 0) */
 void pattern_empty(pattern_t *p);
 void song_default(song_t *g, int n);                   /* song n, empty: no bars, the first factory style */

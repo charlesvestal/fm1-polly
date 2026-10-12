@@ -3024,6 +3024,31 @@ static void act_free_slot(int i)
     }
     ask(q, do_free_slot);
 }
+/* FACTORY RESET (Setup's list): asks; stopped only (a flash write pauses the audio); then Polly as on a new FM-1, as
+ * after a restore (app_restored: all of it from the flash again); not undone */
+static void do_factory_reset(void)
+{
+    if (arr_playing) {
+        say("RESET", "STOP FIRST");
+        return;
+    }
+    app.edit_pend = 0;                           /* (nothing kept: its changes go with the rest) */
+    if (project_factory_reset(&songs, &scratch) != 0) {
+        say("NOT RESET", "FLASH ERROR");
+        app_restored();
+        return;
+    }
+    app_restored();
+    say("FACTORY RESET", "AS NEW");
+}
+static void act_factory_reset(void)
+{
+    if (arr_playing) {
+        say("RESET", "STOP FIRST");
+        return;
+    }
+    ask("ERASE ALL SONGS AND MEMORY?", do_factory_reset);
+}
 static void action_run(int a)
 {
     ui.tgt.loop = app.loop;                      /* what it acts on: now (a question's yes: still this) */
@@ -3034,6 +3059,7 @@ static void action_run(int a)
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
     case A_STYLE_TEMPO: act_style_tempo(); break;
+    case A_FACTORY_RESET: act_factory_reset(); break;
     case A_CLEAR_LOOP: act_clear_loop(); break;
     case A_CLEAR_CHORD: act_clear_chord(); break;
     case A_STEP: break;

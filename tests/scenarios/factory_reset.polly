@@ -1,0 +1,71 @@
+# POLLY, FACTORY RESET (Setup's SEL list): everything as on a new FM-1 (Setup's settings, the four songs, the 16 places
+# of memory), after a question; refused while playing. A progression recorded (P9), a groove of yours (C1's sound:
+# copy-on-write into memory), a song's section, the click off and saved; then the reset.
+wait 300
+tap PLAY
+wait 300
+tap REC
+wait 2300
+key 4 down
+key 7 down
+key 11 down
+wait 300
+key 4 up
+key 7 up
+key 11 up
+wait 2300
+tap REC
+wait 200
+expect loop_bars9 2
+tap EDIT
+spin K1 3
+wait 300
+tap PLAY
+wait 300
+tap HOME
+tap HOME
+expect page 1
+tapkey w8
+expect rows 1
+tap GLO
+turn K4 -1
+expect knob4_is_off 1
+tap SAVE
+wait 300
+expect dirty 0
+# ---- playing: refused
+tap PLAY
+wait 200
+tap SEL
+expect list_open 1
+expect list_has_FACTORY_RESET 1
+tap SEL
+expect msgtext_is_RESET_STOP_FIRST 1
+tap PLAY
+wait 300
+# ---- stopped: asks, HOME no: nothing changes
+tap SEL
+expect list_open 1
+tap SEL
+expect asking 1
+tap HOME
+expect asking 0
+expect loop_bars9 2
+expect knob4_is_off 1
+expect list_open 1
+# ---- yes (the list still open, on FACTORY RESET): as new
+tap SEL
+expect asking 1
+wait 300
+shot reset_ask.png
+tap SEL
+wait 300
+expect msgtext_is_FACTORY_RESET_AS_NEW 1
+expect loop_bars9 0
+expect rows 0
+expect mode 0
+expect click 1
+expect pat0_nev 0
+expect dirty 0
+wait 300
+shot reset_done.png

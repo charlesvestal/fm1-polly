@@ -432,6 +432,24 @@ int project_leads_free(int song)
     return rc;
 }
 
+/* FACTORY RESET (Setup's list): the project (Setup, the mixer) and the four songs as on a new FM-1, the 16 places of
+ * memory saved empty (grooves, melodies, progressions gone); the panel's calibration and a QY70 bank are the unit's,
+ * kept. s, buf: the caller's (both reloaded after). Not atomic: a power cut midway leaves part of it, done again whole.
+ * 0, or -1 a write failed */
+int project_factory_reset(songs_t *s, pattern_t *buf)
+{
+    int rc = 0;
+    project_defaults();
+    rc |= project_save();
+    songs_defaults(s);
+    rc |= project_songs_save(s);
+    pattern_empty(buf);
+    for (int i = 0; i < ARR_USER_PATTERNS; i++)        /* (a melody's or a song's progressions too: obj_save, not
+                                                        * project_pattern_save, which keeps those) */
+        rc |= obj_save((uint32_t)(OBJ_PAT0 + i), buf, sizeof *buf);
+    return rc ? -1 : 0;
+}
+
 /* ------------------------------------------------------- a song's loops --- */
 int project_slot_clear(int i)
 {

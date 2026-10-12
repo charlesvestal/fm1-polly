@@ -1076,6 +1076,11 @@ beats before a take starts at the next bar line, for an instrument or for a new 
 
 The last line shows the QY70 bank: none, the number of styles, "damaged" or "old format".
 
+**Factory reset.** On Setup, press **SEL** and choose FACTORY RESET. Polly asks "ERASE ALL SONGS AND
+MEMORY?". Press **SEL** to erase, or **HOME** to keep everything. Stop first. Afterwards Polly is as new: the
+four songs empty, the 16 places of memory free, and Setup and the mixer at their defaults. The QY70 bank
+stays installed. A reset can't be undone, so [back up](#backup) first if you might want your songs again.
+
 Turn **SELECT** for Status. It shows the processor's load, the voices sounding and the version. It has no
 knobs.
 

@@ -237,12 +237,13 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_COPY_LEAD, A_MATCH_BARS, A_SLOTS,
-       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, NACTIONS };
+       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, A_FACTORY_RESET, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
                                                   "INSERT SECTION", "DELETE SECTION", "CLEAR SONG", "COPY SONG TO",
                                                   "CLEAR C", "CLEAR", "BACK TO STYLE", "CLEAR M IN SECTION",
                                                   "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "BARS AS THE PROG",
-                                                  "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO"};
+                                                  "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO",
+                                                  "FACTORY RESET"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 10                                /* rows on screen (the list covers the knobs) */
 static struct {
@@ -4546,7 +4547,8 @@ static void list_build(void)
         }
         if (keep <= P_TRACK2)                        /* SEQ, EDIT: what fills the 16 places of memory */
             list_add(ACTION_NAME[A_SLOTS], 0, LK_SUB, A_SLOTS);
-    }
+    } else if (keep == P_SETUP || keep == P_PANEL)   /* Setup: everything as new (asks) */
+        list_add(ACTION_NAME[A_FACTORY_RESET], 0, LK_ACTION, A_FACTORY_RESET);
     if (lst.sel >= lst.n)
         lst.sel = (uint8_t)(lst.n ? lst.n - 1 : 0);
 }
