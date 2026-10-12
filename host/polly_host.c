@@ -609,6 +609,17 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (song text: \"%s\")\n", t);
+    } else if (!strncmp(what, "next_is_", 8)) {   /* next_is_WORDS: HOME's "next: ..." in a song, briefest ("_": a space,
+                                                  * "|": its parts' divider) */
+        char w[64], t[96];
+        int i;
+        for (i = 0; i < 63 && what[8 + i]; i++)
+            w[i] = what[8 + i] == '_' ? ' ' : what[8 + i];
+        w[i] = 0;
+        song_next(t, arr_playing, 2);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (next: \"%s\")\n", t);
     } else if (!strncmp(what, "tag_is_", 7) || !strncmp(what, "footer_is_", 10)) {
         /* tag_is_WORDS / footer_is_WORDS: the tag over the knobs, the footer, exactly ("_": a space, "|": a dot, ">": the
          * breadcrumb's chevron) */

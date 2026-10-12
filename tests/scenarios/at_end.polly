@@ -1,0 +1,28 @@
+# POLLY, a song's end with the Ending on: "At end: again" loops to section 1 and never plays the Ending, so HOME's next
+# line says section 1 on the last section, not the Ending; "stop" plays the Ending ("next: Ending"). One section (P1).
+wait 300
+tap HOME
+expect page 1
+tapkey w0
+expect rows 1
+turn SELECT 1
+expect page 2
+expect knob3_is_on 1
+turn K4 1
+expect knob4_is_again 1
+tap HOME
+expect page 0
+tap PLAY
+wait 6000
+expect sect 2
+expect row 1
+expect next_is_next:_P1_(C) 1
+# ---- At end: stop: the last section's next is the Ending
+tap HOME
+turn SELECT 1
+expect page 2
+turn K4 -1
+expect knob4_is_stop 1
+tap HOME
+expect next_is_next:_Ending 1
+tap PLAY

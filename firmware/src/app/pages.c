@@ -1063,10 +1063,10 @@ static void song_next(char *t, int play, int brief)
         again = 1;
     } else if (r + 1 < n)
         nr = r + 1;
+    else if (g->at_end)                              /* (again: section 1, as the engine; the Ending never) */
+        nr = 0;
     else if (g->ending)
         what = "Ending";
-    else if (g->at_end)
-        nr = 0;
     else
         what = "stop";
     if (nr >= 0 && !again && sect != SEC_INTRO)       /* a fill in the last bar: the row asks, or the groove changes */
