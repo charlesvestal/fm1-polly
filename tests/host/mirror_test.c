@@ -7,7 +7,10 @@
  *   - rows the viewer has are not sent again; a ring too small: frames dropped, rows dirty, the UI asked to draw
  *     again until the viewer has it all; a refresh sends everything;
  *   - the input reports: the panel's state, encoder turns added up between reports, 50 a second at most, one every
- *     500 ms anyway; off by request, by a new connection, by silence.
+ *     500 ms anyway; off by request, by a new connection, by silence;
+ *   - the remote (cmd 0x54): refused while off; buttons, keys, turns, MASTER held as the plat_* calls add them; each
+ *     request answered, a repeated seq answered again and not done twice, a bad one refused; all let go when the mirror
+ *     goes off (asked, silence, another connection).
  *   mirror_test [SCREEN.bin ...] */
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,7 +102,8 @@ static void drain(void)
 /* ------------------------------------------------------- the viewer --- */
 static uint16_t view[240 * 240];                      /* RGB565 */
 static uint32_t dec_pos, dec_rects, dec_fills, dec_bad, dec_hello, dec_on, seq_next = 0x100;
-static uint8_t inp[32];
+static uint8_t inp[32], ack[3];
+static uint32_t n_ack;
 static uint32_t n_inp;
 static int32_t enc_sum[7];
 static uint8_t body[1 << 16];
@@ -204,6 +208,9 @@ static void decode(void)
         } else if (body[2] == MR_REQ && len == 4) {
             dec_hello++;
             dec_on = b[1];
+        } else if (body[2] == MR_REMOTE && len == 3) {
+            memcpy(ack, b, 3);
+            n_ack++;
         } else
             dec_bad++;
     }
@@ -504,6 +511,76 @@ static void test_off(void)
     }
 }
 
+/* a remote request, as the main loop takes it (main_fm1.c: ota_dec + 6); its answer: 1 done, 0 refused, -1 none */
+static int remote(uint32_t seq, uint32_t op, uint32_t a, uint32_t v)
+{
+    uint8_t b[5] = {(uint8_t)seq, (uint8_t)op, (uint8_t)a, (uint8_t)v, 0};
+    uint32_t n0 = n_ack;
+    mirror_remote(b);
+    decode();
+    if (n_ack != n0 + 1 || ack[0] != (uint8_t)seq || ack[1] != (uint8_t)op)
+        return -1;
+    return ack[2];
+}
+static void test_remote(void)
+{
+    uint32_t q = 0;
+    ring_cap = 1 << 20;
+    mirror_cmd(0);
+    btn = keys = 0;
+    master = 2048;
+    CHECK(remote(++q, 1, B_HOME, 1) == 0, "remote: not refused while off");
+    CHECK(!mirror_in_buttons(), "remote: held while off");
+    on();
+    CHECK(remote(++q, 1, B_HOME, 1) == 1, "remote: a press refused");
+    CHECK(mirror_in_buttons() == 1u << B_HOME, "remote: HOME not held (%x)", mirror_in_buttons());
+    CHECK(remote(++q, 1, B_SEL, 1) == 1 && mirror_in_buttons() == (1u << B_HOME | 1u << B_SEL), "remote: two held");
+    CHECK(remote(++q, 1, B_HOME, 0) == 1 && mirror_in_buttons() == 1u << B_SEL, "remote: HOME not let go");
+    CHECK(remote(++q, 2, 26, 1) == 1 && remote(++q, 2, 0, 1) == 1 && mirror_in_keys() == (1u << 26 | 1u),
+          "remote: keys %x", mirror_in_keys());
+    CHECK(remote(++q, 2, 0, 0) == 1 && mirror_in_keys() == 1u << 26, "remote: key 0 not up");
+    CHECK(remote(++q, 3, EN_K2, 3) == 1 && remote(++q, 3, EN_K2, (uint8_t)-1) == 1, "remote: turns refused");
+    CHECK(mirror_in_enc(EN_K2) == 2 && mirror_in_enc(EN_K2) == 0, "remote: K2 not 2 once");
+    CHECK(remote(q, 3, EN_K2, 3) == 1 && mirror_in_enc(EN_K2) == 0, "remote: a repeated seq done twice");
+    CHECK(remote(++q, 3, EN_K2, 100) == 1 && remote(++q, 3, EN_K2, 100) == 1 && mirror_in_enc(EN_K2) == 127,
+          "remote: turns past an int8 not held at 127");
+    CHECK(remote(++q, 4, 4000 & 255, 4000 >> 8) == 1 && mirror_in_master(master) == 4000, "remote: MASTER not 4000");
+    CHECK(remote(++q, 4, 0, 0) == 1 && mirror_in_master(master) == 0, "remote: MASTER not 0");
+    CHECK(remote(++q, 4, 0xFF, 0xFF) == 1 && mirror_in_master(master) == 2048, "remote: MASTER not the pot's again");
+    CHECK(remote(++q, 4, 4097 & 255, 4097 >> 8) == 0, "remote: MASTER 4097 taken");
+    CHECK(remote(++q, 1, NB, 1) == 0 && remote(++q, 2, NKEYS, 1) == 0 && remote(++q, 3, 7, 1) == 0 &&
+          remote(++q, 9, 0, 0) == 0, "remote: a bad request taken");
+    CHECK(remote(++q, 0, 0, 0) == 1 && !mirror_in_buttons() && !mirror_in_keys(), "remote: let go: still held");
+    /* the input reports show the host's hands (as plat_buttons adds them: the platform's own here) */
+    remote(++q, 1, B_PLAY, 1);
+    remote(++q, 4, 1000 & 255, 1000 >> 8);
+    btn = mirror_in_buttons();                        /* (this test's plat_buttons is the panel's alone) */
+    /* mirroring off: everything let go */
+    remote(++q, 2, 3, 1);
+    mirror_cmd(0);
+    CHECK(!mirror_in_buttons() && !mirror_in_keys() && mirror_in_master(master) == master, "remote: off: still held");
+    CHECK(remote(++q, 1, B_HOME, 1) == 0, "remote: off: a press taken");
+    on();
+    CHECK(!mirror_in_buttons(), "remote: on again: held from before");
+    CHECK(remote(++q, 1, B_HOME, 1) == 1, "remote: on again: refused");
+    now += MR_TIMEOUT_MS + 100;                       /* silence: off, let go */
+    mirror_step();
+    CHECK(!mirror_on && !mirror_in_buttons(), "remote: silence: still held");
+    on();
+    CHECK(remote(++q, 2, 7, 1) == 1, "remote: refused");
+    now += MR_TIMEOUT_MS - 100;
+    CHECK(remote(++q, 2, 8, 1) == 1, "remote: refused");   /* (a request is a keep-alive too) */
+    now += MR_TIMEOUT_MS - 100;
+    mirror_step();
+    CHECK(mirror_on && mirror_in_keys() == (1u << 7 | 1u << 8), "remote: requests not a keep-alive");
+    link_id++;                                        /* another connection: refused, the first one's let go */
+    CHECK(remote(++q, 1, B_HOME, 1) == 0, "remote: another connection taken");
+    mirror_step();
+    CHECK(!mirror_on && !mirror_in_keys(), "remote: another connection: still held");
+    btn = 0;
+    printf("remote: %u requests done, each answered\n", mr_in.ops);
+}
+
 int main(int argc, char **argv)
 {
     test_drawn();
@@ -515,6 +592,7 @@ int main(int argc, char **argv)
     test_drops();
     test_input();
     test_off();
+    test_remote();
     decode();
     CHECK(dec_bad == 0, "%u bad frames in the stream", dec_bad);
     printf("%s: %u bytes decoded (%u rects, %u fills, %u input reports)\n", fails ? "FAILED" : "ok", stream_n,

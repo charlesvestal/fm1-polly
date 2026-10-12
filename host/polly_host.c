@@ -91,17 +91,17 @@ static int32_t enc_acc[NE];
 static uint32_t lit_btn, lit_keys;
 
 uint32_t plat_ms(void) { return now_ms; }
-uint32_t plat_buttons(void) { return held_btn; }
-uint32_t plat_keys(void) { return held_keys; }
+uint32_t plat_buttons(void) { return held_btn | mirror_in_buttons(); }   /* (+ the host's: mirror.c's remote) */
+uint32_t plat_keys(void) { return held_keys | mirror_in_keys(); }
 int32_t plat_enc(int role)
 {
-    int32_t v = enc_acc[role];
+    int32_t v = enc_acc[role] + mirror_in_enc(role);
     enc_acc[role] = 0;
     if (v)
         mirror_enc(role, v);
     return v;
 }
-uint32_t plat_master(void) { return master; }
+uint32_t plat_master(void) { return mirror_in_master(master); }
 void plat_leds(uint32_t b, uint32_t k)
 {
     lit_btn = b;
@@ -671,6 +671,19 @@ static int expect(const char *what, const char *val)
         int x = atoi(what + 6), y = strchr(what + 6, '_') ? atoi(strchr(what + 6, '_') + 1) : 0;
         uint16_t p = fb[(y & 255) % 240 * 240 + (x & 255) % 240], t = K_ACCENT;
         got = p == t || p == (uint16_t)(t >> 8 | t << 8);
+    } else if (!strncmp(what, "knob", 4) && what[4] >= '1' && what[4] <= '4' && !strncmp(what + 5, "_is_", 4)) {
+        /* knobN_is_WORDS: knob N's value on this page, exactly ("_": a space) */
+        char w[32];
+        knob_t k[4];
+        int i;
+        for (i = 0; i < 31 && what[9 + i]; i++)
+            w[i] = what[9 + i] == '_' ? ' ' : what[9 + i];
+        w[i] = 0;
+        memset(k, 0, sizeof k);
+        page_knobs(k);
+        got = !strcmp(k[what[4] - '1'].val, w);
+        if (!got)
+            printf("  (knob %c: \"%s\")\n", what[4], k[what[4] - '1'].val);
     } else if (!strncmp(what, "msgtext_is_", 11)) {   /* msgtext_is_WORDS: the message, both parts, exactly ("_": a space) */
         char w[64], t[64];
         int i;
@@ -1015,6 +1028,109 @@ static int expect(const char *what, const char *val)
 }
 
 #ifndef GM_WEB
+/* --serve: the simulated FM-1 on a USB cable, for tools on the host (tests/polly_remote_test.py): one command a line
+ * on stdin, answered on stdout
+ *   sx HEX      a SysEx message from the host (F0 .. F7, hex): the mirror's requests (cmd 0x50) and the remote's (0x54),
+ *               as main_fm1.c takes them (ota.c's framing, its sum checked)
+ *   run MS      MS milliseconds of the device; then what it sent meanwhile, a line "sx HEX" a message, and "ok NOW"
+ *   shot FILE, fbdump FILE   the screen as a PNG, as raw pixels (fbdump's), to compare with the mirror's
+ *   expect WHAT VALUE   as in a script: its line, "  ok ..." or "FAIL ..." (a note or two before it)
+ *   quit
+ * No keep-alive of its own: the tool's (the mirror goes off after 6 s without one, as on the device). */
+static uint32_t sv_unpack7(const uint8_t *in, uint32_t n, uint8_t *out)
+{
+    uint32_t acc = 0, nb = 0, o = 0;
+    while (n--) {
+        acc |= (uint32_t)(*in++ & 0x7Fu) << nb;
+        nb += 7u;
+        if (nb >= 8u) {
+            out[o++] = (uint8_t)acc;
+            acc >>= 8;
+            nb -= 8u;
+        }
+    }
+    return o;
+}
+static int serve(const char *dir)
+{
+    static char line[8192];
+    static uint8_t raw[4096], dec[4096];
+    char *buf = 0;
+    size_t blen = 0;
+    FILE *ms = open_memstream(&buf, &blen);
+    mr_out = ms;
+    mr_keep = 0;
+    setvbuf(stdout, 0, _IOLBF, 0);
+    while (fgets(line, sizeof line, stdin)) {
+        char cmd[16] = {0}, a[4096] = {0}, b[64] = {0};
+        if (sscanf(line, "%15s %4095s %63s", cmd, a, b) < 1)
+            continue;
+        if (!strcmp(cmd, "quit"))
+            break;
+        if (!strcmp(cmd, "sx")) {
+            uint32_t n = 0, d;
+            for (const char *h = a; h[0] && h[1] && n < sizeof raw; h += 2) {
+                unsigned v;
+                sscanf(h, "%2x", &v);
+                raw[n++] = (uint8_t)v;
+            }
+            if (n < 3 || raw[0] != 0xF0 || raw[n - 1] != 0xF7)
+                continue;
+            d = sv_unpack7(raw + 1, n - 2, dec);
+            if (d >= 7 && dec[0] == 0 && dec[1] == 0x59 && (uint32_t)(dec[3] | dec[4] << 8 | dec[5] << 16) + 7u == d) {
+                uint32_t sum = 0;
+                for (uint32_t i = 6; i + 1 < d; i++)
+                    sum += dec[i];
+                if ((uint8_t)~sum != dec[d - 1])
+                    continue;
+                if (d == 8 && dec[2] == MR_REQ)
+                    mirror_cmd(dec[6]);
+                else if (d == 12 && dec[2] == MR_REMOTE)
+                    mirror_remote(dec + 6);
+            }
+        } else if (!strcmp(cmd, "run")) {
+            static uint8_t part[1 << 16];             /* a message cut at the end of a run: its start */
+            static size_t pn;
+            run_ms((uint32_t)atoi(a));
+            fflush(ms);
+            for (size_t i = 0; i < blen; i++) {
+                uint8_t v = (uint8_t)buf[i];
+                if (v == 0xF0)
+                    pn = 0;
+                if (pn < sizeof part)
+                    part[pn++] = v;
+                if (v == 0xF7 && part[0] == 0xF0) {
+                    fputs("sx ", stdout);
+                    for (size_t k = 0; k < pn; k++)
+                        printf("%02X", part[k]);
+                    putchar('\n');
+                    pn = 0;
+                }
+            }
+            rewind(ms);
+            blen = 0;
+            printf("ok %u\n", now_ms);
+        } else if (!strcmp(cmd, "shot") || !strcmp(cmd, "fbdump")) {
+            char out[4200];
+            snprintf(out, sizeof out, "%s%s%s", a[0] == '/' ? "" : dir, a[0] == '/' ? "" : "/", a);
+            if (cmd[0] == 's')
+                png_write(out);
+            else {
+                FILE *f = fopen(out, "wb");
+                if (f) {
+                    fwrite(fb, 2, 240 * 240, f);
+                    fclose(f);
+                }
+            }
+            printf("ok\n");
+        } else if (!strcmp(cmd, "expect"))
+            expect(a, b);                            /* (its line: "  ok ..." or "FAIL ...", notes before it) */
+        else
+            printf("fail ?\n");
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     FILE *sc;
@@ -1022,8 +1138,14 @@ int main(int argc, char **argv)
     const char *dir = argc > 2 ? argv[2] : ".";
     int lineno = 0, fails = 0;
     if (argc < 2) {
-        fprintf(stderr, "usage: polly_host SCRIPT [OUTDIR]\n");
+        fprintf(stderr, "usage: polly_host SCRIPT [OUTDIR] | polly_host --serve [OUTDIR]\n");
         return 2;
+    }
+    if (!strcmp(argv[1], "--serve")) {
+        snprintf(out, sizeof out, "%s/midi_out.txt", dir);
+        midi_log = fopen(out, "w");
+        boot();
+        return serve(dir);
     }
     sc = fopen(argv[1], "r");
     if (!sc) {

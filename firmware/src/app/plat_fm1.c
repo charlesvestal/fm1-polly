@@ -4,23 +4,24 @@
 
 uint32_t plat_ms(void) { return fm1_ms; }
 
+/* held: the panel's, and the host's while it mirrors (mirror.c's remote, for testing) */
 uint32_t plat_buttons(void)
 {
     uint32_t raw = fm1_in.buttons, out = 0, i;
     for (i = 0; i < NB; i++)
         if (raw & (1u << panel.btn[i]))
             out |= 1u << i;
-    return out;
+    return out | mirror_in_buttons();
 }
 
-uint32_t plat_keys(void) { return fm1_in.notes & ((1u << NKEYS) - 1u); }
+uint32_t plat_keys(void) { return (fm1_in.notes | mirror_in_keys()) & ((1u << NKEYS) - 1u); }
 
 int32_t plat_enc(int role)
 {
     if (role < 0 || role >= NE)
         return 0;
     {
-        int32_t n = fm1_enc_take(panel.enc[role]) * panel.dir[role];
+        int32_t n = fm1_enc_take(panel.enc[role]) * panel.dir[role] + mirror_in_enc(role);
         if (n)
             mirror_enc(role, n);
         return n;
@@ -28,7 +29,7 @@ int32_t plat_enc(int role)
 }
 
 static volatile uint32_t master_q12 = 2048;
-uint32_t plat_master(void) { return master_q12; }
+uint32_t plat_master(void) { return mirror_in_master(master_q12); }
 
 /* LEDs: the picture is built off-line and copied one byte per column (Felucca: clearing
  * and relighting would let the 10 kHz scan catch the dark gap and flicker) */

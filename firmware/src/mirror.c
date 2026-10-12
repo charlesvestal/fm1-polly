@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Screen and panel mirroring over USB-MIDI (view only; web/mirror/index.html shows it, tools/polly_mirror.py saves a
- * PNG). Off until a host asks; it costs nothing then but a test in lcd_blit / lcd_fill.
+/* Screen and panel mirroring over USB-MIDI (web/mirror/index.html shows it, tools/polly_mirror.py saves a PNG), and,
+ * for testing, the panel played from the host while it mirrors (tools/polly_remote.py). Off until a host asks; it costs
+ * nothing then but a test in lcd_blit / lcd_fill and in plat_buttons / plat_keys / plat_enc / plat_master.
  *
  * Every frame goes in the update's SysEx framing (ota.c): F0 pack7(00 59 cmd len24 body ~sum8(body)) F7.
  *   host -> device  cmd 0x50, body 1 byte: 0 off, 1 on (also the keep-alive: at least every MR_TIMEOUT_MS, or
@@ -13,6 +14,19 @@
  *                        the encoders' detents since the last report, int8 each (SELECT, ALGORITHM, PRESETS,
  *                        KNOB 1..4: EN_*), MASTER u16 (plat_master: gain 0..4096), the lit buttons u16 (bit 15: PLAY
  *                        lit red), the lit keys u32 (little-endian, 21 bytes)
+ *   host -> device  cmd 0x54 remote, body 5 bytes: seq, op, a, b, c; only while mirroring (else refused), one at a
+ *                   time (the device keeps one frame from the host: send the next after the answer)
+ *                     op 1 a button: a = B_* (plat.h), b = 1 down, 0 up
+ *                     op 2 a key: a = 0..26 (F3 = 0), b = 1 down, 0 up
+ *                     op 3 a turn: a = EN_*, b = detents (int8, + clockwise), added to the ones not yet taken
+ *                     op 4 MASTER: a | b << 8 = gain 0..4096; 0xFFFF: the pot's again
+ *                     op 0 let go: every button and key up, the turns dropped, MASTER the pot's
+ *                   They go in at the plat_* calls (plat_buttons, plat_keys, plat_enc, plat_master: held = the panel's
+ *                   OR the host's), the path the panel takes into the UI; the input reports show them. Mirroring off
+ *                   (asked, timed out, unplugged, another host): everything let go. Never in the update mode's OCT- +
+ *                   OCT+ (main_fm1.c reads the matrix), the calibration, or a restore's question (main.c: the hand's).
+ *   device -> host  cmd 0x54: seq, op, 1 done / 0 refused (mirroring off, a bad op). The same seq again (an answer
+ *                   lost, the host asks again): answered again, not done twice
  * seq counts rect and fill frames (mod 256): a gap tells the viewer one went missing (it asks for a refresh).
  *
  * The pixel code (a rect's body after its 5 bytes; state per frame: the colour now 0x0000, a 64-entry cache of
@@ -48,7 +62,8 @@
 #define MR_RECT 0x51u
 #define MR_FILL 0x52u
 #define MR_INPUT 0x53u
-#define MR_VERSION 1u
+#define MR_REMOTE 0x54u
+#define MR_VERSION 2u                                 /* 2: the remote (cmd 0x54) */
 #define MR_W 240u
 #define MR_H 240u
 #define MR_CAP 256u                                   /* a rect frame's pixel code, about (one row more at most) */
@@ -86,6 +101,14 @@ static struct {
     /* counters (tests, the host's report) */
     uint32_t bytes, frames, rects, rows, drops, skipped, redraws, inputs, px;
 } mr;
+static struct {                                      /* the host's hands (cmd 0x54) */
+    uint16_t btn;                                     /* held: bit B_* */
+    uint32_t keys;                                    /* held: bit k */
+    int8_t enc[7];                                    /* detents not taken yet (EN_*) */
+    uint16_t master;                                  /* MASTER + 1; 0: the pot's */
+    uint8_t seq, res, have;                           /* the last request's seq and answer (have: one since on) */
+    uint32_t ops;                                     /* requests done (tests) */
+} mr_in;
 static uint32_t mr_seg[MR_H][MR_NSEG] EN_POOL;        /* what the viewer has: each row's segments' hashes */
 static uint32_t mr_mh[MR_MROWS][MR_NSEG];             /* the frame being coded: its rows' new hashes */
 static uint8_t mr_msg[6 + 5 + MR_CAP + MR_ROWMAX + 1] EN_POOL;
@@ -356,10 +379,71 @@ static void mr_all_dirty(void)
     mr.redraw_t = plat_ms() - MR_REDRAW_MS;
 }
 
+static void mr_in_letgo(void)
+{
+    mr_in.btn = 0;
+    mr_in.keys = 0;
+    memset(mr_in.enc, 0, sizeof mr_in.enc);
+    mr_in.master = 0;
+}
 static void mirror_off(void)
 {
     mirror_on = 0;
     memset(mr.enc, 0, sizeof mr.enc);
+    mr_in_letgo();                                    /* the host's buttons and keys up: the UI sees them let go */
+    mr_in.have = 0;
+}
+
+/* the host's input, as the plat_* calls add it to the panel's */
+static uint32_t mirror_in_buttons(void) { return mirror_on ? mr_in.btn : 0u; }
+static uint32_t mirror_in_keys(void) { return mirror_on ? mr_in.keys : 0u; }
+static int32_t mirror_in_enc(int role)
+{
+    int32_t n;
+    if (!mirror_on || role < 0 || role >= 7)
+        return 0;
+    n = mr_in.enc[role];
+    mr_in.enc[role] = 0;
+    return n;
+}
+static uint32_t mirror_in_master(uint32_t pot) { return mirror_on && mr_in.master ? mr_in.master - 1u : pot; }
+
+/* a remote request (cmd 0x54, its 5 bytes): done, answered */
+static void mirror_remote(const uint8_t *b)
+{
+    uint32_t seq = b[0], op = b[1], a = b[2], v = b[3], ok = 0;
+    int link = mr_link();
+    if (mirror_on && link == mr.link) {
+        mr.heard = plat_ms();                         /* (also a keep-alive) */
+        if (mr_in.have && seq == mr_in.seq)
+            ok = mr_in.res;                           /* asked again: the same answer, not done again */
+        else {
+            ok = 1;
+            if (op == 0)
+                mr_in_letgo();
+            else if (op == 1 && a < (uint32_t)NB)
+                mr_in.btn = (uint16_t)(v ? mr_in.btn | 1u << a : mr_in.btn & ~(1u << a));
+            else if (op == 2 && a < (uint32_t)NKEYS)
+                mr_in.keys = v ? mr_in.keys | 1u << a : mr_in.keys & ~(1u << a);
+            else if (op == 3 && a < 7u) {
+                int32_t n = mr_in.enc[a] + (int8_t)v;
+                mr_in.enc[a] = (int8_t)(n > 127 ? 127 : n < -127 ? -127 : n);
+            } else if (op == 4 && (a | v << 8) == 0xFFFFu)
+                mr_in.master = 0;
+            else if (op == 4 && (a | v << 8) <= 4096u)
+                mr_in.master = (uint16_t)((a | v << 8) + 1u);
+            else
+                ok = 0;
+            mr_in.seq = (uint8_t)seq;
+            mr_in.res = (uint8_t)ok;
+            mr_in.have = 1;
+            mr_in.ops += ok;
+        }
+    }
+    mr_msg[6] = (uint8_t)seq;
+    mr_msg[7] = (uint8_t)op;
+    mr_msg[8] = (uint8_t)ok;
+    mr_ctl_send(mr_wire, mr_seal(MR_REMOTE, 3));      /* (lost: the host asks again) */
 }
 
 /* a request from the host (cmd 0x50, its body's byte) */
@@ -372,6 +456,8 @@ static void mirror_cmd(uint32_t op)
     if (op == 0) {
         mirror_off();
     } else if (!mirror_on || op == 2u || link != mr.link) {
+        if (mirror_on && link != mr.link)
+            mirror_off();                             /* (another host: the first one's hands let go) */
         mirror_on = 1;
         mr.link = link;
         memset(mr.last, 0xFF, sizeof mr.last);        /* an input report at once */

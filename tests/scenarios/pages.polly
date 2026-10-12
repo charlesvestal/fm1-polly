@@ -181,6 +181,13 @@ wait 2500
 expect loop_now 6
 tap PLAY
 wait 500
+# a section in the song (P6: a song with no sections never plays as the song), C3 muted in it (as the song will be)
+tap HOME
+turn SELECT 1
+tapkey w5
+tapkey b6
+expect rows 1
+tap HOME
 # mutes: SEQ's MUTE in LOOP is the song's; in SONG by hand only (the engine's); back in LOOP the song's again
 tap SEQ
 spin K4 1

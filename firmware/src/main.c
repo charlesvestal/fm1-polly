@@ -230,13 +230,14 @@ static void rs_show(uint32_t pct)
     draw_text_box(0, 92, 240, &FONT_S, "RESTORE", C_WHITE, 1);
     draw_text_box(0, 124, 240, &FONT_S, b, C_HI, 1);
 }
+static uint32_t mirror_in_buttons(void);            /* (mirror.c: the remote's buttons) */
 static int rs_ask(void)                             /* SEL yes, HOME no; PLAY or 60 s: no */
 {
-    uint32_t t0 = fm1_ms, was = plat_buttons();
+    uint32_t t0 = fm1_ms, was = plat_buttons() & ~mirror_in_buttons();   /* (the hand's only, never the remote's) */
     rs_screen("RESTORE FROM USB?", "SEL yes   HOME no");
     draw_text_box(0, 156, 240, &FONT_S, "replaces all songs", C_GRAY, 1);
     while (fm1_ms - t0 < 60000u) {
-        uint32_t b = plat_buttons(), down = b & ~was;
+        uint32_t b = plat_buttons() & ~mirror_in_buttons(), down = b & ~was;
         fm1_wdt_feed();
         was = b;
         if (down >> B_SEL & 1u)

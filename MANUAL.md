@@ -60,7 +60,7 @@ Song (S1-S4)
 - **Free**: no progression playing; the band follows the chords you play (Home's KNOB 4 "Prog: –").
 - **Memory**: the 16 places your grooves, melodies and progressions are kept in, shared by the four songs.
 - **Undo / Redo**, **Click** (the woodblock while you record), **Backup** (your songs in a file), **Mirror** (the
-  screen on a computer).
+  screen on a computer; for testing, the panel played from it).
 
 ### How do I…
 
@@ -270,16 +270,19 @@ them on the Style knob, with "QY" before their names.
 ### Picking a style
 
 On Home, turn **KNOB 1**: the knob shows the style. Until you set the song's
-tempo yourself, the tempo changes to the style's own. Once you've turned the tempo, it stays yours.
-You can change the style while playing.
+tempo yourself, the tempo changes to the style's own. Once you've turned the tempo, it stays yours, and a style
+picked says so: "TEMPO KEPT 84 (HOUSE 122)". To take the style's tempo, press **SEL**: the list opens on **STYLE
+TEMPO 122**, SEL again (from then on, styles bring their tempo again). You can change the style while playing.
 
 Each song has its own style, so each of the four songs can sound different.
 
 **A groove you've changed stays yours.** Once you record into a groove (or an extra), or change its
 sound, it plays [your own copy](#yours-your-own-copy) instead of the style's. Its pill says so, on Home and
-Band: "Groove A (yours)"; the Style page names it ("Pop (yours)"). Turning the Style knob changes only what still
-plays the style; yours stays as it is. So you can keep your Groove A and try the band around it in Funk, then
-Rock.
+Band: "Groove A (yours)"; the Style knob says "House (yours)" and the Style page names it ("Pop (yours)"). Turning
+the Style knob changes only what still plays the style; yours stays as it is. So you can keep your Groove A and try
+the band around it in Funk, then Rock. Once the knob rests, Polly asks: "GROOVE A IS YOURS: KEEP IT?" (or "2
+GROOVES ARE YOURS: KEEP THEM?"): **SEL** keeps them, **HOME** plays the new style's (BACK TO STYLE: your copies stay
+in memory).
 
 To give a groove back to the style, play it (or pick it with HOME + its black key), press **SEL** on the
 Band page and run **BACK TO STYLE** ([the groove's actions](#the-grooves-actions-sel)). Your copy is kept in
@@ -782,7 +785,9 @@ KEPT IN MEMORY 14").
 
 On the Song pages, **SEL**'s list opens on **PLAY FROM SECTION** (the section the cursor is on), then **INSERT
 SECTION**, **DELETE SECTION**, **CLEAR SONG** and **COPY SONG TO**. A section's melody notes go with it (DELETE
-SECTION asks first); CLEAR SONG clears them; COPY SONG TO ("S2") doesn't copy them.
+SECTION asks first); CLEAR SONG clears them; COPY SONG TO ("S2") doesn't copy them. A song with no sections never
+plays as a song: PLAY on the Song page says "NO SECTIONS · WHITE KEYS FIRST", and a song emptied while you are in it
+(CLEAR SONG, its last section deleted) goes Free: "NO SECTIONS: FREE".
 
 ### Backup
 
@@ -952,8 +957,8 @@ on every page. SELECT turns a button's pages.
 
 ## Screen mirroring
 
-Polly can show its screen and panel on a computer, live, over the USB cable: for teaching, filming or a big screen.
-It only watches; nothing on the page plays the FM-1.
+Polly can show its screen and panel on a computer, live, over the USB cable: to view (teaching, filming, a big
+screen) and, for testing, to control.
 
 1. Plug the FM-1 into the computer.
 2. Open `web/mirror/index.html` in Chrome or Edge (the browsers with Web MIDI).
@@ -964,6 +969,12 @@ The screen shows twice or three times its size (×2, ×3), and the panel below i
 buttons and keys as their LEDs, the ones held outlined, a knob turned flashes with the detents it moved. **Save PNG**
 saves the screen; `python3 tools/polly_mirror.py screen.png` does the same without a browser.
 
+**Control** (for testing) lets the drawn panel play the FM-1: press a button or a key on the page (held while you
+hold it), scroll over a knob to turn it. `python3 tools/polly_remote.py` does it from a script: `tap HOME`, `turn K1
+3`, `shot s.png`, or `run tests/scenarios/home.polly` (a scenario's presses, keys, turns, waits and screenshots; what
+only the simulator can check is skipped). Polly takes them as from its own panel, only while it is mirrored; it never
+writes anything by itself (a SAVE you send saves, as the button does), and the update mode stays the hand's alone.
+
 The mirror costs nothing until a page asks for it, and stops when the page closes, goes quiet for six seconds or
-the cable comes out. Notes and clock go out first: when the computer is slow to take it all, the page skips frames,
+the cable comes out; whatever the computer held is let go. Notes and clock go out first: when the computer is slow to take it all, the page skips frames,
 then catches up by itself.

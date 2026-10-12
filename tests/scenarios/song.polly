@@ -351,10 +351,10 @@ expect cursor 1
 spin K2 -1
 expect song_intro 0
 expect tempo 120
-# HOME in SONG with no rows says so
+# a song emptied while in it (CLEAR SONG) plays Free (said): Home then plays the band over your chords
 tap HOME
 expect page 0
-expect mode 2
+expect mode 0
 wait 50
 shot home_norows.png
 tap HOME

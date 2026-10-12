@@ -12,7 +12,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const html = fs.readFileSync(path.join(root, "web/mirror/index.html"), "utf8");
 const m = /\/\/ --- decoder: begin[^\n]*\n([\s\S]*?)\/\/ --- decoder: end/.exec(html);
 if (!m) { console.log("FAIL no decoder markers in web/mirror/index.html"); process.exit(1); }
-const { createMirror, mrRequest, mrUnpack7 } = new Function(`"use strict";\n${m[1]}\nreturn { createMirror, mrRequest, mrUnpack7 };`)();
+const { createMirror, mrRequest, mrRemote, mrUnpack7 } =
+  new Function(`"use strict";\n${m[1]}\nreturn { createMirror, mrRequest, mrRemote, mrUnpack7 };`)();
 
 let fails = 0;
 const check = (ok, msg) => { if (!ok) { console.log("FAIL " + msg); fails++; } };
@@ -21,6 +22,24 @@ const check = (ok, msg) => { if (!ok) { console.log("FAIL " + msg); fails++; } }
 for (const op of [0, 1, 2]) {
   const r = mrRequest(op), u = mrUnpack7(r.slice(1, -1));
   check(r[0] === 0xF0 && r[r.length - 1] === 0xF7 && u.join() === [0, 0x59, 0x50, 1, 0, 0, op, ~op & 0xFF].join(), `request ${op}: ${[...r]}`);
+}
+
+// the remote's requests (Control), as main_fm1.c takes them: seq, op, a, b, 0, the sum
+{
+  const r = mrRemote(300, 3, 4, -1), u = mrUnpack7(r.slice(1, -1)), body = [300 & 255, 3, 4, 255, 0];
+  check(r[0] === 0xF0 && r[r.length - 1] === 0xF7 && u.join() === [0, 0x59, 0x54, 5, 0, 0, ...body,
+        ~body.reduce((a, v) => a + v, 0) & 0xFF].join(), `remote: ${[...r]}`);
+  let got = null;                                    // its answer, decoded
+  const d = createMirror({ remote: (x) => { got = x; } }), ans = [7, 1, 1];
+  d.feed(Uint8Array.from([0xF0, ...mrPack7l([0, 0x59, 0x54, 3, 0, 0, ...ans, ~9 & 0xFF]), 0xF7]));
+  check(got && got.seq === 7 && got.op === 1 && got.ok, `remote answer: ${JSON.stringify(got)}`);
+}
+function mrPack7l(bytes) {
+  const out = [];
+  let acc = 0, nb = 0;
+  for (const b of bytes) { acc |= b << nb; nb += 8; while (nb >= 7) { out.push(acc & 0x7F); acc >>= 7; nb -= 7; } }
+  if (nb) out.push(acc & 0x7F);
+  return out;
 }
 
 // the simulator's screen dump (as stored: high byte first) -> RGB565

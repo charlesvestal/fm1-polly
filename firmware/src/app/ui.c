@@ -1669,6 +1669,10 @@ static void song_play_from(int r)
 {
     const song_t *g = csong();
     char t[12];
+    if (!g->nrows && !ui.song_rec) {
+        say("NO SECTIONS", "WHITE KEYS FIRST");
+        return;
+    }
     if (r >= g->nrows)
         r = 0;
     if (app.mode != ARR_SONG)
@@ -1712,6 +1716,13 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         if (ui.msg_first)                        /* the section asked for first: now playing */
             ui.msg_until = plat_ms();
         ui.msg_first = 0;
+        if (song_page() && !csong()->nrows && !ui.song_rec) {   /* on SONG, no sections: a stop, or nothing starts */
+            if (arr_playing)
+                arr_play(0);
+            else
+                say("NO SECTIONS", "WHITE KEYS FIRST");
+            break;
+        }
         if (song_page() && !(arr_playing && app.mode == ARR_SONG)) {   /* on SONG: the song, from row 1 */
             song_play_from(0);
             break;
@@ -1985,6 +1996,15 @@ void app_flush(void)
 }
 void app_hold_saves(int on) { save_hold = (uint8_t)(on != 0); }
 static void style_all(int n);
+static void ask2(const char *q, void (*yes)(void), void (*no)(void), const char *foot);
+#define YOURS_ASK_MS 900u                        /* a style picked: its grooves (yours) asked about after the knob rests */
+static int grooves_yours(void)                   /* the song's sections playing your copy (a user pattern) */
+{
+    int n = 0;
+    for (int s = 0; s < ARR_NSECT; s++)
+        n += csong()->style[s] < ARR_USER_PATTERNS;
+    return n;
+}
 /* the Style knob (HOME's KNOB 1; the STYLE pages' KNOB 4, PRESETS there): d styles on from the
  * song's (a QY70 style with no bank: from the first) */
 static void style_turn(int d)
@@ -1994,6 +2014,7 @@ static void style_turn(int d)
     if (n != i)
         style_all(n);
 }
+
 /* the song's style becomes style n (0..styles_n()-1): the sections playing a style's pattern play n's now; a
  * section on a user pattern (recorded into, edited) keeps it (the lists' BACK TO STYLE puts it back). Never a
  * save: a style's section has nothing unsaved (its first change gives it a user pattern) */
@@ -2011,7 +2032,77 @@ static void style_all(int n)
     app.chg++;
     app.gen++;
     style_tempo_follow(n);                       /* its tempo, unless the song's was set by hand */
-    say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
+    if ((g->flags & SONG_F_TEMPO) && style_tempo(n) != g->tempo) {
+        char a[24], b[24];                       /* "TEMPO KEPT 84" "(HOUSE 122)" (a long name: "(STYLE 122)"); SEL's
+                                                  * first action on Home takes the style's */
+        itoa_u(g->tempo, cat_s(a, "TEMPO KEPT "));
+        cat_s(itoa_u((uint32_t)style_tempo(n), cat_s(cat_s(cat_s(b, "("), style_label(n)), " ")), ")");
+        upcase(b);
+        if (8 + text_w(&FONT_B, a) + 8 + text_w(&FONT_B, b) > 232)
+            cat_s(itoa_u((uint32_t)style_tempo(n), cat_s(b, "(STYLE ")), ")");
+        say(a, b);
+    } else
+        say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
+    ui.yours_t = grooves_yours() ? plat_ms() + YOURS_ASK_MS : 0u;
+}
+/* the song's tempo back to its style's (SEL's STYLE TEMPO on Home): a style picked brings its tempo again */
+static void act_style_tempo(void)
+{
+    song_t *g = csong();
+    int i = song_style();
+    char a[16];
+    if (i < 0)
+        return;
+    undo_hint("TEMPO");
+    g->flags &= (uint8_t)~SONG_F_TEMPO;
+    set_tempo(style_tempo(i));
+    app.songs_dirty = 1;
+    itoa_u(g->tempo, cat_s(a, "TEMPO "));
+    say(a, "THE STYLE'S");
+}
+/* the grooves (yours) of a style just picked: asked once the knob rests (YOURS_ASK_MS), on Home or Style, nothing else
+ * open: "2 GROOVES ARE YOURS: KEEP THEM?" SEL keeps them, HOME puts the style's back (BACK TO STYLE: your copies stay in
+ * memory) */
+static void do_grooves_style(void)
+{
+    const song_t *g = csong();
+    int i = song_style(), n = 0;
+    char b[24];
+    if (i < 0)
+        return;
+    edits_flush();
+    undo_hint("BACK TO STYLE");
+    for (int s = 0; s < ARR_NSECT; s++)
+        if (g->style[s] < ARR_USER_PATTERNS) {
+            slot_style(s, style_number(i, s));   /* (saved first; refused while playing with changes unsaved: said) */
+            n += g->style[s] >= ARR_USER_PATTERNS;
+        }
+    if (n) {
+        cat_s(cat_s(b, style_label(i)), "'S");
+        say(n > 1 ? "GROOVES BACK TO" : "GROOVE BACK TO", b);
+    }
+}
+static void do_grooves_keep(void) { say("GROOVES KEPT", "(YOURS)"); }
+static void yours_poll(void)
+{
+    static char q[40], foot[32];
+    int n = grooves_yours(), one = 0, i = song_style();
+    if (!ui.yours_t || (int32_t)(plat_ms() - ui.yours_t) < 0)
+        return;
+    ui.yours_t = 0;
+    if (!n || i < 0 || ui.ask || lst.open || ui.card || home_shown() ||
+        !(ui.page == P_HOME || ui.page == P_STYLE || ui.page == P_STYLE2))
+        return;                                  /* (the Style knob's value says "(yours)" anyway) */
+    for (int s = 0; s < ARR_NSECT; s++)
+        if (csong()->style[s] < ARR_USER_PATTERNS)
+            one = s;
+    if (n == 1)
+        cat_s(cat_s(q, SECT_NAME[one + 1]), " IS YOURS: KEEP IT?");
+    else
+        cat_s(itoa_u((uint32_t)n, q), " GROOVES ARE YOURS: KEEP THEM?");
+    upcase(q);
+    cat_s(cat_s(cat_s(foot, "SEL keep|HOME use "), style_label(i)), "'s");
+    ask2(q, do_grooves_keep, do_grooves_style, foot);
 }
 /* another song, d on (PRESETS with HOME held); while playing it waits for the stop (a
  * save, a flash write, would pause the audio) */
@@ -2157,18 +2248,31 @@ static void ask(const char *q, void (*yes)(void))
     ui.ask_q[i] = 0;
     ui.ask = 1;
     ui.ask_yes = yes;
+    ui.ask_no = 0;
+    ui.ask_foot = 0;
     ui.msg_until = plat_ms();                    /* the footer says SEL: YES, HOME: NO at once (not a message before) */
+}
+/* a question with two answers that both do something: SEL yes(), HOME no(); the footer's words foot ("SEL keep|HOME
+ * ...": kept by the caller). Gone another way (a page button): neither */
+static void ask2(const char *q, void (*yes)(void), void (*no)(void), const char *foot)
+{
+    ask(q, yes);
+    ui.ask_no = no;
+    ui.ask_foot = foot;
 }
 static void ask_end(int yes)
 {
-    void (*f)(void) = ui.ask_yes;
+    void (*f)(void) = ui.ask_yes, (*n)(void) = ui.ask_no;
     ui.ask = 0;
     ui.ask_yes = 0;
+    ui.ask_no = 0;
+    ui.ask_foot = 0;
     if (yes) {
         lst.open = 0;
         if (f)
             f();
-    }
+    } else if (n)
+        n();
 }
 static char *loop_name_l(int i, char *t) { return itoa_u((uint32_t)i + 1u, cat_s(t, "P")); }   /* "P3" */
 /* "WORDS P3?" */
@@ -2890,6 +2994,7 @@ static void action_run(int a)
     ui.tgt.slot = (uint8_t)eslot();
     switch (a) {
     case A_LOAD_PROG: act_load_progression(); break;
+    case A_STYLE_TEMPO: act_style_tempo(); break;
     case A_CLEAR_LOOP: act_clear_loop(); break;
     case A_CLEAR_CHORD: act_clear_chord(); break;
     case A_STEP: break;
@@ -4054,6 +4159,11 @@ void ui_frame(void)
     }
     if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
+    if (app.mode == ARR_SONG && !csong()->nrows && !ui.song_rec) {
+        mode_set(ARR_FREE);                      /* the song emptied (CLEAR SONG, its last section deleted, an undo, */
+        say("NO SECTIONS:", "FREE");             /* another song): a song with nothing to play is Free (REC on Song */
+    }                                            /* writing its first sections: still the song) */
+    yours_poll();
     rec_follow_keys();
     leads_poll();
     ne_tick();                                   /* (Notes: EDIT held while recording erases) */

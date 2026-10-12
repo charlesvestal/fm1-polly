@@ -160,6 +160,9 @@ static struct {
     uint8_t ask;                                     /* a question on screen (SEL yes, HOME no): */
     char ask_q[48];                                  /* the question */
     void (*ask_yes)(void);                           /* what SEL does */
+    void (*ask_no)(void);                            /* what HOME does (0: nothing) */
+    const char *ask_foot;                            /* the footer's words for it (0: "SEL yes|HOME no") */
+    uint32_t yours_t;                                /* a style picked with grooves (yours): when to ask about them (0 none) */
     uint8_t copy_to, copy_src;                       /* SAVE + white key: the loop / pattern asked about, the loop copied */
     /* what an action acts on, taken when it is asked for (a question's yes acts on what it asked about) */
     struct { uint8_t loop, prog, song, trk, slot, lrow, ltrk, free, lfrom; } tgt;   /* lrow: a row (255 all), ltrk: a
@@ -233,12 +236,12 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_COPY_LEAD, A_MATCH_BARS, A_SLOTS,
-       A_CLEAR_CHORD, A_STEP, NACTIONS };
+       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
                                                   "INSERT SECTION", "DELETE SECTION", "CLEAR SONG", "COPY SONG TO",
                                                   "CLEAR C", "CLEAR", "BACK TO STYLE", "CLEAR M IN SECTION",
                                                   "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "BARS AS THE PROG",
-                                                  "MEMORY", "CLEAR CHORD", "STEP"};
+                                                  "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 10                                /* rows on screen (the list covers the knobs) */
 static struct {
@@ -3372,8 +3375,14 @@ static void kn(knob_t *k, const char *name, int32_t v, int32_t max)
  * label says so), also when sections play user patterns (they keep them) */
 static void style_knob(knob_t *k)
 {
-    int i = song_style();
-    if (i >= 0)
+    int i = song_style(), y = 0;
+    for (int s = 0; s < ARR_NSECT; s++)
+        y |= songs.song[proj.song].style[s] < ARR_USER_PATTERNS;
+    if (i >= 0 && y) {                               /* a groove or more plays your copy: "House (yours)" */
+        char t[24];
+        cat_s(cat_s(t, style_label(i)), " (yours)");
+        kv(k, style_bank(i) ? "QY style" : "Style", t, i + 1, styles_n());
+    } else if (i >= 0)
         kv(k, style_bank(i) ? "QY style" : "Style", style_label(i), i + 1, styles_n());
     else
         kv(k, "QY style", "-", 0, styles_n());
@@ -3887,7 +3896,7 @@ static void page_footer(char *t)
             cat_s(cat_s(cat_s(t, ui.msg[0]), " "), ui.msg[1]);
             upcase(t);
         } else
-            cat_s(t, "SEL yes|HOME no");
+            cat_s(t, ui.ask_foot ? ui.ask_foot : "SEL yes|HOME no");
         return;
     }
     if (home_shown()) {                              /* (HOME held: REC undoes, PLAY redoes; the keys: on screen, the
@@ -4385,6 +4394,13 @@ static void list_build(void)
                                                       * on it), the keys' step */
             list_add(ACTION_NAME[A_CLEAR_CHORD], 0, LK_ACTION, A_CLEAR_CHORD);
             list_add(ACTION_NAME[A_STEP], STEP_NAME[app.cstep % 3u], LK_PICK, A_STEP);
+        }
+        if (keep == P_HOME && (csong()->flags & SONG_F_TEMPO) && song_style() >= 0 &&
+            style_tempo(song_style()) != csong()->tempo) {   /* the tempo set by hand, not the style's: the style's (first:
+                                                      * the list opens on it) */
+            static char st[4];
+            itoa_u((uint32_t)style_tempo(song_style()), st);
+            list_add(ACTION_NAME[A_STYLE_TEMPO], st, LK_ACTION, A_STYLE_TEMPO);
         }
         list_add(ACTION_NAME[A_LOAD_PROG], TEMPLATES[ui.pick_prog % NTEMPLATES].name, LK_PICK, A_LOAD_PROG);
         if (keep != P_HOME || app.mode == ARR_LOOP)  /* (HOME free or in the song: no progression of its own to clear) */

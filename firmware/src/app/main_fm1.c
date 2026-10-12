@@ -345,6 +345,8 @@ static void fm1_main(void)
         bu_step();
         if (req == 8u && ota_dec[2] == MR_REQ)
             mirror_cmd(ota_dec[6]);                 /* the screen mirrored: on, off, refresh (mirror.c) */
+        if (req == 12u && ota_dec[2] == MR_REMOTE)
+            mirror_remote(ota_dec + 6);             /* the host's hands while it mirrors (testing: mirror.c) */
         mirror_step();
         if (req == 15u && ota_dec[2] == RS_REQ && flash_ok) {   /* a restore from the host (backup.c) */
             uint32_t len = ota_rd32(ota_dec + 6), crc = ota_rd32(ota_dec + 10);

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polly Mirror</title>
-<meta name="description" content="The screen and panel of an FM-1 running Polly, live over USB-MIDI: view only.">
+<meta name="description" content="The screen and panel of an FM-1 running Polly, live over USB-MIDI: view and, for testing, control.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -42,6 +42,8 @@ a { color: var(--accent); }
               background: #000; border-radius: 6px; box-shadow: 0 0 0 10px #111214, 0 0 0 11px var(--rule); margin: 11px; }
 .device { position: relative; flex: 1 1 420px; max-width: 760px; aspect-ratio: 1000 / 640; }
 .device svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.controlling .device svg g { cursor: pointer; }
+.controlling .device svg { touch-action: none; }
 .device canvas { position: absolute; left: 31.8%; top: 9.6875%; width: 20%; height: 31.25%; background: #000; border-radius: 2px; }
 .btnface, .keyface { transition: fill .06s, stroke .06s; }
 .lit .btnface { fill: #f28a5a; }
@@ -72,7 +74,7 @@ a { color: var(--accent); }
 <main>
 <header>
   <h1>Polly Mirror</h1>
-  <p>the FM-1's screen and panel, live over USB: view only</p>
+  <p>the FM-1's screen and panel, live over USB: view and, for testing, control</p>
 </header>
 
 <div class="bar" role="group" aria-label="Connection">
@@ -87,6 +89,8 @@ a { color: var(--accent); }
   </span>
   <button id="refresh" type="button" title="Ask for the whole screen again">Refresh</button>
   <button id="png" type="button" title="Save the screen as a PNG">Save PNG</button>
+  <button id="control" type="button" aria-pressed="false" disabled
+          title="Play the panel from here: click buttons and keys (held while pressed), scroll over a knob">Control</button>
   <span class="nums" id="nums"></span>
 </div>
 
@@ -110,8 +114,13 @@ a { color: var(--accent); }
   <div>
     <h2>What you see</h2>
     <p>Every screen update, as Polly draws it. Buttons and keys light as their LEDs do; the ones held are outlined in teal; a knob
-      turned flashes and shows its detents. Nothing here plays the FM-1: it only watches. Unplugged or asleep, the page waits and
-      picks it up again.</p>
+      turned flashes and shows its detents. Unplugged or asleep, the page waits and picks it up again.</p>
+  </div>
+  <div>
+    <h2>Control (for testing)</h2>
+    <p>With <b>Control</b> on, the drawn panel plays the FM-1: press a button or key (held while you hold it), scroll over a
+      knob to turn it. Polly takes it as from its own panel, only while this page mirrors it; Control off, the page closed
+      or the cable out, everything is let go. tools/polly_remote.py does the same from scripts.</p>
   </div>
   <div>
     <h2>Speed</h2>
@@ -125,7 +134,7 @@ a { color: var(--accent); }
 "use strict";
 // --- decoder: begin (tests/host/mirror_test.mjs runs this part in Node) ---
 // Polly's mirror frames (firmware/src/mirror.c): F0 pack7(00 59 cmd len24 body ~sum8(body)) F7.
-const MR_REQ = 0x50, MR_RECT = 0x51, MR_FILL = 0x52, MR_INPUT = 0x53;
+const MR_REQ = 0x50, MR_RECT = 0x51, MR_FILL = 0x52, MR_INPUT = 0x53, MR_REMOTE = 0x54;
 function mrPack7(bytes) {
   const out = [];
   let acc = 0, nb = 0;
@@ -148,6 +157,11 @@ function mrUnpack7(src) {
 // a request to the FM-1: 0 off, 1 on (also the keep-alive), 2 refresh
 function mrRequest(op) {
   return Uint8Array.from([0xF0, ...mrPack7([0x00, 0x59, MR_REQ, 1, 0, 0, op, ~op & 0xFF]), 0xF7]);
+}
+// the remote (Polly 2): seq, op (1 button, 2 key, 3 turn, 4 MASTER, 0 let go), a, b; answered with seq, op, done
+function mrRemote(seq, op, a = 0, b = 0) {
+  const body = [seq & 255, op & 255, a & 255, b & 255, 0], sum = body.reduce((x, v) => x + v, 0);
+  return Uint8Array.from([0xF0, ...mrPack7([0x00, 0x59, MR_REMOTE, 5, 0, 0, ...body, ~sum & 0xFF]), 0xF7]);
 }
 const mrHash = (c) => (Math.imul(c, 40503) >>> 10) & 63;
 // on: { rect(x, y, w, h), input(state), hello(info), gap() }; screen: 240 x 240 RGB565
@@ -207,6 +221,8 @@ function createMirror(on = {}) {
                    master: b[13] | b[14] << 8, litButtons: lit & 0x7FFF, playRed: !!(lit & 0x8000), litKeys: u32(17) });
     } else if (cmd === MR_REQ && n >= 4) {
       on.hello?.({ version: b[0], on: !!b[1], w: b[2] + 1, h: b[3] + 1 });
+    } else if (cmd === MR_REMOTE && n >= 3) {
+      on.remote?.({ seq: b[0], op: b[1], ok: !!b[2] });
     }
   }
   function feed(data) {
@@ -346,7 +362,13 @@ const mirror = createMirror({
     if (!pending) { pending = true; requestAnimationFrame(paint); }
   },
   input: showInput,
-  hello(h) { heardHello = true; if (!h.on) say("Polly stopped mirroring.", "wait"); },
+  hello(h) {
+    heardHello = true;
+    if (!h.on) say("Polly stopped mirroring.", "wait");
+    controlBtn.disabled = h.version < 2;
+    controlBtn.title = h.version < 2 ? "This Polly mirrors but takes no input: update it" : controlTitle;
+  },
+  remote(r) { remoteAnswer(r); },
   gap() { askRefresh(); },
 });
 function paint() {
@@ -448,6 +470,71 @@ async function connect() {
 connectBtn.addEventListener("click", connect);
 navigator.permissions?.query({ name: "midi", sysex: true }).then((p) => { if (p.state === "granted") connect(); }).catch(() => {});
 
+// ---------------------------------------------------------------- control (testing): one request at a time, answered
+const controlBtn = document.getElementById("control"), controlTitle = controlBtn.title;
+let control = false, rseq = 0, rq = [], rbusy = null;
+function rsend(op, a = 0, b = 0) {
+  if (!control || !outPort) return;
+  rq.push([op, a, b]);
+  rpump();
+}
+function rpump() {
+  if (rbusy || !rq.length) return;
+  rseq = (rseq + 1) & 255;
+  rbusy = { seq: rseq, msg: mrRemote(rseq, ...rq.shift()), tries: 0, t: 0 };
+  rtry();
+}
+function rtry() {
+  if (!rbusy) return;
+  if (rbusy.tries++ >= 5) { rbusy = null; rq = []; say("Polly does not take the panel input.", "err"); return; }
+  try { outPort?.send(rbusy.msg); } catch { /* the port went away */ }
+  rbusy.t = setTimeout(rtry, 300);                   // (the same seq again: Polly does it once)
+}
+function remoteAnswer(r) {
+  if (!rbusy || r.seq !== rbusy.seq) return;
+  clearTimeout(rbusy.t);
+  rbusy = null;
+  if (!r.ok) { rq = []; say("Polly refused the input (mirroring off?).", "wait"); return; }
+  rpump();
+}
+function setControl(on) {
+  rq = [];
+  if (rbusy) { clearTimeout(rbusy.t); rbusy = null; }
+  if (control && !on) {                                // off: everything let go
+    rseq = (rseq + 1) & 255;
+    try { outPort?.send(mrRemote(rseq, 0)); } catch { /* gone: Polly lets go by itself */ }
+  }
+  control = on;
+  controlBtn.setAttribute("aria-pressed", String(on));
+  document.body.classList.toggle("controlling", on);
+}
+controlBtn.addEventListener("click", () => setControl(!control));
+function hold(g, op, id) {                             // a button or key: held while the pointer is down
+  let down = false;
+  g.addEventListener("pointerdown", (e) => {
+    if (!control) return;
+    e.preventDefault();
+    g.setPointerCapture?.(e.pointerId);
+    down = true;
+    rsend(op, id, 1);
+  });
+  const up = () => { if (down) { down = false; rsend(op, id, 0); } };
+  g.addEventListener("pointerup", up);
+  g.addEventListener("pointercancel", up);
+  g.addEventListener("lostpointercapture", up);
+}
+buttons.forEach((b, i) => hold(b.g, 1, i));
+keys.forEach((k, i) => hold(k.g, 2, i));
+byRole.forEach((k, r) => {                             // a knob: one detent a wheel notch
+  let acc = 0;
+  k.g.addEventListener("wheel", (e) => {
+    if (!control) return;
+    e.preventDefault();
+    acc += e.deltaY;
+    while (Math.abs(acc) >= 40) { rsend(3, r, acc < 0 ? 1 : 255); acc -= Math.sign(acc) * 40; }
+  }, { passive: false });
+});
+
 // keep-alive (Polly stops after 6 s without one), reconnection, the numbers
 let lastBytes = 0, lastPainted = 0;
 setInterval(() => {
@@ -463,7 +550,7 @@ setInterval(() => {
   nums.textContent = `${String(f).padStart(2, "\u2007")} fps · ${(b / 1024).toFixed(1).padStart(5, "\u2007")} kB/s`;
   nums.title = mirror.stats.gaps ? `${mirror.stats.gaps} gaps (dropped and resent)` : "";
 }, 1000);
-addEventListener("pagehide", () => send(0));
+addEventListener("pagehide", () => { if (control) setControl(false); send(0); });
 }
 </script>
 </body>

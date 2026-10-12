@@ -121,10 +121,11 @@ release HOME
 expect page 0
 expect loop_bars3 4
 # SONG: its list opens on PLAY FROM ROW (8); INSERT ROW (one down) while playing: STOP FIRST; stopped: a row
-turn SELECT 1
-expect page 1
+# (playing from Home: PLAY on a Song page with no sections starts nothing, it stops)
 tap PLAY
 wait 200
+turn SELECT 1
+expect page 1
 tap SEL
 expect list_sel 8
 turn SELECT 1
@@ -244,14 +245,16 @@ expect msg2_is_STOP_FIRST 1
 expect asking 0
 tap PLAY
 wait 200
-# CLEAR SONG: it has a row, a question; yes
+# CLEAR SONG: it has a row, a question; yes (in the song: no sections left, Free, said)
+expect mode 2
 tap SEL
 spin SELECT 3
 tap SEL
 expect asking 1
 tap SEL
 expect rows 0
-expect msg_is_CLEARED 1
+expect mode 0
+expect msgtext_is_NO_SECTIONS:_FREE 1
 # the list's own button let go: the list goes, the page stays
 tap SEL
 expect list_open 1

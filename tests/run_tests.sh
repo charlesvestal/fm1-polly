@@ -93,6 +93,10 @@ else
     echo "  skip update-path tests (no build/polly.fwsc: run ./build.sh)"
 fi
 run host-build sh host/build_host.sh
+# the remote (firmware/src/mirror.c cmd 0x54) and tools/polly_remote.py against the simulator on a simulated cable
+# (polly_host --serve): the screen as mirrored, taps, keys, turns, MASTER into the UI, let go on stop and on silence,
+# refused while off, an older Polly, a whole scenario (style_pick.polly) run through the remote
+run polly-remote python3 tests/polly_remote_test.py
 if command -v emcc >/dev/null 2>&1; then
     run emu sh -c "sh web/emu/build.sh >/dev/null && node tests/host/emu_test.mjs build/emu/polly.wasm"
     if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then

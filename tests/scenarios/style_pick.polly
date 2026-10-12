@@ -1,0 +1,101 @@
+# POLLY, a style picked (the device report: "I chose House, but it sounds stuck on a groove"):
+#  - a song with no sections is never played as the song: PLAY on Song says so (nothing starts); a song emptied while
+#    in it (CLEAR SONG) goes Free, said ("NO SECTIONS: FREE")
+#  - a tempo set by hand stays when a style is picked, said ("TEMPO KEPT 84 (HOUSE 122)"); SEL's first row on
+#    Home takes the style's (STYLE TEMPO 122), and styles bring their tempo again after
+#  - grooves (yours) on a style pick: the Style knob says "(yours)"; once the knob rests it asks "GROOVE A IS YOURS:
+#    KEEP IT?" (SEL keep, HOME the style's: BACK TO STYLE, your copy kept in memory)
+wait 300
+expect mode 0
+# ---- the Song page with no sections: PLAY starts nothing
+spin SELECT 1
+expect page 1
+expect rows 0
+tap PLAY
+wait 50
+expect playing 0
+expect msgtext_is_NO_SECTIONS_WHITE_KEYS_FIRST 1
+shot song_empty_play.png
+# a section (a white key), the song from it, then CLEAR SONG while it plays: Free, said, still playing
+tapkey w0
+expect rows 1
+tap PLAY
+wait 300
+expect playing 1
+expect mode 2
+tap SEL
+spin SELECT 3
+tap SEL
+expect asking 1
+tap SEL
+wait 50
+expect rows 0
+expect mode 0
+expect playing 1
+expect msgtext_is_NO_SECTIONS:_FREE 1
+shot song_cleared_free.png
+tap PLAY
+wait 200
+expect playing 0
+# ---- Home: the tempo by hand (84), then House: the tempo kept, said
+tap HOME
+expect page 0
+spin K1 -20
+expect tempo 105
+spin K2 -21
+expect tempo 84
+spin K1 9
+wait 30
+expect tempo 84
+expect msgtext_is_TEMPO_KEPT_84_(HOUSE_122) 1
+shot tempo_kept.png
+# SEL: the list opens on STYLE TEMPO 122; SEL takes it
+tap SEL
+expect list_open 1
+wait 50
+shot tempo_list.png
+tap SEL
+wait 30
+expect list_open 0
+expect tempo 122
+expect msgtext_is_TEMPO_122_THE_STYLE'S 1
+# and the styles bring their tempo again
+spin K1 -9
+wait 30
+expect tempo 105
+expect msgtext_is_STYLE_POP 1
+# ---- a groove (yours): Groove A's C1 louder on Sound; then House: the knob says "(yours)", the question once it rests
+tap EDIT
+spin K2 3
+wait 100
+tap HOME
+spin K1 9
+wait 30
+expect asking 0
+expect knob1_is_House_(yours) 1
+wait 1000
+expect asking 1
+expect footer_is_SEL_keep|HOME_use_House's 1
+shot yours_ask.png
+# SEL: kept (the knob still says so)
+tap SEL
+wait 30
+expect asking 0
+expect msgtext_is_GROOVES_KEPT_(YOURS) 1
+expect knob1_is_House_(yours) 1
+# another style, then HOME: the style's grooves back (the copy kept in memory)
+spin K1 1
+wait 1000
+expect asking 1
+tap HOME
+wait 30
+expect asking 0
+expect page 0
+expect msgtext_is_GROOVE_BACK_TO_DISCO'S 1
+expect knob1_is_Disco 1
+wait 50
+shot yours_back.png
+# turning on: no question (nothing is yours)
+spin K1 1
+wait 1000
+expect asking 0
