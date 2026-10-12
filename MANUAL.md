@@ -95,8 +95,8 @@ next thing.
 - **HOME**: Home; **SELECT** then turns to the Song pages. Held: the shortcuts (keys, SELECT, PRESETS, REC, PLAY); in a
   question, no.
 - **ARP**: Progression (the chords: bar, beat, root, type), page 2 its length, beats, bass and name.
-- **SEQ**: Band (the groove's notes, instrument by instrument; bar, beat: the cursor), page 2 the groove's length and
-  name.
+- **SEQ**: Band (the groove's notes, instrument by instrument; bar, beat: the cursor), page 2 (SELECT) the groove's
+  length and name; **SEQ** again: Notes, to fix single notes (SEQ there goes back to Band).
 - **EDIT**: Sound (the instrument's sound and range), page 2 its high key and channel (a melody: one page, its sound,
   channel and velocity).
 - **LFO**: Mixer, page 2 its tone.
