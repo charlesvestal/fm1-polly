@@ -1703,8 +1703,13 @@ static int song_bar(int fresh, int hand, uint8_t *mark)
         if (row_skipped() && per)                  /* (marked: its pass playing is its last) */
             left = per - done % per;
         if (left > 0 && left <= b && !last && !row_nofill(&sn.cur) &&
-            (row_fill(&sn.cur) || row_main(&sn.next) != from) && resolve(f, &to) != SEC_SAME)
+            (row_fill(&sn.cur) || row_main(&sn.next) != from) && resolve(f, &to) != SEC_SAME) {
             *mark = f;                             /* (no fill with notes: a row starting keeps its section) */
+            /* the fill leads into the next row: the band plays it with that row's mutes (a breakdown's drums come
+             * back for the fill into the chorus; into another breakdown they stay out); the melodies keep this
+             * row's (their notes in this bar are this row's) */
+            row_mutes(sn.next.mute | (row_mute_bits(&sn.cur) & ~((1u << ARR_TRACKS) - 1u)));
+        }
     }
     return 1;
 }

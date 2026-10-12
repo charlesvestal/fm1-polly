@@ -518,7 +518,8 @@ that plays the same progression. Otherwise it starts on Groove A.
 
 Under the rows are the mutes of the section at the cursor: D1 D2 PC BA, C1–C4, then the melodies M1 and M2
 in plum. A filled name plays, and an outlined name is muted. Black keys 1–8 mute the section's
-instruments, and black keys 9 and 10 mute its melodies.
+instruments, and black keys 9 and 10 mute its melodies. A fill plays with the mutes of the section it leads into, so a
+breakdown's drums come back for the fill into the next full section.
 
 Above the sections, "section 3 of 6" shows where the cursor is. The cursor is the coral ring. On END, the
 line shows "a white key adds a section". While the song plays, the section that's playing is filled teal.

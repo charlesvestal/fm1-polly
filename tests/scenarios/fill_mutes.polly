@@ -1,0 +1,46 @@
+# POLLY, a fill plays with the mutes of the section it leads into: section 1 (P1, Groove A) with the drums muted (D1 D2
+# PC) into section 2 (P1, Groove B): its bars without drums, its fill (the last bar) with them; section 2 also muted:
+# the fill stays without. Pop 105 BPM (a bar 2286 ms), the Intro 2 bars, then section 1 (4 bars) from ~4.6 s.
+wait 300
+tap HOME
+tapkey w0
+tapkey w0
+expect rows 2
+turn K1 -2
+expect cursor 1
+tapkey b0
+tapkey b1
+tapkey b2
+expect row_mute1 7
+turn K1 1
+expect cursor 2
+turn K3 3 200
+expect row_sect2 2
+# ---- section 1's bars: the drums out; its fill bar (into the full section 2): in
+tap PLAY
+wait 8000
+expect row 1
+expect sect 2
+expect mutes 7
+hitreset
+wait 4500
+expect row 1
+expect sect 4
+expect mutes 0
+expect track_hits1 >0
+tap PLAY
+wait 300
+# ---- section 2 muted too: the fill into it stays without drums
+turn K1 9
+turn K1 -1
+expect cursor 2
+tapkey b0
+tapkey b1
+tapkey b2
+expect row_mute2 7
+tap PLAY
+wait 12500
+expect row 1
+expect sect 4
+expect mutes 7
+tap PLAY
