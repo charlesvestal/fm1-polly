@@ -10,6 +10,28 @@ wait 3500
 expect tempo 105
 expect song1_style1 33
 # ---- 1. an instrument
+cap 1. Pick an instrument | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
+wait 2500
+expect page 0
+tap HOME
+wait 900
+expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
+expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+tap HOME
+wait 1000
+expect page 0
 cap 1. Pick an instrument | Press PLAY. Press SEQ for the Band page, and turn ALGORITHM to C2. Its row is empty.
 wait 2500
 anchor A

@@ -2561,7 +2561,7 @@ static void do_marks_go(void)
 static void marks_poll(void)
 {
     uint32_t m = marks_now();
-    ui.row_marks = m;                            /* (rows gone another way, CLEAR SONG: their marks with them) */
+    ui.row_marks = m;                            /* (rows gone another way, CLEAR SECTIONS: their marks with them) */
     if (m != ui.marks_sent) {
         arr_rows_skip(m);
         ui.marks_sent = m;
@@ -2653,14 +2653,15 @@ static void row_do(int ins, int row)
     song_anim(row, ins ? 1 : -1);
     say(ins ? "INSERTED" : "DELETED", t);
 }
-/* CLEAR SONG: its rows and settings (its patterns, style, tempo, transpose and mutes kept, the loops too) */
+/* CLEAR SECTIONS (was CLEAR SONG): its rows and settings, and the melodies with the rows (its patterns, style, tempo,
+ * transpose and mutes kept, the loops too; NEW SONG: all of it) */
 static void do_clear_song(void)
 {
     song_t *g = csong();
     uint8_t mute = g->mute, tempo = g->tempo, fl = g->flags;
     int8_t xp = g->transpose;
     int before = leads.n;
-    undo_hint("CLEAR SONG");
+    undo_hint("CLEAR SECTIONS");
     songs_write(1);                              /* (the engine may be playing its rows) */
     loops_song_clear(g);                         /* (its style and its leads' sounds kept) */
     leads_erase(&leads, -1, -1);                 /* the lead notes go with their rows */
@@ -2673,17 +2674,67 @@ static void do_clear_song(void)
     if (before)
         lead_changed(0, before);
     app.row = 0;
-    say("CLEARED", "the song");
+    say("CLEARED", "SECTIONS");
 }
 static void act_clear_song(void)
 {
-    char q[16];
+    char q[24];
     if (!csong()->nrows) {
         do_clear_song();
         return;
     }
-    cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR S")), "?");
+    cat_s(itoa_u(proj.song + 1u, cat_s(q, "CLEAR S")), "'S SECTIONS?");
     ask(q, do_clear_song);
+}
+/* NEW SONG: the song as on a new FM-1 (song_default): no sections, no melodies (their sounds the defaults), the
+ * factory progressions, the first style in all six sections at its tempo (set by hand no more), transpose 0, nothing
+ * muted, Intro and Ending on, stop at the end; Free, P1 picked (none yet: ARP opens on the first empty). The grooves
+ * (yours) it played stay in Memory as they were saved (any song can pick them again; MEMORY frees them): the song
+ * only stops playing them, so it is one undo step (undo loads them back), never a flash erase. Stopped only (every
+ * section loads its pattern); what is unsaved is saved first, so nothing of the song before is lost for undo */
+static void do_new_song(void)
+{
+    song_t *g = csong();
+    int before = leads.n;
+    char t[8];
+    if (arr_playing) {                           /* (PLAY during the question) */
+        say_no("NEW SONG", "STOP FIRST");
+        return;
+    }
+    arr_record(sel_trk(), 0);                    /* a recording armed: off (what it records into goes) */
+    ui.rec_want = ui.rec_seen = 0;
+    if (unsaved() && save_all() != 0) {
+        say_no("NOT SAVED", "SONG KEPT");
+        return;
+    }
+    undo_hint("NEW SONG");
+    songs_write(1);                              /* (the rows, the loops and the lead notes in one write) */
+    song_default(g, proj.song);
+    loops_default(sloops.loop);
+    leads_erase(&leads, -1, -1);
+    leads.gen++;
+    songs_write(0);
+    if (before)
+        lead_changed(0, before);                 /* (the parts emptied: their slots let go at the save) */
+    lead_sounds_sync();
+    app.row = 0;
+    app_loop_set(0);
+    app.picked = 0;
+    mode_set(ARR_FREE);
+    song_load();                                 /* the style's six sections, its tempo, transpose 0, the mutes */
+    undo_commit();                               /* (one step: all of it) */
+    itoa_u(proj.song + 1u, cat_s(t, "S"));
+    say("NEW SONG", t);
+}
+static void act_new_song(void)
+{
+    char q[32];
+    if (arr_playing) {                           /* every section loads its pattern: stopped */
+        say_no("NEW SONG", "STOP FIRST");
+        return;
+    }
+    cat_s(itoa_u(proj.song + 1u, cat_s(q, "NEW SONG: CLEAR ALL OF S")), "?");
+    ask(q, do_new_song);
 }
 /* COPY SONG TO: the song (its rows, settings, styles, loops) into another; its user patterns into ones of the
  * target's; its loops packed into the target's room in the songs (the songs saved at once, then a slot the target's
@@ -3316,6 +3367,7 @@ static void action_run(int a)
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
     case A_CLEAR_SONG: act_clear_song(); break;
+    case A_NEW_SONG: act_new_song(); break;
     case A_COPY_SONG: act_copy_song(); break;
     case A_ERASE_TRACK: act_erase_track(); break;
     case A_CLEAR_PATTERN: act_clear_pattern(); break;
@@ -4477,7 +4529,7 @@ void ui_frame(void)
     if (!arr_playing || (int32_t)(arr_beats - ui.mode_at) >= 0)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     if (app.mode == ARR_SONG && !csong()->nrows && !ui.song_rec) {
-        mode_set(ARR_FREE);                      /* the song emptied (CLEAR SONG, its last section deleted, an undo, */
+        mode_set(ARR_FREE);                      /* the song emptied (CLEAR SECTIONS, NEW SONG, its last deleted, undo, */
         say("NO SECTIONS:", "FREE");             /* another song): a song with nothing to play is Free (REC on Song */
     }                                            /* writing its first sections: still the song) */
     yours_poll();

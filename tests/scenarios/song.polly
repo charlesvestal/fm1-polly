@@ -323,10 +323,10 @@ tap PLAY
 wait 300
 expect playing 0
 # ---- song 2 starts from song 1's loops (each song has its own): COPY SONG TO Song 2 (empty: no question), then on
-# song 2 CLEAR SONG (its rows go, the loops stay)
+# song 2 CLEAR SECTIONS (its rows go, the loops stay)
 tap SEL
 spin SELECT 20
-expect list_sel 12
+expect list_sel 13
 tap SEL
 expect asking 0
 expect msg2_is_copied 1
@@ -345,7 +345,7 @@ expect loop_ch9_0 916
 expect page 1
 tap SEL
 spin SELECT 20
-spin SELECT -1
+spin SELECT -2
 expect list_sel 11
 tap SEL
 expect asking 1
@@ -358,7 +358,7 @@ expect cursor 1
 spin K2 -1
 expect song_intro 0
 expect tempo 120
-# a song emptied while in it (CLEAR SONG) plays Free (said): Home then plays the band over your chords
+# a song emptied while in it (CLEAR SECTIONS) plays Free (said): Home then plays the band over your chords
 tap HOME
 expect page 0
 expect mode 0

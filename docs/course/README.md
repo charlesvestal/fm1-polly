@@ -3,8 +3,10 @@
 Short lessons, each with a video and a picture for every step. Take them in order. For every detail, see the
 [manual](../../MANUAL.md).
 
-The videos start from a new Polly. To start a lesson on an empty song, hold **HOME** and turn **PRESETS** to a
-song you haven't used yet.
+The videos start from a new Polly. Lessons 102 to 108 start with a new song, so what you did in the lessons
+before doesn't get in the way: on the Song page (**HOME** on the Home page), press **SEL**, turn **SELECT** to NEW
+SONG and press **SEL** twice. The song is then as on a new Polly. Undo (hold **HOME** and press **REC**) brings
+the old one back. To keep a song you made, switch to another one first: hold **HOME** and turn **PRESETS**.
 
 | Lesson | What you do |
 | --- | --- |

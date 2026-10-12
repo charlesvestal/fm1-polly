@@ -7,6 +7,28 @@ barms 2285.714
 cap Your own progressions | Record your chords, fix one, set the length, name it, and play it from anywhere.
 wait 3500
 # ---- 1. record: REC late in bar 0 counts in to bar 1; Am F C G on bars 1-4; REC just before bar 5
+cap 1. Record a progression | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
+wait 2500
+expect page 0
+tap HOME
+wait 900
+expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
+expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+tap HOME
+wait 1000
+expect page 0
 cap 1. Record a progression | On the Home page, press PLAY, then REC. A click counts in to the next bar.
 wait 2500
 anchor A

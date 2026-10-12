@@ -1,6 +1,6 @@
 # POLLY, a style picked (the device report: "I chose House, but it sounds stuck on a groove"):
 #  - a song with no sections is never played as the song: PLAY on Song says so (nothing starts); a song emptied while
-#    in it (CLEAR SONG) goes Free, said ("NO SECTIONS: FREE")
+#    in it (CLEAR SECTIONS) goes Free, said ("NO SECTIONS: FREE")
 #  - a tempo set by hand stays when a style is picked, said ("TEMPO KEPT 84 (HOUSE 122)"); SEL's first row on
 #    Home takes the style's (STYLE TEMPO 122), and styles bring their tempo again after
 #  - grooves (yours) on a style pick: the Style knob says "(yours)"; once the knob rests it asks "GROOVE A IS YOURS:
@@ -16,7 +16,7 @@ wait 50
 expect playing 0
 expect msgtext_is_NO_SECTIONS_WHITE_KEYS_FIRST 1
 shot song_empty_play.png
-# a section (a white key), the song from it, then CLEAR SONG while it plays: Free, said, still playing
+# a section (a white key), the song from it, then CLEAR SECTIONS while it plays: Free, said, still playing
 tapkey w0
 expect rows 1
 tap PLAY

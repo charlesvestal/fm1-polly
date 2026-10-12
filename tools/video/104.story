@@ -5,10 +5,27 @@ head 104 Changing styles
 cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
 wait 3500
 # ---- 1. a song that plays round
-cap 1. Set up a song | On the Home page, press HOME for the Song page. Press white keys 1 and 2.
+cap 1. Set up a song | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
 wait 2500
+expect page 0
 tap HOME
-wait 1000
+wait 900
+expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
+expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+cap 1. Set up a song | Press white keys 1 and 2.
+wait 2500
 expect page 1
 tapkey w0
 wait 700

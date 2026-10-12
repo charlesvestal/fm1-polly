@@ -7,6 +7,28 @@ barms 2285.714
 cap Making it sound yours | Change an instrument's sound, mix it, set the effects and move the key.
 wait 3500
 # ---- 1. the Sound page, on C1 (the band's piano: it plays in Pop's Groove A; C2 has no notes there)
+cap 1. Open the Sound page | Start with a new song: press HOME for the Song page, press SEL, turn SELECT to NEW SONG and press SEL twice. Press HOME to go back.
+wait 2500
+expect page 0
+tap HOME
+wait 900
+expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
+expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+tap HOME
+wait 1000
+expect page 0
 cap 1. Open the Sound page | Press PLAY. Press EDIT for the Sound page. It opens on C1, the band's piano.
 wait 2500
 tap PLAY

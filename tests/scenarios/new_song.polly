@@ -1,0 +1,218 @@
+# POLLY, NEW SONG (the Song page's list): song 1 changed every way it can be (another style at a tempo set by hand,
+# transposed, muted, a progression rewritten, a groove of its own, sections with a mute, the Intro off, again at the
+# end, a melody), then NEW SONG: asked first, refused while playing (STOP FIRST), and the song is as on a new FM-1
+# (no sections, no melody, the factory progressions, Pop in all six sections at 105, nothing transposed or muted,
+# Intro and Ending on, stop at the end), Free. The groove it made stays in Memory (only no longer played). One undo
+# step: HOME + REC brings it all back, HOME + PLAY clears it again. Saved: a reboot comes back on the new song.
+# Next to it CLEAR SECTIONS (was CLEAR SONG): the sections and the melody go, the rest stays.
+# Keys (octave 0): key K is MIDI 53 + K: C4 7, E4 11, G4 14.
+wait 300
+expect song_style 32
+expect tempo 105
+expect loop_ch1_0 0
+# ---- P1's first chord: Am (Progression, P1, beat 1: ROOT to A, TYPE to m)
+press HOME
+tapkey w0
+release HOME
+expect app_loop 1
+tap ARP
+expect page 4
+turn K3 -3 300
+spin K4 1
+expect loop_ch1_0 916
+# ---- the style (Funk), the tempo by hand, TRANSPOSE +2
+tap HOME
+expect page 0
+turn K1 1
+expect song_style 38
+spin K2 7
+spin K3 2
+expect transpose 2
+# ---- C1's sound: Groove A becomes the song's own (a user pattern), D1 muted (LOOP: the song's mute)
+tap EDIT
+expect page 8
+turn K1 1
+expect msgtext_is_GROOVE_A_NOW_YOURS 1
+expect song1_style1 0
+tap SEQ
+turn ALGO -4
+expect track 1
+wait 200
+turn K4 1
+expect song1_mute 1
+# ---- two sections (P1, P2), C3 muted in section 2, the Intro off, again at the end
+tap HOME
+tap HOME
+expect page 1
+tapkey w0
+tapkey w1
+expect rows 2
+turn K1 -1
+expect cursor 2
+tapkey b6
+expect row_mute2 64
+turn SELECT 1
+expect page 2
+turn K2 -1
+expect song_intro 0
+turn K4 1
+expect song_at_end 1
+turn SELECT -1
+# ---- a melody: M1 armed in the song (PLAY, PLAY on Song: stopped in SONG), PLAY, three notes in section 1
+tap PLAY
+wait 100
+tap PLAY
+wait 100
+expect mode 2
+tap EDIT
+turn ALGO 8
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+tap PLAY
+wait 2400
+tapkey 7
+wait 300
+tapkey 11
+wait 300
+tapkey 14
+wait 600
+tap PLAY
+wait 300
+expect lead_notes 3
+turn ALGO -1
+expect lead_sel 0
+tap SAVE
+expect dirty 0
+# ---- NEW SONG: on the Song page's list, after CLEAR SECTIONS; asked first
+tap HOME
+tap HOME
+expect page 1
+tap SEL
+expect list_has_CLEAR_SECTIONS 1
+expect list_has_NEW_SONG 1
+expect list_has_CLEAR_SONG 0
+spin SELECT 4
+expect list_sel 12
+shot list_song.png
+tap SEL
+expect asking 1
+expect ask_is_NEW_SONG:_CLEAR_ALL_OF_S1? 1
+expect ask_font >0
+shot ask_new_song.png
+# HOME: no, nothing changed (the list stays, on NEW SONG)
+tap HOME
+expect asking 0
+expect list_open 1
+expect list_sel 12
+expect rows 2
+# playing: refused (and PLAY during the question: refused at the yes)
+tap PLAY
+wait 200
+expect playing 1
+tap SEL
+expect asking 0
+expect list_open 0
+expect msgtext_is_NEW_SONG_STOP_FIRST 1
+expect rows 2
+tap PLAY
+wait 2000
+expect playing 0
+tap SEL
+spin SELECT 4
+tap SEL
+expect asking 1
+tap PLAY
+wait 200
+expect playing 1
+tap SEL
+expect msgtext_is_NEW_SONG_STOP_FIRST 1
+expect rows 2
+tap PLAY
+wait 2000
+expect playing 0
+# stopped: yes. All of it as on a new FM-1
+tap SEL
+spin SELECT 4
+tap SEL
+expect asking 1
+tap SEL
+expect asking 0
+expect msgtext_is_NEW_SONG_S1 1
+shot new_song.png
+expect rows 0
+expect lead_notes 0
+expect song_style 32
+expect song1_style1 33
+expect song1_style0 32
+expect song1_style5 37
+expect tempo 105
+expect transpose 0
+expect song1_mute 0
+expect mutes 0
+expect song_intro 1
+expect song_ending 1
+expect song_at_end 0
+expect loop_ch1_0 0
+expect loop_bars9 0
+expect lsnd1_prog 81
+expect mode 0
+expect app_loop 1
+# the groove it made: still in Memory (place 1), played by no song now
+expect slot_kind1 1
+expect pat0_nev >0
+# ---- one undo step: HOME + REC brings it all back; HOME + PLAY clears it again
+press HOME
+tap REC
+release HOME
+expect msgtext_is_UNDO_NEW_SONG 1
+expect rows 2
+expect lead_notes 3
+expect song1_style1 0
+expect song_style 38
+expect transpose 2
+expect song1_mute 1
+expect row_mute2 64
+expect song_intro 0
+expect song_at_end 1
+expect loop_ch1_0 916
+press HOME
+tap PLAY
+release HOME
+expect rows 0
+expect lead_notes 0
+expect song1_style1 33
+expect loop_ch1_0 0
+# ---- saved: after a reboot, the new song
+tap SAVE
+expect dirty 0
+reboot
+wait 300
+expect song 1
+expect rows 0
+expect lead_notes 0
+expect song_style 32
+expect song1_style1 33
+expect tempo 105
+expect loop_ch1_0 0
+expect slot_kind1 1
+# ---- CLEAR SECTIONS: two sections and a transpose; the sections go, the transpose stays
+tap HOME
+expect page 1
+tapkey w0
+tapkey w1
+expect rows 2
+tap HOME
+spin K3 3
+expect transpose 3
+tap HOME
+tap SEL
+spin SELECT 3
+expect list_sel 11
+tap SEL
+expect ask_is_CLEAR_S1'S_SECTIONS? 1
+tap SEL
+expect rows 0
+expect transpose 3
+expect msgtext_is_CLEARED_SECTIONS 1

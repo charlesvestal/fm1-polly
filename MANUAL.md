@@ -113,6 +113,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | save | Press **SAVE**. Polly also saves by itself when stopped. |
 | see what fills the memory | Press **SEQ**, then **SEL**. Turn **SELECT** to MEMORY at the end of the list and press **SEL**. |
 | back up | On a computer, run `python3 tools/polly_backup.py backup my-songs.plb`. |
+| start a song afresh | Stop. On the Song page, press **SEL**, turn **SELECT** to NEW SONG and press **SEL**. Press **SEL** again to say yes. |
 | start again from new | Stop. Press **GLO**, then **SEL**, and choose FACTORY RESET. |
 
 ### The buttons
@@ -699,16 +700,22 @@ On the Song pages, the **SEL** list opens on PLAY FROM SECTION, for the section 
 - INSERT SECTION puts a copy of the section at the cursor above it, without its melody notes.
 - DELETE SECTION deletes the section at the cursor. Its melody notes go with it, so if it has any, Polly
   asks first ("SECTION 3 HAS MELODY NOTES: DELETE?").
-- CLEAR SONG clears the sections and the melodies, after a question. The style, tempo, transpose and
-  progressions stay.
+- CLEAR SECTIONS clears the sections and the melodies, after a question ("CLEAR S1'S SECTIONS?"). The
+  style, tempo, transpose and progressions stay.
+- NEW SONG makes the song as it is on a new Polly, after a question ("NEW SONG: CLEAR ALL OF S1?"): no
+  sections and no melodies, the ready-made progressions, Pop in every groove at its tempo, no transpose,
+  nothing muted, Intro and Ending on, and At end "stop". The melodies' sounds go back to their defaults too.
+  Grooves of yours that the song played stay in [memory](#memory), for any song to use again, until you
+  free them there. Undo brings the whole song back in one step.
 - COPY SONG TO ("S2") copies the song into another song, after a question. The melodies aren't copied, and
   the other song's melodies are cleared. Turn **ALGORITHM** to pick the song.
 
-INSERT SECTION, DELETE SECTION and COPY SONG TO work only when stopped.
+INSERT SECTION, DELETE SECTION, NEW SONG and COPY SONG TO work only when stopped. While playing, Polly
+shows "STOP FIRST".
 
 A song with no sections never plays as a song. **PLAY** on the Song page shows "NO SECTIONS · WHITE KEYS
-FIRST". If you empty a song while you're in it, with CLEAR SONG or by deleting its last section, it goes
-free, and Polly shows "NO SECTIONS: FREE".
+FIRST". If you empty a song while you're in it, with CLEAR SECTIONS or by deleting its last section, it
+goes free, and Polly shows "NO SECTIONS: FREE". After NEW SONG, Polly is free too, on P1.
 
 ## Recording an instrument
 
@@ -1105,6 +1112,9 @@ To change songs, hold **HOME** and turn **PRESETS**, on any page. While playing,
 you stop, and Polly shows "SONG S2 AFTER THE STOP". That's because loading a song saves first, and saving
 pauses the sound for a moment.
 
+To start the song you're on afresh, use NEW SONG in the Song page's list (see
+[The song's actions](#the-songs-actions-sel)).
+
 ### Saving
 
 - **SAVE** lights, and "unsaved" shows in the header, while something isn't saved.
@@ -1130,7 +1140,8 @@ section.
 Undo covers the song you're on:
 
 - its progressions: chords, length, name, loading, clearing and copying
-- its sections and settings: style, tempo, Transpose, mutes and the melodies' sounds
+- its sections and settings: style, tempo, Transpose, mutes and the melodies' sounds (NEW SONG is one
+  step: all of it comes back)
 - its melody notes: a take is one step, and so is clearing or copying a section's notes
 - its grooves as you change them: sounds, mixer, types, CLEAR C1, CLEAR GROOVE A, BACK TO STYLE, and each
   pass of a recording

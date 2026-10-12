@@ -10,9 +10,27 @@ cap Recording a melody | Record a melody along a short song, add notes to one se
 wait 3500
 expect tempo 105
 # ---- 1. a short song
-cap 1. Make a short song | On the Home page, press HOME for the Song page. Press white keys 1 and 2: P1 Pop, then P2 Ballad.
+cap 1. Make a short song | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
 wait 2500
+expect page 0
 tap HOME
+wait 900
+expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
+expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+cap 1. Make a short song | Press white keys 1 and 2: P1 Pop, then P2 Ballad.
+wait 2500
 expect page 1
 wait 700
 tapkey w0

@@ -7,13 +7,28 @@ barms 2285.714
 cap Your song | Build a song from two progressions, remove a section, shape the others, and play it.
 wait 3500
 # ---- 1. sections
-cap 1. Add sections | On the Home page, press HOME for the Song page. Press white keys 1, 2, 1 and 2.
+cap 1. Add sections | Start with a new song: on the Home page, press HOME for the Song page. Press SEL, turn SELECT to NEW SONG and press SEL twice.
 wait 2500
 expect page 0
 tap HOME
-wait 1200
+wait 900
 expect page 1
+tap SEL
+wait 700
+turn SELECT 4 200
+wait 700
+expect list_sel 12
+tap SEL
+wait 900
+expect asking 1
+tap SEL
+wait 900
+expect asking 0
 expect rows 0
+expect msgtext_is_NEW_SONG_S1 1
+cap 1. Add sections | Press white keys 1, 2, 1 and 2.
+wait 2500
+expect page 1
 tapkey w0
 wait 700
 tapkey w1

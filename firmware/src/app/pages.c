@@ -266,13 +266,13 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_COPY_LEAD, A_MATCH_BARS, A_SLOTS,
-       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, A_FACTORY_RESET, NACTIONS };
+       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, A_FACTORY_RESET, A_NEW_SONG, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
-                                                  "INSERT SECTION", "DELETE SECTION", "CLEAR SONG", "COPY SONG TO",
+                                                  "INSERT SECTION", "DELETE SECTION", "CLEAR SECTIONS", "COPY SONG TO",
                                                   "CLEAR C", "CLEAR", "BACK TO STYLE", "CLEAR M IN SECTION",
                                                   "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "BARS AS THE PROG",
                                                   "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO",
-                                                  "FACTORY RESET"};
+                                                  "FACTORY RESET", "NEW SONG"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 10                                /* rows on screen (the list covers the knobs) */
 static struct {
@@ -4728,7 +4728,8 @@ static void list_build(void)
         list_add(from, r, LK_ACTION, A_PLAY_FROM);
         list_add(ACTION_NAME[A_INSERT_ROW], 0, LK_ACTION, A_INSERT_ROW);
         list_add(ACTION_NAME[A_DELETE_ROW], 0, LK_ACTION, A_DELETE_ROW);
-        list_add(ACTION_NAME[A_CLEAR_SONG], 0, LK_ACTION, A_CLEAR_SONG);
+        list_add(ACTION_NAME[A_CLEAR_SONG], 0, LK_ACTION, A_CLEAR_SONG);   /* (the sections and melodies) */
+        list_add(ACTION_NAME[A_NEW_SONG], 0, LK_ACTION, A_NEW_SONG);       /* (all of the song, as on a new FM-1) */
         list_add(ACTION_NAME[A_COPY_SONG], v, LK_PICK, A_COPY_SONG);
     } else if ((keep >= P_PATTERN && keep <= P_TONE) || keep == P_NOTES) {   /* (Effects: every song's, no instrument: no
                                                       * actions) */
