@@ -1,6 +1,7 @@
 # POLLY, two small things: Band's PRESETS steps through your grooves only (empty memory places passed over: none on a
 # fresh boot, so one back from Pop's Groove A, the first style's, stays there), and a Setup knob turned to the value
-# it has marks nothing unsaved.
+# it has marks nothing unsaved. Setup explains on arrival: its box says what each of the four knobs is for (a line
+# each) until one is turned, then that knob's words.
 wait 300
 tap SEQ
 expect page 6
@@ -8,8 +9,12 @@ expect song1_style1 33
 turn PRESET -1
 wait 200
 expect song1_style1 33
-# ---- Setup: MIDI out is on; turned further on, nothing to save; off, something
+# ---- Setup: on arrival the four knobs' jobs; MIDI out is on; turned further on, nothing to save; off, something
 tap GLO
+wait 100
+expect page 15
+expect setup_box 1
+shot setup_arrival.png
 expect knob2_is_on 1
 expect dirty 0
 turn K2 1
@@ -19,3 +24,11 @@ expect lit_SAVE 0
 turn K2 -1
 expect knob2_is_off 1
 expect dirty 1
+wait 100
+expect setup_box 3
+shot setup_midi_out.png
+# another page and back: the four jobs again
+tap HOME
+tap GLO
+wait 100
+expect setup_box 1

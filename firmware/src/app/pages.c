@@ -3483,6 +3483,8 @@ static void setup_says(int k, const char **name, const char **what)
           : k == 1 ? (proj.mout ? "Every instrument out on its channel, and the clock." : "Nothing out over MIDI.")
           : k == 2 ? LIGHTS[proj.leds % 3u] : CLICK[proj.click % 3u];
 }
+static uint8_t setup_shown;                          /* what Setup's box shows: 1 the four knobs' jobs (none turned yet
+                                                      * on the page), 2 + k knob k's, in words */
 static void draw_setup(void)
 {
     int k = ui.touched >= 0 && ui.touched < 4 ? ui.touched : -1;
@@ -3495,12 +3497,23 @@ static void draw_setup(void)
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
     cv_round(8, 1, 224, 88, 6, K_PANEL);
-    {   /* in the box, centred down it (as HOME's chord box): the knob's name and what it does, or the hint. A block:
-         * its first capitals' top to its last line's baseline, lines 17 px apart, the words 21 px under the name */
-        const char *nm = 0, *what = "Turn a knob: what it does shows here.";
+    setup_shown = (uint8_t)(k + 2);
+    if (k < 0) {   /* no knob turned yet (the page just opened): what each of the four is for, a line each, the name in
+                    * ink, its job dim (17 px apart, centred down the box as the block below) */
+        static const char *const NM[4] = {"Clock", "MIDI out", "Lights", "Click"};
+        static const char *const JOB[4] = {"follow MIDI clock in", "the band out over MIDI", "the keys and buttons",
+                                           "when the click plays"};
+        int32_t top = 1 + (88 - (3 * 17 + 11)) / 2, x = 18 + text_w(&FONT_B, NM[1]) + 10;   /* (the jobs in a column,
+                                                      * after the longest name) */
+        for (int i = 0; i < 4; i++) {
+            cv_text(18, top - 2 + i * 17, &FONT_B, NM[i], K_TEXT);
+            cv_text(x, top - 2 + i * 17, &FONT_S, JOB[i], K_DIM);
+        }
+    } else {   /* in the box, centred down it (as HOME's chord box): the knob's name and what it does. A block: its first
+                * capitals' top to its last line's baseline, lines 17 px apart, the words 21 px under the name */
+        const char *nm = 0, *what = "";
         int32_t lines, top;
-        if (k >= 0)
-            setup_says(k, &nm, &what);
+        setup_says(k, &nm, &what);
         lines = wrap_do(0, 0, 204, &FONT_S, what, 0, 0) / 17;
         top = 1 + (88 - ((nm ? 21 : 0) + (lines - 1) * 17 + 11)) / 2;   /* the block's capitals' top */
         if (nm)

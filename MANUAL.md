@@ -1240,8 +1240,9 @@ Press **GLO** for Setup. Here you set the clock, MIDI out, the lights and the cl
 
 ![Setup](docs/img/manual/setup.png)
 
-The page explains the knob you turned last, in words. For example, it shows "Click" and "A click on every
-beat.". Below that is the QY70 bank's line.
+When you open it, the page lists what each knob is for, a line each: Clock, MIDI out, Lights and
+Click. Turn a knob, and the page explains it, in words. For example, it shows "Click" and "A click on
+every beat.". Below that is the QY70 bank's line.
 
 | Knob | Sets |
 | --- | --- |

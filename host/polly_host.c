@@ -732,6 +732,8 @@ static int expect(const char *what, const char *val)
         got = what[11] == 'r' ? c.root : c.type;
     } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
         got = home_shown();
+    else if (!strcmp(what, "setup_box"))          /* Setup's box: 1 the four knobs' jobs, 2 + K knob K's (0..3) words */
+        got = setup_shown;
     else if (!strcmp(what, "play_led"))           /* PLAY's light: 0 off, 1 green, 2 red, 3 red blinking (a recording
                                                    * armed, stopped: PLAY starts it) */
         got = play_led;
