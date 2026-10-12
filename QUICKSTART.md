@@ -70,7 +70,7 @@ Made a mistake? Hold **HOME** and press **REC** to undo. Hold **HOME** and press
 
 ## Where to go next
 
-- [101 Playing live](docs/course/101-playing-live.md): play chords over a style, fills, Intro and Ending.
+- [101 Playing live](docs/course/101-playing-live.md): play chords over a style, switch grooves, end with an Ending.
 - [Cheat sheet](MANUAL.md#cheat-sheet): the words, the common tasks and every button on one page.
 - [Writing a song](MANUAL.md#writing-a-song): the full walk-through, with repeats, transpose, a breakdown
   and a melody.
