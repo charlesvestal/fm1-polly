@@ -438,7 +438,7 @@ expect page 0
 expect song_rec 0
 wait 50
 shot home_song.png
-# ---- SECTION on a row: the loop's other rows on the old Main follow (song 2: L9 Main B, L9 Main A, L10 Main A)
+# ---- SECTION on a row: that row's own, the loop's other rows keep theirs (song 2: L9 Main B, L9 Main A, L10 Main A)
 tap HOME
 expect page 1
 spin K1 -9
@@ -449,13 +449,13 @@ expect row_sect2 0
 expect msg_is_P9 0
 spin K3 2
 expect row_sect1 2
-expect row_sect2 2
+expect row_sect2 0
 expect row_sect3 0
-expect msgtext_is_P9_SECTIONS:_GROOVE_B 1
-# a fill alone: that row only
+expect msg_is_P9 0
+# a fill: that row only
 spin K1 1
 spin K3 1
-expect row_sect2 3
+expect row_sect2 1
 expect row_sect1 2
 # ---- PLAY from row 1 (INTRO off): its row marked playing (filled teal, inside the cursor's ring) from the start
 spin K1 -1

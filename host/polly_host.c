@@ -768,8 +768,23 @@ static int expect(const char *what, const char *val)
         got = app.cbeat;
     else if (!strcmp(what, "app_loop"))           /* the loop the LOOP screen shows, 1..16 */
         got = app.loop + 1;
-    else if (!strcmp(what, "row"))                /* the song's row playing, 1.. */
-        got = arr_row + 1;
+    else if (!strcmp(what, "row"))                /* the song's row playing, 1.. (0: a deleted one playing out) */
+        got = arr_row == 0xFF ? 0 : arr_row + 1;
+    else if (!strcmp(what, "row_next"))           /* the row the engine plays after it, 1.. (0: none, the song's end) */
+        got = arr_row_next == 0xFF ? 0 : arr_row_next + 1;
+    else if (!strcmp(what, "marks"))              /* Song's sections marked to go (PROG "-"), bit r row r + 1 */
+        got = (int)ui.row_marks;
+    else if (!strncmp(what, "ask_is_", 7)) {      /* ask_is_WORDS: the header's question, exactly ("_": a space) */
+        char w[64];
+        int i;
+        for (i = 0; i < 63 && what[7 + i]; i++)
+            w[i] = what[7 + i] == '_' ? ' ' : what[7 + i];
+        w[i] = 0;
+        got = ui.ask && !strcmp(ui.ask_q, w);
+        if (!got)
+            printf("  (ask: %d \"%s\")\n", ui.ask, ui.ask_q);
+    } else if (!strcmp(what, "ask_font"))         /* the question's size in the header: 2 bold, 1 smaller, 0 cut down */
+        got = !ui.ask ? -1 : text_w(&FONT_B, ui.ask_q) <= 224 ? 2 : text_w(&FONT_S, ui.ask_q) <= 228 ? 1 : 0;
     else if (!strcmp(what, "mutes"))              /* the engine's muted tracks now, bit t track t + 1 */
         got = arr_mutes;
     else if (!strncmp(what, "loop_bars", 9))      /* loop_barsN: loop N's bars (0: empty) */

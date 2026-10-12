@@ -126,34 +126,42 @@ expect row_loop2 10
 # ---- 6. Groove B on the chorus
 at A 38
 cap 6. Make the chorus bigger | Turn KNOB 1 (Section) to section 2, the first chorus.
-wait 2000
+wait 1500
 turn K1 -3 350
-wait 1500
+wait 1200
 expect cursor 2
-cap 6. Make the chorus bigger | Turn KNOB 3 (Groove) to B, the busier groove. The other chorus follows.
+cap 6. Make the chorus bigger | Turn KNOB 3 (Groove) to B, the busier groove.
+wait 1200
+turn K3 2 450
+wait 1800
+expect row_sect2 2
+expect row_sect4 0
+cap 6. Make the chorus bigger | Turn KNOB 1 to section 4 and KNOB 3 to B too.
 wait 1500
+turn K1 2 350
+wait 600
 turn K3 2 450
 wait 2500
-expect row_sect2 2
+expect cursor 4
 expect row_sect4 2
 # ---- 7. play the song
-at A 43
+at A 45
 cap 7. Play the song | Press PLAY on the Song page. The song takes over at the next bar.
-at A 44 1000
+at A 46 1000
 tap PLAY
-at A 45 400
+at A 47 400
 expect row 1
 cap 7. Play the song | Section 1: the verse.
-at A 49 400
+at A 51 400
 expect row 2
 cap 7. Play the song | Section 2: the chorus, on Groove B. A fill leads in.
-at A 53 400
+at A 55 400
 expect row 3
 cap 7. Play the song | Section 3: the verse again.
-at A 57 400
+at A 59 400
 expect row 4
 cap 7. Play the song | Section 4: the chorus again, then an Ending, and the song stops by itself.
-at A 65
+at A 67
 expect playing 0
 # ---- 8. save
 cap 8. Save | Press SAVE, or just stop: Polly saves by itself.

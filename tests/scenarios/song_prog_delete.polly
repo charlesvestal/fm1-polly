@@ -1,57 +1,194 @@
-# POLLY, the Song page's PROG: "-" below P1 marks the section to go (struck through, "section removed"); turned
-# up again it stays; the cursor moving on deletes it (one undo step); on the END row PROG up adds a section (P1), the
-# cursor on it. Sections P1 P3 P2 (white keys 1, 3, 2).
+# POLLY, the Song page's PROG: "-" below P1 marks a section to go (struck through, "- section removed"), any number of
+# them; turned up again it stays, as it was; moving the cursor keeps them; leaving the Song pages deletes them all, one
+# undo step. Playing, the song passes over a marked section at once, and leaving deletes in place (the section playing
+# renumbered; the one playing itself: its pass, then the next). Melody notes in one: asked once on leaving (HOME no:
+# all kept). On the END row PROG up adds a section (P1), the cursor on it. At 120 BPM a section (4 bars) is 8000 ms.
 wait 300
+spin K2 15
+expect tempo 120
 tap HOME
 expect page 1
 tapkey w0
 tapkey w2
 tapkey w1
-expect rows 3
+tapkey w3
+expect rows 4
 # ---- section 2 (P3): down to P1, then "-": marked, still there
-turn K1 -2
+turn K1 -3
 expect cursor 2
 spin K2 -1
 spin K2 -1
 expect row_loop2 1
 spin K2 -1
-expect rows 3
+expect rows 4
 expect knob2_is_- 1
+expect marks 2
 wait 300
 shot prog_marked.png
 # ---- up again: it stays (P1)
 spin K2 1
 expect knob2_is_P1 1
-turn K1 1
-wait 100
-expect rows 3
-# ---- section 2 marked, the cursor moves on: gone; undo brings it back
-turn K1 -1
-expect cursor 2
+expect marks 0
+# ---- sections 2 and 4 marked; the cursor moves over them: both still there
 spin K2 -1
-turn K1 1
-wait 100
-expect rows 2
-expect row_loop2 2
-press HOME
-tap REC
-release HOME
-expect rows 3
-# ---- the END row: PROG up adds a section (P1), the cursor on it; on up to P4
-turn K1 5
+turn K1 2
 expect cursor 4
-spin K2 1
-expect rows 4
-expect cursor 4
-expect row_loop4 1
-spin K2 3
-expect row_loop4 4
-wait 300
-shot prog_added.png
-# ---- leaving the page deletes a marked section too
 spin K2 -3
 spin K2 -1
 expect knob2_is_- 1
+expect marks 10
+turn K1 -3
+expect cursor 1
+expect rows 4
+expect marks 10
+wait 300
+shot prog_marked2.png
+# ---- leaving the Song pages (to Progression): both go; one undo brings both back
 tap ARP
 wait 100
+expect rows 2
+expect row_loop1 1
+expect row_loop2 2
+expect marks 0
+expect msgtext_is_REMOVED_2_SECTIONS 1
+press HOME
+tap REC
+release HOME
+expect rows 4
+expect row_loop2 1
+expect row_loop4 1
+# ---- the END row: PROG up adds a section (P1), the cursor on it; on up to P4
+tap HOME
+tap HOME
+expect page 1
+spin K1 9
+expect cursor 5
+spin K2 1
+expect rows 5
+expect cursor 5
+expect row_loop5 1
+spin K2 3
+expect row_loop5 4
+wait 300
+shot prog_added.png
+# ---- playing (Intro off): section 2 marked, the song passes over it (1, 3, ...)
+turn SELECT 1
+expect page 2
+turn K2 -1
+expect song_intro 0
+turn SELECT -1
+expect page 1
+spin K1 -9
+spin K1 1
+expect cursor 2
+spin K2 -1
+expect marks 2
+tap PLAY
+wait 300
+expect playing 1
+expect row 1
+expect row_next 3
+expect next_is_next:_P2_(Am) 1
+wait 8000
+expect row 3
+expect rows 5
+# ---- section 1 marked too while 3 plays; leaving deletes both in place: 3 plays on as 1
+spin K1 -9
+expect cursor 1
+spin K2 -1
+expect marks 3
+tap HOME
+wait 100
+expect page 0
 expect rows 3
+expect playing 1
+expect row 1
+expect row_loop1 2
+expect row_next 2
+wait 300
+shot playing_removed.png
+# ---- the section playing marked (P2: down to P1, then "-"), then deleted: its pass plays out, then the next
+tap HOME
+expect page 1
+spin K1 -9
+expect cursor 1
+spin K2 -1
+spin K2 -1
+expect marks 1
+expect row_next 2
+tap HOME
+wait 100
+expect rows 2
+expect playing 1
+expect row 0
+expect next_is_next:_P1_(C) 1
+expect row_next 1
+wait 8000
+expect playing 1
+expect row 1
+expect loop_now 1
+tap PLAY
+wait 300
+expect playing 0
+# ---- a melody in section 1 (M1 recorded over it): leaving asks once; HOME no keeps all, unmarked; again, SEL yes
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+tap PLAY
+wait 300
+expect count_in 4
+wait 2700
+key 7 down
+wait 400
+key 7 up
+wait 1000
+expect row 1
+expect lead_count1_1 1
+tap REC
+wait 50
+tap PLAY
+wait 300
+expect playing 0
+tap HOME
+tap HOME
+expect page 1
+spin K1 -9
+expect cursor 1
+expect row_loop1 1
+spin K2 -1
+spin K1 1
+spin K2 -1
+spin K2 -1
+spin K2 -1
+spin K2 -1
+expect marks 3
+tap HOME
+wait 100
+expect ask_is_REMOVE_2_SECTIONS_AND_MELODY? 1
+expect ask_font 2
+expect rows 2
+wait 300
+shot prog_melody_ask.png
+tap HOME
+wait 100
+expect ask_font -1
+expect rows 2
+expect marks 0
+expect lead_notes 1
+tap HOME
+expect page 1
+spin K1 -9
+spin K2 -1
+expect marks 1
+tap HOME
+wait 100
+expect ask_is_REMOVE_SECTION_1_AND_MELODY? 1
+expect ask_font 2
+tap SEL
+wait 100
+expect rows 1
+expect lead_notes 0
+expect msgtext_is_REMOVED_SECTION_1 1

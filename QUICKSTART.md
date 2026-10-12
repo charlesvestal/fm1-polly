@@ -56,8 +56,7 @@ You'll write a verse and a chorus, build a song from them, and play it.
    adds a section that plays that progression: white key 9 adds P9, white key 10 adds P10. Press white keys
    9, 10, 9 and 10. You now have four sections: verse, chorus, verse, chorus.
 6. **Make the chorus bigger.** Turn **KNOB 1** (Section) to choose section 2, the first chorus. Turn
-   **KNOB 3** (Groove) to B, the busier groove. The other chorus follows, because it plays the same
-   progression.
+   **KNOB 3** (Groove) to B, the busier groove. Turn **KNOB 1** to section 4 and **KNOB 3** to B too.
 7. **Play the song.** Press **PLAY** on the Song page. The song takes over at the next bar. You hear your
    sections with fills between them, then an Ending.
 8. **Save.** Press **SAVE**, or just stop. Polly saves by itself.

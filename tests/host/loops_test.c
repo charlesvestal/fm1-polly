@@ -95,7 +95,7 @@ static void test_rows(void)
               "row_main for each ROW_*");
         CHECK(!row_fill(&ra) && row_fill(&raf) && !row_fill(&rb) && row_fill(&rbf), "row_fill for each ROW_*");
     }
-    {   /* SECTION: the loop's other rows on the old Main follow (fills kept); a fill alone changes one row */
+    {   /* a new row of a loop: the Main of the loop's latest row before it (each row's groove its own from then on) */
         song_t h = {0};
         loops_song_clear(&h);
         row_append(&h, 9);
@@ -105,10 +105,6 @@ static void test_rows(void)
         row_append(&h, 9);
         h.row[3].sect = ROW_B;
         CHECK(h.nrows == 4 && h.row[2].loop == 9 && h.row[2].rep == 1, "append: separate rows of the same loop");
-        CHECK(row_set_sect(&h, 0, ROW_A_FILL) == 0 && h.row[2].sect == ROW_A_FILL && h.row[3].sect == ROW_B,
-              "a fill alone: that row");
-        CHECK(row_set_sect(&h, 0, ROW_B) == 1 && h.row[2].sect == ROW_B_FILL && h.row[3].sect == ROW_B &&
-              h.row[1].sect == ROW_A, "Main A -> B: L10's other Main A row too, its fill kept (%d)", h.row[2].sect);
         CHECK(row_append(&h, 9) == 4 && h.row[4].sect == ROW_B, "append: the loop's section from its earlier row");
         h.row[0] = h.row[1];
         row_insert(&h, 5);

@@ -195,8 +195,11 @@ static struct {
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
-    uint8_t row_del;                                 /* Song's PROG turned below P1: row_del - 1 goes when the cursor or
-                                                      * the page leaves it (0: none; ui.c row_del_poll) */
+    uint32_t row_marks;                              /* Song's PROG turned below P1: the sections marked to go (bit r row
+                                                      * r), all deleted when the Song pages are left (ui.c marks_poll);
+                                                      * the song passes over them meanwhile (arr_rows_skip). RAM only */
+    uint32_t marks_sent;                             /* ... as the engine has them */
+    uint8_t marks_asked;                             /* ... their melody asked about on leaving (no answer: kept) */
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
     uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
     uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
@@ -427,7 +430,7 @@ static song_t *csong(void) { return &songs.song[proj.song]; }
 static int xpose_now(void)
 {
     const song_t *g = csong();
-    return g->transpose + (app.mode == ARR_SONG && g->nrows ? g->row[arr_row % ARR_ROWS].key : 0);
+    return g->transpose + (app.mode == ARR_SONG && arr_row < g->nrows ? g->row[arr_row].key : 0);
 }
 
 /* the engine's published place, read as a consistent set (the render may move it between two reads: read
@@ -1078,33 +1081,51 @@ static void draw_home_rec(void)
  * (Am)|Groove B" (the section's progression, its first chord as it will sound, its groove), "next: Fill|P4 Chorus
  * (Am)|Groove B" (a fill in this section's last bar), "next: P3 Verse again", "next: Ending", "next: stop". brief 1:
  * the progression's number alone ("P4 (Am)"); 2: no groove either */
+/* the section that plays after section r (-1: from the first), as the engine finds it: the next one not marked to go
+ * (ui.row_marks: passed over), after the last with AT END again round from the first (r itself too); -1 none */
+static int row_after_m(const song_t *g, int r)
+{
+    int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows;
+    for (int k = r + 1; k < n; k++)
+        if (!(ui.row_marks >> k & 1u))
+            return k;
+    if (g->at_end)
+        for (int k = 0; k <= r && k < n; k++)
+            if (!(ui.row_marks >> k & 1u))
+                return k;
+    return -1;
+}
 static void song_next(char *t, int play, int brief)
 {
     const song_t *g = csong();
-    int n = g->nrows, r = play ? arr_row % ARR_ROWS : 0, rp = play ? arr_rep : 0, nr = -1, fill = 0, again = 0;
+    int n = g->nrows, r = 0, rp = play ? arr_rep : 0, nr = -1, fill = 0, again = 0, gone = 0;
     int ns = arr_next_sect, sect = arr_sect;         /* (stopped: the section PLAY starts with, the Intro too) */
     const char *what = 0;
     char *e = cat_s(t, "next: ");
-    if (!n)
+    if (play)
+        gone = (r = arr_row) >= n;                   /* (a section deleted playing out its pass: none) */
+    else
+        while (r < n && (ui.row_marks >> r & 1u))    /* (PLAY starts at the first not marked to go) */
+            r++;
+    if (!n || (r >= n && !gone))
         what = "stop";
     else if (sect == SEC_END)
         what = "stop";
     else if (ns == SEC_END)
         what = "Ending";
     else if (sect == SEC_INTRO)
-        nr = 0;
-    else if (rp + 1 < (g->row[r].rep ? g->row[r].rep : 1)) {
-        nr = r;
+        nr = row_after_m(g, -1);
+    else if (gone)                                   /* (the engine's next: the deleted one's row is not ours) */
+        nr = arr_row_next < n ? arr_row_next : -1;
+    else if (!(ui.row_marks >> r & 1u) && rp + 1 < (g->row[r].rep ? g->row[r].rep : 1)) {
+        nr = r;                                      /* (marked: its pass playing is its last) */
         again = 1;
-    } else if (r + 1 < n)
-        nr = r + 1;
-    else if (g->at_end)                              /* (again: section 1, as the engine; the Ending never) */
-        nr = 0;
-    else if (g->ending)
-        what = "Ending";
-    else
-        what = "stop";
-    if (nr >= 0 && !again && sect != SEC_INTRO)       /* a fill in the last bar: the row asks, or the groove changes */
+    } else
+        nr = row_after_m(g, r);                      /* (again: section 1, as the engine; the Ending never) */
+    if (!what && nr < 0)
+        what = g->ending ? "Ending" : "stop";
+    if (nr >= 0 && !again && !gone && sect != SEC_INTRO)   /* a fill in the last bar: the row asks, or the groove
+                                                            * changes */
         fill = row_fill(&g->row[r]) || row_main(&g->row[nr]) != row_main(&g->row[r]);
     if (ns == SEC_FILL_AB || ns == SEC_FILL_BA || ns == SEC_FILL)
         fill = 1;                                    /* (one asked for by hand) */
@@ -1242,11 +1263,15 @@ static void draw_home(void)
             }
             *t = 0;
         } else if (mode == ARR_SONG && g->nrows) {   /* (stopped: section 1, where PLAY starts) */
-            uint32_t r = play ? arr_row % ARR_ROWS : 0u, rp = play ? arr_rep : 0u, rep = g->row[r].rep ? g->row[r].rep : 1u;
-            char *e = itoa_u(r + 1u, cat_s(t, "section "));
-            e = itoa_u(g->nrows, cat_s(e, " of "));
-            if (rep > 1)
-                itoa_u(rep, cat_s(itoa_u(rp + 1u, cat_s(e, "|repeat ")), " of "));
+            uint32_t r = play ? arr_row : 0u, rp = play ? arr_rep : 0u, rep = r < g->nrows && g->row[r].rep ? g->row[r].rep : 1u;
+            char *e;
+            *t = 0;
+            if (r < g->nrows) {                      /* (a section deleted playing out its pass: none) */
+                e = itoa_u(r + 1u, cat_s(t, "section "));
+                e = itoa_u(g->nrows, cat_s(e, " of "));
+                if (rep > 1)
+                    itoa_u(rep, cat_s(itoa_u(rp + 1u, cat_s(e, "|repeat ")), " of "));
+            }
         } else if (alone && play && (slot == SEC_A - 1 || slot == SEC_B - 1)) {   /* FREE: the groove's bar */
             char *e = itoa_u(pl.bar + 1u, cat_s(t, "groove bar "));
             *e++ = '.';
@@ -1482,7 +1507,7 @@ static int song_state(char *t)
     if (s == SEC_INTRO)
         cat_s(t, "then section 1");
     else if (s == SEC_FILL_AB || s == SEC_FILL_BA) {
-        int nx = r + 1 < n ? r + 1 : g->at_end ? 0 : -1;
+        int nx = r < n ? row_after_m(g, r) : arr_row_next < n ? arr_row_next : -1;   /* (the marked passed over) */
         if (nx < 0)
             return 0;
         itoa_u((uint32_t)nx + 1u, cat_s(t, "into section "));
@@ -1511,7 +1536,8 @@ static void draw_song(void)
         top = 0;
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
     h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
-    h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8 | (uint32_t)ui.row_del << 16);
+    h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8);
+    h = hash(h, ui.row_marks);
     if (play >= 0)                                   /* (its clock: 32 steps round) */
         h = hash(h, row_done(&g->row[play]) >> 5);
     else if (st == SEC_INTRO || st == SEC_END)       /* (the Intro's, the Ending's) */
@@ -1567,11 +1593,15 @@ static void draw_song(void)
             cv_text(SG_LOOP, ty, &FONT_S, "END", on ? K_TEXT : K_DIM);
             continue;
         }
-        if (ui.row_del == i + 1) {                   /* marked to go: "-", struck through, what happens */
+        if (ui.row_marks >> i & 1u) {                /* marked to go: "-", struck through, what happens (playing: its
+                                                      * clock, dim: it plays out its pass) */
             cv_round(2, y, 232, ch, 5, K_BG);
             cv_round(3, y + 1, 230, ch - 2, 4, K_BG);
             itoa_u((uint32_t)i + 1u, t);
-            text_r(SG_NUM, ty, &FONT_S, t, K_DIM);
+            if (pl)
+                glyph_clock(12, y + 8, 6, row_done(&g->row[i]), K_DIM);
+            else
+                text_r(SG_NUM, ty, &FONT_S, t, K_DIM);
             cv_text(SG_LOOP, ty, &FONT_S, "-  section removed", K_DIM);
             cv_rect(SG_LOOP - 4, y + ch / 2, 232 - SG_LOOP, 1, K_DIM);
             continue;
@@ -3646,7 +3676,7 @@ static void song_page_knobs(knob_t *k)
             break;
         }
         itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(b, "P"));
-        if (ui.row_del == app.row + 1u)              /* marked: "-", gone when the cursor moves on */
+        if (ui.row_marks >> app.row & 1u)            /* marked: "-", gone when the Song pages are left */
             kv(&k[1], "Prog", "-", 0, ARR_LOOPS);
         else
             kv(&k[1], "Prog", b, w->loop % ARR_LOOPS + 1, ARR_LOOPS);

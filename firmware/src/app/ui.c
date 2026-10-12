@@ -213,6 +213,8 @@ static void undo_reset(void)
     uj_clear(&uj);
     ujs.slot = -1;
     ujs.hint[0] = 0;
+    ui.row_marks = 0;                            /* (the sections marked to go: the song's before, not kept) */
+    ui.marks_asked = 0;
 }
 /* the shadows brought to what is there, the history kept: after a save (a lead part's header written, a shared
  * pattern stored into the slots playing it) */
@@ -1457,7 +1459,8 @@ static void rec_follow_keys(void)
  * a row is added; never a REPEAT, that is the REPEAT knob's), the cursor to the row after; black keys 1-10: the row's
  * mutes (D1 D2 PC BA C1 C2 C3 C4, LD1 LD2; the row playing: heard at once; on the END row: the last row's, the one just
  * added). Every write to the rows goes through songs_write (the render reads them at each block's start). Rows are
- * only set or added here, never moved (INSERT / DELETE ROW: stopped only), so the row playing keeps its index */
+ * only set or added here, never moved (INSERT / DELETE ROW: stopped only), so the row playing keeps its index (the
+ * sections PROG marks to go are deleted while playing too: the engine renumbers the row playing, marks_poll) */
 static void song_tap(int w)
 {
     song_t *g = csong();
@@ -1470,6 +1473,7 @@ static void song_tap(int w)
         return;
     }
     ui.row_follow = 0;                           /* (writing: the cursor stays where the keys write) */
+    ui.row_marks &= ~(1u << r);                  /* (a section marked to go, given a progression: kept) */
     app.row = (uint8_t)(r + 1 <= g->nrows ? r + 1 : g->nrows);
 }
 /* the row the mutes and sections REC writes go to: playing (rows started), the one playing; else the cursor's */
@@ -1543,6 +1547,7 @@ static int song_rec_loop(int w)
         say("SONG FULL", "32 SECTIONS");
         return -1;
     }
+    ui.row_marks &= ~(1u << res);                /* (a section marked to go, given a progression: kept) */
     itoa_u((uint32_t)res + 1u, cat_s(a, "SECTION "));
     loop_label(w, t);
     say(a, t);
@@ -1614,15 +1619,17 @@ static void song_knob(int k, int32_t e)
         }
         return;
     }
-    if (ui.page == P_SONG && k == 1) {           /* PROG: "-" below P1 marks the section to go (when the cursor or
-                                                  * the page leaves it: row_del_poll); up again keeps it */
-        if (ui.row_del == app.row + 1u) {
+    if (ui.page == P_SONG && k == 1) {           /* PROG: "-" below P1 marks the section to go (any number of them;
+                                                  * all go when the Song pages are left: marks_poll); up again keeps
+                                                  * it, as it was (P1: marking changes nothing in it) */
+        if (ui.row_marks >> app.row & 1u) {
             if (d > 0)
-                ui.row_del = 0;
+                ui.row_marks &= ~(1u << app.row);
             return;
         }
-        if (d < 0 && w->loop == 0) {             /* (its row says so: "- section removed") */
-            ui.row_del = (uint8_t)(app.row + 1u);
+        if (d < 0 && w->loop == 0) {             /* (its row says so: "- section removed"; playing, it is passed
+                                                  * over from now: arr_rows_skip) */
+            ui.row_marks |= 1u << app.row;
             return;
         }
     }
@@ -1646,13 +1653,10 @@ static void song_knob(int k, int32_t e)
         w->key = (int8_t)to;
     else if (k == 1)
         w->loop = (uint8_t)to;
-    else if (k == 2 && row_set_sect(g, app.row, to)) {   /* the loop's other rows on the old Main follow */
-        char a[16];
-        songs_write(0);
-        cat_s(loop_name_l(w->loop % ARR_LOOPS, a), " SECTIONS:");
-        say(a, row_main(w) == SEC_B ? "GROOVE B" : "GROOVE A");
-        return;
-    } else if (k == 3)
+    else if (k == 2)                             /* (this section's own: the others playing its progression keep
+                                                  * theirs) */
+        w->sect = (uint8_t)to;
+    else if (k == 3)
         w->rep = (uint8_t)to;
     songs_write(0);
 }
@@ -2432,34 +2436,106 @@ static int row_change(int ins, int row)
 }
 static void row_do(int ins, int row);
 static void do_delete_row(void);
-/* each frame: a section marked by PROG ("-") goes once the cursor or the page leaves it, as DELETE SECTION (one undo
- * step; with melody notes it asks; while playing it stays: STOP FIRST) */
-static void row_del_poll(void)
+/* ---- the sections marked to go (the Song page's PROG "-": ui.row_marks, bit r row r; RAM only). The song passes
+ * over them while they are marked (arr_rows_skip: heard at once); leaving the Song pages deletes them all, as one
+ * undo step, playing or not (the engine renumbers the row playing: arr_rows_deleted); with melody notes in any, it
+ * asks once (no: all kept, unmarked). Rows that move under them (INSERT / DELETE SECTION) move them; a song loaded,
+ * an undo, a restore drop them */
+static uint32_t marks_now(void)                  /* (the rows there are) */
 {
-    int r = ui.row_del - 1;
-    if (!ui.row_del || (song_page() && app.row == r))
+    int n = csong()->nrows;
+    return ui.row_marks & (n >= 32 ? ~0u : (1u << n) - 1u);
+}
+static void marks_keep(void)                     /* (the question's no, or no answer: all kept) */
+{
+    ui.row_marks = 0;
+    ui.marks_asked = 0;
+}
+static void do_marks_go(void)
+{
+    song_t *g = csong();
+    uint32_t m = marks_now();
+    int cur = app.row, n = 0, last = 0, before = leads.n;
+    char t[16];
+    marks_keep();
+    if (!m)
         return;
-    ui.row_del = 0;
-    if (r >= csong()->nrows || ui.ask)
-        return;
-    if (arr_playing) {
-        say("SECTION KEPT", "STOP FIRST");
+    undo_commit();                               /* (what came before: its own step) */
+    undo_hint("REMOVE SECTION");
+    songs_write(1);                              /* (the rows, their lead notes and the engine's row: one write) */
+    for (int r = g->nrows - 1; r >= 0; r--)
+        if (m >> r & 1u) {
+            row_delete(g, r);
+            leads_row_delete(&leads, r);         /* (its notes go) */
+            if (cur > r)
+                cur--;
+            n++;
+            last = r;
+        }
+    leads.gen++;
+    arr_rows_deleted(m);
+    arr_rows_skip(0);
+    ui.marks_sent = 0;
+    songs_write(0);
+    if (before)
+        lead_changed(0, before);
+    undo_commit();                               /* (one step: all of them) */
+    app.row = (uint8_t)(cur < g->nrows ? cur : g->nrows);
+    if (n > 1)
+        cat_s(itoa_u((uint32_t)n, t), " SECTIONS");
+    else
+        itoa_u((uint32_t)last + 1u, cat_s(t, "SECTION "));
+    say("REMOVED", t);
+}
+/* each frame: the marks to the engine; the Song pages left: the marked sections go (asked first when one has melody
+ * notes; another question showing: after it) */
+static void marks_poll(void)
+{
+    uint32_t m = marks_now();
+    ui.row_marks = m;                            /* (rows gone another way, CLEAR SONG: their marks with them) */
+    if (m != ui.marks_sent) {
+        arr_rows_skip(m);
+        ui.marks_sent = m;
+    }
+    if (ui.marks_asked) {                        /* asked: answered (it ran) or gone another way (kept) */
+        if (!(ui.ask && ui.ask_yes == do_marks_go))
+            marks_keep();
         return;
     }
-    if (leads_count(&leads, r, -1)) {
-        char q[48];
-        ui.tgt.lrow = (uint8_t)r;
-        cat_s(itoa_u((uint32_t)r + 1u, cat_s(q, "SECTION ")), " AND ITS MELODY: DELETE?");
-        ask(q, do_delete_row);
+    if (!m || song_page() || ui.ask)
         return;
-    }
     {
-        int cur = app.row;
-        undo_commit();                           /* (what came before: its own step) */
-        row_do(0, r);
-        if (cur > r && cur > 0)                  /* (the cursor on the section it had moved to) */
-            app.row = (uint8_t)(cur - 1);
+        int n = 0, r1 = 0, mel = 0;
+        for (int r = 0; r < ARR_ROWS; r++)
+            if (m >> r & 1u) {
+                if (!n++)
+                    r1 = r;
+                mel |= leads_count(&leads, r, -1) > 0;
+            }
+        if (mel) {                               /* "REMOVE SECTION 3 AND MELODY?", "REMOVE 2 SECTIONS AND MELODY?"
+                                                  * (bold in the header, whatever the numbers) */
+            char q[48];
+            if (n > 1)
+                cat_s(itoa_u((uint32_t)n, cat_s(q, "REMOVE ")), " SECTIONS AND MELODY?");
+            else
+                cat_s(itoa_u((uint32_t)r1 + 1u, cat_s(q, "REMOVE SECTION ")), " AND MELODY?");
+            ask2(q, do_marks_go, marks_keep, 0);
+            ui.marks_asked = 1;
+            return;
+        }
     }
+    do_marks_go();
+}
+/* rows moving under the marks: inserted at r (the marks from r one down), deleted at r (r's gone, the ones after up) */
+static void marks_insert(int r)
+{
+    uint32_t lo = r >= 32 ? ui.row_marks : ui.row_marks & ((1u << r) - 1u);
+    ui.row_marks = lo | (ui.row_marks & ~lo) << 1;
+}
+static void marks_delete(int r)
+{
+    uint32_t lo = r >= 32 ? ui.row_marks : ui.row_marks & ((1u << r) - 1u);
+    ui.row_marks = lo | (r >= 31 ? 0u : ui.row_marks >> (r + 1) << r);
 }
 static void do_delete_row(void)
 {
@@ -2491,10 +2567,13 @@ static void row_do(int ins, int row)
         if (ins) {
             row_insert(g, r);
             leads_row_insert(&leads, r);         /* (the copied row gets no lead notes) */
+            marks_insert(r);                     /* (the copy unmarked: a section to keep) */
         } else {
             row_delete(g, r);
             leads_row_delete(&leads, r);         /* (its notes go) */
+            marks_delete(r);
         }
+        arr_rows_skip(ui.marks_sent = marks_now());   /* (the marks with the rows, in the same write) */
         leads.gen++;
         songs_write(0);
         if (before)
@@ -4172,6 +4251,8 @@ static void do_undo(int redo)
         lead_rows_hash(lh);
     if (mask & (1u << UR_SONG | 1u << UR_LOOPS | 1u << UR_LEADS)) {
         songs_write(1);                          /* (the rows, the loops and the lead notes: the render reads them) */
+        ui.row_marks = 0;                        /* (the rows may move: the sections marked to go kept, unmarked) */
+        arr_rows_skip(ui.marks_sent = 0);
         uj_apply(&uj, k, UR_SONG, (uint8_t *)csong(), (uint8_t *)&uj_song);
         uj_apply(&uj, k, UR_LOOPS, (uint8_t *)sloops.loop, (uint8_t *)uj_loops);
         if (uj_apply(&uj, k, UR_LEADS, (uint8_t *)&leads, uj_leads)) {
@@ -4249,6 +4330,7 @@ static void do_undo(int redo)
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
+    ui.marks_sent = ~0u;                         /* (no sections marked: the engine told so at the first frame) */
     ui.touched = -1;
     ui.centry = -1;
     ui.loop_seen = -1;
@@ -4329,7 +4411,7 @@ void ui_frame(void)
     }
     if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
         edits_flush();
-    row_del_poll();
+    marks_poll();
     /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the
      * voices ended (a save pauses the audio) */
     if (!app.song_pend || ui.stopped <= 1u)

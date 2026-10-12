@@ -30,7 +30,7 @@ expect row_loop3 1
 expect row_loop4 2
 cap 1. Add sections | Each key adds a section: P1 Pop, P2 Ballad, P1 Pop, P2 Ballad.
 wait 3000
-# ---- 2. remove the last: PROG below P1 ("-"), the cursor moves on
+# ---- 2. remove the last: PROG below P1 ("-"); it goes when the Song page is left (HOME, HOME again)
 cap 2. Remove a section | Turn KNOB 1 (Section) to section 4. Turn KNOB 2 (Prog) down, past P1, to "-".
 wait 2500
 turn K1 -1
@@ -40,17 +40,24 @@ turn K2 -2 400
 expect knob2_is_- 1
 still 2-remove
 wait 2000
-cap 2. Remove a section | The row says "section removed". Turn KNOB 1 to section 3, and it is gone.
+cap 2. Remove a section | The row says "section removed". It goes when you leave the Song page.
+wait 3000
+cap 2. Remove a section | Press HOME for the Home page, and HOME again for the Song page. Section 4 is gone.
 wait 2500
-turn K1 -1
-wait 200
+tap HOME
+wait 1200
+expect page 0
 expect rows 3
-expect cursor 3
+tap HOME
+wait 200
+expect page 1
+expect rows 3
+expect cursor 4
 wait 2500
 # ---- 3. shape section 2
 cap 3. Shape a section | Turn KNOB 1 (Section) to section 2.
 wait 2500
-turn K1 -1
+turn K1 -2
 expect cursor 2
 wait 1200
 cap 3. Shape a section | Turn KNOB 3 (Groove) to B, the busier groove, and KNOB 4 (Repeat) to x2.

@@ -519,12 +519,16 @@ The knobs on page 1:
 
 - **KNOB 1** (Section) moves the cursor.
 - **KNOB 2** (Prog) sets the section's progression. Below P1 is "–": the section is struck through and reads
-  "section removed". It goes when you move to another section or leave the Song page. Turn back up to keep it. A section with melody notes
-  asks first, and while the song plays it stays (STOP FIRST). On the END row, turning **KNOB 2** up adds a
-  section.
-- **KNOB 3** (Groove) sets the groove: A, A + fill, B or B + fill. When you switch between A and B, the
-  other sections that play the same progression on the same groove follow, and keep their fills.
+  "section removed". You can mark as many sections as you like. They all go when you leave the Song pages,
+  and one undo brings them all back. To keep a marked section, turn **KNOB 2** back up. It comes back as it
+  was. On the END row, turning **KNOB 2** up adds a section.
+- **KNOB 3** (Groove) sets the groove: A, A + fill, B or B + fill. It changes only the section at the cursor.
 - **KNOB 4** (Repeat) sets how many times the section plays, from 1 to 8.
+
+While the song plays, you hear a removal at once: the song skips a marked section. A marked section that's
+playing finishes its pass, then the next section plays. When you leave the Song pages, the song plays on.
+If a marked section has melody notes, Polly asks when you leave: "REMOVE SECTION 3 AND MELODY?". Press
+**SEL** to remove, or **HOME** to keep all the marked sections.
 
 Turn **SELECT** for page 2:
 

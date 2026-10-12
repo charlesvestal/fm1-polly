@@ -27,7 +27,7 @@ volatile uint16_t arr_bar, arr_beat_tick;
 volatile uint8_t arr_mode, arr_override;
 volatile int8_t arr_loop_now = -1;
 volatile uint16_t arr_loop_beat;
-volatile uint8_t arr_row, arr_rep;
+volatile uint8_t arr_row, arr_rep, arr_row_next = 0xFFu;
 volatile uint16_t arr_mutes;
 volatile uint32_t arr_beats;
 volatile uint32_t arr_chord_now;
@@ -91,6 +91,24 @@ void arr_mode_song(const song_t *s, int r)
     sg_want = s;
     BARRIER();
     post(C_MODE, ARR_SONG, (uint32_t)(r < 0 ? 0 : r));
+}
+/* the rows the app marked to go (arr.h): read with the rows (song_snap); and the rows it deleted, kept until the
+ * render sees them (song_snap renumbers the row playing), bit r a row as the render last saw them: a second delete
+ * before then is in the rows as they are now, so its bits are moved past the first's. Inside arr_edit(1): song_snap
+ * never runs meanwhile, and a start waits for its end (drain) */
+static volatile uint32_t skip_want;
+static uint32_t del_pend;
+void arr_rows_skip(uint32_t m) { skip_want = m; }
+void arr_rows_deleted(uint32_t m)
+{
+    uint32_t o = 0;
+    for (int i = 0, j = 0; i < ARR_ROWS; i++)
+        if (!(del_pend >> i & 1u)) {               /* (row i of the old rows is row j of the rows now) */
+            if (m >> j & 1u)
+                o |= 1u << i;
+            j++;
+        }
+    del_pend |= o;
 }
 void arr_set_transpose(int s) { post(C_TRANSPOSE, (uint32_t)(int32_t)(s < -6 ? -6 : s > 5 ? 5 : s) & 0xFFu, 0); }
 static uint32_t keys_prev[4];                      /* the keys held at the last call (the caller's thread) */
@@ -295,6 +313,8 @@ static uint8_t rows_live;                          /* the rows' clock runs (not 
 static uint8_t rows_wait;                          /* a song with no rows playing: its rows start at the first bar
                                                     * line that finds some (REC on SONG writing the first row) */
 static uint8_t row;                                /* the row playing */
+static uint8_t row_gone;                           /* the row playing was deleted (arr_rows_deleted): its pass plays
+                                                    * out (sn.cur kept), `row` is the row after it (its new index) */
 static uint32_t row_b0;                            /* beat_now at its first downbeat */
 static uint8_t sect_owed;                          /* MIDI Continue into a song: the row's section at the next bar line */
 static uint8_t song_end;                           /* the song's Ending playing: sections by hand ignored */
@@ -305,6 +325,8 @@ static struct {
     uint8_t nrows, intro, ending, at_end;
     row_t cur, next, next2;
     uint16_t cur_len, next_len, next2_len;
+    uint32_t skip;                                 /* the rows marked to go (arr_rows_skip): passed over */
+    int8_t nx, nx2;                                /* next's and next2's rows; -1: none (the song's end) */
 } sn;
 
 /* our clock: Q16 output frames to the next tick, and a tick's length (ours; pace: the one in use, ours or
@@ -1016,7 +1038,8 @@ static void lead_as_trk(const lead_trk_t *l, arr_trk_t *t)
     t->reso = l->reso;
 }
 /* the leads play now: a song's row (not its Intro or Ending) */
-static int leads_heard(void) { return mode == ARR_SONG && rows_live && ld; }
+static int leads_heard(void) { return mode == ARR_SONG && rows_live && ld && !row_gone; }   /* (a row deleted: its
+                                                                                              * notes went with it) */
 /* the leads' sounds, when they are wanted (SONG, or the keys on a lead) and changed, or after a setup: to the synth
  * now, to MIDI out what it lacks (the rest in later blocks: lead_sounds_out). Not while the app writes them */
 static void lead_sounds(void)
@@ -1210,6 +1233,8 @@ static void lead_press(int key, int snd, int vel) /* a key on a lead, recording,
     lrec_t *r = 0;
     uint32_t q = QUANT_TICKS[quant], back = 0, kt, kabs, m, len;
     uint8_t rw = row;
+    if (row_gone)
+        return;                                    /* (the row playing was deleted: the key only sounds) */
     for (int i = 0; i < LREC_N && !r; i++)
         if (lrec[i].state == R_FREE)
             r = &lrec[i];
@@ -1238,12 +1263,9 @@ static void lead_press(int key, int snd, int vel) /* a key on a lead, recording,
     }
     len = row_ticks();
     if (kt >= len) {                               /* just before the next row: its tick 0 */
-        if (row + 1 < sn.nrows)
-            rw = (uint8_t)(row + 1);
-        else if (sn.at_end)
-            rw = 0;
-        else
+        if (sn.nx < 0)
             return;                                /* (the song ends there) */
+        rw = (uint8_t)sn.nx;
         kt -= len;
     }
     r->state = R_HELD;
@@ -1353,36 +1375,96 @@ static uint16_t row_len(const row_t *w)            /* a row's beats: its loop's 
 }
 static void row_mutes(uint32_t m);
 static uint32_t row_mute_bits(const row_t *w) { return w->mute | (uint32_t)(w->lmute & 3u) << ARR_LD1; }
-/* the song's header and rows `row` and the one after it (row 0 after the last), when the app is not writing
- * (the main loop never runs inside the render: busy means it was interrupted mid-write; the last snapshot stays) */
+/* the row that plays after row r (r -1: from the first): the next one not marked to go; after the last, with AT END
+ * again, round from the first (r itself too); -1 none: the song's end */
+static int row_after(int r)
+{
+    for (int k = r + 1; k < sn.nrows; k++)
+        if (!(sn.skip >> k & 1u))
+            return k;
+    if (sn.at_end)
+        for (int k = 0; k <= r && k < sn.nrows; k++)
+            if (!(sn.skip >> k & 1u))
+                return k;
+    return -1;
+}
+static int row_skipped(void) { return row_gone || (row < sn.nrows && (sn.skip >> row & 1u)); }
+/* the song's header and rows `row` and the two after it (row_after), when the app is not writing (the main loop
+ * never runs inside the render: busy means it was interrupted mid-write; the last snapshot stays). Rows the app
+ * deleted (del_pend): the row playing renumbered; deleted itself, it is row_gone */
 static void song_snap(void)
 {
-    uint8_t n, n2;
+    int n, n2;
     if (!sg || edit_busy)
         return;
+    if (del_pend) {
+        uint32_t below = row >= 32 ? del_pend : del_pend & ((1u << row) - 1u);
+        if (row < 32 && (del_pend >> row & 1u))
+            row_gone = 1;                          /* (gone already: the row after it went too, the next one) */
+        for (; below; below &= below - 1u)         /* (no popcount in the firmware's runtime) */
+            row--;
+        del_pend = 0;
+    }
     sn.nrows = sg->nrows > ARR_ROWS ? ARR_ROWS : sg->nrows;
     sn.intro = sg->intro;
     sn.ending = sg->ending;
     sn.at_end = sg->at_end;
+    sn.skip = skip_want & (sn.nrows >= 32 ? ~0u : (1u << sn.nrows) - 1u);
     if (!sn.nrows) {                               /* none (cleared while playing): rows start again at the first */
         if (rows_live)                             /* bar line that finds some; the old row's mutes go */
             row_mutes(0);
         rows_live = 0;
         rows_wait = 1;
+        row = row_gone = 0;
+        sn.nx = sn.nx2 = -1;
         return;
     }
-    if (row >= sn.nrows)                           /* rows deleted under it: row 1 */
-        row = 0;
-    n = (uint8_t)(row + 1 < sn.nrows ? row + 1 : 0);
-    n2 = (uint8_t)(n + 1 < sn.nrows ? n + 1 : 0);
-    if (rows_live && (sg->row[row].loop != sn.cur.loop || sg->row[row].key != sn.cur.key))
-        chord_owed = 1;                            /* the playing row's loop or key changed: heard at the next beat */
-    sn.cur = sg->row[row];
-    sn.next = sg->row[n];
-    sn.next2 = sg->row[n2];
-    sn.cur_len = row_len(&sn.cur);
+    if (!row_gone) {
+        if (row >= sn.nrows)                       /* rows deleted under it: row 1 */
+            row = 0;
+        if (rows_live && (sg->row[row].loop != sn.cur.loop || sg->row[row].key != sn.cur.key))
+            chord_owed = 1;                        /* the playing row's loop or key changed: heard at the next beat */
+        sn.cur = sg->row[row];
+        sn.cur_len = row_len(&sn.cur);
+    }
+    n = row_after(row_gone ? row - 1 : row);       /* (gone: `row` is the one after it, maybe past the last) */
+    n2 = n >= 0 ? row_after(n) : -1;
+    sn.nx = (int8_t)n;
+    sn.nx2 = (int8_t)n2;
+    sn.next = sg->row[n >= 0 ? n : 0];
+    sn.next2 = sg->row[n2 >= 0 ? n2 : 0];
     sn.next_len = row_len(&sn.next);
     sn.next2_len = row_len(&sn.next2);
+}
+/* the row `row` about to start (PLAY, a switch, the Intro's end, rows written into an empty song): marked to go, the
+ * next one that is not, round; 0: all marked (the song plays as one with no rows) */
+static int row_land(void)
+{
+    if (!sn.nrows)
+        return 0;
+    for (int k = 0; k < sn.nrows; k++) {
+        int r = (row + k) % sn.nrows;
+        if (!(sn.skip >> r & 1u)) {
+            if (k) {
+                row = (uint8_t)r;
+                song_snap();
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+/* the row playing is over at this bar line (b: its beats): all its beats played; marked to go (or deleted while it
+ * played), a pass of it ended within the bar just played (it plays out the pass it is in) */
+static int row_over(uint32_t b)
+{
+    uint32_t done = beat_now - row_b0, per;
+    if (done >= sn.cur_len)
+        return 1;
+    if (!row_skipped())
+        return 0;
+    per = sn.cur_len / (sn.cur.rep ? sn.cur.rep : 1u);
+    return per && done / per != (done > b ? done - b : 0u) / per;
 }
 static void row_mutes(uint32_t m)                  /* a row's mutes (a hand mute lasts to here): the tracks', LD1, LD2's */
 {
@@ -1423,6 +1505,8 @@ static void mode_apply(uint32_t origin)
     if (mode == ARR_SONG) {
         sg = sg_next;
         row = row_from;
+        row_gone = 0;
+        del_pend = 0;                              /* (row_from is in the rows as they are now) */
         rows_live = rows_wait = 0;
         sect_owed = song_end = 0;
         song_snap();
@@ -1450,12 +1534,15 @@ static void transport_start(void)
     chord_wait = 0;
     if (mode == ARR_SONG) {
         row = row_from;
+        row_gone = 0;
+        del_pend = 0;                              /* (row_from is in the rows as they are now) */
         rows_live = 0;
         sect_owed = song_end = 0;
         song_snap();                               /* (never busy: drain holds a start back during a write) */
-        rows_wait = !sn.nrows;                     /* none yet: from the first bar line with some */
+        rows_wait = !row_land();                   /* none yet (or all marked to go): from the first bar line with
+                                                    * some */
     }
-    if (mode == ARR_SONG && sn.nrows) {
+    if (mode == ARR_SONG && !rows_wait) {
         if (!s && sn.intro && row == 0 && !rec_on && !sect_empty(SEC_INTRO)) {
             s = SEC_INTRO;                         /* the Intro holds row 1's first chord (source_chord) */
             row_mutes(row_mute_bits(&sn.cur));
@@ -1576,15 +1663,21 @@ static int song_bar(int fresh, int hand, uint8_t *mark)
     if (rows_wait && arr_sect != SEC_INTRO)        /* rows written while it played: row 1 from this downbeat */
         fresh = 1;
     rows_wait = 0;
+    if ((fresh || (!first_tick && !rows_live && arr_sect == SEC_INTRO && (pos == 0 || hand))) && !row_land()) {
+        rows_wait = 1;                             /* all marked to go: as a song with no rows */
+        return 1;
+    }
     if (fresh)                                     /* switched while playing: row_from from this downbeat */
         *mark = row_start(beat_now);
     else if (!first_tick && !rows_live && arr_sect == SEC_INTRO && (pos == 0 || hand))
         *mark = row_start(beat_now);               /* the Intro played once: row 1 */
-    else if (!first_tick && rows_live && beat_now - row_b0 >= sn.cur_len) {
-        if (row + 1 < sn.nrows || sn.at_end) {     /* the next row (or row 1 again) */
-            row = (uint8_t)(row + 1 < sn.nrows ? row + 1 : 0);
+    else if (!first_tick && rows_live && row_over(b)) {
+        if (sn.nx >= 0) {                          /* the next row (or row 1 again; the marked passed over) */
+            row = (uint8_t)sn.nx;
+            row_gone = 0;
             sn.cur = sn.next;
             sn.cur_len = sn.next_len;
+            sn.nx = sn.nx2;
             sn.next = sn.next2;                    /* (kept if the app is writing now) */
             sn.next_len = sn.next2_len;
             song_snap();                           /* and the ones after it */
@@ -1603,10 +1696,12 @@ static int song_bar(int fresh, int hand, uint8_t *mark)
         *mark = sect_owed;
     sect_owed = 0;
     if (rows_live) {                               /* the row's last bar: a fill into a different section, or asked */
-        uint32_t left = sn.cur_len - (beat_now - row_b0);
+        uint32_t done = beat_now - row_b0, left = sn.cur_len - done, per = sn.cur_len / (sn.cur.rep ? sn.cur.rep : 1u);
         uint8_t from = *mark ? *mark : arr_sect == SEC_A || arr_sect == SEC_B ? arr_sect : (uint8_t)row_main(&sn.cur);
         uint8_t f = from == SEC_B ? SEC_FILL_BA : SEC_FILL_AB, to;
-        int last = row + 1 >= sn.nrows && !sn.at_end;
+        int last = sn.nx < 0;
+        if (row_skipped() && per)                  /* (marked: its pass playing is its last) */
+            left = per - done % per;
         if (left > 0 && left <= b && !last && (row_fill(&sn.cur) || row_main(&sn.next) != from) && resolve(f, &to) != SEC_SAME)
             *mark = f;                             /* (no fill with notes: a row starting keeps its section) */
     }
@@ -2043,7 +2138,7 @@ static void clock_in(int msg)
             setup();
             if (mode_wait) {                       /* a source picked while stopped: its bar 1 is this bar */
                 mode_apply(bar_beat0);
-                if (mode == ARR_SONG && sn.nrows) {   /* a song's row: its section from the next bar line, */
+                if (mode == ARR_SONG && row_land()) {   /* a song's row: its section from the next bar line, */
                     sect_owed = row_start(bar_beat0);
                     ld_tick = ld_from = pos % bar_len(&pat[cur]);   /* its place from this bar's downbeat */
                 }
@@ -2324,7 +2419,9 @@ void arr_block(uint32_t frames)
     arr_loop_now = mode == ARR_LOOP ? (int8_t)lp : mode == ARR_SONG && sn.nrows && !rows_wait ? (int8_t)(sn.cur.loop % ARR_LOOPS) : -1;
     arr_loop_beat = lbeat;
     arr_override = override;
-    arr_row = mode_wait && mode_next == ARR_SONG ? row_from : row;   /* (a switch waiting: its row) */
+    arr_row = mode_wait && mode_next == ARR_SONG ? row_from : row_gone ? 0xFFu : row;   /* (a switch waiting: its
+                                                                                      * row; deleted: none) */
+    arr_row_next = mode == ARR_SONG && sn.nx >= 0 ? (uint8_t)sn.nx : 0xFFu;
     {
         uint32_t per = sn.cur_len / (sn.cur.rep ? sn.cur.rep : 1), k = 0;
         if (mode == ARR_SONG && rows_live && per)
@@ -2420,7 +2517,8 @@ void arr_init(void)                                /* at boot, before the render
     arr_beats = 0;
     sg = sg_next = 0;
     sg_want = 0;
-    row_from = rows_live = rows_wait = row = sect_owed = song_end = 0;
+    row_from = rows_live = rows_wait = row = sect_owed = song_end = row_gone = 0;
+    del_pend = 0;
     xp_pend = 0;
     row_b0 = 0;
     memset(&sn, 0, sizeof sn);

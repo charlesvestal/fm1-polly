@@ -121,18 +121,21 @@ expect row_loop2 10
 expect row_loop3 9
 expect row_loop4 10
 # ---- 8. shape it
-cap 8. Shape it | KNOB 1 to the chorus (section 2), KNOB 3 (Groove) to B: busier; the other chorus follows
+cap 8. Shape it | KNOB 1 to the chorus (section 2), KNOB 3 (Groove) to B: busier
 turn K1 -3 250
 wait 600
 expect cursor 2
 turn K3 2 350
 wait 1500
 expect row_sect2 2
-expect row_sect4 2
-cap 8. Shape it | The last chorus: KNOB 4 (Repeat) to x2, then SELECT to page 2, KNOB 1 (Transpose) to +2
+expect row_sect4 0
+cap 8. Shape it | The last chorus: KNOB 3 to B too, KNOB 4 (Repeat) to x2, then SELECT to page 2, KNOB 1 (Transpose) to +2
 turn K1 2 300
 wait 500
 expect cursor 4
+turn K3 2 350
+wait 500
+expect row_sect4 2
 turn K4 1
 wait 1000
 expect row_rep4 2

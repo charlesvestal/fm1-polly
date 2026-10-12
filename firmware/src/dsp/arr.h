@@ -343,7 +343,21 @@ void arr_mode_loop(int i);
  * loop: arr_loop_now -1); rows written meanwhile start, row 1, at the next bar line (REC on SONG from an empty
  * song). Leaving SONG, the app sends its mutes again (arr_track_mute). */
 void arr_mode_song(const song_t *s, int r);
-extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row), its pass (0..rep-1) */
+/* the rows marked to go (the Song page's PROG "-"; bit r row r, as the rows are now): the song passes over them, as
+ * if they were not there (the row after, the fills and the song's end as it then is); a marked row playing plays out
+ * the pass it is in. A start on a marked row starts at the next one that is not (round); all marked: as a song with
+ * no rows. Taken with the rows (each block's snapshot): the app sets it inside its arr_edit bracket when the rows
+ * move under it */
+void arr_rows_skip(uint32_t mask);
+/* the rows the app just deleted (bit r row r, as the rows were before: several in one go), inside arr_edit(1) ..
+ * arr_edit(0) with the deletion: the song plays on in place, the row playing renumbered (the rows before it gone:
+ * its index down); deleted itself, it plays out its pass (marked: as above), then the row that came after it, and
+ * meanwhile arr_row is 0xFF (none) and its lead notes (gone with it) are not played */
+void arr_rows_deleted(uint32_t mask);
+extern volatile uint8_t arr_row, arr_rep;         /* the row playing (a switch waiting: its row; 0xFF: one deleted
+                                                   * playing out), its pass (0..rep-1) */
+extern volatile uint8_t arr_row_next;             /* SONG: the row that plays after it (the marked passed over),
+                                                   * 0xFF none (the song's end) */
 extern volatile uint16_t arr_mutes;               /* the tracks muted now (rows and hand mutes), bit t track t; bits 8, 9
                                                    * LD1, LD2 (ARR_LD1 + k) */
 /* -6..+5: everything, as an arranger keyboard's: loops and songs, and the keys (their chords, arr_keys_held, and

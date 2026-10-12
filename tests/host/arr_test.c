@@ -1191,6 +1191,98 @@ static void test_song_rows(void)
     arr_play(0);
     run_blocks(1);
 }
+/* rows marked to go (arr_rows_skip) and rows deleted while the song plays (arr_rows_deleted): the marked passed over,
+ * a marked row playing plays out its pass, the song in place across a delete (the row playing renumbered; deleted
+ * itself: its pass, then the row after it); all marked: the song's end */
+static void skip_setup(int n, int rep)
+{
+    static const int lo[4] = {0, 1, 2, 3}, se[4] = {ROW_A, ROW_A, ROW_A, ROW_A};
+    int re[4] = {rep, rep, rep, rep};
+    reset();
+    loops_reset();
+    load_slots(4);
+    empty_slot(SFA);
+    empty_slot(SFB);
+    for (int b = 0; b < 4; b++) {
+        loop_clear(&LT[b], b);
+        loop_write(&LT[b], 0, ch(b + 1, CH_MAJ));  /* row n: root n */
+    }
+    song_rows(n, lo, se, re);
+    arr_rows_skip(0);
+    arr_mode_song(&SG, 0);
+}
+static void test_song_skip(void)
+{
+    /* row 2 marked before PLAY: 1, 3, 4, the end */
+    skip_setup(4, 1);
+    arr_rows_skip(1u << 1);
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_row_next == 2, "skip: row 3 next after row 1 (%d)", arr_row_next);
+    run_to((uint32_t)(4 * BAR));
+    CHECK(root_at(0) == 1 && root_at(BAR) == 3 && root_at(2 * BAR) == 4, "skip: rows 1, 3, 4 (%d %d %d)", root_at(0),
+          root_at(BAR), root_at(2 * BAR));
+    CHECK(arr_playing == 0, "skip: then the end, a bar early");
+    /* row 1 (x2) marked during its first pass: it ends there, row 2 next; PLAY on a marked row: the next one */
+    skip_setup(4, 2);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_rows_skip(1u << 0);
+    run_to((uint32_t)(2 * BAR));
+    CHECK(root_at(BAR) == 2 && arr_row == 1, "skip: the marked row playing plays out its pass (%d %d)", root_at(BAR), arr_row);
+    arr_play(0);
+    run_blocks(1);
+    arr_mode_song(&SG, 0);
+    arr_play(1);
+    run_blocks(2);
+    CHECK(arr_row == 1 && arr_loop_now == 1, "skip: PLAY from a marked row starts at the next (%d)", arr_row);
+    arr_play(0);
+    run_blocks(1);
+    /* all marked while the first plays: the song ends after its pass */
+    skip_setup(2, 1);
+    arr_play(1);
+    run_to((uint32_t)(0.5f * BAR));
+    arr_rows_skip(3u);
+    run_to((uint32_t)(2 * BAR));
+    CHECK(arr_playing == 0 && ons_after(BAR + 4) == 0, "skip: all marked, the song ends (%d)", arr_playing);
+    /* rows 1 and 3 deleted while row 2 plays: it plays on as row 1, then row 4 (now 2) */
+    skip_setup(4, 2);
+    arr_play(1);
+    run_to((uint32_t)(2.5f * BAR));
+    CHECK(arr_row == 1, "delete: row 2 playing");
+    arr_edit(1);
+    row_delete(&SG, 2);
+    row_delete(&SG, 0);
+    arr_rows_deleted(1u << 0 | 1u << 2);
+    arr_edit(0);
+    run_blocks(2);
+    CHECK(arr_row == 0 && arr_rep == 0, "delete: the row playing renumbered (%d %d)", arr_row, arr_rep);
+    run_to((uint32_t)(6 * BAR));
+    CHECK(root_at(3 * BAR) == 2 && root_at(4 * BAR) == 4 && root_at(5 * BAR) == 4, "delete: row 2 to its end, then row 4 (%d %d %d)",
+          root_at(3 * BAR), root_at(4 * BAR), root_at(5 * BAR));
+    CHECK(arr_playing == 0, "delete: then the end");
+    /* the row playing deleted (marked first), and a second delete before the render looks: its pass, then the row
+     * after it */
+    skip_setup(4, 2);
+    arr_play(1);
+    run_to((uint32_t)(2.5f * BAR));
+    arr_rows_skip(1u << 1);
+    arr_edit(1);
+    row_delete(&SG, 1);
+    arr_rows_deleted(1u << 1);
+    row_delete(&SG, 0);                            /* (rows now: 3, 4; the first delete not seen yet) */
+    arr_rows_deleted(1u << 0);
+    arr_rows_skip(0);
+    arr_edit(0);
+    run_blocks(2);
+    CHECK(arr_row == 0xFF && arr_row_next == 0, "delete: the row playing gone, row 3 (now 1) next (%d %d)", arr_row, arr_row_next);
+    run_to((uint32_t)(5 * BAR + 512));
+    CHECK(root_at(3 * BAR) == 3 && root_at(4 * BAR) == 3 && arr_row == 1, "delete: its pass ended, then row 3 (%d %d %d)",
+          root_at(3 * BAR), root_at(4 * BAR), arr_row);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "skip: offs match");
+}
 static void test_song_forced_fill_mutes_key(void)
 {
     static const chord_t c[1] = {{0, CH_MAJ, CH_NOBASS}};
@@ -4478,6 +4570,7 @@ int main(void)
     test_ending();
     test_song();
     test_song_rows();
+    test_song_skip();
     test_song_forced_fill_mutes_key();
     test_song_intro_ending();
     test_song_hand();

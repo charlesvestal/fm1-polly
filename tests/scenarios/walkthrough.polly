@@ -165,19 +165,21 @@ expect row_loop4 10
 expect cursor 5
 wait 50
 shot 4_rows.png
-# ---- 5. Shape it: row 2 (a chorus) SECTION Main B (row 4 follows), REPEAT x2; row 4: page 2, KEY +2; a
-# breakdown: row 3's drums muted (black 1, 2: D1, D2)
+# ---- 5. Shape it: row 2 (a chorus) SECTION Main B (only that row: row 4 keeps its own), REPEAT x2; row 4 Main B
+# too, then page 2, KEY +2; a breakdown: row 3's drums muted (black 1, 2: D1, D2)
 turn K1 -3
 expect cursor 2
 turn K3 2
 expect row_sect2 2
-expect row_sect4 2
+expect row_sect4 0
 expect row_sect1 0
 expect row_sect3 0
 turn K4 1
 expect row_rep2 2
 turn K1 2
 expect cursor 4
+turn K3 2
+expect row_sect4 2
 turn SELECT 1
 expect page 2
 turn K1 2
