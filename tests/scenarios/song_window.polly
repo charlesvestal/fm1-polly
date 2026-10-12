@@ -1,0 +1,36 @@
+# POLLY, the Song page's window: it stays where it is (moved only to keep the cursor in it); INSERT SECTION and
+# DELETE SECTION slide the rows after into place (shots mid-slide), the cursor where it was.
+wait 300
+tap HOME
+tapkey w0
+tapkey w1
+tapkey w2
+tapkey w3
+tapkey w4
+tapkey w5
+expect rows 6
+turn K1 -4
+expect cursor 3
+wait 300
+shot a0.png
+tap SEL
+turn SELECT 1
+expect list_has_INSERT_SECTION 1
+tap SEL
+wait 40
+shot a1.png
+wait 60
+shot a2.png
+wait 300
+shot a3.png
+expect cursor 3
+expect rows 7
+tap SEL
+turn SELECT 2
+expect list_has_DELETE_SECTION 1
+tap SEL
+wait 60
+shot a4.png
+wait 300
+expect rows 6
+expect cursor 3

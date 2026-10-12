@@ -1461,10 +1461,18 @@ static void rec_follow_keys(void)
  * added). Every write to the rows goes through songs_write (the render reads them at each block's start). Rows are
  * only set or added here, never moved (INSERT / DELETE ROW: stopped only), so the row playing keeps its index (the
  * sections PROG marks to go are deleted while playing too: the engine renumbers the row playing, marks_poll) */
+/* the Song page's rows after r slide into place: a section inserted at r (+1) or deleted there (-1) */
+static void song_anim(int r, int d)
+{
+    ui.sg_anim_r = (int8_t)r;
+    ui.sg_anim_d = (int8_t)d;
+    ui.sg_anim_t = plat_ms();
+}
 static void song_tap(int w)
 {
     song_t *g = csong();
     int r;
+    int add = app.row >= g->nrows;
     songs_write(1);
     r = row_tap(g, app.row, w);
     songs_write(0);
@@ -1472,6 +1480,8 @@ static void song_tap(int w)
         say("SONG FULL", "32 SECTIONS");
         return;
     }
+    if (add)
+        song_anim(r, 1);                         /* (the END row slides down under the new one) */
     ui.row_follow = 0;                           /* (writing: the cursor stays where the keys write) */
     ui.row_marks &= ~(1u << r);                  /* (a section marked to go, given a progression: kept) */
     app.row = (uint8_t)(r + 1 <= g->nrows ? r + 1 : g->nrows);
@@ -1617,6 +1627,7 @@ static void song_knob(int k, int32_t e)
             }
             ui.row_follow = 0;
             app.row = (uint8_t)r;
+            song_anim(r, 1);
         }
         return;
     }
@@ -2582,6 +2593,7 @@ static void row_do(int ins, int row)
     }
     if (app.row >= ARR_ROWS || (!ins && app.row && app.row >= g->nrows))
         app.row = (uint8_t)(g->nrows ? g->nrows - 1 : 0);
+    song_anim(row, ins ? 1 : -1);
     say(ins ? "INSERTED" : "DELETED", t);
 }
 /* CLEAR SONG: its rows and settings (its patterns, style, tempo, transpose and mutes kept, the loops too) */

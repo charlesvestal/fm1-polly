@@ -195,6 +195,9 @@ static struct {
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
+    uint8_t sg_top;                                  /* Song's window: its first row (moved only to keep the cursor in it) */
+    int8_t sg_anim_r, sg_anim_d;                     /* rows inserted (+1) / deleted (-1) at sg_anim_r: those after slide */
+    uint32_t sg_anim_t;                              /* ... from then (SG_ANIM_MS) */
     uint32_t row_marks;                              /* Song's PROG turned below P1: the sections marked to go (bit r row
                                                       * r), all deleted when the Song pages are left (ui.c marks_poll);
                                                       * the song passes over them meanwhile (arr_rows_skip). RAM only */
@@ -1526,8 +1529,10 @@ static int song_state(char *t)
         return 0;
     return s;
 }
+#define SG_ANIM_MS 160u
 static void draw_song(void)
 {
+    int32_t slide;
     const song_t *g = csong();
     int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows, total = n < ARR_ROWS ? n + 1 : n, cur = app.row, pg = ui.page - P_SONG;
     int play = arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < n ? arr_row : -1, top, i, st;
@@ -1538,12 +1543,25 @@ static void draw_song(void)
         play = -1;                                   /* (the Intro, the Ending: no row plays yet, any more) */
     if (cur > total - 1)
         cur = total - 1;
-    top = cur - (SG_SHOWN - 1) / 2;                  /* the cursor near the middle */
+    top = ui.sg_top;                                 /* the window stays; it moves only to keep the cursor in it */
+    if (cur < top)
+        top = cur;
+    else if (cur > top + SG_SHOWN - 1)
+        top = cur - (SG_SHOWN - 1);
     if (top > total - SG_SHOWN)
         top = total - SG_SHOWN;
     if (top < 0)
         top = 0;
+    ui.sg_top = (uint8_t)top;
+    {   /* a section inserted or deleted: the rows after it slide into place (down from the one before, up from the
+         * one after), SG_ANIM_MS */
+        uint32_t el = plat_ms() - ui.sg_anim_t;
+        slide = ui.sg_anim_d && el < SG_ANIM_MS ? (int32_t)((SG_ANIM_MS - el) * SG_RH / SG_ANIM_MS) * -ui.sg_anim_d : 0;
+        if (!slide)
+            ui.sg_anim_d = 0;
+    }
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
+    h = hash(h, (uint32_t)slide);
     h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
     h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8);
     h = hash(h, ui.row_marks);
@@ -1583,7 +1601,8 @@ static void draw_song(void)
         }
     }
     for (i = top; i < total && i < top + SG_SHOWN; i++) {
-        int32_t y = SG_Y0 + (i - top) * SG_RH, ch = 16, ty = cap_y(y, ch, &FONT_S);
+        int32_t y = SG_Y0 + (i - top) * SG_RH + (slide && i >= ui.sg_anim_r + (ui.sg_anim_d > 0) ? slide : 0), ch = 16;
+        int32_t ty = cap_y(y, ch, &FONT_S);
         int on = i == cur, ghost = i >= n, pl = i == play, fl = i < ARR_ROWS && (fm >> i & 1u);
         /* the section playing filled teal, an edit coral a moment; the cursor a thick coral ring round it (into the
          * gaps between the rows) */
