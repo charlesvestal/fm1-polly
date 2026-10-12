@@ -6,8 +6,10 @@
  *   0x93000..0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF, 0xE5000..0xFBFFF
  * The sector at QB_DIR (0xDE000) is the directory; the other 63 are the data, one logical byte stream in the
  * order above. Bytes 0xF00..0xF07 of every bank sector stay 0xFF: at the end of a firmware update the loader
- * erases any sector in 0x93000..0xFBFFF whose last 256 bytes look like an update record ("AT" at bytes 6..7),
- * so the logical stream steps over them (4088 bytes a sector).
+ * erases a sector whose last 256 bytes look like an update record ("AT" at bytes 6..7): the loaders before the
+ * platform update anywhere in 0x93000..0xFBFFF, today's only in the staging and 0xE8000, the stock firmware's
+ * record sector, which is a bank sector (firmware/loader/ldr_window.h). So the logical stream steps over them
+ * (4088 bytes a sector).
  *
  * The directory (little-endian; written last, so a bank cut off while it was written has none):
  *   0  "PQB1"  4  version (QB_VERSION), styles (u16)  8  the codec's magic ("QYB3", tools/qy70_codec.py)

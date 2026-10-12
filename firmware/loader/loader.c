@@ -16,8 +16,10 @@
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")
 #include "fm1_time.h"
 #include "fm1_sys.h"
-/* the loader may write the app area and erase update records; never the head */
-#define FL_RANGE_OK(off, n) (FL_IN(off, n, 0x4000u, 0x93000u) || FL_IN(off, n, 0x93000u, 0xFC000u))
+/* the loader may write the app area and erase the update records; never the head, the songs, the slots, the panel,
+ * the project or the QY70 bank (ldr_window.h; it was 0x4000..0xFC000 whole) */
+#include "ldr_window.h"
+#define FL_RANGE_OK(off, n) LDR_WRITE_OK(off, n)
 #include "fm1_flash.h"
 #include "../src/libc.c"
 #include "../src/usb.c"
@@ -106,7 +108,8 @@ void ldr_cstart(void)
 {
     uint32_t *p;
     ldr_record_clear();                             /* first thing: a crash below cannot loop through a
-                                                     * warm reset; resume after power loss uses the flash record */
+                                                     * warm reset; after a power loss only the flash record is
+                                                     * left, which the SPL does not reliably honour (ldr_core.c) */
     for (p = _bss_start; p < _bss_end; p++)
         *p = 0;
     ldr_main();

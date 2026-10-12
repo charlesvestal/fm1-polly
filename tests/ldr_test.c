@@ -11,11 +11,13 @@
 
 #define FELUCCA_ID "ota-FM-1_900"
 #define FELUCCA_OTA_DRYRUN 0
+#define __attribute__(x)   /* (the sources' .pool sections: no Mach-O section names) */
 
 static uint8_t nor[0x100000], *logical;
 static size_t logical_len;
 static uint8_t rx[1024];
 static uint32_t rx_len, rx_full, now_ms, requests, erases, bad_range, record_cleared, f0_asked;
+static uint32_t flip_addr = 0xFFFFFFFFu, flip_seen, flip_on;   /* serve addr's flip_on-th reply with a byte changed */
 
 static uint32_t pack7(const uint8_t *in, uint32_t n, uint8_t *out)
 {
@@ -59,6 +61,8 @@ static int ota_wire_send(const uint8_t *p, uint32_t n)
     } else {
         if (addr + len > logical_len) { printf("read past the package %#x\n", addr); exit(1); }
         memcpy(m + 14, logical + addr, len);
+        if (addr == flip_addr && ++flip_seen == flip_on)
+            m[14 + len / 2u] ^= 0x10;                /* a transfer error the frame checksum does not see */
     }
     for (i = 6; i < 14 + len; i++) s += m[i];
     m[14 + len] = (uint8_t)~s;
@@ -77,11 +81,13 @@ static void ota_show(uint32_t step, int32_t code) { (void)step; (void)code; }
 static void ota_commit(const uint8_t *parm) { (void)parm; }
 #include "../firmware/src/ota.c"
 
+#include "../firmware/loader/ldr_window.h"
 static int ldr_fread(uint32_t off, void *p, uint32_t n) { memcpy(p, nor + off, n); return 0; }
+/* the hooks refuse what the loader's flash driver refuses (loader.c: FL_RANGE_OK = LDR_WRITE_OK), and count it */
 static int ldr_erase(uint32_t off)
 {
-    if (off < 0x4000u || off >= 0xFC000u || (off & 0xFFFu)) bad_range++;
     if (off < 0x4000u) { printf("ERASE IN THE HEAD %#x\n", off); exit(1); }
+    if (!LDR_WRITE_OK(off, 0x1000u) || (off & 0xFFFu)) { bad_range++; return -1; }
     erases++;
     memset(nor + off, 0xFF, 0x1000);
     return 0;
@@ -90,7 +96,7 @@ static int ldr_prog(uint32_t off, const void *p, uint32_t n)
 {
     const uint8_t *s = p;
     uint32_t i;
-    if (off < 0x4000u || off + n > 0x93000u || ((off & 0xFFu) + n) > 256u) bad_range++;
+    if (off < 0x4000u || off + n > 0x93000u || ((off & 0xFFu) + n) > 256u) { bad_range++; return -1; }
     for (i = 0; i < n; i++) nor[off + i] &= s[i];
     return 0;
 }
@@ -106,6 +112,7 @@ static uint8_t *load_logical(const char *path, size_t *len)
     if (!f) { perror(path); exit(2); }
     n = fread(raw, 1, 0x200000, f);
     fclose(f);
+    if (n < 20 * 48 + 0x400) { printf("%s: too short for a package\n", path); exit(2); }
     lg = malloc(n);
     for (i = 0; i < 20; i++) memcpy(lg + i * 47, raw + i * 48, 47);
     memcpy(lg + 20 * 47, raw + 20 * 48, n - 20 * 48);
@@ -129,36 +136,124 @@ static uint32_t flash_off(const uint8_t *lg)        /* flash.bin offset in the l
     return 0;
 }
 
+/* flash.bin's size in the package's UFW entry list -> size (the header's CRCs made right again) */
+static void set_fl_size(uint8_t *lg, uint32_t size)
+{
+    uint32_t i, n;
+    ota_jl_enc(lg, 0x40);
+    n = ota_rd16(lg + 8);
+    for (i = 0; i < n; i++) {
+        uint8_t *e = lg + 0x40 + i * 0x50u;
+        ota_jl_enc(e, 0x50);
+        if (ota_rd16(e) == 0)
+            ota_wr32(e + 12, size);
+        ota_jl_enc(e, 0x50);
+    }
+    ota_wr16(lg + 2, ota_crc16(lg + 0x40, n * 0x50u, 0));
+    ota_wr16(lg, ota_crc16(lg + 2, 0x3E, 0));
+    ota_jl_enc(lg, 0x40);
+}
+
 static int check(const char *what, int ok) { printf("%-56s %s\n", what, ok ? "ok" : "FAIL"); return ok ? 0 : 1; }
+
+/* Polly's user data above the app (ldr_window.h): [lo, hi) and what it is */
+static const struct { uint32_t lo, hi; const char *what; } USER[] = {
+    {0x93000u, 0x97000u, "the QY70 bank, region 0"}, {0x97000u, 0x99000u, "the songs"},
+    {0x99000u, 0xB9000u, "the 16 slots"}, {0xB9000u, 0xDC000u, "the QY70 bank, region 1"},
+    {0xDC000u, 0xDD000u, "the panel"}, {0xDE000u, 0xE0000u, "the QY70 bank, region 2 (directory)"},
+    {0xE5000u, 0xE8000u, "the QY70 bank, region 3 (below the stock record)"},
+    {0xE9000u, 0xFC000u, "the QY70 bank, region 3 (above the stock record)"}, {0xFC000u, 0xFF000u, "the project"}};
+#define NUSER (sizeof USER / sizeof USER[0])
 
 int main(int argc, char **argv)
 {
     size_t olen;
-    uint8_t *old, head[0x4000];
-    uint32_t ofo, nfo;
-    int bad = 0, rc;
+    static uint8_t user[0x100000];
+    uint8_t *old, head[0x4000], r[112] = {0};
+    uint32_t ofo, nfo, i, u;
+    int bad = 0, rc, ok;
     if (argc < 3) { printf("usage: ldr_test OLD.fwsc NEW.fwsc\n"); return 2; }
     old = load_logical(argv[1], &olen);
     logical = load_logical(argv[2], &logical_len);
     ofo = flash_off(old);
     nfo = flash_off(logical);
-    /* device: OLD installed, plus a valid update record at 0xE4F00 */
+    /* the write window: the app area, the update's staging and the stock record's sector; never the head or the
+     * user data (a record or a package byte aimed there is refused by the flash driver) */
+    ok = LDR_WRITE_OK(0x4000u, 0x1000u) && LDR_WRITE_OK(0x92000u, 0x1000u) && LDR_WRITE_OK(0xE4000u, 0x1000u) &&
+         LDR_WRITE_OK(0xE8000u, 0x1000u) && !LDR_WRITE_OK(0, 0x1000u) && !LDR_WRITE_OK(0x3000u, 0x1000u) &&
+         !LDR_WRITE_OK(0x92000u, 0x2000u) && !LDR_WRITE_OK(0xE4000u, 0x2000u) && !LDR_WRITE_OK(0xFFFFF000u, 0x2000u);
+    for (u = 0; u < NUSER; u++)
+        for (i = USER[u].lo; i < USER[u].hi; i += 0x1000u)
+            ok &= !LDR_WRITE_OK(i, 0x1000u) && !LDR_WRITE_OK(i + 0xF00u, 0x100u);
+    bad += check("write window: app, staging, stock record; no user data", ok);
+    /* device: OLD installed, plus a valid update record at 0xE4F00 (Polly's step 1) and 0xE8F00 (the stock
+     * firmware's, a first install from it); every user-data sector filled, its last 256 bytes a record (a song,
+     * a slot, the panel, the project, a bank sector that looks like one: none may be erased) */
     memset(nor, 0xFF, sizeof nor);
     memcpy(nor, old + ofo, 0x93000);
     memcpy(head, nor, sizeof head);
+    r[2] = 0x0D; r[3] = 0x5A; r[4] = 0x01; r[5] = 0x5A; r[6] = 0x41; r[7] = 0x54;
+    ota_wr16(r, ota_crc16(r + 2, 78, 0));
+    memcpy(nor + 0xE4F00, r, sizeof r);
+    memcpy(nor + 0xE8F00, r, sizeof r);
+    for (u = 0; u < NUSER; u++)
+        for (i = USER[u].lo; i < USER[u].hi; i += 0x1000u) {
+            uint32_t k;
+            for (k = 0; k < 0xF00u; k++) nor[i + k] = (uint8_t)(k * 7u + (i >> 12));
+            memcpy(nor + i + 0xF00u, r, sizeof r);
+        }
+    memcpy(user, nor, sizeof user);
+    /* a damaged package (one byte deep in the app area): refused before anything is erased */
     {
-        uint8_t r[112] = {0};
-        r[2] = 0x0D; r[3] = 0x5A; r[4] = 0x01; r[5] = 0x5A; r[6] = 0x41; r[7] = 0x54;
-        ota_wr16(r, ota_crc16(r + 2, 78, 0));
-        memcpy(nor + 0xE4F00, r, sizeof r);
+        size_t at = nfo + 0x50123u;
+        logical[at] ^= 0x01;
+        erases = 0;
+        rc = ldr_session();
+        bad += check("damaged package (flash.bin CRC) refused, nothing erased", rc == -12 && erases == 0 &&
+                     !memcmp(nor + 0x4000, old + ofo + 0x4000, 0x93000 - 0x4000) && nor[0xE4F06] == 0x41);
+        logical[at] ^= 0x01;
     }
+    /* the last byte changed (a transfer cut short and padded): refused too */
+    {
+        size_t at = nfo + 0x92FFFu;
+        logical[at] ^= 0x80;
+        erases = 0;
+        rc = ldr_session();
+        bad += check("damaged last byte refused, nothing erased", rc == -12 && erases == 0);
+        logical[at] ^= 0x80;
+    }
+    /* a flash.bin that claims more than the 1 MiB part (bytes for the user data above the app): refused */
+    {
+        size_t big_len = nfo + 0x101000u;
+        uint8_t *big = malloc(big_len), *keep = logical;
+        size_t keep_len = logical_len;
+        memset(big, 0xFF, big_len);
+        memcpy(big, logical, logical_len < big_len ? logical_len : big_len);
+        set_fl_size(big, 0x101000u);
+        logical = big; logical_len = big_len;
+        erases = 0; requests = 0;
+        rc = ldr_session();
+        bad += check("flash.bin over 1 MiB refused before it is read, nothing erased",
+                     rc == -3 && erases == 0 && requests == 2);
+        logical = keep; logical_len = keep_len;
+        free(big);
+    }
+    requests = 0;
+    /* a sector that comes in different the second time (a transfer error after the check) is read again */
+    flip_addr = nfo + 0x20000u; flip_on = 2; flip_seen = 0;
     rc = ldr_session();
     printf("  rc %d, %u requests, %u sector erases\n", rc, requests, erases);
     bad += check("install completes", rc == 0);
+    bad += check("a sector changed in transfer after the check is read again", flip_seen == 3);
+    flip_addr = 0xFFFFFFFFu;
     bad += check("app area == the new package's flash.bin", !memcmp(nor + 0x4000, logical + nfo + 0x4000, 0x93000 - 0x4000));
     bad += check("flash head [0, 0x4000) untouched", !memcmp(nor, head, sizeof head));
     bad += check("finish asked (0xF0000000)", f0_asked >= 1);
-    bad += check("update record cleared (RAM + flash)", record_cleared && nor[0xE4F06] == 0xFF);
+    bad += check("update records cleared (RAM + flash 0xE4F00, the stock firmware's 0xE8F00)",
+                 record_cleared && nor[0xE4F06] == 0xFF && nor[0xE8F06] == 0xFF);
+    for (u = 0, ok = 1; u < NUSER; u++)
+        ok &= !memcmp(nor + USER[u].lo, user + USER[u].lo, USER[u].hi - USER[u].lo);
+    bad += check("songs, slots, panel, project, bank kept (records too)", ok);
     bad += check("no write outside the allowed windows", bad_range == 0);
     /* same package again: nothing to erase */
     erases = 0; requests = 0;
