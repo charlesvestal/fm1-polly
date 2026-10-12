@@ -64,19 +64,12 @@ You'll write a verse and a chorus, build a song from them, and play it.
 
 ![A finished song on the Song page, playing section 1](docs/img/manual/quickstart_song.png)
 
-*The song from the manual's full walk-through, playing. It adds a repeat (x2) and a transpose (+2) to the steps above.*
+*A finished song, playing section 1. This one also has a repeat (x2) and a transpose (+2).*
 
 Made a mistake? Hold **HOME** and press **REC** to undo. Hold **HOME** and press **PLAY** to redo.
 
 ## Where to go next
 
-- [101 Playing live](docs/course/101-playing-live.md): play chords over a style, switch grooves, end with an Ending.
+- [The course](docs/course/README.md): ten short lessons, each with a video, from playing live to MIDI.
 - [Cheat sheet](MANUAL.md#cheat-sheet): the words, the common tasks and every button on one page.
-- [Writing a song](MANUAL.md#writing-a-song): the full walk-through, with repeats, transpose, a breakdown
-  and a melody.
-- [Styles and grooves](MANUAL.md#styles-and-grooves): switch grooves and ask for fills, intros and endings.
-- [Chords](MANUAL.md#chords): which chords Polly understands, and the 16 ready-made progressions.
-- [Recording an instrument](MANUAL.md#recording-an-instrument): play your own parts into the band.
-- [Melodies](MANUAL.md#melodies): record lines that run through the whole song.
-- [Songs and saving](MANUAL.md#songs-and-saving): four songs, undo, memory and backups.
-- [The QY70 bank](MANUAL.md#the-qy70-bank): play the QY70's 128 styles from your own ROM.
+- [The manual](MANUAL.md): every page, knob and setting.

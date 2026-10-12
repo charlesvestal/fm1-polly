@@ -7,10 +7,10 @@ strings follow. Write a few bars of chords, and Polly plays a whole song from th
 The sounds are the 128 General MIDI instruments and a drum kit, from Sonivox EAS. You hear them from the
 speaker and the headphone jack. MIDI coming in plays them too.
 
-New to Polly? Start with the [quick start](QUICKSTART.md).
+New to Polly? Start with the [quick start](QUICKSTART.md), then the [course](docs/course/README.md): short
+lessons with a video each. This manual is the reference.
 
 - [Cheat sheet](#cheat-sheet)
-- [Writing a song](#writing-a-song)
 - [Getting around](#getting-around)
 - [Styles and grooves](#styles-and-grooves)
 - [Chords](#chords)
@@ -126,38 +126,6 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 The two lines at the bottom of the screen always show what each control does on the page you're on. Hold
 any button for a second, and a card explains what it does there. [Getting around](#getting-around) has the
 details.
-
-## Writing a song
-
-In this walk-through you write a verse and a chorus, build a song from them, and add a melody. White keys
-are counted from the left, 1 to 16, so progression P9 is white key 9.
-
-1. **Find a groove.** On Home, turn **KNOB 1** to pick a style, such as Pop, Funk or Bossa. Press **PLAY**.
-   Play a chord with three keys or more. The band follows whatever you play.
-2. **Write your verse.** Press **REC**. Play Am, F, C and G, one chord per bar, then press **REC** again.
-   Your chords are now progression P9, and the band keeps playing them in a loop. To name it, press **ARP**,
-   turn **SELECT** to page 2, and turn **KNOB 4** (Name) to "Verse".
-   You can also write chords while stopped. Press **ARP**, which opens the first empty progression. Press
-   **REC** and play your chords. Each chord fills one bar.
-3. **Write your chorus.** Press **HOME** and turn **KNOB 4** anticlockwise, past P1, to "–". The band is
-   free again. Press **REC**, play C, G, Am and F, then press **REC**. That's P10. Name it "Chorus" the same
-   way: **ARP**, **SELECT** to page 2, **KNOB 4** (Name).
-4. **Build the song.** Press **HOME** twice: once for Home, again for the Song page. Press white keys 9, 10, 9 and
-   10, in that order. Each press adds a section. You now have verse, chorus, verse, chorus.
-5. **Shape it.** **KNOB 1** (Section) moves between the sections. On a chorus, turn **KNOB 3** (Groove) to
-   B for the busier groove. The other chorus sections follow. Turn **KNOB 4** (Repeat) to x2 to play that
-   chorus twice. On the last section, turn **SELECT** to page 2 and turn **KNOB 1** (Transpose) to +2. The
-   last chorus now plays a tone higher. For a breakdown, move to a section and press black keys to mute
-   instruments there. Black keys 1, 2 and 3 are the drums and the percussion: D1, D2 and PC.
-6. **Play it.** Press **PLAY** on the Song page. The band is still playing your chorus, so the song takes
-   over at the next bar, starting from section 1. You hear your sections with fills between them, then an
-   Ending. When you start the song from a stop, it opens with an Intro.
-   To start on another section, move to it with **KNOB 1** (Section) and press **SEL**. The list opens on
-   PLAY FROM SECTION. Press **SEL** again to start.
-7. **Add a melody.** On the Song page, press **PLAY**. Press **EDIT**, turn **ALGORITHM** past C4 to M1,
-   and press **REC**. The click counts you in to the next bar. Play along, and your notes go into each
-   section as it plays. [Melodies](#melodies) has more.
-8. **Save.** Press **SAVE**, or just stop. Polly saves by itself.
 
 ## Getting around
 
@@ -463,8 +431,9 @@ transposed. The keys' octave (**OCT−** / **OCT+**) is a separate setting.
 
 ## Progressions and the song
 
-Here you write and edit progressions, and build them into a song. For the whole path from start to finish,
-see [Writing a song](#writing-a-song).
+Here you write and edit progressions, and build them into a song. For the whole path, step by step, see
+the course: [102 Your own progressions](docs/course/102-your-own-progressions.md) and
+[103 Your song](docs/course/103-your-song.md).
 
 ### The Progression page (ARP)
 
@@ -718,7 +687,8 @@ On the Band, Sound and Mixer pages, the **SEL** list opens on actions for the gr
 - BARS AS THE PROG comes first, when the groove is shorter than the progression.
 - CLEAR C1 clears the selected instrument's notes.
 - CLEAR GROOVE A clears the groove, or the extra that's playing.
-- BACK TO STYLE gives the groove back to the style.
+- BACK TO STYLE gives the groove back to the style. While the band plays, it needs your changes saved first.
+  Otherwise Polly shows "UNSAVED · SAVE FIRST": press **SAVE**, or stop.
 - MEMORY shows what fills the memory. It's on SEQ and EDIT only.
 
 With a melody selected, the actions are the melody's: CLEAR M1 IN SECTION n, CLEAR M1, QUANTISE M1 IN
@@ -1077,7 +1047,7 @@ calibration either. Polly keeps playing while you back up. Stop first if you wan
 yet in the file too.
 
 A restore **replaces everything** with the backup. Stop first. If Polly is playing, it answers **STOP
-FIRST**. Polly receives the whole file and checks it before anything changes. Then it asks on its screen:
+FIRST**. The computer asks first too: type y (or add `--yes` to the command). Polly receives the whole file and checks it before anything changes. Then it asks on its screen:
 **RESTORE FROM USB?** Press **SEL** to restore and reload the songs, or **HOME** to keep what you have. A
 cut cable or a damaged file changes nothing. Even a power cut during the write leaves either the old songs
 or the new ones, never a mix.
