@@ -208,7 +208,14 @@ A few screens are different:
 - A question shows "[SEL] yes · [HOME] no".
 - While a help card is up, the line shows "let go: nothing changes".
 
-**Messages** such as "SAVED" or "NEXT GROOVE B" replace the header for a second or so.
+**Messages** such as "SAVED" or "NEXT GROOVE B" cover the header for a second or so, in a rounded box with an
+icon that says what kind of message it is:
+
+- **i** (beige): news, such as "PROGRESSION P1 POP".
+- **✓** (beige): something done, such as "SAVED" or "COPIED".
+- **An arrow back or on** (beige): UNDO or REDO, and what it changed.
+- **?** (coral): a question. **SEL** means yes, **HOME** means no.
+- **!** (ink): Polly couldn't do it, and why, such as "RESET · STOP FIRST". It stays up for two seconds.
 
 **The cursor and the playhead.** The cursor marks where the knobs and keys write. It's a thick coral
 outline:

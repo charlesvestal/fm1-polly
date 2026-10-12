@@ -585,12 +585,12 @@ static void alert_box(int kind)
         for (int j = 0; j < 5; j++)
             cv_rect(bx + 7 + j, by + 9 - j, 2, 2, mark);
     } else if (kind == AL_UNDO || kind == AL_REDO) { /* a hooked arrow: its head back (undo) or on (redo) */
-        int f = kind == AL_REDO;
-        cv_rect(bx + 5, by + 5, 6, 2, mark);         /* its top */
-        cv_rect(bx + (f ? 4 : 10), by + 5, 2, 6, mark);   /* its turn */
-        cv_rect(bx + 5, by + 9, 6, 2, mark);         /* its foot */
+        int f = kind == AL_REDO, o = f ? -1 : 1;    /* (centred in the badge: undo a pixel right, redo left) */
+        cv_rect(bx + 5 + o, by + 5, 6, 2, mark);     /* its top */
+        cv_rect(bx + (f ? 4 : 10) + o, by + 5, 2, 6, mark);   /* its turn */
+        cv_rect(bx + 5 + o, by + 9, 6, 2, mark);     /* its foot */
         for (int j = 0; j < 3; j++)                  /* the head, at the top's open end */
-            cv_rect(bx + (f ? 13 - j : 2 + j), by + 6 - j, 1, 2 * j + 1, mark);
+            cv_rect(bx + (f ? 13 - j : 2 + j) + o, by + 6 - j, 1, 2 * j + 1, mark);
     } else
         text_c(bx + 8, cap_y(by, 16, &FONT_B), &FONT_B, kind == AL_ASK ? "?" : kind == AL_NO ? "!" : "i", mark);
 }
@@ -1736,11 +1736,11 @@ static void draw_song(void)
                      l->bars ? fg : dim);
             if (w->mute || w->lmute) {               /* MUTES: an ink "M" before the groove, as the instruments' pills */
                 cv_round(SG_SECT - 16, y + 2, 13, ch - 4, 3, fl || pl ? K_BG : K_TEXT);
-                text_c(SG_SECT - 10, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, "M", fl || pl ? fill : K_BG);
+                text_c(SG_SECT - 9, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, "M", fl || pl ? fill : K_BG);
             }
             /* GROOVE: its colour with its letter on it, "+ fill" */
             cv_round(SG_SECT, y + 2, 15, ch - 4, 3, fl || pl ? K_BG : sc);
-            text_c(SG_SECT + 8, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, row_main(w) == SEC_B ? "B" : "A", fl || pl ? fill : K_BG);
+            text_c(SG_SECT + 7, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, row_main(w) == SEC_B ? "B" : "A", fl || pl ? fill : K_BG);
             if (row_fill(w))
                 cv_text(SG_SECT + 20, ty, &FONT_S, "+ fill", fg);
             else if (row_nofill(w))
