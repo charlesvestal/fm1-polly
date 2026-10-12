@@ -367,7 +367,8 @@ tap PLAY
 wait 500
 expect mode 2
 expect loop_now 0
-# HOME + white 9: row 1 (L9), heard from the next bar line (2 s)
+expect count_in 3
+# HOME + white 9 in PLAY's count-in: row 1 (L9), heard when the band starts (2 s)
 press HOME
 tapkey w8
 release HOME

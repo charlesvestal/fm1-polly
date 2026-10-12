@@ -86,7 +86,7 @@ White keys are counted from the left, 1 to 16. Black keys are counted the same w
 | pick a style | Press **HOME** and turn **KNOB 1**. |
 | play a progression | Hold **HOME** and press white key *n*. P*n* plays in a loop. While playing, it starts at the next bar. |
 | change the groove | Hold **HOME** and press black key 2 for Groove A or 3 for Groove B. Black key 4 plays a fill, 1 the Intro and 5 the Ending. |
-| write a progression | Press **HOME** and turn **KNOB 4** anticlockwise to "–" (free). Press **REC**, then **PLAY**. Play one chord per bar, then press **REC** again. |
+| write a progression | Press **HOME** and turn **KNOB 4** anticlockwise to "–" (free). Press **REC**, then **PLAY**. After a bar of clicks, play one chord per bar, then press **REC** again. |
 | go to bar 1, beat 3 | Press **ARP**. Turn **KNOB 1** (Bar) to 1 and **KNOB 2** (Beat) to 3. **OCT−** and **OCT+** step one beat back or forward. |
 | fix a chord | Press **ARP**. Move to the chord with **KNOB 1** (Bar) and **KNOB 2** (Beat). Turn **KNOB 3** (Root) or **KNOB 4** (Type). For its bass note, turn **SELECT** to page 2 and turn **KNOB 3** (Bass). |
 | delete a chord | Press **ARP** and move to the chord with **KNOB 1** and **KNOB 2**. Press **SEL**. The list opens on CLEAR CHORD. Press **SEL** again. |
@@ -138,7 +138,7 @@ more, and the [page by page](#page-by-page) table shows every page.
 
 | Control | What it does |
 | --- | --- |
-| **PLAY** | Starts and stops. On a Song page, it plays the song from section 1. If a progression is playing, the song starts at the next bar. Press it again to stop. |
+| **PLAY** | Starts and stops. On a Song page, it plays the song from section 1. If a progression is playing, the song starts at the next bar. With **REC** on, it plays a bar of clicks first (the count-in). Press it again to stop. |
 | **REC** | Records what the keys play here. On Home and Progression, it writes chords into the progression. On Home while free, it starts a new progression. On Band and Sound, it records the selected instrument, or a melody in a song. On Song, it writes sections. |
 | **SEL** | Shows the page as a list. The list opens on the page's first action, such as LOAD PROGRESSION, PLAY FROM SECTION or CLEAR C1. Turn **SELECT** up to reach the page's values and MORE. The list covers the knobs. The bottom line shows what **SELECT**, **ALGORITHM**, **SEL** and **HOME** do in it. |
 | **HOME** | Opens Home. Press it again on Home for the Song page, and again to go back. Turn **SELECT** on the Song page for its second page. |
@@ -555,6 +555,7 @@ When free, the chord shows alone in large type. It's teal while the band plays i
 bar 1.1 / 2" shows at the top right, and "the band follows your chords" shows under the chord.
 
 While **REC** writes chords, or during a new progression's take, the top line shows "REC P9 · bar 3.2".
+Before PLAY's first bar, it shows "starts at the next bar", with the count-in's beats left large in bar 1.
 Until you play the first chord, it also shows "chords land on the nearest beat". Each chord you write
 flashes its bar coral.
 
@@ -582,7 +583,8 @@ of the groove or extra that's playing, while it loops.
 2. Turn **ALGORITHM** to pick the instrument. The keys play its sound.
 3. Press **REC**. A coral dot shows in the header and **PLAY** turns red. The screen shows the groove as
    bars, with the instrument's notes in each, and "REC C1 · starts with PLAY". The footer shows "[REC] stop".
-4. Press **PLAY** and play. The groove loops, and each pass adds to what's there (overdub). You hear a new
+4. Press **PLAY**. The click counts in one bar while the band waits: "Count-in 4" at the top, and the beats
+   left large in bar 1. Then the groove starts. Play. The groove loops, and each pass adds to what's there (overdub). You hear a new
    note from the next pass on. The screen shows where you are: "REC C1 · pass 2 · adding". Under it,
    "groove bar 1 / 2 · prog bar 3 / 4" shows the groove's bar, and the progression's bar if one is playing.
 5. Press **REC** again to stop recording. The groove keeps playing.
@@ -610,8 +612,14 @@ length page.
 
 ### Good to know
 
-- **The click.** A woodblock counts the beats while you record. It always clicks during REC's count-in to
-  the next bar line. Setup's Click knob sets it to off, rec or on.
+- **The click.** A woodblock counts the beats while you record. It always clicks during a count-in. Setup's
+  Click knob sets it to off, rec or on.
+- **REC, then PLAY** plays one bar of count-in first. Only the click plays, and the band waits at its start.
+  The header shows "Count-in 4", counting down. Recording starts on the band's first beat. A note played
+  just before it lands on it. This works for every kind of recording: an instrument, a new progression,
+  chords, a melody or sections. Press **PLAY** during the count-in to stop. MIDI start goes out when the band
+  starts, after the count-in, so a computer recording Polly stays in time. When Polly follows MIDI clock,
+  there's no count-in: the clock's start is the start.
 - **The grid.** Band's **KNOB 1** (Grid) moves the notes you record to the nearest 8th, 8th triplet, 16th,
   16th triplet or 32nd. "off" leaves them as you played them. Clockwise is finer: 8, 8T, 16, 16T, 32, off.
 - **As played.** The first time you record into an empty instrument of type Chord 1, Chord 2 or Bass, Polly
@@ -748,8 +756,8 @@ not. It has three parts.
 **More about melodies:**
 
 - **Punch in.** On the Song page, move the cursor to the section with **KNOB 1** (Section). Then, on
-  **EDIT**, press **REC** and **PLAY**. The song starts at that section, REC's screen rings it, and
-  recording starts on its first downbeat. When stopped, pressing **REC** while free or on a progression
+  **EDIT**, press **REC** and **PLAY**. After a bar of count-in, the song starts at that section.
+  REC's screen rings it, and recording starts on its first downbeat. When stopped, pressing **REC** while free or on a progression
   switches to the song first.
 - **A second melody.** Turn **ALGORITHM** to M2, and recording continues into it. M1's notes show dimly
   under M2's, so you can play against them.
@@ -1072,7 +1080,8 @@ QY70 bank's line.
 
 The click is on MIDI channel 16, so it goes out over MIDI too. It sits a little under the band, and
 instrument mutes don't silence it. REC's count-in always clicks, even with Click off. The count-in is the
-beats before a take starts at the next bar line, for an instrument or for a new progression on Home.
+bar of clicks before PLAY starts a recording, or the beats before a take starts at the next bar line while
+playing.
 
 The last line shows the QY70 bank: none, the number of styles, "damaged" or "old format".
 

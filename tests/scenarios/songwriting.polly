@@ -69,7 +69,7 @@ turn SELECT -1
 expect page 6
 wait 100
 shot after_ending_seq.png
-# ---- writing chords in time (REC on HOME in LOOP, then PLAY): Dm 300 ms into bar 2 (its first chord, late): bar 2's
+# ---- writing chords in time (REC on HOME in LOOP, then PLAY: a bar of count-in first): Dm 300 ms into bar 2 (its first chord, late): bar 2's
 # downbeat (beat 4), not beat 5; Em 350 ms after bar 3's beat 2 (not a first beat): the nearest beat, 3.3 (beat 10)
 tap HOME
 expect page 0
@@ -77,6 +77,11 @@ tap REC
 expect rec_chords 1
 expect footer_is_KEYS_chords|REC_stop 1
 tap PLAY
+wait 1200
+expect count_in 2
+shot loop_rec_count_in.png
+wait 1200
+expect count_in 0
 wait 2620
 key 9 down
 key 12 down
@@ -171,6 +176,7 @@ expect playing 0
 expect sect 3
 expect cursor 1
 # ---- LD1, armed stopped with SONG's cursor on row 2: PLAY starts row 2 and records from its downbeat
+# (after a bar of count-in)
 spin K1 1
 expect cursor 2
 tap EDIT
@@ -184,6 +190,7 @@ shot lead_armed_row2.png
 tap PLAY
 expect playing 1
 expect row 2
+wait 2400
 wait 520
 key 7 down
 wait 300

@@ -63,8 +63,15 @@ expect rec_shown 1
 expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 wait 1500
 shot lead_armed.png
-# PLAY here: the song from row 1; the keys go into LD1 at their places (row 1: C4 E4 G4, row 2: A4 C5)
+# PLAY here: a bar of count-in (the click only, "Count-in 4" up top), then the song from row 1; the keys go into LD1 at
+# their places (row 1: C4 E4 G4, row 2: A4 C5)
 tap PLAY
+wait 300
+expect playing 1
+expect count_in 4
+shot lead_count_in.png
+wait 1700
+expect count_in 0
 wait 960
 key 7 down
 wait 400
@@ -119,6 +126,7 @@ shot lead_punch_armed.png
 tap PLAY
 expect playing 1
 expect row 3
+wait 2000
 wait 1170
 key 9 down
 wait 400
@@ -302,6 +310,7 @@ expect mode 2
 tap PLAY
 expect playing 1
 expect row 4
+wait 2000
 wait 1262
 key 7 down
 wait 300
@@ -320,9 +329,9 @@ expect lead_notes 9
 expect lead_count1_4 2
 expect lead8_row 4
 expect lead8_vel 80
-# played: 1287 and 2129 ticks into the row (off the grid)
-expect lead8_pos 1287
-expect lead9_pos 2129
+# played: 1290 and 2131 ticks into the row (off the grid)
+expect lead8_pos 1290
+expect lead9_pos 2131
 tap SEQ
 turn K1 -3
 expect quant 2
@@ -361,7 +370,7 @@ tap REC
 release HOME
 wait 50
 expect msgtext_is_UNDO_QUANTISE 1
-expect lead8_pos 1287
+expect lead8_pos 1290
 press HOME
 tap PLAY
 release HOME

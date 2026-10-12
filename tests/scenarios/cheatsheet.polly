@@ -34,13 +34,19 @@ expect sect 3
 shot home_playing.png
 tap PLAY
 wait 300
-# ---- Write a progression: Prog "-" (KNOB 4: free), REC, PLAY, a chord a bar (C, then F), REC
+# ---- Write a progression: Prog "-" (KNOB 4: free), REC, PLAY (a bar of count-in), a chord a bar (C, then F), REC
 turn K4 -9
 expect mode 0
 tap REC
 expect take 1
 expect tag_is_S1>new_P9 1
 tap PLAY
+wait 1200
+expect count_in 2
+expect take 1
+shot home_count_in.png
+wait 1200
+expect count_in 0
 wait 100
 key 7 down
 key 11 down
@@ -181,9 +187,10 @@ expect trk1_mute 0
 turn ALGO 4
 expect track 5
 wait 1400
-# (recording an instrument: SEQ, REC, PLAY, play; REC again stops; for the manual's figure)
+# (recording an instrument: SEQ, REC, PLAY (a bar of count-in), play; REC again stops; for the manual's figure)
 tap REC
 tap PLAY
+wait 2400
 wait 2500
 tapkey 7
 wait 600

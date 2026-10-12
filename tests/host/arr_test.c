@@ -3409,15 +3409,18 @@ static void test_record_from_bar(void)
     CHECK(arr_rec_bars == 2 && arr_bar == 1 && arr_rec_bars / 2 + 1 == 2, "bar 2 again: pass 2 (%d)", arr_rec_bars);
     arr_play(0);
     run_blocks(1);
-    /* stopped: REC waits for PLAY, then records from its downbeat */
+    /* stopped: REC waits for PLAY (the app's, with a recording armed: its count-in, a bar), then records from the
+     * band's downbeat after it */
     arr_record(5, 0);
     arr_record(5, ARR_REC_BAR);
     run_blocks(1);
     CHECK(arr_recording == 1 && arr_rec_wait == 1, "stopped: armed");
     stub_n = 0;
-    arr_play(1);
+    arr_play(ARR_PLAY_COUNT);
     run_blocks(1);
-    CHECK(arr_rec_wait == 0 && arr_rec_bars == 0, "from PLAY's downbeat");
+    CHECK(arr_rec_wait == 1 && arr_pre > 0 && arr_playing, "PLAY: its count-in first, still waiting");
+    run_to(stub_frame + (uint32_t)(96 * FPT));
+    CHECK(arr_rec_wait == 0 && arr_rec_bars == 0 && arr_pre == 0, "from the band's downbeat, after the count-in");
     key_at((float)stub_frame / FPT + 10.f, 67, 1);
     key_at((float)stub_frame / FPT + 6.f, 67, 0);
     run_blocks(400);
@@ -4007,6 +4010,146 @@ static void test_lead_countin(void)
     arr_leads(0);
 }
 
+/* ---- PLAY's count-in (ARR_PLAY_COUNT: the app's, a recording armed): one bar of the click only (its downbeat high,
+ * the others low, whatever the click's mode), the band silent and standing at its tick 0 (arr_beats, arr_bar), MIDI
+ * start and clock only when the band starts; then the band from its tick 0 as PLAY, recording from there: a key in the
+ * count-in only sounds, one a little early lands on tick 0 (a track's, a lead's row's). A stop in it: nothing started,
+ * no FA, no FC. Following MIDI clock in: no count-in */
+static void test_count_in(void)
+{
+    static const int lo[2] = {0, 1}, re[2] = {1, 1};
+    arr_lnote_t n[4];
+    const float bar = 96.f * FPT;              /* a bar at 120 BPM, frames */
+    int i, k, clicks = 0, band = 0, fa = -1, f8_before = 0;
+    uint32_t t0;
+    float u0;
+    reset();
+    loops_reset();
+    pat_new();
+    add(0, 0, 6, 36);                          /* the kick and track 4 on the band's tick 0 */
+    add(4, 0, 12, 60);
+    arr_load_pattern(SA, &P);
+    arr_set_tempo(120);
+    arr_set_chord(ch(0, CH_MAJ));
+    arr_click(ARR_CLICK_OFF, 0);               /* (the count-in clicks anyway) */
+    arr_midi_out_on(1);
+    arr_record(5, ARR_REC_BAR);
+    run_blocks(1);
+    stub_n = out_n = 0;
+    t0 = stub_frame;
+    u0 = (float)t0 / FPT;
+    arr_play(ARR_PLAY_COUNT);
+    run_to(t0 + (uint32_t)(50 * FPT));         /* the count-in's beat 3 */
+    CHECK(arr_playing && arr_pre > 0 && arr_beats == 0 && arr_bar == 0 && arr_beat_tick == 0 && arr_rec_wait,
+          "counting in: playing, standing at tick 0, waiting (%u %u %d %d)", arr_pre, arr_beats, arr_bar, arr_beat_tick);
+    key_at(u0 + 52.f, 64, 1);                  /* the count-in's beat 3: it only sounds */
+    key_at(u0 + 58.f, 64, 0);
+    key_at(u0 + 95.f, 67, 1);                  /* a 24th early (20 ticks): onto the band's tick 0 */
+    key_at(u0 + 105.f, 67, 0);
+    run_to(t0 + (uint32_t)(2.f * bar));
+    for (i = 0; i < stub_n; i++) {
+        const stub_msg_t *m = &stub_log[i];
+        if (!is_on(m) || (float)m->frame >= (float)t0 + bar - ON_TOL)
+            continue;
+        if ((m->st & 15) == ARR_CLICK_CHAN) {
+            CHECK(near(stub_log, i, (float)t0 + (float)clicks * 24.f * FPT) &&
+                  m->d1 == (clicks ? ARR_CLICK_LO : ARR_CLICK_HI), "click %d on its beat, its downbeat high (%u %d)",
+                  clicks, m->frame, m->d1);
+            clicks++;
+        } else if ((m->st & 15) != (P.trk[5].chan & 15))   /* (the keys sound on track 5's channel) */
+            band++;
+    }
+    CHECK(clicks == 4 && band == 0, "the count-in: 4 clicks, the band silent (%d %d)", clicks, band);
+    i = find(stub_log, stub_n, 0, 0x99, 36);
+    CHECK(near(stub_log, i, (float)t0 + bar), "the band from its tick 0 a bar after PLAY (%u)", i >= 0 ? stub_log[i].frame : 0);
+    i = find(stub_log, stub_n, 0, 0x92, 60);
+    CHECK(near(stub_log, i, (float)t0 + bar), "track 4 too");
+    k = 0;
+    for (i = 0; i < stub_n; i++)
+        k += is_on(&stub_log[i]) && (stub_log[i].st & 15) == ARR_CLICK_CHAN;
+    CHECK(k == 4, "CLICK off: no click after the count-in (%d)", k);
+    for (i = 0; i < out_n && fa < 0; i++) {
+        if (out_log[i].st == 0xFA)
+            fa = i;
+        f8_before += out_log[i].st == 0xF8;
+    }
+    CHECK(fa >= 0 && f8_before == 0 && (float)out_log[fa].frame >= (float)t0 + bar - 2.f * TOL,
+          "MIDI out: FA when the band starts, no clock before it (%d %d %u)", fa, f8_before, fa >= 0 ? out_log[fa].frame : 0);
+    CHECK(find(out_log, out_n, 0, 0x90 | ARR_CLICK_CHAN, ARR_CLICK_HI) >= 0 &&
+          find(out_log, out_n, 0, 0x90 | ARR_CLICK_CHAN, ARR_CLICK_HI) < fa, "the count-in's clicks out before it");
+    CHECK(fa >= 0 && find(out_log, out_n, fa, 0x99, 36) > fa, "the band's notes out after it");
+    arr_record(5, 0);
+    run_blocks(1);
+    arr_pattern_copy(SA, &P);
+    i = P.trk[5].first;
+    CHECK(P.trk[5].count == 1 && P.ev[i].tick == 0 && P.ev[i].note == 67, "recorded: the early key on tick 0, not the "
+          "count-in's (%d: %d %d)", P.trk[5].count, P.trk[5].count ? P.ev[i].tick : -1, P.trk[5].count ? P.ev[i].note : -1);
+    arr_play(0);
+    run_blocks(1);
+    CHECK(offs_match(stub_log, stub_n), "offs match");
+    /* a stop in the count-in: nothing started (no FA, no FC, no band), the transport stopped */
+    out_n = stub_n = 0;
+    arr_record(5, ARR_REC_BAR);
+    arr_play(ARR_PLAY_COUNT);
+    run_blocks(40);
+    arr_play(0);
+    run_blocks(2);
+    CHECK(!arr_playing && arr_pre == 0 && arr_recording, "stopped in the count-in (REC still armed)");
+    CHECK(find(out_log, out_n, 0, 0xFA, 0) < 0 && find(out_log, out_n, 0, 0xFC, 0) < 0 && find(stub_log, stub_n, 0, 0x99, 36) < 0,
+          "no FA, no FC, no band");
+    /* PLAY (no count-in) as before: the band at once */
+    stub_n = 0;
+    t0 = stub_frame;
+    arr_play(1);
+    run_blocks(4);
+    i = find(stub_log, stub_n, 0, 0x99, 36);
+    CHECK(i >= 0 && stub_log[i].frame < t0 + 512u && arr_pre == 0, "PLAY alone: at once");
+    arr_play(0);
+    arr_record(5, 0);
+    run_blocks(1);
+    /* following MIDI clock in: no count-in (the far side's start is the start) */
+    for (i = 0; i < 4; i++) {
+        arr_clock(ARR_CLK_TICK);
+        run_blocks(1);
+    }
+    arr_record(5, ARR_REC_BAR);
+    arr_play(ARR_PLAY_COUNT);
+    run_blocks(1);
+    CHECK(arr_ext && arr_pre == 0, "following a clock: no count-in (%d %u)", arr_ext, arr_pre);
+    arr_clock(ARR_CLK_STOP);
+    arr_play(0);
+    arr_record(5, 0);
+    run_blocks(1);
+    /* a lead armed in a song: the count-in, then row 1 from its first downbeat; a key in the count-in only sounds, one
+     * a little early is the row's tick 0 */
+    reset();
+    loops_reset();
+    load_slots(4);
+    ld_reset();
+    lead_song(2, lo, re);
+    arr_mode_song(&SG, 0);
+    arr_record(ARR_LD1, ARR_REC_BAR);
+    run_blocks(1);
+    t0 = stub_frame;
+    u0 = (float)t0 / FPT;
+    arr_play(ARR_PLAY_COUNT);
+    run_to(t0 + (uint32_t)(30 * FPT));
+    CHECK(arr_pre > 0 && arr_recording && arr_rec_wait, "a lead: counting in");
+    key_at(u0 + 40.f, 64, 1);
+    key_at(u0 + 46.f, 64, 0);
+    key_at(u0 + 95.f, 67, 1);
+    key_at(u0 + 105.f, 67, 0);
+    run_to(t0 + (uint32_t)(130 * FPT));
+    CHECK(!arr_rec_wait && arr_pre == 0, "a lead: recording after the count-in");
+    k = take_all(n, 4);
+    CHECK(k == 1 && n[0].row == 0 && n[0].pos == 0 && n[0].note == 67, "the early key: row 1's tick 0 (%d: %d %u %d)",
+          k, k ? n[0].row : -1, k ? n[0].pos : 0, k ? n[0].note : -1);
+    arr_play(0);
+    run_blocks(1);
+    arr_record(4, 0);
+    run_blocks(1);
+    arr_leads(0);
+}
 /* the pattern playing given more (or fewer) bars while a loop plays: its bar is the loop's again (the bars since the
  * loop's beat 0, modulo its bars), the place in the bar kept */
 static void test_bars_realign(void)
@@ -4404,6 +4547,7 @@ int main(void)
     test_lead_record_busy();
     test_lead_record_restart();
     test_lead_countin();
+    test_count_in();
     test_bars_realign();
     test_ended_section();
     test_record_pickup();

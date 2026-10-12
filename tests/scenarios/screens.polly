@@ -120,6 +120,9 @@ tap REC
 expect take 1
 shot home_rec_wait.png
 tap PLAY
+wait 1000
+shot home_rec_count_in.png
+wait 1000
 wait 2600
 shot home_rec_take.png
 key 7 down

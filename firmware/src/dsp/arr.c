@@ -33,6 +33,7 @@ volatile uint32_t arr_beats;
 volatile uint32_t arr_chord_now;
 volatile uint32_t arr_track_hit[ARR_ALLTRK];
 volatile uint32_t arr_ticks;
+volatile uint32_t arr_pre;
 
 /* ------------------------------------------------------------ commands --- */
 enum { C_PLAY, C_TEMPO, C_CHORD, C_SECTION, C_MUTE, C_MOUT, C_CLOCK, C_MODE, C_TRANSPOSE, C_LIVE,
@@ -67,7 +68,7 @@ static uint8_t seen[ARR_NSECT];
 static const loop_t *loops;
 static volatile uint8_t edit_busy;
 
-void arr_play(int on) { post(C_PLAY, on != 0, 0); }
+void arr_play(int on) { post(C_PLAY, on != 0, on == ARR_PLAY_COUNT); }
 void arr_set_tempo(int bpm) { post(C_TEMPO, (uint32_t)(bpm < 40 ? 40 : bpm > 240 ? 240 : bpm), 0); }
 void arr_set_chord(chord_t c) { post(C_CHORD, arr_chord_pack(c), 0); }
 void arr_section(int sec) { post(C_SECTION, (uint32_t)sec, 0); }
@@ -438,6 +439,10 @@ static void note_start(int ti, int in, int out, int vel, int chan, int len)
 static track_t ck;
 static uint8_t ck_mode, ck_rec;                    /* ARR_CLICK_*; the app's REC on */
 static uint32_t ck_until;                          /* the app's count-in: the beats before this one click */
+/* PLAY's count-in (ARR_PLAY_COUNT): the render ticks of its bar left (arr_pre), of pre_len. Meanwhile the transport
+ * has started (arr_playing, the section, the source, the song's row all set as at tick 0) but stands at tick 0: only
+ * the click plays (pre_tick), and recording waits for the band's tick 0, which is render tick arr_ticks + pre */
+static uint32_t pre, pre_len;
 #define CK_LEN (ARR_PPQ / 8)                       /* a click's length, ticks */
 static void all_off(void)
 {
@@ -703,6 +708,9 @@ static uint8_t rec_wait;                           /* recording from the next ba
 static uint8_t in_tick;                            /* inside tick(): the tick arr_ticks - 1 is playing */
 static uint8_t erase_pend[ARR_NSECT], erase_ident[ARR_NSECT];   /* erases waiting for a load to finish */
 static uint32_t tick_now(void) { return in_tick ? arr_ticks - 1 : arr_ticks; }
+/* a key in PLAY's count-in (the band's tick 0 pre ticks ahead) lands on that tick 0 when it is the nearest grid line:
+ * within half a grid step of it (a little early, as at a bar line; grid off: never). Earlier: it only sounds */
+static int pre_lands(void) { return 2u * pre <= QUANT_TICKS[quant]; }
 
 /* the key's time: the tick nearest the block's start (the tick before pos when it is nearer than pos), as a
  * render tick; *kpos its place in the pattern. no_back: never back across the loop's start (to tick 0) */
@@ -834,19 +842,26 @@ static void rec_press(int key, int snd, int vel)
     if (!r || busy[cur] || bk[cur])
         return;                                    /* more than REC_N held: this one only sounds (a bank section:
                                                     * the app gives the slot a pattern before recording) */
-    kabs = key_tick(&kpos, quant == ARR_Q_OFF);   /* grid off: a key at the loop's start is its tick 0 */
-    m = kpos % q;
-    if (2 * m >= q) {                              /* to the nearest grid line */
-        kpos += q - m;
-        kabs += q - m;
+    if (pre) {                                     /* PLAY's count-in: only a key landing on the band's tick 0 */
+        if (!pre_lands())
+            return;
+        kpos = 0;
+        kabs = arr_ticks + pre;
     } else {
-        kpos -= m;
-        kabs -= m;
+        kabs = key_tick(&kpos, quant == ARR_Q_OFF);   /* grid off: a key at the loop's start is its tick 0 */
+        m = kpos % q;
+        if (2 * m >= q) {                          /* to the nearest grid line */
+            kpos += q - m;
+            kabs += q - m;
+        } else {
+            kpos -= m;
+            kabs -= m;
+        }
+        if (kpos >= plen)                          /* just before the loop's start: its tick 0 */
+            kpos -= plen;
+        if (rec_wait && (kpos % bar_len(p) != 0 || (int32_t)(kabs - arr_ticks) < 0))
+            return;                                /* waiting for the bar line: only a key landing on it */
     }
-    if (kpos >= plen)                              /* just before the loop's start: its tick 0 */
-        kpos -= plen;
-    if (rec_wait && (kpos % bar_len(p) != 0 || (int32_t)(kabs - arr_ticks) < 0))
-        return;                                    /* waiting for the bar line: only a key landing on it */
     r->key = (uint8_t)key;
     r->snd = (uint8_t)snd;
     r->vel = (uint8_t)vel;
@@ -1200,20 +1215,27 @@ static void lead_press(int key, int snd, int vel) /* a key on a lead, recording,
             r = &lrec[i];
     if (!r)
         return;                                    /* more than LREC_N held: it only sounds */
-    if (!first_tick && !start_wait && ftt > 0 && (uint32_t)ftt > pace / 2 && ld_tick > 0)
-        back = 1;                                  /* the tick before is nearer the key than the next one */
-    kt = ld_tick - back;
-    kabs = arr_ticks - back;
-    m = kt % q;
-    if (2 * m >= q) {                              /* to the nearest grid line */
-        kt += q - m;
-        kabs += q - m;
+    if (pre) {                                     /* PLAY's count-in: only a key landing on the row's tick 0 */
+        if (!pre_lands())
+            return;
+        kt = ld_tick;
+        kabs = arr_ticks + pre;
     } else {
-        kt -= m;
-        kabs -= m;
+        if (!first_tick && !start_wait && ftt > 0 && (uint32_t)ftt > pace / 2 && ld_tick > 0)
+            back = 1;                              /* the tick before is nearer the key than the next one */
+        kt = ld_tick - back;
+        kabs = arr_ticks - back;
+        m = kt % q;
+        if (2 * m >= q) {                          /* to the nearest grid line */
+            kt += q - m;
+            kabs += q - m;
+        } else {
+            kt -= m;
+            kabs -= m;
+        }
+        if (rec_wait && (kt % bar_len(&pat[cur]) != 0 || (int32_t)(kabs - arr_ticks) < 0))
+            return;                                /* counting in to the bar line: only a key landing on it */
     }
-    if (rec_wait && (kt % bar_len(&pat[cur]) != 0 || (int32_t)(kabs - arr_ticks) < 0))
-        return;                                    /* counting in to the bar line: only a key landing on it */
     len = row_ticks();
     if (kt >= len) {                               /* just before the next row: its tick 0 */
         if (row + 1 < sn.nrows)
@@ -1414,6 +1436,7 @@ static void transport_start(void)
     uint8_t s = arr_next_sect, to = fill_to;
     rec_flush(1);
     lrec_flush(1);                                 /* (a restart while playing: a lead's keys held end here) */
+    pre = arr_pre = 0;                             /* (a count-in: C_PLAY sets it after) */
     arr_ended = 0;
     chord_owed = 0;
     first_tick = 1;
@@ -1474,13 +1497,14 @@ static void transport_stop(void)
     arr_playing = 0;
     arr_ended = 0;
     start_wait = 0;
+    pre = arr_pre = 0;                             /* (a count-in: cancelled) */
     ext_pend = 0;                                  /* no tick after a stop */
     all_off();
     ctl_reset();
 }
 static void stop_ours(void)                        /* a stop of ours (PLAY, an ending, a song's end): FC out */
 {
-    int started = !start_wait;
+    int started = !start_wait && !pre;             /* (in the count-in: no FA went, no FC either) */
     transport_stop();
     if (clk_out && started)
         out_rt(0xFCu);
@@ -1744,7 +1768,7 @@ static void click_beat(int down)
 {
     static const uint8_t CC[4] = {7, 10, 91, 93}, V[4] = {ARR_CLICK_VOL, 64, 0, 0};
     const uint32_t c = ARR_CLICK_CHAN;
-    int count = (rec_on && rec_wait) || beat_now < ck_until;
+    int count = (rec_on && rec_wait) || beat_now < ck_until || pre;
     uint32_t note = down ? ARR_CLICK_HI : ARR_CLICK_LO;
     held_t *h;
     if (!count && ck_mode != ARR_CLICK_ON && !(ck_mode == ARR_CLICK_REC && (rec_on || ck_rec)))
@@ -1864,6 +1888,23 @@ static void events(int play)
     }
     next_ev = nx;
 }
+/* a tick of PLAY's count-in: the click on its beat lines (the first high, as a downbeat), the notes due (the clicks)
+ * end; the band stays at its tick 0 (no place, beat, chord, F8 moving). Its last: MIDI start (FA) out, the band's tick
+ * 0 (and its F8) the next tick, so a DAW following records in step with it */
+static void pre_tick(void)
+{
+    uint32_t done = pre_len - pre;
+    arr_ticks++;
+    in_tick = 1;
+    if ((int32_t)(next_end - arr_ticks) <= 0)
+        ends_due();
+    if (done % ARR_PPQ == 0)
+        click_beat(done == 0);
+    in_tick = 0;
+    arr_pre = --pre;
+    if (!pre && clk_out)
+        out_rt(0xFAu);
+}
 /* k ticks with nothing played (clocks in bunched far behind), none of them a beat line (the place stops at the
  * next one at most): the notes that end in them end, the events in them are passed over (wake), the F8 count
  * and the place move on */
@@ -1981,6 +2022,7 @@ static void chord_change(chord_t c, int restrike)
 static void clock_in(int msg)
 {
     start_wait = 0;                                /* following a clock: its start, not ours */
+    pre = arr_pre = 0;                             /* (a clock in during a count-in: it leads, from tick 0) */
     if (msg == ARR_CLK_TICK) {
         arr_ext = 1;
         clk_out = 0;                               /* following a clock: ours is not sent */
@@ -2033,7 +2075,13 @@ static void drain(void)
             if (a) {
                 clk_out = mout && !arr_ext;
                 transport_start();
-                if (clk_out)                       /* the far side's sounds before its first downbeat */
+                if (b && !arr_ext) {               /* the count-in: a bar of the section starting, clicks only (the
+                                                    * sounds go out meanwhile; FA at its end: pre_tick) */
+                    pre = pre_len = arr_pre = cur_blen;
+                    arr_beats = 0;                 /* (the screen's places: the start's, not the last play's) */
+                    lbeat = 0;
+                    arr_bar = arr_beat_tick = 0;
+                } else if (clk_out)                /* the far side's sounds before its first downbeat */
                     start_wait = 1;                /* (arr_block: then FA, and tick 0, F8 and its notes) */
             } else if (arr_playing)
                 stop_ours();
@@ -2066,11 +2114,13 @@ static void drain(void)
                 out_pend = arr_playing;
                 if (arr_playing && !arr_ext) {     /* playing on our clock: start the far side now */
                     clk_out = 1;
-                    clk_div = 0;                   /* its first F8 at our next tick */
-                    out_rt(0xFAu);
+                    if (!pre) {                    /* (in the count-in: at its end, pre_tick) */
+                        clk_div = 0;               /* its first F8 at our next tick */
+                        out_rt(0xFAu);
+                    }
                 }
             } else if (!a && mout) {
-                if (clk_out && !start_wait)
+                if (clk_out && !start_wait && !pre)
                     out_rt(0xFCu);
                 start_wait = 0;
                 clk_out = 0;
@@ -2257,7 +2307,10 @@ static void block(uint32_t frames)
         at = (uint32_t)(f + (1 << 16)) >> 17;
         if (at >= frames / 2)
             at = frames / 2 - 1;
-        tick(1);
+        if (pre)
+            pre_tick();                            /* PLAY's count-in first */
+        else
+            tick(1);
         ftt += (int32_t)fpt;
     }
     at = 0;                                        /* the rest (commands, MIDI clock in): the block's start */
@@ -2338,6 +2391,7 @@ void arr_init(void)                                /* at boot, before the render
     arr_next_sect = SEC_SAME;
     arr_bar = arr_beat_tick = 0;
     arr_ticks = 0;
+    pre = pre_len = arr_pre = 0;
     memset(keys_prev, 0, sizeof keys_prev);
     memset(rec, 0, sizeof rec);
     n_live = 0;

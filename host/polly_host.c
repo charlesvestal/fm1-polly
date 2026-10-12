@@ -732,6 +732,8 @@ static int expect(const char *what, const char *val)
             got |= (int)(dim_keys >> BLACK_K[i] & 1u) << i;
     } else if (!strcmp(what, "playing"))
         got = arr_playing;
+    else if (!strcmp(what, "count_in"))           /* PLAY's count-in: its beats left (4 3 2 1), 0 none */
+        got = count_beats();
     else if (!strcmp(what, "rec_wait"))           /* REC waiting for its bar line (or PLAY) */
         got = arr_rec_wait;
     else if (!strcmp(what, "rec_pass"))           /* recording a track: its pass, 1.. (from the bar it started on) */

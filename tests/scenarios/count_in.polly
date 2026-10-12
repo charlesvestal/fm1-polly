@@ -1,0 +1,171 @@
+# POLLY, PLAY's count-in: from a stop with a recording armed, PLAY plays one bar of the click first (its downbeat high,
+# the others low; even with CLICK off), the band silent and standing at its start ("Count-in 4" up top, the beats
+# left big in the bar it starts on), then starts as PLAY does, recording live from its first beat: an instrument (its
+# tick 0), a new progression's take (its beat 0), a melody (its section's first beat; the Intro is not played while a
+# melody records, as before). A key in the count-in only sounds; one a little early lands on the first beat. PLAY in
+# the count-in stops (REC stays armed). MIDI out is on (the default): the click's notes go out on channel 16
+# (clicks_out); MIDI start only when the band starts. Keys (octave 0): key K is MIDI 53 + K. 120 BPM: a bar is 2 s.
+wait 300
+spin K2 15
+expect tempo 120
+# CLICK off (Setup): the count-in clicks anyway, nothing after it
+tap GLO
+turn K4 -1
+expect click 0
+# ---- an instrument: LOOP P1, SEQ, C1 erased, REC armed while stopped
+press HOME
+tapkey w0
+release HOME
+expect mode 1
+tap SEQ
+expect page 6
+expect track 5
+tap SEL
+spin SELECT 20
+spin SELECT -3
+wait 159
+tap SEL
+expect asking 1
+tap SEL
+wait 100
+expect slot1_trk5_count 0
+tap REC
+wait 50
+expect recording 1
+expect rec_wait 1
+hitreset
+tap PLAY
+wait 100
+expect playing 1
+expect count_in 4
+expect heard_ch16 84
+wait 700
+expect count_in 3
+expect heard_ch16 77
+expect clicks_out 2
+wait 100
+shot band_count_in.png
+# a key in the count-in: it sounds, not kept
+tapkey 7
+wait 800
+expect count_in 1
+expect rec_wait 1
+expect clicks_out 4
+expect track_hits1 0
+expect track_hits2 0
+expect track_hits3 0
+expect track_hits4 0
+expect track_hits6 0
+expect track_hits7 0
+expect track_hits8 0
+# a key a little early (40 ms): on the band's first beat, tick 0
+wait 90
+key 19 down
+wait 300
+key 19 up
+wait 100
+expect count_in 0
+expect rec_wait 0
+expect track_hits1 >0
+wait 2000
+expect clicks_out 4
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+expect slot1_trk5_count 1
+expect slot1_trk5_tick0 0
+# ---- PLAY in the count-in: a stop, nothing started (REC stays armed)
+tap REC
+wait 50
+expect recording 1
+hitreset
+tap PLAY
+wait 600
+expect count_in 3
+tap PLAY
+wait 100
+expect playing 0
+expect count_in 0
+expect recording 1
+expect track_hits1 0
+tap REC
+wait 50
+expect recording 0
+# ---- a new progression: Home, Prog "-" (free), REC, PLAY: a chord in the count-in only sounds; the one on the band's
+# first beat is the take's beat 0
+tap HOME
+expect page 0
+turn K4 -20
+expect mode 0
+tap REC
+expect take 1
+tap PLAY
+wait 1000
+expect take 1
+expect count_in 2
+key 4 down
+key 7 down
+key 11 down
+wait 100
+key 4 up
+key 7 up
+key 11 up
+wait 100
+shot home_count_in.png
+wait 900
+expect take 2
+key 7 down
+key 11 down
+key 14 down
+wait 100
+key 7 up
+key 11 up
+key 14 up
+wait 2000
+tap REC
+expect take 0
+expect loop_bars9 1
+expect loop_ch9_0 0
+expect loop_ch9_1 -1
+tap PLAY
+wait 300
+expect playing 0
+# ---- a melody: a song of one section (P1), its Intro on; Sound, M1, REC (the song first), PLAY: the count-in, then
+# section 1 (no Intro while a melody records) from its first beat; a key a little early: the section's place 0
+tap HOME
+wait 80
+expect page 1
+tapkey w0
+expect rows 1
+turn SELECT 1
+expect song_intro 1
+turn SELECT -1
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+tap REC
+wait 50
+expect recording 1
+expect mode 2
+hitreset
+tap PLAY
+wait 300
+expect count_in 4
+expect row 1
+shot melody_count_in.png
+wait 1680
+key 7 down
+wait 400
+key 7 up
+expect count_in 0
+expect sect 2
+wait 600
+tap REC
+wait 50
+tap PLAY
+wait 100
+expect lead_notes 1
+expect lead1_pos 0
+expect lead1_note 60

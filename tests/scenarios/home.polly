@@ -111,7 +111,8 @@ shot song_ending.png
 wait 6000
 expect playing 0
 expect page 0
-# ---- a new progression's take (REC in FREE): the REC line, the bars growing; waiting for PLAY first
+# ---- a new progression's take (REC in FREE): the REC line, the bars growing; waiting for PLAY first, then a bar of
+# count-in (its beats left big in bar 1)
 wait 100
 turn K4 -20
 wait 100
@@ -121,6 +122,11 @@ expect take 1
 wait 50
 shot rec_wait.png
 tap PLAY
+wait 1000
+expect take 1
+expect count_in 2
+shot rec_count_in.png
+wait 1000
 wait 2300
 expect take 2
 key 4 down

@@ -111,7 +111,7 @@ wait 1300
 shot band_playing.png
 tap PLAY
 wait 300
-# recording C1 (REC, PLAY: from the next bar line): a note recorded flashes its bar; undo flashes C1's row on Band
+# recording C1 (REC, PLAY: after a bar of count-in): a note recorded flashes its bar; undo flashes C1's row on Band
 tap REC
 tap PLAY
 wait 2300

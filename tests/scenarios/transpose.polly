@@ -88,7 +88,7 @@ tap PLAY
 wait 100
 expect mode 2
 expect playing 0
-# EDIT: ALGORITHM to LD1; REC arms it, PLAY starts the song from row 1
+# EDIT: ALGORITHM to LD1; REC arms it, PLAY starts the song from row 1 (after a bar of count-in)
 tap EDIT
 turn ALGO 4
 expect lead_sel 1
@@ -97,6 +97,7 @@ wait 50
 expect recording 1
 hitreset
 tap PLAY
+wait 2000
 wait 960
 key 7 down
 wait 400

@@ -192,6 +192,7 @@ tap REC
 wait 50
 expect recording 1
 tap PLAY
+wait 2000
 wait 960
 key 7 down
 wait 400
@@ -251,7 +252,8 @@ release HOME
 expect trk5_program 2
 expect song1_style1 2
 expect msgtext_is_REDO_C1_SOUND 1
-# ---- a recording pass: C1 on SEQ over L1 (LOOP), two passes of the 2-bar pattern (4 s each), a step each
+# ---- a recording pass: C1 on SEQ over L1 (LOOP), two passes of the 2-bar pattern (4 s each, after a bar of
+# count-in), a step each
 press HOME
 tapkey w0
 release HOME
@@ -263,6 +265,7 @@ tap REC
 wait 1100
 expect recording 1
 tap PLAY
+wait 2000
 wait 1000
 tapkey 19
 wait 1000

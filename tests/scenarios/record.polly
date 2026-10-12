@@ -59,7 +59,7 @@ wait 100
 expect slot1_bars 4
 turn SELECT -1
 expect page 6
-# REC stopped: armed, it starts with PLAY's downbeat
+# REC stopped: armed, it starts after PLAY's count-in (a bar of clicks)
 tap REC
 wait 50
 expect recording 1

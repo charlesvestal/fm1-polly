@@ -1074,6 +1074,7 @@ static int32_t take_beat(void)
         fb++;
     return fb;
 }
+static void take_poll(void);
 /* a chord recognised on the keys (chord_keys): written when REC writes chords, or into the take */
 static void chord_played(const uint8_t *n, int cnt)
 {
@@ -1089,7 +1090,9 @@ static void chord_played(const uint8_t *n, int cnt)
     }
     ui.clifted = 0;
     if (ui.take) {                               /* the take: from its downbeat (waiting: it sounds, not written) */
-        int32_t tb = ui.take == 2 && arr_playing ? take_beat() : -1;
+        int32_t tb;
+        take_poll();                             /* (the band started since the frame's poll: the take with it) */
+        tb = ui.take == 2 && arr_playing ? take_beat() : ui.take == 1 && count_lands() ? 0 : -1;
         if (tb < 0)
             return;
         if (tb == prev)
@@ -1115,7 +1118,13 @@ static void chord_played(const uint8_t *n, int cnt)
             say("WRITE", "from the bar line");
             return;
         }
-        b = live_beat(&sloops.loop[l]);
+        if (arr_pre && !count_lands())
+            return;                              /* PLAY's count-in: it sounds, not written */
+        if (arr_pre) {
+            b = 0;                               /* ... its last half beat: on the loop's first beat */
+            ui.lw_now = 0;
+        } else
+            b = live_beat(&sloops.loop[l]);
         if (b == prev && len > 0) {
             b = (b + 1) % len;                   /* a change on the same beat: the next one */
             ui.lw_now++;
@@ -1259,8 +1268,8 @@ static void chord_rec_stop(void)
 /* each frame: the take waiting starts with PLAY; on, it follows the transport (stopped: it ends) and ends full */
 static void take_poll(void)
 {
-    if (ui.take == 1 && arr_playing) {
-        ui.take = 2;                             /* PLAY: beat 0 is the take's first */
+    if (ui.take == 1 && arr_playing && !arr_pre) {
+        ui.take = 2;                             /* PLAY (after its count-in): beat 0 is the take's first */
         ui.take_b0 = 0;
         ui.take_pos = 0;
     } else if (ui.take == 2) {
@@ -1665,8 +1674,16 @@ static char *pat_name(int st, char *t)           /* "MEMORY 5": a user pattern's
     return itoa_u((uint32_t)st + 1u, cat_s(t, "MEMORY "));
 }
 
+/* PLAY from a stop: with a recording armed (a track's or a melody's REC, a new progression's take, REC writing chords,
+ * REC on SONG) a bar of count-in first, the click only (the engine's ARR_PLAY_COUNT: arr_pre), the recording live from
+ * the band's first beat; else at once */
+static void play_start(void)
+{
+    arr_play(ui.rec_want || arr_recording || ui.take || ui.rec_chords || ui.song_rec ? ARR_PLAY_COUNT : 1);
+}
 /* the song from row r (PLAY on SONG: row 1; SEL's PLAY FROM ROW: the cursor's): stopped, at once (row 1 with its
- * Intro when on); while a loop or FREE plays, or the song, from row r at the next bar line */
+ * Intro when on; a recording armed: after a bar of count-in, play_start); while a loop or FREE plays, or the song, from
+ * row r at the next bar line */
 static void song_play_from(int r)
 {
     const song_t *g = csong();
@@ -1685,7 +1702,7 @@ static void song_play_from(int r)
         itoa_u((uint32_t)r + 1u, cat_s(t, "SECTION "));
         say("NEXT", t);
     } else
-        arr_play(1);
+        play_start();
 }
 static void song_rec_toggle(void);
 /* REC with a lead track selected (SEQ, EDIT): armed in a song (it records while the song's rows play, from the next bar
@@ -1734,7 +1751,10 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
             arr_mode_song(csong(), app.lead && (arr_recording || ui.rec_want) ? lead_row() : 0);
             ui.row_follow = 1;
         }
-        arr_play(!arr_playing);
+        if (arr_playing)
+            arr_play(0);                         /* (in the count-in too: cancelled, as a stop) */
+        else
+            play_start();
         break;
     case B_REC:
     {

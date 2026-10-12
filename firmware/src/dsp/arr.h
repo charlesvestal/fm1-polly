@@ -261,7 +261,16 @@ _Static_assert(sizeof(loops_part_t) == LEAD_HDR + ARR_LOOPS * sizeof(loop_t) && 
  * from beat line to beat line (the notes due to end in the jump end, the beat's chord is set, nothing is
  * restruck); never ahead of the clocks: tick 20 k is not played before clock k + 1. */
 void arr_init(void);
+/* 1 PLAY, 0 stop. ARR_PLAY_COUNT: PLAY with a bar of count-in first (the app's, when it has a recording armed): the
+ * transport starts as PLAY does (the section, an Intro, the song's row, as at tick 0; arr_playing) but stands at tick
+ * 0 for one bar of the section starting (its beats a bar, the tempo), only the click playing (its downbeat high,
+ * whatever the click's mode: a count-in), arr_pre its ticks left; then the band from tick 0, recording armed live
+ * from there (a key in the count-in only sounds, except one landing on tick 0: arr_record). MIDI out: the click's
+ * notes as always; MIDI start (FA) and the clock (F8) only when the band starts. A stop meanwhile cancels it (no FA,
+ * no FC). Following MIDI clock in (arr_ext): no count-in, the far side's start is the start */
+#define ARR_PLAY_COUNT 2
 void arr_play(int on);
+extern volatile uint32_t arr_pre;                  /* PLAY's count-in: its render ticks left, 0 none (the band) */
 void arr_set_tempo(int bpm);                     /* 40..240 */
 void arr_set_chord(chord_t c);                   /* the chord now (live, or the song's) */
 /* slot 0..5 (a section's: sec - 1): Intro, Main A, Main B, Fill AB, Fill BA, Ending (copied) */
@@ -347,7 +356,8 @@ extern volatile uint8_t arr_mode;                /* ARR_* now (a change asked fo
 extern volatile int8_t arr_loop_now;             /* the loop playing (LOOP, or the song's row), -1 none */
 extern volatile uint16_t arr_loop_beat;          /* the beat of that loop sounding (0..len-1) */
 extern volatile uint8_t arr_override;            /* a chord from the keys holds until the source's next change */
-extern volatile uint32_t arr_beats;              /* beats since PLAY (REC in FREE measures its take with it) */
+extern volatile uint32_t arr_beats;              /* beats since PLAY (REC in FREE measures its take with it; a
+                                                  * count-in not counted: 0 until the band's tick 0) */
 /* live chords (fingered): the keys held, as MIDI notes, called on every change (one caller: the main loop).
  * Recognised (chord_recognize) here, only when a key was pressed (the set grew), and set as the chord; in LOOP
  * and SONG it holds until the source's next chord change; keys lifted one by one never re-recognise. The chord
@@ -379,8 +389,8 @@ void arr_track_mute(int trk, int on);
  * note-on only with room for its note-off). */
 enum { ARR_Q_8, ARR_Q_8T, ARR_Q_16, ARR_Q_16T, ARR_Q_32, ARR_Q_OFF, ARR_NQ };   /* 240 160 120 80 60 1 ticks */
 /* the selected track (also arr_key's sound), recording: 0 off, 1 on at once, ARR_REC_BAR from the next bar line
- * (stopped: from PLAY's downbeat). Waiting (arr_rec_wait), the keys only sound, except one whose grid line is that
- * bar line (a key a little early lands on it). Asked again while recording (another track): it goes on. From the
+ * (stopped: from PLAY's downbeat, after its count-in with ARR_PLAY_COUNT). Waiting (arr_rec_wait), the keys only
+ * sound, except one whose grid line is that bar line (a key a little early lands on it). Asked again while recording (another track): it goes on. From the
  * bar line recording starts at, arr_rec_bars counts the bars played (0 the first): the pass is arr_rec_bars /
  * the pattern's bars + 1, counted from where recording started */
 #define ARR_REC_BAR 2
@@ -421,7 +431,8 @@ void arr_midi_out_on(int on);
 void arr_leads(const leads_t *l);                /* at init: the app's lead notes (it stays put) */
 /* Recording: arr_record(ARR_LD1 + k, on) selects lead k (the keys play it: arr_key, on its channel with its sounds,
  * in any mode) and arms it (on: 1 at once; ARR_REC_BAR from the next bar line, counted in by the click as a track's,
- * only a key landing on that bar line recording before it; stopped: from PLAY's downbeat). It records while a song's row plays:
+ * only a key landing on that bar line recording before it; stopped: from PLAY's downbeat, after its count-in). It
+ * records while a song's row plays:
  * each key played becomes a note of the row playing, at its place (the nearest tick to its block, to the nearest
  * line of the grid, arr_set_quant: a key just before a row's end lands on the next row's tick 0), its length to
  * its release (one grid step at least), its root the chord's sounding at its place (a key a little early, before
@@ -445,8 +456,8 @@ extern volatile uint32_t arr_row_tick;           /* the row playing's place (lea
  * (CC 7 ARR_CLICK_VOL, dry), never muted by the tracks' mutes. Its sounds go to the synth with each click (the channel
  * is the click's); MIDI out as the patterns' notes (a note-on only with room for its note-off; its program and volume
  * with the sounds' priority). Mode ARR_CLICK_OFF / REC (while recording: the engine's own, a track or a lead, or the
- * app's REC, `rec`: writing chords, a take) / ON (always while playing). The count-in clicks whatever the mode: a track
- * recording waiting for its bar line (arr_rec_wait), and the beats before `beat` (arr_beats) given to arr_count_in (a
+ * app's REC, `rec`: writing chords, a take) / ON (always while playing). The count-in clicks whatever the mode: PLAY's
+ * (ARR_PLAY_COUNT), a track recording waiting for its bar line (arr_rec_wait), and the beats before `beat` (arr_beats) given to arr_count_in (a
  * free take waiting for its bar; 0: none) */
 enum { ARR_CLICK_OFF, ARR_CLICK_REC, ARR_CLICK_ON };
 #define ARR_CLICK_CHAN 15

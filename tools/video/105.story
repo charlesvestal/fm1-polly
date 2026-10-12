@@ -96,7 +96,7 @@ expect lead15_row 2
 expect lead16_note 77
 # ---- 4. punch in on section 2 (stopped at the song's end: the cursor back on section 1)
 wait 1200
-cap 4. Punch in | HOME twice for the Song page. KNOB 1 (Section) to section 2. EDIT, REC, PLAY, and play.
+cap 4. Punch in | HOME twice for the Song page. KNOB 1 (Section) to section 2. EDIT, REC, PLAY: a bar of clicks counts in. Play.
 wait 2500
 tap HOME
 wait 400
@@ -117,13 +117,17 @@ anchor P
 tap PLAY
 wait 10
 expect row 2
+expect count_in 4
+# a bar of count-in (P 0-1: the click only), then section 2 from P 1; over F (section 2's bar 2): C5 F5 E5, each a
+# little late
+at P 1 300
+expect count_in 0
 expect sect 2
-# over F (section 2's bar 2): C5 F5 E5, each a little late
-mel P 1 2.1 0.45 19
+mel P 2 2.1 0.45 19
 still 4-punch
-mel P 1 2.6 0.45 24
-mel P 1 3.1 0.5 23
-at P 2 -180
+mel P 2 2.6 0.45 24
+mel P 2 3.1 0.5 23
+at P 3 -180
 tap REC
 wait 30
 tap PLAY
@@ -134,7 +138,7 @@ expect cursor 2
 expect lead_count1_1 14
 expect lead_count1_2 17
 # ---- 5. M2: strings, from section 2 (the cursor), a held line under M1
-cap 5. A second melody | Turn ALGORITHM to M2. Press REC and PLAY, and play. M1's notes show pale under it.
+cap 5. A second melody | Turn ALGORITHM to M2. Press REC and PLAY, and play after the count-in. M1's notes show pale under it.
 wait 2500
 turn ALGO 1
 expect lead_sel 2
@@ -146,13 +150,15 @@ anchor M
 tap PLAY
 wait 10
 expect row 2
-mel M 0 0.25 3.75 11
-mel M 1 0 4 12
-mel M 2 0 2 11
+expect count_in 4
+# the count-in M 0-1, section 2 from M 1
+mel M 1 0.25 3.75 11
+mel M 2 0 4 12
+mel M 3 0 2 11
 still 5-m2
-mel M 2 2 2 14
-mel M 3 0 3.8 9
-at M 4 -180
+mel M 3 2 2 14
+mel M 4 0 3.8 9
+at M 5 -180
 tap REC
 wait 30
 tap PLAY

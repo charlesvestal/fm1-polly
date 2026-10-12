@@ -58,7 +58,8 @@ expect lead_sel 1
 expect where_is_song_bar_5|Chorus_bar_1 1
 wait 1500
 shot stopped.png
-# ---- recording from section 1 (the cursor back there; REC, PLAY), a line across the verse into the chorus
+# ---- recording from section 1 (the cursor back there; REC, PLAY: a bar of count-in), a line across the verse into the
+# chorus
 tap HOME
 tap HOME
 expect page 1
@@ -71,6 +72,11 @@ expect recording 1
 expect where_is_song_bar_1|Verse_bar_1 1
 tap PLAY
 expect playing 1
+wait 300
+expect count_in 4
+expect where_is_song_bar_1|Verse_bar_1 1
+shot rec_count_in.png
+wait 1700
 wait 960
 key 7 down
 wait 400

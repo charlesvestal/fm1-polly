@@ -157,13 +157,15 @@ expect lead_count1_2 0
 expect ne_note -1
 wait 300
 shot delete.png
-# ---- erase while recording: REC, PLAY from section 1, EDIT held over beats 1-3: the notes there go
+# ---- erase while recording: REC, PLAY from section 1 (after its bar of count-in), EDIT held over beats 1-3: the
+# notes there go
 spin K1 -40
 expect ne_t 0
 tap REC
 expect footer_is_KEYS_M1|REC_stop|EDIT_held:_erase 1
 tap PLAY
 expect playing 1
+wait 2000
 wait 100
 press EDIT
 wait 1150

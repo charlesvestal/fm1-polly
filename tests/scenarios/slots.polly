@@ -137,6 +137,9 @@ expect lead_sel 1
 tap REC
 wait 50
 tap PLAY
+expect tempo 105
+wait 2290
+expect count_in 0
 wait 500
 tapkey 7
 wait 300

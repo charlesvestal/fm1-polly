@@ -518,6 +518,10 @@ static char *note_name(int n, char *b)
 #define ENC_Y 208                                    /* the two bottom lines: what SELECT, ALGORITHM, PRESETS do here, */
 #define FOOT_Y 224                                   /* what the keys do here (draw_footer) */
 
+/* PLAY's count-in (the engine's arr_pre): the beats left, 4 3 2 1 (0: none, the band playing); a chord in its last half
+ * beat lands on the band's first beat (as a chord a little early on any beat, take_beat) */
+static int count_beats(void) { uint32_t p = arr_pre; return (int)((p + ARR_PPQ - 1u) / ARR_PPQ); }
+static int count_lands(void) { uint32_t p = arr_pre; return p && p <= ARR_PPQ / 2; }
 /* HOME held this long: the loops and the sections on screen (draw_home_held), and its release is no page press */
 #define HOME_HOLD_MS 400u
 static int home_shown(void)
@@ -530,12 +534,13 @@ static int32_t segs(int32_t x, int32_t y, const felucca_font_t *f, const char *s
 static int32_t segs_w(const felucca_font_t *f, const char *s);
 /* the header: the page's name (on HOME, and HOME held, the song: "Home S1"). Right: the song's tempo (or "ext"; not on
  * HOME, whose KNOB 2 says it), REC's dot, "unsaved". The style, a progression's name, the sections: the knobs' and the
- * tag's to say, not the header's. A message replaces it all, a question (SEL: yes, HOME: no) the message */
+ * tag's to say, not the header's. A message replaces it all, a question (SEL: yes, HOME: no) the message. PLAY's
+ * count-in (a recording armed): "Count-in 3", the beats left in coral (REC: you), on every page, over a message */
 static void draw_header(void)
 {
     char t[40];
     int msg = plat_ms() < ui.msg_until, rec = arr_recording || ui.rec_chords || ui.take || ui.song_rec, ext = arr_ext;
-    int sel = home_shown();
+    int sel = home_shown(), cnt = arr_playing ? count_beats() : 0;
     int un = unsaved(), ask = ui.ask, slots = lst.open && lst.slots, nfree = 0;
     for (int i = 0; slots && i < ARR_USER_PATTERNS; i++)
         nfree += slot_kind[i] == SLOT_NONE;
@@ -543,6 +548,7 @@ static void draw_header(void)
                                        (uint32_t)ext << 12 | (uint32_t)sel << 13 | (uint32_t)ask << 14 |
                                        (uint32_t)csong()->tempo << 16);
     h = hash(h, (uint32_t)proj.song | (uint32_t)slots << 24 | (uint32_t)nfree << 25 | (uint32_t)ts.on << 30);
+    h = hash(h, (uint32_t)cnt);
     if (msg)
         h = hash(h, ui.msg_until);
     for (const char *c = ui.ask_q; ask && *c; c++)
@@ -559,6 +565,11 @@ static void draw_header(void)
             cv_text(8, 5, &FONT_S, ui.ask_q, K_BG);
         else                                         /* ("SECTION 3 HAS MELODY NOTES: DELETE?") */
             text_fit(6, 5, &FONT_XS, ui.ask_q, 230, K_BG);
+    } else if (cnt) {                                /* the count-in: "Count-in 3", REC's dot */
+        int32_t x = cv_text(8, 4, &FONT_B, "Count-in", K_TEXT);
+        itoa_u((uint32_t)cnt, t);
+        cv_text(x + 8, 4, &FONT_B, t, K_ACCENT);
+        cv_round(222, 8, 9, 9, 4, K_REC);
     } else if (msg) {
         int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
         text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
@@ -976,9 +987,13 @@ static void draw_home_rec(void)
     v.len = loop_len(l);
     v.xp = xpose_now();
     v.shown = l->bars;
-    if (take == 1)
+    if (take == 1) {
         wait = 1;                                    /* from PLAY */
-    else if (take == 2) {
+        if (arr_playing && count_beats()) {          /* PLAY's count-in: its beats left, big, in bar 1 */
+            wait = 2;
+            v.cnt = count_beats();
+        }
+    } else if (take == 2) {
         int32_t tb = (int32_t)(arr_beats - ui.take_b0);
         if (tb < 0) {
             wait = 2;                                /* the count-in: the beats to the take's downbeat */
@@ -989,7 +1004,10 @@ static void draw_home_rec(void)
             ghost = 1;
         }
     } else if (arr_playing) {                        /* REC in LOOP, in time: the loop's bar playing */
-        if (arr_sect == SEC_INTRO)
+        if (count_beats()) {                         /* (PLAY's count-in: its beats left, big, in bar 1) */
+            wait = 5;
+            v.cnt = count_beats();
+        } else if (arr_sect == SEC_INTRO)
             wait = 3;
         else if (ui.mode_wait || pl.loop != li)
             wait = 4;
@@ -1023,7 +1041,7 @@ static void draw_home_rec(void)
     loop_label(li, cat_s(t, "REC "));
     if (wait == 1)
         cat_s(t + slen(t), "|starts with PLAY");
-    else if (wait == 2)
+    else if (wait == 2 || wait == 5)
         cat_s(t + slen(t), "|starts at the next bar");
     else if (wait == 3)
         cat_s(t + slen(t), "|after the Intro");
@@ -1277,7 +1295,8 @@ static void draw_loop(void)
     uint32_t pbeat, h;
     char t[24];
     place_read(&pl);
-    pbeat = arr_playing && pl.loop == (int)(app.loop % ARR_LOOPS) ? pl.lbeat : 0xFFFFFFFFu;
+    pbeat = arr_playing && !arr_pre && pl.loop == (int)(app.loop % ARR_LOOPS) ? pl.lbeat : 0xFFFFFFFFu;   /* (in
+                                                      * PLAY's count-in: none yet, the header counts) */
     live = ui.rec_chords && pbeat != 0xFFFFFFFFu;    /* REC writing in time: the playhead, not the cursor */
     if (live)
         cbar = (int)(pbeat / (uint32_t)bpb);
@@ -1918,7 +1937,11 @@ static void draw_trk_rec(void)
         focus = (int)bar;
         fbeat = (int)(bt / ARR_PPQ);
     }
-    if (wait) {                                      /* the bar it starts on, the beats to it */
+    if (play && arr_pre) {                           /* PLAY's count-in: bar 1, its beats left */
+        focus = -1;
+        next = 0;
+        cnt = count_beats();
+    } else if (wait) {                               /* the bar it starts on, the beats to it */
         next = play ? (focus + 1) % nb : 0;
         cnt = play ? bpb - fbeat : 0;
     } else
@@ -2104,6 +2127,13 @@ static void lead_place(const smap_t *m, lplace_t *v)
     if (v->why == 7) {                               /* the count-in: the bar it starts on (the song's next) */
         v->cbeats = m->bpb - v->fbeat;
         v->cin = (uint32_t)v->focus + 1u < m->total ? v->focus + 1 : g->at_end ? 0 : -1;
+    }
+    if (v->why == 7 && arr_pre) {                    /* PLAY's count-in: the section's first bar, its beats left */
+        v->live = 0;
+        v->focus = -1;
+        v->fbeat = 0;
+        v->cin = m->b0[v->r];
+        v->cbeats = count_beats();
     }
     v->at = v->cin >= 0 ? v->cin : v->live ? v->focus : n ? m->b0[v->r] : 0;
     v->atbeat = v->cin < 0 && v->live ? v->fbeat : -1;
