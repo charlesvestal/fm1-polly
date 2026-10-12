@@ -40,7 +40,7 @@ turn K2 -2 400
 expect knob2_is_- 1
 still 2-remove
 wait 2000
-cap 2. Remove a section | The section is struck through. Turn KNOB 1 to section 3, and section 4 is gone.
+cap 2. Remove a section | The row says "section removed". Turn KNOB 1 to section 3, and it is gone.
 wait 2500
 turn K1 -1
 wait 200

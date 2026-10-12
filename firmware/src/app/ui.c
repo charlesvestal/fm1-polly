@@ -1621,7 +1621,7 @@ static void song_knob(int k, int32_t e)
                 ui.row_del = 0;
             return;
         }
-        if (d < 0 && w->loop == 0) {             /* (its row says so: "- goes when you move on") */
+        if (d < 0 && w->loop == 0) {             /* (its row says so: "- section removed") */
             ui.row_del = (uint8_t)(app.row + 1u);
             return;
         }

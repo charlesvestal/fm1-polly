@@ -1,4 +1,4 @@
-# POLLY, the Song page's PROG: "-" below P1 marks the section to go (struck through, "goes when you move on"); turned
+# POLLY, the Song page's PROG: "-" below P1 marks the section to go (struck through, "section removed"); turned
 # up again it stays; the cursor moving on deletes it (one undo step); on the END row PROG up adds a section (P1), the
 # cursor on it. Sections P1 P3 P2 (white keys 1, 3, 2).
 wait 300

@@ -1572,7 +1572,7 @@ static void draw_song(void)
             cv_round(3, y + 1, 230, ch - 2, 4, K_BG);
             itoa_u((uint32_t)i + 1u, t);
             text_r(SG_NUM, ty, &FONT_S, t, K_DIM);
-            cv_text(SG_LOOP, ty, &FONT_S, "-  goes when you move on", K_DIM);
+            cv_text(SG_LOOP, ty, &FONT_S, "-  section removed", K_DIM);
             cv_rect(SG_LOOP - 4, y + ch / 2, 232 - SG_LOOP, 1, K_DIM);
             continue;
         }
