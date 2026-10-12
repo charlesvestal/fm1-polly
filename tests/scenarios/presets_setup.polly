@@ -1,0 +1,21 @@
+# POLLY, two small things: Band's PRESETS steps through your grooves only (empty memory places passed over: none on a
+# fresh boot, so one back from Pop's Groove A, the first style's, stays there), and a Setup knob turned to the value
+# it has marks nothing unsaved.
+wait 300
+tap SEQ
+expect page 6
+expect song1_style1 33
+turn PRESET -1
+wait 200
+expect song1_style1 33
+# ---- Setup: MIDI out is on; turned further on, nothing to save; off, something
+tap GLO
+expect knob2_is_on 1
+expect dirty 0
+turn K2 1
+wait 100
+expect dirty 0
+expect lit_SAVE 0
+turn K2 -1
+expect knob2_is_off 1
+expect dirty 1

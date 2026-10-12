@@ -2440,18 +2440,19 @@ static int ne_find(void)
 }
 /* the selected note, if the Bass rule plays the chord's root in its place (xpose.c: the first note of a Bass-type
  * instrument after a chord change, the root whatever it was written as): a Bass-type track's (not switched to "as
- * played"), not written as a C, the first of its track on its beat (where the progression's chords change). Notes says
+ * played"), not written as a C, the first of its track in a bar's first beat (where the progression's chords change). Notes says
  * so by the note, and asks once a groove at an edit there (editor.c ne_lands_ask) */
 static int ne_lands(void)
 {
     const arr_trk_t *k = &app.trk[pslot()][proj.trk & 7], *vt = &view.trk[proj.trk & 7];
     const arr_ev_t *x;
     int i;
-    uint32_t b0;
+    uint32_t b0, bl;
     if (app.lead || !ne.has || k->x.type != XT_BASS || (k->flags & ARR_TF_ASPLAYED) || (i = ne_find()) < 0)
         return 0;
     x = &view.ev[i];
-    if (x->note % 12 == 0)
+    bl = (uint32_t)(app.hdr[pslot()].beats ? app.hdr[pslot()].beats : 4) * ARR_PPQ;
+    if (x->note % 12 == 0 || x->tick % bl >= ARR_PPQ)   /* (a bar's first beat: where a progression's chords change) */
         return 0;
     b0 = x->tick - x->tick % ARR_PPQ;
     for (uint32_t j = vt->first; j < (uint32_t)vt->first + vt->count && j < view.nev; j++)

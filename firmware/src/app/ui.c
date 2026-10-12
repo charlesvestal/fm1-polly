@@ -1911,7 +1911,8 @@ static int style_step(int s, int st, int d)
     int si = style_index(st), i = si >= 0 ? ARR_USER_PATTERNS + si : st < ARR_USER_PATTERNS ? st : 0, was = i;
     int top = ARR_USER_PATTERNS + styles_n() - 1;
     i = clampi(i + d, 0, top);
-    while (i != was && i < ARR_USER_PATTERNS && slot_held(i))   /* (a slot holding lead notes or loops: passed over) */
+    while (i != was && i < ARR_USER_PATTERNS && (slot_held(i) || pattern_blank(i)))   /* (a slot holding lead notes
+                                                  * or loops, or nothing: passed over; your grooves only) */
         i = i + (d > 0 ? 1 : -1) < 0 ? was : i + (d > 0 ? 1 : -1);
     return i < ARR_USER_PATTERNS ? i : style_number(i - ARR_USER_PATTERNS, s);
 }
@@ -2171,7 +2172,8 @@ static void song_page_knob(int k, int32_t e)
             style_turn(accel(EN_K4, e));
         break;
     }
-    case P_SETUP:
+    case P_SETUP: {                              /* (a turn that changes nothing: nothing to save) */
+        uint32_t was = (uint32_t)proj.clock | (uint32_t)proj.mout << 8 | (uint32_t)proj.leds << 16 | (uint32_t)proj.click << 24;
         if (k == 0)
             proj.clock = (uint8_t)(d > 0);
         else if (k == 1) {
@@ -2181,8 +2183,10 @@ static void song_page_knob(int k, int32_t e)
             proj.leds = (uint8_t)clampi(proj.leds + d, 0, 2);
         else
             proj.click = (uint8_t)clampi(proj.click + d, ARR_CLICK_OFF, ARR_CLICK_ON);
-        mark_dirty();
+        if (was != ((uint32_t)proj.clock | (uint32_t)proj.mout << 8 | (uint32_t)proj.leds << 16 | (uint32_t)proj.click << 24))
+            mark_dirty();
         break;
+    }
     case P_LOOP: {                               /* BAR, BEAT (the cursor), ROOT, TYPE ("·" one below maj) */
         loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
         int bpb = l->beats ? l->beats : 4, m = cursor_max(), bar = app.cbeat / bpb, p = app.cbeat % bpb;
