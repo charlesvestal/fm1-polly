@@ -15,6 +15,7 @@ speaker and the headphone jack, and MIDI coming in plays them too.
 - [Progressions and the song](#progressions-and-the-song)
 - [Recording an instrument](#recording-an-instrument)
 - [Melodies](#melodies)
+- [Fixing notes](#fixing-notes)
 - [Sound](#sound)
 - [Songs and saving](#songs-and-saving)
 - [Setup and MIDI](#setup-and-midi)
@@ -81,6 +82,7 @@ next thing.
 | change an instrument's sound | **EDIT**, turn **ALGORITHM** to the instrument, turn **KNOB 1** (Sound) |
 | mute an instrument | **SEQ**, turn **ALGORITHM** to it, turn **KNOB 4** (Mute; again: it plays). In one section only: on the Song page, its black key |
 | record a melody | on the Song page **PLAY**; **EDIT**, turn **ALGORITHM** past C4 to M1, **REC**, play, **REC** |
+| fix one wrong note | **SEQ**, **SEQ** again (Notes); **ALGORITHM** to the instrument or melody; turn **SELECT** to the note (ringed coral), turn **KNOB 2** (Pitch); **EDIT** deletes it |
 | undo / redo | hold **HOME**, press **REC** / **PLAY** |
 | save | **SAVE** (Polly also saves by itself, stopped) |
 | back up | on a computer: `python3 tools/polly_backup.py backup my-songs.plb` |
@@ -152,7 +154,7 @@ The white keys are counted from the left, 1 to 16: progression P9 is white key 9
 | SEL | This page as a list, opened on its first action (LOAD PROGRESSION, PLAY FROM SECTION, CLEAR C1…); SELECT up to its values and MORE. The list covers the knobs; the footer says what SELECT, ALGORITHM, SEL and HOME do in it |
 | HOME | Home; SELECT for the Song pages. Held: the shortcuts, on screen: + white key 1–16 a progression, + black key 1–5 a groove or an extra, + SELECT the tempo, + PRESETS the song, + REC undo, + PLAY redo |
 | ARP | Progression: its chords; page 2 its length, beats, bass, name |
-| SEQ | Band (the groove's notes), page 2 Groove length |
+| SEQ | Band (the groove's notes), page 2 Groove length; on them SEQ again: Notes, the note editor (SEQ there: back to Band) |
 | EDIT | Sound, page 2 Sound 2 (high key, channel); a melody: Sound alone |
 | LFO | Mixer, page 2 Mixer tone |
 | FX | Effects |
@@ -463,7 +465,8 @@ Polly records into the selected instrument of the groove (or extra) playing, goi
    notes faded), the playhead (a teal line) and the cursor: a coral line down the instruments, its place on coral
    over it ("bar 2.3"). The selected instrument's row is darker, outlined. At the top left the groove's pill ("Groove
    A (yours)"; its length is on Groove length). **KNOB 2** (Bar) and
-   **KNOB 3** (Beat) move the cursor; **KNOB 4** (Mute: muted, plays). (Editing notes there is still to come.)
+   **KNOB 3** (Beat) move the cursor; **KNOB 4** (Mute: muted, plays). To fix a note, press **SEQ** again:
+   [Fixing notes](#fixing-notes).
 
    ![The Band page](docs/img/manual/band.png)
 
@@ -611,6 +614,48 @@ section's melody, clear it first (**SEL**: the list opens on **CLEAR M1 IN SECTI
   notes asks first ("SECTION 3 HAS MELODY NOTES: DELETE?").
 - Melody notes share the 16 places of memory: a song's melodies take one place (about 420 notes), a second
   when they outgrow it. "MEMORY FULL" or "MELODY FULL" means none is left: see [Memory](#memory).
+
+## Fixing notes
+
+One wrong note doesn't mean recording again. **Notes** is a note editor for the selected instrument's notes in the
+groove playing, or a melody's along the song: press **SEQ** for Band, then **SEQ** again. (**SEQ** there goes back
+to Band; any other page button leaves it.) **ALGORITHM** picks whose notes, as everywhere: D1 … C4, M1, M2.
+
+![Notes with a melody: E4 made F4, longer and softer](docs/img/manual/notes.png)
+
+The screen shows the notes as a piano roll: by time from left to right and by pitch from bottom to top, a melody's
+plum (the other melody's pale under them), an instrument's ink, drums as short ticks. A melody's song line runs over
+it, the stretch shown marked under it. Bars carry their number, a section's first bar its name.
+
+- **The cursor** is a coral line at a place on the grid (Band's **GRID**: 8, 8T, 16, 16T, 32; off: a 32nd), its step
+  capped coral along the foot. **The selected note** is ringed coral. **The playhead**, while playing, is teal.
+- **The readout** over it says where the cursor is and the note: "M1 · song bar 1 · Verse bar 1.1 · F4", or
+  "D1 · bar 1.1 · Pedal hat" (drums are named by their sound).
+- **SELECT** goes from note to note in time order, the notes of a chord one by one (lowest first). The cursor
+  follows.
+- **KNOB 1 (Place)** moves the cursor a grid step a detent, through empty places too ("1.1.2": bar 1, beat 1, its
+  second step). The first note starting in that step is selected; none: an empty place.
+- **KNOB 2 (Pitch)** changes the selected note's pitch (a drum's sound: Snare, Closed hat …). **KNOB 3 (Length)** its
+  length, a grid step a detent, in beats ("1/2", "1 1/2"); hold **SEL** for fine steps. **KNOB 4 (Velocity)** how hard
+  it plays. Over an empty place they show "–".
+- **Move:** hold **SEL** and turn **SELECT** (or **KNOB 1**): the selected note moves a grid step a detent, keeping its
+  length and velocity. A melody's note moved past the end of its section goes into the next section, and takes the
+  root of the chord there, as if it had been recorded there.
+- **Delete:** **EDIT** deletes the selected note.
+- **Enter:** at an empty place, play a key: the note goes in there (a grid step long; a melody's with its velocity,
+  and with the root of the chord sounding there, so it follows chord changes as recorded notes do). Keys held together
+  go in as a chord. When you let go, the cursor moves a step on, so you can write a line note by note. On a note, the
+  keys only play. An instrument's entered notes are written as over C major 7, the way the styles keep theirs.
+- **PRESETS** zooms: 8, 4, 2 or 1 bars (an instrument: down to one beat). Two bars at first.
+- **Erase while recording:** with **REC** on and playing, hold **EDIT**: the notes the playhead passes go, from the
+  step it is in, until you let go. The readout says "ERASING". (Keys still record meanwhile.)
+- **Undo:** every edit is one step: hold **HOME** and press **REC** (redo: **PLAY**). A recording pass with its
+  erasing is one step too.
+- **Your copy:** the first edit of a style's groove makes it yours first, as recording does ("GROOVE A NOW YOURS").
+  A groove holds 600 notes: past that, "GROOVE FULL".
+- While recording, Notes shows the recording: the window follows the playhead, and the keys record.
+
+![Notes with the drums: a hit's sound named](docs/img/manual/notes_band.png)
 
 ## Sound
 
@@ -871,6 +916,9 @@ Your songs and grooves stay through a Polly update. Putting M-VAVE's firmware ba
   <https://github.com/doffu0000/qy100-toolkit>
 - **Pyodide** (MPL-2.0) builds the QY70 bank in the browser.
 - **Barlow** (The Barlow Project Authors, SIL OFL 1.1): the screen's typeface.
+- **Melodee** by Kerem Kilic (Ellic Studio, keremimo; GPL-3.0, on Felucca too): the design of Notes, its piano roll and its way of selecting notes
+  (SEQ > NOTES: SELECT walks the notes, the knobs edit, EDIT deletes or erases while held, a held button + SELECT moves).
+  <https://github.com/keremimo/melodee>
 
 Polly is inspired by the Yamaha QY70; it is not affiliated with Yamaha. "M-VAVE" and "FM-1" are
 trademarks of their owners. Polly is GPL-3.0 (see LICENSING.md).
@@ -890,6 +938,7 @@ on every page. SELECT turns a button's pages.
 | Progression 2 | ARP, SELECT | Length | Beats | Bass | Name | The next progression |
 | Band | SEQ | Grid | Bar (the cursor) | Beat (the cursor) | Mute | What the groove plays |
 | Groove length | SEQ, SELECT | Bars | Beats | Place | Letter | What the groove plays |
+| Notes | SEQ, SEQ | Place (the cursor) | Pitch | Length | Velocity | Zoom |
 | Sound | EDIT | Sound | Type (a melody: Channel) | Low (drums, a melody: none) | High (drums: none; a melody: Velocity) | Sound family |
 | Sound 2 | EDIT, SELECT (not a melody) | High key (drums: none) | Channel | | | |
 | Mixer | LFO | Volume | Pan | Reverb | Chorus | |

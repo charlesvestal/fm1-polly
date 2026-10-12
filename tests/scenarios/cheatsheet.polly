@@ -272,6 +272,23 @@ release HOME
 expect msgtext_is_REDO_TAKE_M1 1
 expect lead_notes 3
 expect playing 0
+# ---- Fix one wrong note: SEQ, SEQ again (Notes); ALGORITHM to it (M1 still); SELECT to the note (E4, the second),
+# KNOB 2 (Pitch) up a semitone; EDIT deletes it
+tap SEQ
+tap SEQ
+expect page 17
+expect lead_sel 1
+turn SELECT 2
+expect ne_note 64
+expect lead2_note 64
+turn K2 1
+expect lead2_note 65
+expect ne_note 65
+wait 300
+shot fix_note.png
+tap EDIT
+expect lead_notes 2
+expect page 17
 # ---- Save: SAVE
 tap SAVE
 expect dirty 0
