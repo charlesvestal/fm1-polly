@@ -125,13 +125,14 @@ expect rows 2
 expect row_loop2 9
 expect row_rep1 1
 expect cursor 3
-# a tap on a row (not the END row) replaces its loop: row 2 -> L10
+# PROG on a row (not the END row) changes its loop: row 2 -> L10 (a white key there inserts: song_insert.polly)
 spin K1 -1
 expect cursor 2
-tapkey w9
+spin K2 1
 expect rows 2
 expect row_loop2 10
 expect row_sect2 0
+spin K1 1
 expect cursor 3
 expect tag_is_S1 1
 # REPEAT only by its knob: row 1 x2
@@ -460,11 +461,11 @@ expect row_sect1 2
 # ---- PLAY from row 1 (INTRO off): its row marked playing (filled teal, inside the cursor's ring) from the start
 spin K1 -1
 expect cursor 1
-expect teal_12_44 0
+expect teal_12_48 0
 tap PLAY
 wait 300
 expect row 1
-expect teal_12_44 1
+expect teal_12_48 1
 wait 50
 shot song_row1_playing.png
 tap PLAY

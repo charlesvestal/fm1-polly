@@ -1468,22 +1468,38 @@ static void song_anim(int r, int d)
     ui.sg_anim_d = (int8_t)d;
     ui.sg_anim_t = plat_ms();
 }
+static void marks_insert(int r);
+static uint32_t marks_now(void);
+/* a white key on Song: a section playing progression w inserted at the cursor (on END: added); the section that was
+ * there and those after it move down (sliding), the cursor with it, so keys typed one after another go in in order.
+ * Playing: not at or before the section playing (the engine follows the rows by number: STOP FIRST) */
 static void song_tap(int w)
 {
     song_t *g = csong();
-    int r;
-    int add = app.row >= g->nrows;
-    songs_write(1);
-    r = row_tap(g, app.row, w);
-    songs_write(0);
-    if (r < 0) {
+    int r = app.row, before = leads.n;
+    if (r < g->nrows && arr_playing && arr_mode == ARR_SONG && arr_row < g->nrows && r <= arr_row) {
+        say("INSERT SECTION", "STOP FIRST");
+        return;
+    }
+    if (g->nrows >= ARR_ROWS || r > g->nrows) {
         say("SONG FULL", "32 SECTIONS");
         return;
     }
-    if (add)
-        song_anim(r, 1);                         /* (the END row slides down under the new one) */
+    songs_write(1);                              /* (the rows, their lead notes and marks together) */
+    if (r < g->nrows) {
+        row_insert(g, r);
+        leads_row_insert(&leads, r);
+        marks_insert(r);
+        row_tap(g, r, w);                        /* (the new section in the place made: its defaults) */
+        arr_rows_skip(ui.marks_sent = marks_now());
+        leads.gen++;
+    } else
+        r = row_tap(g, r, w);
+    songs_write(0);
+    if (before && r < g->nrows - 1)
+        lead_changed(0, before);
+    song_anim(r, 1);                             /* (the rows after it slide down) */
     ui.row_follow = 0;                           /* (writing: the cursor stays where the keys write) */
-    ui.row_marks &= ~(1u << r);                  /* (a section marked to go, given a progression: kept) */
     app.row = (uint8_t)(r + 1 <= g->nrows ? r + 1 : g->nrows);
 }
 /* the row the mutes and sections REC writes go to: playing (rows started), the one playing; else the cursor's */

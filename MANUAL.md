@@ -500,8 +500,11 @@ The Song page lists the song's sections, from top to bottom. Each row shows:
 - its repeat, such as "x2"
 - its own transpose, such as "+2". Nothing shows at 0.
 
-Press a white key to write a section. On END, the key adds a new section. On an existing section, it
-changes that section's progression. A new section starts on the same groove as the last section above it
+Press a white key to add a section where the light coral arrow and line point: above the cursor's section,
+or at the end on END. The section that was there and those after it move down, and the cursor moves with
+them, so keys pressed one after another go in in that order. To change a section's progression, turn
+**KNOB 2** (Prog). While the song plays, a white key can't go in at or before the section playing ("STOP
+FIRST"). A new section starts on the same groove as the last section above it
 that plays the same progression. Otherwise it starts on Groove A.
 
 Under the rows are the mutes of the section at the cursor: D1 D2 PC BA, C1–C4, then the melodies M1 and M2

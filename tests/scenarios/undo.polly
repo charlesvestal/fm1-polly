@@ -139,14 +139,17 @@ expect playing 0
 expect rows 3
 expect row_loop3 9
 expect msgtext_is_REDO_SECTION_3 1
-# two taps in quick succession (row 3, the cursor's, to L2; a row added): one step
+# two taps in quick succession (sections inserted at the cursor, L2 then L3, section 3 moving down): one step
 expect cursor 3
 tapkey w1
 wait 300
 tapkey w2
 wait 1100
-expect rows 4
+expect rows 5
 expect row_loop3 2
+expect row_loop4 3
+expect row_loop5 9
+expect cursor 5
 press HOME
 tap REC
 release HOME

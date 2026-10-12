@@ -25,6 +25,7 @@
 #define K_FAINT RGB(150, 136, 118)
 #define K_TEXT RGB(72, 58, 48)
 #define K_ACCENT RGB(242, 120, 72)
+#define K_ACCENT_L RGB(248, 196, 172)                /* light coral: a hint where you act (the Song page's insertion line) */
 #define K_TEAL RGB(38, 166, 154)
 #define K_TEAL_T RGB(196, 230, 222)
 #define K_TEAL_M RGB(118, 196, 186)                  /* a playing bar's beats gone by */
@@ -1530,9 +1531,11 @@ static int song_state(char *t)
     return s;
 }
 #define SG_ANIM_MS 160u
+#define SG_GAP 4                                     /* the insertion point's room over the cursor's section */
 static void draw_song(void)
 {
     int32_t slide;
+    int ants;
     const song_t *g = csong();
     int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows, total = n < ARR_ROWS ? n + 1 : n, cur = app.row, pg = ui.page - P_SONG;
     int play = arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < n ? arr_row : -1, top, i, st;
@@ -1562,6 +1565,9 @@ static void draw_song(void)
     }
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
     h = hash(h, (uint32_t)slide);
+    ants = !ui.song_rec && !lst.open && cur <= n ? (int)(plat_ms() / 120u % 7u) : -1;   /* where a white key inserts:
+                                                      * above the cursor's section (on END: there) */
+    h = hash(h, (uint32_t)(ants + 1));
     h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
     h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8);
     h = hash(h, ui.row_marks);
@@ -1602,12 +1608,23 @@ static void draw_song(void)
     }
     for (i = top; i < total && i < top + SG_SHOWN; i++) {
         int32_t y = SG_Y0 + (i - top) * SG_RH + (slide && i >= ui.sg_anim_r + (ui.sg_anim_d > 0) ? slide : 0), ch = 16;
+        if (ants >= 0 && i >= cur)                   /* (the insertion point's gap: the cursor's row and after, 4 down) */
+            y += SG_GAP;
         int32_t ty = cap_y(y, ch, &FONT_S);
         int on = i == cur, ghost = i >= n, pl = i == play, fl = i < ARR_ROWS && (fm >> i & 1u);
         /* the section playing filled teal, an edit coral a moment; the cursor a thick coral ring round it (into the
          * gaps between the rows) */
         uint16_t fill = fl ? K_ACCENT : pl ? K_TEAL : ghost ? K_BG : K_PANEL, fg = fl || pl ? K_BG : K_TEXT;
         uint16_t dim = fl || pl ? K_BG : K_DIM;
+        if (slide && ui.sg_anim_d > 0 && i == ui.sg_anim_r) {   /* the section going in: it grows open in its place
+                                                      * as the rows after are pushed down (its words when nearly whole) */
+            int32_t gh = ch * (SG_RH + slide) / SG_RH;
+            if (gh < ch - 3) {
+                if (gh > 1)
+                    cv_round(2, y + (ch - gh) / 2, 232, gh, gh > 8 ? 5 : gh / 2, fill);
+                continue;
+            }
+        }
         if (on)                                      /* the cursor: its ring round the row */
             cv_round(2 - CUR_RING, y - CUR_RING, 232 + 2 * CUR_RING, ch + 2 * CUR_RING, 6, K_ACCENT);
         if (ghost) {                                 /* the END row: a row to come */
@@ -1672,6 +1689,15 @@ static void draw_song(void)
                 text_r(SG_KEY, ty, &FONT_B, t, fg);
             }
         }
+    }
+    if (ants >= 0 && cur >= top && cur < top + SG_SHOWN && !slide) {   /* the insertion point: marching ants in the
+                                                      * gap over the cursor's ring, an arrowhead at its left */
+        int32_t ly = SG_Y0 + (cur - top) * SG_RH - 2;   /* (mid-gap, a pixel clear of the ring below) */
+        for (int32_t x = 9; x < 232; x++)        /* light coral ants, marching slowly */
+            if ((x + 7 - ants) % 7 < 4)
+                cv_rect(x, ly, 1, 2, K_ACCENT_L);
+        for (int j = 0; j < 3; j++)                  /* a small arrowhead pointing in, as light */
+            cv_rect(3 + j, ly - 2 + j, 1, 6 - 2 * j, K_ACCENT_L);
     }
     if (total > SG_SHOWN) {                          /* the scroll bar: where the window is */
         int32_t th = SG_SHOWN * SG_RH - 4, bh = th * SG_SHOWN / total, by = SG_Y0 + th * top / total;
