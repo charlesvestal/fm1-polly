@@ -199,6 +199,8 @@ static struct {
     uint8_t sg_top;                                  /* Song's window: its first row (moved only to keep the cursor in it) */
     int8_t sg_anim_r, sg_anim_d;                     /* rows inserted (+1) / deleted (-1) at sg_anim_r: those after slide */
     uint32_t sg_anim_t;                              /* ... from then (SG_ANIM_MS) */
+    int8_t sg_scroll;                                /* the window moved by this many rows: they glide (from sg_scroll_t) */
+    uint32_t sg_scroll_t;
     uint32_t row_marks;                              /* Song's PROG turned below P1: the sections marked to go (bit r row
                                                       * r), all deleted when the Song pages are left (ui.c marks_poll);
                                                       * the song passes over them meanwhile (arr_rows_skip). RAM only */
@@ -1530,11 +1532,31 @@ static int song_state(char *t)
         return 0;
     return s;
 }
+/* the Song page's line over the rows: the cursor's place in words, coral ("section 3 of 6"; on END what a white key
+ * does, dim); left of it, playing its Intro, a fill, its Ending: "Intro . then section 1" (then only the numbers) */
+static void song_heading(char *t, const char *stt, int cur, int n, int st)
+{
+    *t = 0;
+    if (cur < n)
+        itoa_u((uint32_t)n, cat_s(itoa_u((uint32_t)cur + 1u, cat_s(t, st ? "" : "section ")), " of "));
+    if (*t)
+        text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, t, K_ACCENT);
+    else if (!st)
+        text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, "a white key adds a section", K_DIM);
+    if (st) {                                    /* (the Intro, the Ending: their clock before the pill) */
+        int cl = st == SEC_INTRO || st == SEC_END;
+        int32_t x;
+        if (cl)
+            glyph_clock(10, 7, 6, pat_done(), K_TEXT);
+        x = sect_pill(cl ? 20 : 8, 0, 0, 15, st, 0);
+        cv_text(x + 6, cap_y(0, 15, &FONT_S), &FONT_S, stt, K_TEXT);
+    }
+}
 #define SG_ANIM_MS 160u
 #define SG_GAP 4                                     /* the insertion point's room over the cursor's section */
 static void draw_song(void)
 {
-    int32_t slide;
+    int32_t slide, scroll;
     int ants;
     const song_t *g = csong();
     int n = g->nrows > ARR_ROWS ? ARR_ROWS : g->nrows, total = n < ARR_ROWS ? n + 1 : n, cur = app.row, pg = ui.page - P_SONG;
@@ -1555,7 +1577,18 @@ static void draw_song(void)
         top = total - SG_SHOWN;
     if (top < 0)
         top = 0;
+    if (top != ui.sg_top) {                          /* the window moves: a row or two glide, more jump */
+        int d = top - ui.sg_top;
+        ui.sg_scroll = (int8_t)(d >= -2 && d <= 2 ? d : 0);
+        ui.sg_scroll_t = plat_ms();
+    }
     ui.sg_top = (uint8_t)top;
+    {   /* the glide: every row from where it was in the window before to where it is now, SG_ANIM_MS */
+        uint32_t el = plat_ms() - ui.sg_scroll_t;
+        scroll = ui.sg_scroll && el < SG_ANIM_MS ? (int32_t)((SG_ANIM_MS - el) * SG_RH / SG_ANIM_MS) * ui.sg_scroll : 0;
+        if (!scroll)
+            ui.sg_scroll = 0;
+    }
     {   /* a section inserted or deleted: the rows after it slide into place (down from the one before, up from the
          * one after), SG_ANIM_MS */
         uint32_t el = plat_ms() - ui.sg_anim_t;
@@ -1564,7 +1597,7 @@ static void draw_song(void)
             ui.sg_anim_d = 0;
     }
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
-    h = hash(h, (uint32_t)slide);
+    h = hash(h, (uint32_t)slide ^ (uint32_t)scroll << 12);
     ants = !ui.song_rec && !lst.open && cur <= n ? (int)(plat_ms() / 120u % 7u) : -1;   /* where a white key inserts:
                                                       * above the cursor's section (on END: there) */
     h = hash(h, (uint32_t)(ants + 1));
@@ -1588,26 +1621,13 @@ static void draw_song(void)
         return;
     ui.sig[1] = h;
     cv_begin(240, MAIN_H, K_BG);
-    {   /* over the rows: the cursor's place in words, coral ("section 3 of 6"; on END what a white key does, dim); left
-         * of it, playing its Intro, a fill, its Ending: "Intro . then section 1" (then only the numbers: "1 of 3") */
-        *t = 0;
-        if (cur < n)
-            itoa_u((uint32_t)n, cat_s(itoa_u((uint32_t)cur + 1u, cat_s(t, st ? "" : "section ")), " of "));
-        if (*t)
-            text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, t, K_ACCENT);
-        else if (!st)
-            text_r(232, cap_y(0, 15, &FONT_S), &FONT_S, "a white key adds a section", K_DIM);
-        if (st) {                                    /* (the Intro, the Ending: their clock before the pill) */
-            int cl = st == SEC_INTRO || st == SEC_END;
-            int32_t x;
-            if (cl)
-                glyph_clock(10, 7, 6, pat_done(), K_TEXT);
-            x = sect_pill(cl ? 20 : 8, 0, 0, 15, st, 0);
-            cv_text(x + 6, cap_y(0, 15, &FONT_S), &FONT_S, stt, K_TEXT);
-        }
-    }
-    for (i = top; i < total && i < top + SG_SHOWN; i++) {
-        int32_t y = SG_Y0 + (i - top) * SG_RH + (slide && i >= ui.sg_anim_r + (ui.sg_anim_d > 0) ? slide : 0), ch = 16;
+    song_heading(t, stt, cur, n, st);
+    for (i = scroll ? top - 2 : top; i < total && i < top + SG_SHOWN + (scroll ? 2 : 0); i++) {   /* (gliding: the rows
+                                                      * coming in and going out too, cut at the band's edges below) */
+        int32_t y = SG_Y0 + (i - top) * SG_RH + (slide && i >= ui.sg_anim_r + (ui.sg_anim_d > 0) ? slide : 0) + scroll;
+        int32_t ch = 16;
+        if (i < 0)
+            continue;
         if (ants >= 0 && i >= cur)                   /* (the insertion point's gap: the cursor's row and after, 4 down) */
             y += SG_GAP;
         int32_t ty = cap_y(y, ch, &FONT_S);
@@ -1690,7 +1710,7 @@ static void draw_song(void)
             }
         }
     }
-    if (ants >= 0 && cur >= top && cur < top + SG_SHOWN && !slide) {   /* the insertion point: marching ants in the
+    if (ants >= 0 && cur >= top && cur < top + SG_SHOWN && !slide && !scroll) {   /* the insertion point: marching ants in the
                                                       * gap over the cursor's ring, an arrowhead at its left */
         int32_t ly = SG_Y0 + (cur - top) * SG_RH - 2;   /* (mid-gap, a pixel clear of the ring below) */
         for (int32_t x = 9; x < 232; x++)        /* light coral ants, marching slowly */
@@ -1698,6 +1718,12 @@ static void draw_song(void)
                 cv_rect(x, ly, 1, 2, K_ACCENT_L);
         for (int j = 0; j < 3; j++)                  /* a small arrowhead pointing in, as light */
             cv_rect(3 + j, ly - 2 + j, 1, 6 - 2 * j, K_ACCENT_L);
+    }
+    if (scroll) {                                    /* (gliding rows cut at the band's edges: the line over the rows
+                                                      * drawn again, the mutes' place cleared before they are drawn) */
+        cv_rect(0, 0, 240, SG_Y0 - CUR_RING - 1, K_BG);
+        cv_rect(0, SG_Y0 + SG_SHOWN * SG_RH + SG_GAP, 240, MAIN_H - (SG_Y0 + SG_SHOWN * SG_RH + SG_GAP), K_BG);
+        song_heading(t, stt, cur, n, st);
     }
     if (total > SG_SHOWN) {                          /* the scroll bar: where the window is */
         int32_t th = SG_SHOWN * SG_RH - 4, bh = th * SG_SHOWN / total, by = SG_Y0 + th * top / total;
