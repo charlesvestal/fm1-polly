@@ -62,7 +62,7 @@ static int ne_band(int op, uint32_t t, int note, uint32_t len, int vel, uint32_t
     app.gen++;
     mark_dirty();
     if (j < 0 && op == NE_ADD)
-        say("GROOVE FULL", "600 NOTES");
+        say_no("GROOVE FULL", "600 NOTES");
     return j;
 }
 /* the melody's notes changed (inside arr_edit, as recording's: lead_write); returns the note's index after, -1 refused */
@@ -250,7 +250,7 @@ static void ne_key(int note)
     ne.entering = 1;
     ne_kind(NE_ADD);
     if (ne_do(NE_ADD, ne.t, note, ne_grid(), app.lead ? sel_lead()->vel : 100, 0) < 0 && app.lead)
-        say("NO SECTION", "HERE");
+        say_no("NO SECTION", "HERE");
     else if (!app.lead)
         ne_lands_ask();
 }

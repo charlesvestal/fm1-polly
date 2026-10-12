@@ -47,6 +47,7 @@ static void say(const char *a, const char *b)
                                                   * footer; titles (the header's page, a loop's name on its screen) mixed */
     upcase(ui.msg[1]);
     ui.msg_until = plat_ms() + 1300u;
+    ui.msg_no = 0;
     ui.msg_first = 0;
 #if defined(GM_HOST) && !defined(GM_WEB)        /* the simulator: a message the header cuts is a bug */
     if (8 + text_w(&FONT_B, ui.msg[0]) + 8 + text_w(&FONT_B, ui.msg[1]) > 232) {
@@ -55,11 +56,18 @@ static void say(const char *a, const char *b)
     }
 #endif
 }
+/* a refusal (what was asked could not be done, and why): its own look in the header, a little longer */
+static void say_no(const char *a, const char *b)
+{
+    say(a, b);
+    ui.msg_no = 1;
+    ui.msg_until = plat_ms() + 2000u;
+}
 void ui_say(const char *a, const char *b) { say(a, b); }
 /* NO FREE SLOT (or pattern): said, and for a while SEL opens SLOTS (the footer says so) */
 static void say_noslot(const char *a, const char *b)
 {
-    say(a, b);
+    say_no(a, b);
     ui.slots_until = ui.msg_until + 3000u;
 }
 
@@ -286,7 +294,7 @@ static int bank_get(int b)
         return -1;
     qbuf[free_].index = -1;
     if ((rc = qb_decode(b, &qbuf[free_])) != 0) {
-        say("QY70 STYLE", rc == QB_E_CRC || rc == QB_E_READ ? "DAMAGED" : "NOT READ");
+        say_no("QY70 STYLE", rc == QB_E_CRC || rc == QB_E_READ ? "DAMAGED" : "NOT READ");
         qbuf[free_].index = -1;
         return -1;
     }
@@ -832,7 +840,7 @@ static void set_track(int t)
         if (rec && app.mode != ARR_SONG) {
             arr_record(t, 0);
             ui.rec_want = ui.rec_seen = 0;
-            say("MELODIES RECORD", "IN A SONG");
+            say_no("MELODIES RECORD", "IN A SONG");
             return;
         }
         arr_trk_t lb;
@@ -914,7 +922,7 @@ static void cursor_move(int d, int s)
         b = len > 0 ? b % len : 0;
     else if (b >= loop_max_bars(bpb) * bpb) {
         loop_name_l(app.loop % ARR_LOOPS, t);
-        say("PROGRESSION FULL", t);
+        say_no("PROGRESSION FULL", t);
         return;
     } else if (b > len && app.cbeat < len)
         b = len;                                 /* (a step past what is left: the end first) */
@@ -983,7 +991,7 @@ static int chord_write(int i, int b, chord_t c)
     songs_write(0);
     if (r < 0) {
         loop_name_l(i, t);
-        say("PROGRESSION FULL", t);
+        say_no("PROGRESSION FULL", t);
     } else {
         ui.wrote_t = plat_ms();
         ui.wrote_loop = (uint8_t)i;
@@ -1029,7 +1037,7 @@ static void act_clear_chord(void)
     loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
     int b = app.cbeat;
     if (b >= loop_len(l) || b >= ARR_LOOP_BEATS || l->ch[b] == LC_SAME) {
-        say("CLEAR CHORD", "NONE HERE");
+        say_no("CLEAR CHORD", "NONE HERE");
         return;
     }
     undo_commit();                               /* (what came before: its own step) */
@@ -1203,7 +1211,7 @@ static void free_take_toggle(void)
     for (i = 0; i < ARR_LOOPS && sloops.loop[i].bars; i++)
         ;
     if (i == ARR_LOOPS) {
-        say("NO EMPTY PROG", "CLEAR ONE (SEL)");
+        say_no("NO EMPTY PROG", "CLEAR ONE (SEL)");
         return;
     }
     ui.take_loop = (uint8_t)i;
@@ -1238,7 +1246,7 @@ static int take_finish(void)
     ui.take = 0;
     ui.centry = -1;
     if (!ui.take_any) {
-        say("NO CHORDS", "no new progression");
+        say_no("NO CHORDS", "no new progression");
         return 0;
     }
     if (n < ui.take_last + 1)
@@ -1478,11 +1486,11 @@ static void song_tap(int w)
     song_t *g = csong();
     int r = app.row, before = leads.n;
     if (r < g->nrows && arr_playing && arr_mode == ARR_SONG && arr_row < g->nrows && r <= arr_row) {
-        say("INSERT SECTION", "STOP FIRST");
+        say_no("INSERT SECTION", "STOP FIRST");
         return;
     }
     if (g->nrows >= ARR_ROWS || r > g->nrows) {
-        say("SONG FULL", "32 SECTIONS");
+        say_no("SONG FULL", "32 SECTIONS");
         return;
     }
     songs_write(1);                              /* (the rows, their lead notes and marks together) */
@@ -1518,7 +1526,7 @@ static void song_key(int k)
     if (b < 0 || b >= ARR_ALLTRK)
         return;                                  /* black key 11: nothing */
     if (!g->nrows) {
-        say("NO SECTIONS", "WHITE KEYS FIRST");
+        say_no("NO SECTIONS", "WHITE KEYS FIRST");
         return;
     }
     if (r >= g->nrows)
@@ -1570,7 +1578,7 @@ static int song_rec_loop(int w)
         res = row_tap(g, n, w);
     songs_write(0);
     if (res < 0) {
-        say("SONG FULL", "32 SECTIONS");
+        say_no("SONG FULL", "32 SECTIONS");
         return -1;
     }
     ui.row_marks &= ~(1u << res);                /* (a section marked to go, given a progression: kept) */
@@ -1638,7 +1646,7 @@ static void song_knob(int k, int32_t e)
             r = row_tap(g, g->nrows, 0);
             songs_write(0);
             if (r < 0) {
-                say("SONG FULL", "32 SECTIONS");
+                say_no("SONG FULL", "32 SECTIONS");
                 return;
             }
             ui.row_follow = 0;
@@ -1745,7 +1753,7 @@ static void song_play_from(int r)
     const song_t *g = csong();
     char t[12];
     if (!g->nrows && !ui.song_rec) {
-        say("NO SECTIONS", "WHITE KEYS FIRST");
+        say_no("NO SECTIONS", "WHITE KEYS FIRST");
         return;
     }
     if (r >= g->nrows)
@@ -1771,7 +1779,7 @@ static void lead_rec_button(int on)
     if (on && app.mode != ARR_SONG && !arr_playing && csong()->nrows)
         mode_set(ARR_SONG);                      /* stopped: the song it records into (PLAY starts it) */
     if (on && app.mode != ARR_SONG) {
-        say("MELODIES RECORD", "IN A SONG");
+        say_no("MELODIES RECORD", "IN A SONG");
         return;
     }
     arr_record(sel_trk(), on ? ARR_REC_BAR : 0);   /* (playing: a count-in to the next bar line; stopped: from PLAY) */
@@ -1795,7 +1803,7 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
             if (arr_playing)
                 arr_play(0);
             else
-                say("NO SECTIONS", "WHITE KEYS FIRST");
+                say_no("NO SECTIONS", "WHITE KEYS FIRST");
             break;
         }
         if (song_page() && !(arr_playing && app.mode == ARR_SONG)) {   /* on SONG: the song, from row 1 */
@@ -1827,7 +1835,7 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
             break;
         }
         if (on && r != KR_TRACK) {               /* REC records what the keys play: a track on SEQ, EDIT */
-            say("REC", "not here");
+            say_no("REC", "not here");
             break;
         }
         if (app.lead) {                          /* a lead track: into the song's rows as they play */
@@ -1915,7 +1923,7 @@ static void button_up(int b)                     /* a tap: released before it wa
         uint32_t m = ui.msg_until;
         int rc = save_all();
         if (rc != 0)
-            say("NOT SAVED", "FLASH ERROR");
+            say_no("NOT SAVED", "FLASH ERROR");
         else if (ui.msg_until == m)              /* (else what the save said stays: a shared pattern) */
             say("SAVED", 0);
         break;
@@ -1961,7 +1969,7 @@ static void song_change(int s)
     arr_record(sel_trk(), 0);
     ui.rec_want = 0;
     if (unsaved() && save_all() != 0) {
-        say("NOT SAVED", "SONG KEPT");
+        say_no("NOT SAVED", "SONG KEPT");
         if (rec)
             arr_record(sel_trk(), ARR_REC_BAR);  /* as it was */
         return;
@@ -2005,11 +2013,11 @@ static void slot_style(int s, int to)
         return;                                  /* missing or damaged (said): nothing changes */
     if (slot_unsaved(s)) {
         if (arr_playing) {
-            say("UNSAVED", "SAVE FIRST");
+            say_no("UNSAVED", "SAVE FIRST");
             return;
         }
         if (save_all() != 0) {
-            say("NOT SAVED", "GROOVE KEPT");
+            say_no("NOT SAVED", "GROOVE KEPT");
             return;
         }
     }
@@ -2305,7 +2313,7 @@ static void song_page_knob(int k, int32_t e)
             if (k == 1 && l->bars < asked) {
                 itoa_u((uint32_t)l->bars, cat_s(a, "LENGTH "));
                 cat_s(a, ":");
-                say(a, "64 BEATS MAX");
+                say_no(a, "64 BEATS MAX");
             } else if (loop_hidden(l, kp) > hid) {
                 cat_s(itoa_u((uint32_t)loop_hidden(l, kp), a), loop_hidden(l, kp) > 1 ? " CHORDS HIDDEN" : " CHORD HIDDEN");
                 say(a, "BACK IF IT GROWS");
@@ -2439,7 +2447,7 @@ static void act_clear_loop(void)
     char t[8];
     if (!sloops.loop[ui.tgt.loop].bars) {
         loop_name_l(ui.tgt.loop, t);
-        say(t, "IS EMPTY");
+        say_no(t, "IS EMPTY");
     } else
         ask_loop("CLEAR ", ui.tgt.loop, do_clear_loop);
 }
@@ -2449,15 +2457,15 @@ static int row_change(int ins, int row)
 {
     song_t *g = csong();
     if (arr_playing) {
-        say(ins ? "INSERT SECTION" : "DELETE SECTION", "STOP FIRST");
+        say_no(ins ? "INSERT SECTION" : "DELETE SECTION", "STOP FIRST");
         return -1;
     }
     if (ins && g->nrows >= ARR_ROWS) {
-        say("SONG FULL", "32 SECTIONS");
+        say_no("SONG FULL", "32 SECTIONS");
         return -1;
     }
     if (!ins && row >= g->nrows) {
-        say("DELETE SECTION", "NONE HERE");
+        say_no("DELETE SECTION", "NONE HERE");
         return -1;
     }
     return 0;
@@ -2656,7 +2664,7 @@ static void do_copy_song(void)
     int8_t lp = -1;
     char a[16];
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
-        say("COPY", "STOP FIRST");
+        say_no("COPY", "STOP FIRST");
         return;
     }
     edits_flush();
@@ -2677,16 +2685,16 @@ static void do_copy_song(void)
             continue;
         arr_pattern_copy(i, &scratch);
         if (project_pattern_save(st[i], &scratch) != 0) {
-            say("FLASH ERROR", "song unchanged");
+            say_no("FLASH ERROR", "song unchanged");
             return;
         }
     }
     if (project_leads_free(to) != 0) {          /* the target's lead notes go with its rows (the source's: not copied) */
-        say("FLASH ERROR", "song unchanged");
+        say_no("FLASH ERROR", "song unchanged");
         return;
     }
     if (deflt ? project_loops_free(to) != 0 : project_loops_save(to, &sloops, &lp) != 0) {
-        say("FLASH ERROR", "song unchanged");    /* (the header in RAM says `to` now: the song's next save sets it back) */
+        say_no("FLASH ERROR", "song unchanged");    /* (the header in RAM says `to` now: the song's next save sets it back) */
         return;
     }
     songs_write(1);                              /* (not the song playing: no need, but every row write goes so) */
@@ -2701,11 +2709,11 @@ static void act_copy_song(void)
     int to = ui.tgt.song % ARR_SONGS;
     char q[20];
     if (to == proj.song) {
-        say("COPY", "SAME SONG");
+        say_no("COPY", "SAME SONG");
         return;
     }
     if (arr_playing) {                           /* it writes patterns: a flash write pauses the audio */
-        say("COPY", "STOP FIRST");
+        say_no("COPY", "STOP FIRST");
         return;
     }
     if (!songs.song[to].nrows) {
@@ -2744,7 +2752,7 @@ static void act_erase_lead(int in_row)
     ui.tgt.lrow = (uint8_t)(in_row ? lead_row() : 255);
     lead_erase_what(t);
     if (!leads_count(&leads, in_row ? ui.tgt.lrow : -1, ui.tgt.ltrk)) {
-        say(t, "HAS NO NOTES");
+        say_no(t, "HAS NO NOTES");
         return;
     }
     cat_s(cat_s(cat_s(q, "CLEAR "), t), "?");
@@ -2755,7 +2763,7 @@ static void do_erase_track(void)
 {
     int t = ui.tgt.trk & 7;
     if (eslot() != ui.tgt.slot) {                /* the engine erases in the section playing: another now */
-        say("NOT CLEARED", "GROOVE CHANGED");
+        say_no("NOT CLEARED", "GROOVE CHANGED");
         return;
     }
     char h[16];
@@ -2772,7 +2780,7 @@ static void act_erase_track(void)
     int t = ui.tgt.trk & 7;
     arr_pattern_copy(ui.tgt.slot, &scratch);
     if (!scratch.trk[t].count) {
-        say(TRACK_NAME[t], "HAS NO NOTES");
+        say_no(TRACK_NAME[t], "HAS NO NOTES");
         return;
     }
     cat_s(cat_s(cat_s(q, "CLEAR "), TRACK_NAME[t]), "?");
@@ -2800,7 +2808,7 @@ static void do_clear_pattern(void)
             return;
         }
     }
-    say("NOT CLEARED", "RECORDING");
+    say_no("NOT CLEARED", "RECORDING");
 }
 static void act_clear_pattern(void)
 {
@@ -2808,7 +2816,7 @@ static void act_clear_pattern(void)
     int s = ui.tgt.slot % ARR_NSECT;
     arr_pattern_copy(s, &scratch);
     if (!scratch.nev) {
-        say(SECT_NAME[s + 1], "HAS NO NOTES");
+        say_no(SECT_NAME[s + 1], "HAS NO NOTES");
         return;
     }
     cat_s(cat_s(cat_s(q, "CLEAR "), SECT_NAME[s + 1]), "?");
@@ -2848,7 +2856,7 @@ static void act_quant_lead(void)
         return;
     }
     if (r >= g->nrows || !leads_count(&leads, r, k)) {
-        say(a, "HAS NO NOTES");
+        say_no(a, "HAS NO NOTES");
         return;
     }
     {   /* the row's length: its loop's beats (an empty loop: a bar of 4), REPEAT times */
@@ -2921,7 +2929,7 @@ static void do_copy_lead(void)
     undo_commit();                               /* one step */
     itoa_u((uint32_t)to + 1u, cat_s(itoa_u((uint32_t)from + 1u, cat_s(cat_s(b, TRACK_NAME[ARR_LD1 + k]), " SECTION ")), " > "));
     if (put || !n)
-        say("COPIED", b);                        /* (else what lead_put said: MEMORY FULL, MELODY FULL) */
+        say_no("COPIED", b);                        /* (else what lead_put said: MEMORY FULL, MELODY FULL) */
 }
 static void act_copy_lead(void)
 {
@@ -2935,7 +2943,7 @@ static void act_copy_lead(void)
     if (!leads_count(&leads, ui.tgt.lfrom, ui.tgt.ltrk)) {
         e = cat_s(cat_s(q, TRACK_NAME[ARR_LD1 + ui.tgt.ltrk]), " SECTION ");
         itoa_u(ui.tgt.lfrom + 1u, e);
-        say(q, "HAS NO NOTES");
+        say_no(q, "HAS NO NOTES");
         return;
     }
     if (!leads_count(&leads, ui.tgt.lrow, ui.tgt.ltrk)) {
@@ -3107,7 +3115,7 @@ static void do_free_slot(void)
     slot_who_t w;
     char a[16], b[32];                               /* ("S1 S2 S3 S4 BACK TO STYLE": 26) */
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
-        say("FREE", "STOP FIRST");
+        say_no("FREE", "STOP FIRST");
         return;
     }
     slot_who(i, &w);
@@ -3159,7 +3167,7 @@ static void do_free_slot(void)
         cat_s(b, "PROGS: FACTORY");
     } else if (w.kind == SLOT_LEAD || w.kind == SLOT_LOOPS) {
         if (project_slot_clear(i) != 0) {
-            say("NOT FREED", "FLASH ERROR");
+            say_no("NOT FREED", "FLASH ERROR");
             return;
         }
     } else
@@ -3177,7 +3185,7 @@ static void act_free_slot(int i)
     if (slot_kind[i % ARR_USER_PATTERNS] == SLOT_NONE)
         return;
     if (arr_playing) {
-        say("FREE", "STOP FIRST");
+        say_no("FREE", "STOP FIRST");
         return;
     }
     ui.tgt.free = (uint8_t)i;
@@ -3211,12 +3219,12 @@ static void act_free_slot(int i)
 static void do_factory_reset(void)
 {
     if (arr_playing) {
-        say("RESET", "STOP FIRST");
+        say_no("RESET", "STOP FIRST");
         return;
     }
     app.edit_pend = 0;                           /* (nothing kept: its changes go with the rest) */
     if (project_factory_reset(&songs, &scratch) != 0) {
-        say("NOT RESET", "FLASH ERROR");
+        say_no("NOT RESET", "FLASH ERROR");
         app_restored();
         return;
     }
@@ -3226,7 +3234,7 @@ static void do_factory_reset(void)
 static void act_factory_reset(void)
 {
     if (arr_playing) {
-        say("RESET", "STOP FIRST");
+        say_no("RESET", "STOP FIRST");
         return;
     }
     ask("ERASE ALL SONGS AND MEMORY?", do_factory_reset);
@@ -3286,7 +3294,7 @@ static void do_copy_pattern(void)
     uint16_t d;
     char a[24], t[24];
     if (arr_playing) {                           /* (PLAY during the question) a flash write pauses the audio */
-        say("COPY", "STOP FIRST");
+        say_no("COPY", "STOP FIRST");
         return;
     }
     pat_name(to, cat_s(t, "COPIED TO "));        /* "POP (YOURS) COPIED TO MEMORY 7" */
@@ -3302,7 +3310,7 @@ static void do_copy_pattern(void)
         }
     d = arr_pattern_copy(s, &scratch);
     if (project_pattern_save(to, &scratch) != 0) {
-        say("NOT COPIED", "FLASH ERROR");
+        say_no("NOT COPIED", "FLASH ERROR");
         return;
     }
     if (to == st) {                              /* into its own: saved */
@@ -3338,7 +3346,7 @@ static void copy_to(int n)
             do_copy_loop();
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET) {
         if (arr_playing) {                       /* a flash write pauses the audio */
-            say("COPY", "STOP FIRST");
+            say_no("COPY", "STOP FIRST");
             return;
         }
         if (slot_held(n)) {                      /* a slot holding lead notes or a song's loops: never a pattern's */
@@ -3354,7 +3362,7 @@ static void copy_to(int n)
         } else
             do_copy_pattern();
     } else
-        say("COPY", "ON HOME, ARP, SEQ");
+        say_no("COPY", "ON HOME, ARP, SEQ");
 }
 
 /* the record grid (Pattern page KNOB 1): clockwise finer, 1/8 .. 1/32, then off */
@@ -3524,7 +3532,7 @@ static void bars_to_loop(void)
 static void mute_toggle(int trk)
 {
     if (trk >= ARR_TRACKS && app.mode != ARR_SONG) {   /* a lead: in a song only (its rows' mutes, by hand) */
-        say("MELODIES PLAY", "IN A SONG");
+        say_no("MELODIES PLAY", "IN A SONG");
         return;
     }
     if (app.mode == ARR_SONG) {
@@ -3754,7 +3762,7 @@ static void list_open(void)
     list_build();
     if (!lst.n) {
         lst.open = 0;
-        say("LIST", "NOTHING HERE");
+        say_no("LIST", "NOTHING HERE");
         return;
     }
     for (a = 0; a < lst.n && lst.row[a].kind != LK_ACTION && lst.row[a].kind != LK_PICK && lst.row[a].kind != LK_SUB; a++)
@@ -4039,7 +4047,7 @@ static void autosave(void)                       /* at rest only: a flash write 
         return;
     }
     if (!app.save_err)
-        say("NOT SAVED", "FLASH ERROR");         /* once, until a save works again */
+        say_no("NOT SAVED", "FLASH ERROR");         /* once, until a save works again */
     app.save_err = 1;
     app.err_chg = app.chg;
 }
@@ -4267,7 +4275,7 @@ static void do_undo(int redo)
                 uj_apply(&uj, k, UR_PAT, (uint8_t *)&scratch, sh);   /* (twice: as it was) */
         }
         if (!ok) {
-            say(redo ? "REDO" : "UNDO", "NOT NOW");
+            say_no(redo ? "REDO" : "UNDO", "NOT NOW");
             return;
         }
         slot_cache(s, &scratch);

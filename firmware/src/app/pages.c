@@ -195,6 +195,7 @@ static struct {
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
+    uint8_t msg_no;                                  /* the message showing is a refusal (say_no): its own look */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
     uint8_t sg_top;                                  /* Song's window: its first row (moved only to keep the cursor in it) */
     int8_t sg_anim_r, sg_anim_d;                     /* rows inserted (+1) / deleted (-1) at sg_anim_r: those after slide */
@@ -575,7 +576,7 @@ static void draw_header(void)
     h = hash(h, (uint32_t)proj.song | (uint32_t)slots << 24 | (uint32_t)nfree << 25 | (uint32_t)ts.on << 30);
     h = hash(h, (uint32_t)cnt);
     if (msg)
-        h = hash(h, ui.msg_until);
+        h = hash(h, ui.msg_until ^ (uint32_t)ui.msg_no << 31);
     for (const char *c = ui.ask_q; ask && *c; c++)
         h = hash(h, (uint8_t)*c);
     if (h == ui.sig[0])
@@ -595,6 +596,12 @@ static void draw_header(void)
         itoa_u((uint32_t)cnt, t);
         cv_text(x + 8, 4, &FONT_B, t, K_ACCENT);
         cv_round(222, 8, 9, 9, 4, K_REC);
+    } else if (msg && ui.msg_no) {                   /* a refusal: what was asked, and why not, on its own look */
+        cv_round(0, 0, 240, HDR_H, 0, K_TEXT);       /* an ink bar, a coral "!" */
+        cv_round(6, 3, 18, 18, 9, K_ACCENT);
+        text_c(15, cap_y(3, 18, &FONT_B), &FONT_B, "!", K_BG);
+        int32_t x = cv_text(30, 4, &FONT_B, ui.msg[0], K_BG);
+        text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT_L);
     } else if (msg) {
         int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
         text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
