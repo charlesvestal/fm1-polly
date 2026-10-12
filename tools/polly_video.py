@@ -15,6 +15,7 @@ the host counts it: tap 80 ms, press / release / key 2, tapkey 90, spin 1, turn 
   at NAME BARS [MS]           wait until NAME + BARS bars + MS (a float of bars is fine)
   chord HOLD K K K...         the keys down together, held HOLD ms, up
   note HOLD K                 one key, held HOLD ms
+  mel NAME BAR BEAT DUR K     key K at NAME + BAR bars + BEAT beats (+10 ms), held 85 % of DUR beats (4 beats a bar)
 """
 import json
 import os
@@ -101,6 +102,15 @@ class Expander:
             if due < self.t - 0.5:
                 raise SystemExit(f"at {' '.join(w[1:])}: {due:.0f} ms is past (now {self.t})")
             self.wait(due - self.t)
+        elif c == "mel":
+            beat = self.barms / 4
+            due = self.anchors[w[1]] + float(w[2]) * self.barms + float(w[3]) * beat + 10
+            if due < self.t - 0.5:
+                raise SystemExit(f"mel {' '.join(w[1:])}: {due:.0f} ms is past (now {self.t})")
+            self.wait(due - self.t)
+            self.key(w[5], True)
+            self.wait(float(w[4]) * beat * 0.85 - 2)
+            self.key(w[5], False)
         elif c == "wait":
             self.wait(int(w[1]))
         elif c in ("press", "release"):
@@ -131,7 +141,7 @@ class Expander:
             for _ in range(abs(n)):
                 self.spin(w[1], 1 if n > 0 else -1)
                 self.wait(gap - 1)
-        elif c in ("expect", "wav", "wavstop", "echo", "leds", "style", "master"):
+        elif c in ("expect", "wav", "wavstop", "echo", "leds", "style", "master", "hitreset"):
             self.prim(s, 0)
         else:
             raise SystemExit(f"storyboard: unknown command {c}")

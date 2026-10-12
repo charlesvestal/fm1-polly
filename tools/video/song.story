@@ -155,7 +155,9 @@ wait 350
 tapkey b2
 wait 1500
 expect row_mute3 7
-# ---- 9. a melody
+# ---- 9. a melody: one pass along the whole song, M1, a different line in each section (the song from bar A 28:
+# section 1 the verse A 28-31 (Am F C G), 2 the chorus A 32-35 (C G Am F, Groove B), 3 verse 2 A 36-39 (the
+# breakdown), 4 the last chorus A 40-47 (x2, +2: the keys sound a tone up, stored as played). mel A BAR BEAT DUR KEY
 cap 9. Add a melody | On the Song page PLAY: the song takes over at the next bar. EDIT, ALGORITHM past C4 to M1, REC
 at A 27 100
 tap PLAY
@@ -168,46 +170,122 @@ wait 100
 tap REC
 expect recording 1
 at A 28 -150
-cap 9. Add a melody | The click counts in; play along on the keys: the notes go into section 1 as it plays
-at A 28 10
-note 820 23
-at A 28 867
-note 240 21
-at A 28 1153
-note 480 19
-at A 28 1724
-note 480 16
-at A 29 10
-note 720 19
-at A 29 867
-note 240 16
-at A 29 1153
-note 240 19
-at A 29 1439
-note 240 21
-at A 29 1724
-note 480 19
-at A 30 10
-note 480 14
-at A 30 581
-note 480 19
-at A 30 1153
-note 720 23
-at A 30 2010
-note 240 21
-at A 31 10
-note 960 21
-at A 31 1153
-note 480 18
-at A 31 1724
-note 330 14
-at A 32 -180
+cap 9. Add a melody | One melody along the whole song: it changes from section to section. Section 1: the verse line
+mel A 28 0 1.5 23
+mel A 28 1.5 0.5 21
+mel A 28 2 1 19
+mel A 28 3 1 16
+mel A 29 0 1.5 19
+mel A 29 1.5 0.5 16
+mel A 29 2 0.5 19
+mel A 29 2.5 0.5 21
+mel A 29 3 1 19
+mel A 30 0 1 14
+mel A 30 1 1 19
+mel A 30 2 1.5 23
+mel A 30 3.5 0.5 21
+mel A 31 0 1.5 21
+mel A 31 2 1 18
+mel A 31 3 0.8 14
+at A 32 -150
+cap 9. Add a melody | Section 2, the chorus: a higher line that answers the verse, new notes (the take goes on)
+mel A 32 0 0.5 23
+mel A 32 0.5 1.5 26
+mel A 32 2 1 23
+mel A 32 3 1 19
+mel A 33 0 1 21
+mel A 33 1 1.5 26
+mel A 33 2.5 0.5 24
+mel A 33 3 1 21
+mel A 34 0 1.5 23
+mel A 34 1.5 0.5 19
+mel A 34 2 0.5 23
+mel A 34 2.5 1.5 26
+mel A 35 0 1 24
+mel A 35 1 1 23
+mel A 35 2 1.8 19
+at A 36 -150
+cap 9. Add a melody | Section 3, verse 2 (the breakdown): the verse line again, varied
+mel A 36 0 1 16
+mel A 36 1 1 19
+mel A 36 2 2 23
+mel A 37 0 1.5 24
+mel A 37 1.5 0.5 23
+mel A 37 2 2 19
+mel A 38 0 1 14
+mel A 38 1 0.5 19
+mel A 38 1.5 0.5 21
+mel A 38 2 1 23
+mel A 38 3 1 26
+mel A 39 0 1 21
+mel A 39 1 1 18
+mel A 39 2 1.8 14
+at A 40 -150
+cap 9. Add a melody | Section 4, the last chorus (x2): the chorus line, then a new ending; it sounds a tone up with the key change
+mel A 40 0 0.5 23
+mel A 40 0.5 1.5 26
+mel A 40 2 1 23
+mel A 40 3 1 19
+mel A 41 0 1 21
+mel A 41 1 1.5 26
+mel A 41 2.5 0.5 24
+mel A 41 3 1 21
+mel A 42 0 1.5 23
+mel A 42 1.5 0.5 19
+mel A 42 2 0.5 23
+mel A 42 2.5 1.5 26
+mel A 43 0 1 24
+mel A 43 1 1 23
+mel A 43 2 1.8 19
+mel A 44 0 1 26
+mel A 44 1 1 23
+mel A 44 2 1 19
+mel A 44 3 1 23
+mel A 45 0 1.5 21
+mel A 45 1.5 0.5 19
+mel A 45 2 1 21
+mel A 45 3 1 26
+mel A 46 0 1 23
+mel A 46 1 1 21
+mel A 46 2 1 19
+mel A 46 3 1 16
+mel A 47 0 1 19
+mel A 47 1 2.8 19
+at A 48 -180
 tap REC
-wait 50
-expect lead_count1_1 >10
+wait 30
 tap PLAY
 wait 100
 expect playing 0
+expect recording 0
+# the melody, a section at a time: so many notes in each, and each section's own pitches
+expect lead_count1_1 16
+expect lead_count1_2 15
+expect lead_count1_3 14
+expect lead_count1_4 29
+# (MIDI notes, as heard; the list goes section by section) verse: from E5 down to A4, never past E5
+expect lead1_row 1
+expect lead1_note 76
+expect lead4_note 69
+expect lead12_note 76
+# the chorus: higher, up to G5 (79) and F5 (77)
+expect lead17_row 2
+expect lead18_note 79
+expect lead23_note 77
+expect lead28_note 79
+# verse 2: starts low (A4), climbs to F5 and G5, unlike verse 1
+expect lead32_row 3
+expect lead32_note 69
+expect lead35_note 77
+expect lead42_note 79
+# the last chorus: the chorus line a tone up (G5 -> A5, E5 -> F#5), then its new ending from bar 5 (A5 on its downbeat)
+expect lead46_row 4
+expect lead46_note 78
+expect lead47_note 81
+expect lead61_row 4
+expect lead61_pos 7680
+expect lead61_note 81
+expect lead74_note 74
 # ---- 10. play it
 cap 10. Play it | From the top, on the Song page: the Intro, the sections with fills between them, the Ending
 wait 900
@@ -217,28 +295,33 @@ turn SELECT 1
 wait 900
 expect page 1
 anchor S
+hitreset
 tap PLAY
 wait 300
 expect sect 1
 cap 10. Play it | The Intro: PLAY from a stop on the Song page opens with the style's Intro
 at S 2 400
 expect row 1
-cap 10. Play it | Section 1, the verse, with the melody on M1
+cap 10. Play it | Section 1, the verse. M1: the verse line
 at S 6 400
 expect row 2
 expect sect 3
-cap 10. Play it | Section 2, the chorus, on Groove B: busier (a fill leads into it)
+cap 10. Play it | Section 2, the chorus on Groove B (a fill leads in). M1: the chorus line, new notes
 at S 10 400
 expect row 3
 expect mutes 7
-cap 10. Play it | Section 3, the breakdown: verse 2 with D1, D2 and PC muted
+cap 10. Play it | Section 3, the breakdown: D1, D2, PC muted. M1: the verse line, varied
 at S 14 400
 expect row 4
-cap 10. Play it | Section 4, the last chorus: Groove B, twice, a tone up (+2: D, A, Bm, G)
+cap 10. Play it | Section 4, the last chorus, twice. M1 too is a tone up with the key change (+2: D, A, Bm, G)
+at S 18 400
+cap 10. Play it | The last chorus again: M1 takes its new ending
 at S 22 400
 expect sect 6
 cap 10. Play it | The Ending, and the song stops by itself
 at S 24 300
 expect playing 0
-cap Done | Two progressions, four sections, a melody, from a fresh boot. Stopped, Polly saves the song by itself.
+# M1 played along: its 74 notes (track 9, LD1)
+expect track_hits9 74
+cap Done | Two progressions, four sections, one melody along the song, from a fresh boot. Stopped, Polly saves the song by itself.
 wait 3200
