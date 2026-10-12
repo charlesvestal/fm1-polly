@@ -82,6 +82,12 @@ run qy70-install python3 tests/qy70_install_test.py $OUT/synth.qyi
 # each write: the old set or the new, whole. Then tools/polly_backup.py against a simulated Polly, on that image
 run backup sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O2 -o $OUT/backup_test tests/backup_test.c && $OUT/backup_test $OUT/backup.plb"
 run polly-backup python3 tests/polly_backup_test.py $OUT/backup.plb
+# the web backup page (web/backup/index.html): the same bytes as polly_backup.py's on that conversation, replayed;
+# then a simulated Polly: a backup and a restore byte for byte, STOP FIRST, HOME, a damaged or older file not sent
+if command -v node >/dev/null 2>&1; then
+    run backup-page sh -c "python3 tests/polly_backup_record.py $OUT/backup.plb $OUT/backup_transcript.json && \
+        node tests/host/backup_page_test.mjs $OUT/backup_transcript.json"
+fi
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/polly.fwsc ]; then
     run ota-entry sh -c "$CC -o $OUT/ota_test tests/ota_test.c && $OUT/ota_test build/polly.fwsc"
