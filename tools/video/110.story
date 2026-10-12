@@ -7,7 +7,7 @@ head 110 With other gear
 cap With other gear | Send Polly's band to a computer, follow its clock, play from a keyboard and mirror the screen.
 wait 3500
 # ---- 1. MIDI out
-cap 1. Send MIDI out | Press GLO for Setup. Turn KNOB 2 (MIDI out) to on.
+cap 1. Send MIDI out | Press GLO for Setup. KNOB 2 (MIDI out) is on. Turn it, and the screen says what it does.
 wait 2500
 tap GLO
 expect page 15
@@ -21,7 +21,7 @@ wait 2000
 cap 1. Send MIDI out | Every instrument goes out over USB on its own channel, with the clock.
 wait 4000
 # ---- 2. Clock
-cap 2. Follow MIDI clock | On Setup, turn KNOB 1 (Clock) to MIDI.
+cap 2. Follow MIDI clock | KNOB 1 (Clock) is on MIDI. Turn it, and the screen says what it does.
 wait 2500
 turn K1 1
 expect knob1_is_MIDI 1

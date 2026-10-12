@@ -5,7 +5,7 @@ head 104 Changing styles
 cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
 wait 3500
 # ---- 1. a song that plays round
-cap 1. Set up a song | On Home, press HOME for the Song page. Press white keys 1 and 2.
+cap 1. Set up a song | On the Home page, press HOME for the Song page. Press white keys 1 and 2.
 wait 2500
 tap HOME
 wait 1000
@@ -17,7 +17,7 @@ wait 1000
 expect rows 2
 expect row_loop1 1
 expect row_loop2 2
-cap 1. Set up a song | Turn SELECT to page 2 and KNOB 4 (At end) to again. Press PLAY.
+cap 1. Set up a song | Turn SELECT to page 2, and KNOB 4 (At end) to again. Press PLAY: the song plays round.
 wait 2500
 turn SELECT 1
 wait 800
@@ -33,7 +33,7 @@ expect tempo 105
 wait 6000
 expect row 1
 # ---- 2. Funk: the same sections and chords, Funk's band and tempo
-cap 2. Change the style | Press HOME for Home. Turn KNOB 1 (Style) to Funk.
+cap 2. Change the style | Press HOME for the Home page. Turn KNOB 1 (Style) to Funk.
 wait 2500
 tap HOME
 wait 1000
@@ -68,7 +68,7 @@ expect tempo 90
 expect msgtext_is_TEMPO_KEPT_90_(ROCK_120) 1
 wait 6000
 # ---- 4. the style's tempo again
-cap 4. Use the style's tempo | Press SEL. The list opens on STYLE TEMPO 120. Press SEL again.
+cap 4. Use the style's tempo | Press SEL for the page's list. It opens on STYLE TEMPO 120. Press SEL again.
 wait 2500
 tap SEL
 wait 300
@@ -82,7 +82,7 @@ expect list_open 0
 expect tempo 120
 expect msgtext_is_TEMPO_120_THE_STYLE'S 1
 wait 3000
-cap 4. Use the style's tempo | From now on, each style brings its tempo. Turn KNOB 1 back to Funk: 100.
+cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 back to Funk: 100.
 wait 2500
 turn K1 -1
 expect knob1_is_Funk 1

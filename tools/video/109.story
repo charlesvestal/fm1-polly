@@ -4,12 +4,12 @@
 # change to save and undo, and a place in Memory to free. Polly saves by itself ~4 s after the last move: SAVE goes
 # in before that. The backup (step 5) is on the computer: not in the video.
 head 109 Keeping your work
-cap Keeping your work | Save, switch songs, undo, free memory, and back up to your computer.
+cap Keeping your work | Save, undo, switch songs, free Memory, and back up to your computer.
 wait 3500
 expect dirty 0
 expect lit_SAVE 0
 # ---- 1. save
-cap 1. Save | Press EDIT and turn KNOB 1 (Sound). SAVE lights: the change isn't saved yet.
+cap 1. Save | Press EDIT and turn KNOB 1 (Sound) one step. SAVE lights, and the header shows "unsaved".
 wait 2500
 tap EDIT
 expect page 8
@@ -22,7 +22,7 @@ wait 900
 still 1-unsaved
 wait 700
 expect lit_SAVE 1
-cap 1. Save | Press SAVE. Stopped, Polly also saves by itself after about four seconds.
+cap 1. Save | Press SAVE. When Polly is stopped, it also saves by itself after about four seconds.
 wait 1500
 tap SAVE
 wait 100
@@ -31,7 +31,7 @@ expect lit_SAVE 0
 expect msgtext_is_SAVED 1
 wait 2200
 # ---- 2. undo, redo
-cap 2. Undo | Hold HOME and press REC to undo the last change.
+cap 2. Undo and redo | Hold HOME and press REC to undo the last change.
 wait 2500
 press HOME
 wait 300
@@ -45,7 +45,7 @@ expect recording 0
 wait 400
 release HOME
 wait 1800
-cap 2. Undo | Hold HOME and press PLAY to redo it.
+cap 2. Undo and redo | Hold HOME and press PLAY to redo it.
 wait 2500
 press HOME
 wait 300
@@ -59,7 +59,7 @@ wait 400
 release HOME
 wait 2200
 # ---- 3. four songs
-cap 3. Switch songs | On Home, hold HOME and turn PRESETS: songs S1 to S4.
+cap 3. Switch songs | Hold HOME and turn PRESETS: songs S1 to S4.
 wait 2500
 tap HOME
 expect page 0
@@ -70,7 +70,7 @@ turn PRESET 1
 expect song 2
 still 3-song
 wait 2000
-cap 3. Switch songs | Each song has its own sections, progressions, melodies, tempo and style.
+cap 3. Switch songs | Turn it back to S1. Each song has its own sections, progressions, melodies, tempo and style.
 wait 1500
 turn PRESET -1
 expect song 1
@@ -78,8 +78,8 @@ wait 1500
 release HOME
 expect page 0
 wait 2000
-# ---- 4. memory
-cap 4. Memory | Press SEQ, then SEL. Turn SELECT to MEMORY, the last row, and press SEL.
+# ---- 4. memory (5: a place freed)
+cap 4. Open Memory | Press SEQ, then SEL. Turn SELECT to MEMORY, the last row, and press SEL.
 wait 2500
 tap SEQ
 wait 700
@@ -99,15 +99,16 @@ still 4-memory
 wait 1000
 poster
 wait 1500
-cap 4. Memory | 16 places for your grooves and melodies, for all four songs. The header shows how many are used.
+cap 4. Open Memory | 16 places keep your grooves (yours) and melodies, for all four songs. The header shows how many are used.
 wait 2500
-cap 4. Memory | Progressions don't use memory: they are saved with their song. To free a place, select it and press SEL.
+cap 5. Free a place | Place 1 is selected. Press SEL, and Polly asks first.
 wait 2500
 expect list_sel 0
 tap SEL
 expect asking 1
+still 5-free
 wait 1800
-cap 4. Memory | Polly asks first. Press SEL again: the groove goes back to the style.
+cap 5. Free a place | Press SEL again. The groove goes back to the style, and your copy's notes are gone.
 wait 2000
 tap SEL
 expect asking 0

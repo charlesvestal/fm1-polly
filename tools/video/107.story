@@ -7,7 +7,7 @@ barms 2285.714
 cap Fixing notes | Change, move, delete and enter single notes, without recording again.
 wait 3500
 # ---- 1. open Notes
-cap 1. Open Notes | Press PLAY. Press SEQ for Band, turn ALGORITHM to BA, then press SEQ again.
+cap 1. Open Notes | Press PLAY. Press SEQ for the Band page, turn ALGORITHM to BA, then press SEQ again.
 wait 2500
 tap PLAY
 expect playing 1
@@ -24,7 +24,7 @@ expect tag_is_S1>Pop>Groove_A>BA_Finger_Bass 1
 still 1-notes
 wait 2500
 # ---- 2. pick a note
-cap 2. Pick a note | Turn SELECT. It steps from note to note, and the readout names the note.
+cap 2. Pick a note | Turn SELECT. It steps from note to note, and the line at the top names it.
 wait 2500
 turn SELECT 1 600
 turn SELECT 1 600
@@ -36,14 +36,14 @@ expect notes_where_is_BA|bar_1.1|C2 1
 still 2-pick
 wait 2500
 # ---- 3. change it
-cap 3. Change it | Turn KNOB 2 (Pitch). On a bass note on a beat, Polly asks whether to play it as written.
+cap 3. Change its pitch | Turn KNOB 2 (Pitch) one step. Here the bass plays the chord's root, so Polly asks.
 wait 2500
 turn K2 1
 expect slot1_trk4_note0 37
 expect asking 1
 still 3-ask
 wait 2500
-cap 3. Change it | Press SEL (yes): the bass plays the note as written. Keep turning to E2.
+cap 3. Change its pitch | Press SEL (yes): the bass plays your notes as written. Keep turning to E2.
 wait 2000
 tap SEL
 expect asking 0
@@ -53,7 +53,7 @@ turn K2 3 300
 expect ne_note 40
 expect notes_where_is_BA|bar_1.1|E2 1
 wait 2000
-cap 3. Change it | KNOB 3 (Length) sets how long it plays, KNOB 4 (Velocity) how hard.
+cap 4. Change its length and velocity | KNOB 3 (Length) makes it longer, KNOB 4 (Velocity) softer.
 wait 2500
 turn K3 2 250
 wait 800
@@ -62,7 +62,7 @@ still 3-change
 poster
 wait 2500
 # ---- 4. move it
-cap 4. Move it | Hold SEL and turn SELECT. The note moves one grid step per detent.
+cap 5. Move it | Hold SEL and turn SELECT. The note moves one grid step per detent.
 wait 2500
 press SEL
 wait 300
@@ -74,13 +74,13 @@ expect ne_at 240
 expect ne_note 40
 wait 2500
 # ---- 5. delete and enter
-cap 5. Delete and enter | Press EDIT to delete the selected note.
+cap 6. Delete a note, enter one | Press EDIT to delete the selected note.
 wait 2500
 tap EDIT
 expect page 17
 expect ne_note -1
 wait 2500
-cap 5. Delete and enter | Turn KNOB 1 (Place) to an empty place, then play a key. The note goes in there.
+cap 6. Delete a note, enter one | Turn KNOB 1 (Place) to an empty place, then play a key. The note goes in there.
 wait 2500
 turn K1 -2 400
 expect ne_t 0
@@ -95,7 +95,7 @@ expect ne_t 120
 expect slot1_trk4_count 10
 wait 2500
 # ---- 6. undo
-cap 6. Undo | Hold HOME and press REC. The last edit goes away.
+cap 7. Undo | Hold HOME and press REC. The last edit is undone, and the header says what.
 wait 2500
 press HOME
 wait 300

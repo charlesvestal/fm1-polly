@@ -6,11 +6,11 @@
 # Anchor A: PLAY (the Intro: A 0-1, section 1 A 2-5, section 2 A 6-9, the Ending A 10-11).
 head 105 Recording a melody
 barms 2285.714
-cap Recording a melody | Record a melody along a short song, punch in on a section, and add a second melody.
+cap Recording a melody | Record a melody along a short song, add notes to one section, and record a second melody.
 wait 3500
 expect tempo 105
 # ---- 1. a short song
-cap 1. Make a short song | On Home, press HOME for the Song page. Press white keys 1 and 2: P1 Pop, then P2 Ballad.
+cap 1. Make a short song | On the Home page, press HOME for the Song page. Press white keys 1 and 2: P1 Pop, then P2 Ballad.
 wait 2500
 tap HOME
 expect page 1
@@ -26,7 +26,7 @@ expect row_loop2 2
 expect row_sect1 0
 expect row_sect2 0
 # ---- 2. M1, armed
-cap 2. Arm M1 | Press PLAY. Press EDIT, turn ALGORITHM past C4 to M1, and press REC.
+cap 2. Start recording M1 | Press PLAY. Press EDIT, turn ALGORITHM past C4 to M1, and press REC. Recording starts after the Intro.
 wait 2500
 anchor A
 tap PLAY
@@ -45,7 +45,7 @@ expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 still 2-arm
 # ---- 3. the line, across both sections (M1: section 1 A 2-5, section 2 A 6-9)
 at A 2 -150
-cap 3. Play a line | Play across both sections. The whole song runs along the top, four bars below.
+cap 3. Play a melody | Play across both sections. The top line shows the whole song, with four bars below it.
 mel A 2 0 1.5 23
 expect sect 2
 expect row 1
@@ -63,7 +63,7 @@ mel A 5 0 2 19
 mel A 5 2 1 16
 mel A 5 3 0.8 12
 at A 6 -150
-cap 3. Play a line | Section 2: the notes land on the line and in the four bars. REC again to stop.
+cap 3. Play a melody | Section 2: the notes land on the line and in the four bars. Press REC to stop recording.
 mel A 6 0 1 23
 expect row 2
 mel A 6 1 0.5 24
@@ -96,7 +96,7 @@ expect lead15_row 2
 expect lead16_note 77
 # ---- 4. punch in on section 2 (stopped at the song's end: the cursor back on section 1)
 wait 1200
-cap 4. Punch in | HOME twice for the Song page. KNOB 1 (Section) to section 2. EDIT, REC, PLAY: a bar of clicks counts in. Play.
+cap 4. Add to section 2 | HOME twice, KNOB 1 (Section) to section 2. EDIT, REC, then PLAY: a bar of clicks counts in. Play.
 wait 2500
 tap HOME
 wait 400
@@ -138,7 +138,7 @@ expect cursor 2
 expect lead_count1_1 14
 expect lead_count1_2 17
 # ---- 5. M2: strings, from section 2 (the cursor), a held line under M1
-cap 5. A second melody | Turn ALGORITHM to M2. Press REC and PLAY, and play after the count-in. M1's notes show pale under it.
+cap 5. Record M2 | Turn ALGORITHM to M2. Press REC, then PLAY, and play after the count-in. M1's notes show pale under it.
 wait 2500
 turn ALGO 1
 expect lead_sel 2

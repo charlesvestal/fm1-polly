@@ -7,7 +7,7 @@ barms 2285.714
 cap Your own progressions | Record your chords, fix one, set the length, name it, and play it from anywhere.
 wait 3500
 # ---- 1. record: REC late in bar 0 counts in to bar 1; Am F C G on bars 1-4; REC just before bar 5
-cap 1. Record a progression | On Home, press PLAY, then REC. The click counts in to the next bar.
+cap 1. Record a progression | On the Home page, press PLAY, then REC. A click counts in to the next bar.
 wait 2500
 anchor A
 tap PLAY
@@ -37,7 +37,7 @@ expect loop_ch9_0 916
 expect loop_ch9_4 500
 expect loop_ch9_8 0
 expect loop_ch9_12 700
-cap 1. Record a progression | REC again. Your chords are P9, the first empty progression, and the band plays them round.
+cap 1. Record a progression | Press REC again. Your chords become P9, the first empty progression, and the band loops them.
 at A 7 1500
 # ---- 2. fix the chord on bar 4: G to E7
 cap 2. Fix a chord | Press ARP for the Progression page. Turn KNOB 1 (Bar) to bar 4.
@@ -62,7 +62,7 @@ wait 1000
 poster
 wait 3000
 # ---- 3. the length: 2 bars, then 4 again
-cap 3. Change its length | Turn SELECT to page 2, then KNOB 1 (Length) to 2. The band plays Am and F.
+cap 3. Change the length | Turn SELECT to page 2, then KNOB 1 (Length) to 2. The band plays Am and F.
 wait 2500
 turn SELECT 1
 wait 800
@@ -72,21 +72,21 @@ still 3-length
 expect loop_bars9 2
 expect msgtext_is_2_CHORDS_HIDDEN_BACK_IF_IT_GROWS 1
 wait 5000
-cap 3. Change its length | Turn KNOB 1 back to 4. The hidden chords come back.
+cap 3. Change the length | Turn KNOB 1 back to 4. The hidden chords come back.
 wait 2500
 turn K1 2 400
 expect loop_bars9 4
 expect loop_ch9_12 406
 wait 2500
 # ---- 4. the name
-cap 4. Name it | Turn KNOB 4 (Name) to "Verse".
+cap 4. Name it | Turn KNOB 4 (Name) to Verse.
 wait 2500
 turn K4 1
 still 4-name
 expect loop_name9 Verse
 wait 3000
 # ---- 5. from anywhere: P1, then P9 again
-cap 5. Play it from anywhere | Hold HOME and press white key 1. P1 plays from the next bar.
+cap 5. Switch progressions | Hold HOME and press white key 1. P1, the first ready-made progression, plays from the next bar.
 wait 2500
 press HOME
 wait 300
@@ -97,7 +97,7 @@ expect loop_now 9
 wait 2600
 expect loop_now 1
 wait 2500
-cap 5. Play it from anywhere | Hold HOME and press white key 9. Your Verse comes back at the next bar.
+cap 5. Switch progressions | Hold HOME and press white key 9. Your Verse comes back at the next bar.
 wait 2500
 press HOME
 wait 300

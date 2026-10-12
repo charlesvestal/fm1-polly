@@ -5,31 +5,32 @@ along. This page takes you from switching on to your first song in a few minutes
 
 ## Install
 
-Install Polly with the web installer (`web/polly_installer.html`, in Chrome or Edge). Or install it over USB
-from this repository with `python3 tools/fm1_install.py polly.fwsc`. Charge the FM-1 first, and keep the
-computer awake and the USB cable in until the install is done.
+Charge the FM-1 first. Connect it to your computer over USB, open the web installer
+(`web/polly_installer.html`) in Chrome, and follow its steps. Keep the computer awake and the cable in until
+the install is done.
 
 ## The controls you need
 
-- **KNOB 1–4**: set the four values shown at the bottom of the screen. Each knob's name is shown there too.
+- **KNOB 1–4**: set the four values at the bottom of the screen. Each knob's name is shown above its value.
 - **PLAY**: starts and stops.
 - **REC**: starts recording. Press it again to stop.
 - **HOME**: opens the Home page, where you pick a style and play. Press it again for the Song page, where
-  you build a song. Hold it for shortcuts, which show on the screen.
-- **SELECT** (the encoder): turn it to move to a button's next page.
+  you build a song. Hold it, and its shortcuts show on the screen.
+- **SELECT** (the encoder next to MASTER): turn it for the next page of the button you pressed.
 - **SEL** (the button): opens a list of what you can do on this page. When Polly asks a question, **SEL**
   means yes and **HOME** means no.
 - **ARP**: opens the Progression page, the chord editor, where you fix, name and lengthen progressions.
-- **EDIT** and **ALGORITHM**: **EDIT** opens the Sound page. **ALGORITHM** (the encoder) picks which
-  instrument or melody you're working on.
-- **SAVE**: saves. Polly also saves by itself when stopped.
+- **EDIT**: opens the Sound page.
+- **ALGORITHM** (the encoder under SELECT): picks the instrument or melody you're working on.
+- **SAVE**: saves. It lights when there's something to save.
 - **The keys**: white keys are counted from the left, 1 to 16. Black keys are counted the same way, 1 to 11.
 
 Not sure what a button does? Hold it for a second, and a card explains it.
 
 ## Three words first
 
-- A **style** is a band: drums, bass, chords and more, with two grooves, A (plainer) and B (busier).
+- A **style** is a band: drums, bass, chords and more. It plays two grooves: Groove A, the calmer one, and
+  Groove B, the busier one.
 - A **progression** is a row of chords, one or more per bar, that the band plays in a loop. There are 16,
   P1 to P16. P1–P8 come ready-made. P9–P16 start empty, for your own.
 - A **song** is a list of **sections**. Each section plays one progression with one groove.
@@ -40,27 +41,27 @@ You'll write a verse and a chorus, build a song from them, and play it.
 
 [![Writing a song on Polly, step by step (3 minutes)](docs/video/quickstart.jpg)](docs/video/quickstart.mp4)
 
-*The eight steps below, from a fresh start. Each step pauses so you can follow along.*
+*The nine steps below, from a fresh start. Each step pauses so you can follow along.*
 
-1. **Pick a style.** Switch on. You're on the Home page. Turn **KNOB 1** (Style) to pick a style, such as
-   Pop or Funk. Press **PLAY**, then play a chord with three keys or more. The band follows your chord.
-2. **Write a verse.** Press **REC** to record a progression. Play Am, F, C and G, one chord per bar, then
-   press **REC** again to stop. Your chords are saved as progression P9, the first of the empty ones you can
-   write into, and the band plays them in a loop.
-3. **Name it.** Press **ARP** to open the Progression page, the chord editor. Turn **SELECT** to page 2. Turn
-   **KNOB 4** (Name) to "Verse".
-4. **Write a chorus.** Press **HOME** to go back to the Home page. Turn **KNOB 4** (Prog, the progression the
-   band plays) anticlockwise, past P1, to "–". The band is free again and follows your hands. Press **REC**,
-   play C, G, Am and F, then press **REC**. That's P10, the next empty one. Name it "Chorus" the same way as
-   in step 3.
-5. **Build the song.** Press **HOME** twice: once for Home, again for the Song page. On this page each white key
-   adds a section that plays that progression: white key 9 adds P9, white key 10 adds P10. Press white keys
-   9, 10, 9 and 10. You now have four sections: verse, chorus, verse, chorus.
-6. **Make the chorus bigger.** Turn **KNOB 1** (Section) to choose section 2, the first chorus. Turn
-   **KNOB 3** (Groove) to B, the busier groove. Turn **KNOB 1** to section 4 and **KNOB 3** to B too.
-7. **Play the song.** Press **PLAY** on the Song page. The song takes over at the next bar. You hear your
-   sections with fills between them, then an Ending.
-8. **Save.** Press **SAVE**, or just stop. Polly saves by itself.
+1. **Pick a style.** Switch on. You're on the Home page. Turn **KNOB 1** (Style) to hear the styles, then
+   back to Pop. Press **PLAY**, then play a chord with three keys or more. The band follows your chord.
+2. **Write a verse.** Press **REC**. A click counts in to the next bar. Play Am, F, C and G, one chord per
+   bar, then press **REC** again. Your chords are now progression P9, the first empty one, and the band
+   plays them in a loop.
+3. **Name the verse.** Press **ARP** for the Progression page, the chord editor. Turn **SELECT** to page 2,
+   then turn **KNOB 4** (Name) to "Verse".
+4. **Write a chorus.** Press **HOME** for the Home page. Turn **KNOB 4** (Prog, the progression the band
+   plays) anticlockwise, past P1, to "–". The band follows your chords again. Press **REC**, play C, G, Am
+   and F, then press **REC**. That's P10, the next empty one.
+5. **Name the chorus.** Press **ARP**, turn **SELECT** to page 2, and turn **KNOB 4** (Name) to "Chorus".
+6. **Build the song.** Press **HOME** twice: once for Home, again for the Song page. Here each white key adds
+   a section that plays its progression: white key 9 adds P9, white key 10 adds P10. Press white keys 9, 10,
+   9 and 10. The song now has four sections: verse, chorus, verse, chorus.
+7. **Make the chorus bigger.** Turn **KNOB 1** (Section) to section 2, the first chorus. Turn **KNOB 3**
+   (Groove) to B. Turn **KNOB 1** to section 4, and **KNOB 3** to B there too.
+8. **Play the song.** Press **PLAY**. The song starts at the next bar, with a fill wherever the groove
+   changes. After section 4, the Ending plays and the song stops.
+9. **Save.** Press **SAVE**. The header says SAVED.
 
 ![A finished song on the Song page, playing section 1](docs/img/manual/quickstart_song.png)
 

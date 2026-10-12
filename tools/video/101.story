@@ -7,14 +7,14 @@ barms 2400
 cap Playing live | Pick a style, play chords, and the band follows.
 wait 3500
 # ---- 1. a style
-cap 1. Pick a style | On Home, turn KNOB 1 (Style). Here: Funk.
+cap 1. Pick a style | On the Home page, turn KNOB 1 (Style) to Funk.
 wait 2500
 turn K1 1
 still 1-style
 wait 2500
 expect tempo 100
 # ---- 2. play
-cap 2. Play | Press PLAY, then hold three keys or more. The band follows your chord.
+cap 2. Play chords | Press PLAY, then hold three keys or more. Polly names the chord, and the band plays it.
 wait 2500
 anchor A
 tap PLAY
@@ -23,7 +23,7 @@ at A 0 400
 still 2-play
 chord 1500 11 14 18 21
 at A 1 1200
-cap 2. Play | The chord stays when you let go. Play the next one when you like.
+cap 2. Play chords | The chord stays when you let go. Play Em7 and A7, two bars each.
 at A 2 30
 poster
 chord 1500 4 8 11 14
@@ -33,7 +33,7 @@ at A 6 30
 chord 900 4 8 11 14
 # ---- 3. a fill into Groove B
 at A 6 1200
-cap 3. Go busier | Hold HOME and press black key 4: a fill, then the busier groove.
+cap 3. Go busier | Hold HOME and press black key 4: a fill, then Groove B, the busier groove.
 at A 7 700
 press HOME
 wait 300
@@ -49,7 +49,7 @@ at A 10 30
 chord 900 4 8 11 14
 # ---- 4. back to Groove A
 at A 10 1200
-cap 4. Come back down | HOME and black key 4 again: a fill, then the first groove.
+cap 4. Come back down | Hold HOME and press black key 4 again: a fill, then Groove A.
 at A 11 700
 press HOME
 wait 300

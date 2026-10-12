@@ -7,7 +7,7 @@ barms 2285.714
 cap Your song | Build a song from two progressions, remove a section, shape the others, and play it.
 wait 3500
 # ---- 1. sections
-cap 1. Add sections | On Home, press HOME for the Song page. Press white keys 1, 2, 1 and 2.
+cap 1. Add sections | On the Home page, press HOME for the Song page. Press white keys 1, 2, 1 and 2.
 wait 2500
 expect page 0
 tap HOME
@@ -28,7 +28,7 @@ expect row_loop1 1
 expect row_loop2 2
 expect row_loop3 1
 expect row_loop4 2
-cap 1. Add sections | Each key adds a section: P1 Pop, P2 Ballad, P1 Pop, P2 Ballad.
+cap 1. Add sections | Each white key adds a section that plays its progression: P1 Pop, P2 Ballad, P1 Pop, P2 Ballad.
 wait 3000
 # ---- 2. remove the last: PROG below P1 ("-"); it goes when the Song page is left (HOME, HOME again)
 cap 2. Remove a section | Turn KNOB 1 (Section) to section 4. Turn KNOB 2 (Prog) down, past P1, to "-".
@@ -40,9 +40,9 @@ turn K2 -2 400
 expect knob2_is_- 1
 still 2-remove
 wait 2000
-cap 2. Remove a section | The row says "section removed". It goes when you leave the Song page.
+cap 2. Remove a section | The row reads "section removed". It goes when you leave the Song page.
 wait 3000
-cap 2. Remove a section | Press HOME for the Home page, and HOME again for the Song page. Section 4 is gone.
+cap 2. Remove a section | Press HOME twice, for the Home page and back to the Song page. Section 4 is gone.
 wait 2500
 tap HOME
 wait 1200
@@ -60,7 +60,7 @@ wait 2500
 turn K1 -2
 expect cursor 2
 wait 1200
-cap 3. Shape a section | Turn KNOB 3 (Groove) to B, the busier groove, and KNOB 4 (Repeat) to x2.
+cap 3. Shape a section | Turn KNOB 3 (Groove) to B, the busier groove, and KNOB 4 (Repeat) to x2: it plays twice.
 wait 2500
 turn K3 3 400
 expect row_sect2 2
@@ -70,7 +70,7 @@ still 2-shape
 expect row_rep2 2
 wait 2500
 # ---- 4. a mute in section 1
-cap 4. Mute an instrument | Turn KNOB 1 to section 1. Press black keys 1, 2 and 3. The drums rest there.
+cap 4. Mute the drums | Turn KNOB 1 to section 1. Press black keys 1, 2 and 3: the drums and percussion rest there.
 wait 2500
 turn K1 -1
 expect cursor 1
@@ -85,7 +85,7 @@ wait 600
 expect row_mute1 7
 wait 2000
 # ---- 5. page 2: the Intro, the Ending, At end
-cap 5. Intro and ending | Turn SELECT to page 2. KNOB 2 (Intro) and KNOB 3 (Ending) are on.
+cap 5. Check the Intro and the Ending | Turn SELECT to page 2. KNOB 2 (Intro) and KNOB 3 (Ending) are on.
 wait 2500
 turn SELECT 1
 still 4-page2
@@ -97,7 +97,7 @@ expect knob4_is_stop 1
 expect song_intro 1
 expect song_ending 1
 wait 2000
-cap 5. Intro and ending | KNOB 4 (At end) is on stop: the song stops after the Ending.
+cap 5. Check the Intro and the Ending | KNOB 4 (At end) is on stop: the song stops after the Ending.
 wait 3000
 # ---- 6. play: Intro (2 bars), 1 (4), 2 (x2: 8), 3 (4), the Ending
 cap 6. Play the song | Press PLAY. The Intro's clock fills at the top.

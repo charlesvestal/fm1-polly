@@ -4,10 +4,10 @@
 # Am 4 7 11, F 0 4 7, C 7 11 14, G 2 6 9. The band plays from step 1 on, so the steps sit on bars of anchor A.
 head quick start
 barms 2285.714
-cap Polly quick start | Write a song: a verse, a chorus, four sections. Fresh from boot, on the Home page.
+cap Polly quick start | Write a song: a verse, a chorus, four sections. Switch on: you're on the Home page.
 wait 3500
 # ---- 1. a style
-cap 1. Pick a style | Turn KNOB 1 (Style) to pick a style. Here: a look round, then back to Pop.
+cap 1. Pick a style | Turn KNOB 1 (Style) to hear the styles, then back to Pop.
 wait 2500
 turn K1 1 600
 turn K1 1 600
@@ -32,7 +32,7 @@ at A 4 30
 chord 900 4 7 11
 # ---- 2. the verse
 at A 6
-cap 2. Write a verse | Press REC. It counts in to the next bar.
+cap 2. Write a verse | Press REC. A click counts in to the next bar.
 at A 7 1050
 tap REC
 expect take 2
@@ -51,14 +51,14 @@ expect take 0
 wait 300
 expect mode 1
 expect loop_bars9 4
-cap 2. Write a verse | REC again to stop. Your chords are progression P9, the first empty one, and the band loops them.
+cap 2. Write a verse | Press REC again. Your chords are now P9, the first empty progression, and the band loops them.
 # ---- 3. name it
 at A 14
-cap 3. Name it | Press ARP: the Progression page, the chord editor.
+cap 3. Name the verse | Press ARP for the Progression page, the chord editor.
 wait 2000
 tap ARP
 wait 2000
-cap 3. Name it | Turn SELECT to page 2, then KNOB 4 (Name) to "Verse".
+cap 3. Name the verse | Turn SELECT to page 2, then KNOB 4 (Name) to "Verse".
 wait 1500
 turn SELECT 1
 wait 1200
@@ -67,7 +67,7 @@ wait 2500
 expect loop_name9 Verse
 # ---- 4. the chorus
 at A 19
-cap 4. Write a chorus | Press HOME. Turn KNOB 4 (Prog) anticlockwise, past P1, to "-": the band follows your hands again.
+cap 4. Write a chorus | Press HOME. Turn KNOB 4 (Prog) anticlockwise, past P1, to "-". The band follows your chords again.
 wait 2500
 tap HOME
 wait 1000
@@ -92,7 +92,7 @@ expect take 0
 wait 300
 expect mode 1
 expect loop_bars10 4
-cap 4. Write a chorus | Name it "Chorus" the same way: ARP, SELECT to page 2, KNOB 4 (Name).
+cap 5. Name the chorus | Press ARP, turn SELECT to page 2, and turn KNOB 4 (Name) to "Chorus".
 wait 2000
 tap ARP
 wait 1300
@@ -101,16 +101,16 @@ wait 1000
 turn K4 2 400
 wait 2500
 expect loop_name10 Chorus
-# ---- 5. the song
+# ---- 6. the song
 at A 32
-cap 5. Build the song | Press HOME twice: Home, then the Song page.
+cap 6. Build the song | Press HOME twice: Home, then the Song page.
 wait 2000
 tap HOME
 wait 1000
 tap HOME
 wait 1500
 expect page 1
-cap 5. Build the song | Each white key adds a section that plays its progression: 9, 10, 9, 10.
+cap 6. Build the song | Each white key adds a section that plays its progression. Press 9, 10, 9 and 10.
 wait 2000
 tapkey w8
 wait 800
@@ -123,20 +123,20 @@ wait 2500
 expect rows 4
 expect row_loop1 9
 expect row_loop2 10
-# ---- 6. Groove B on the chorus
+# ---- 7. Groove B on the chorus
 at A 38
-cap 6. Make the chorus bigger | Turn KNOB 1 (Section) to section 2, the first chorus.
+cap 7. Make the chorus bigger | Turn KNOB 1 (Section) to section 2, the first chorus.
 wait 1500
 turn K1 -3 350
 wait 1200
 expect cursor 2
-cap 6. Make the chorus bigger | Turn KNOB 3 (Groove) to B, the busier groove.
+cap 7. Make the chorus bigger | Turn KNOB 3 (Groove) to B, the busier groove.
 wait 1200
 turn K3 3 450
 wait 1800
 expect row_sect2 2
 expect row_sect4 0
-cap 6. Make the chorus bigger | Turn KNOB 1 to section 4 and KNOB 3 to B too.
+cap 7. Make the chorus bigger | Turn KNOB 1 to section 4, and KNOB 3 to B there too.
 wait 1500
 turn K1 2 350
 wait 600
@@ -144,29 +144,31 @@ turn K3 3 450
 wait 2500
 expect cursor 4
 expect row_sect4 2
-# ---- 7. play the song
+# ---- 8. play the song
 at A 45
-cap 7. Play the song | Press PLAY on the Song page. The song takes over at the next bar.
+cap 8. Play the song | Press PLAY. The song starts at the next bar.
 at A 46 1000
 tap PLAY
 at A 47 400
 expect row 1
-cap 7. Play the song | Section 1: the verse.
+cap 8. Play the song | Section 1: the verse.
 at A 51 400
 expect row 2
-cap 7. Play the song | Section 2: the chorus, on Groove B. A fill leads in.
+cap 8. Play the song | Section 2: the chorus, on Groove B. A fill leads in.
 at A 55 400
 expect row 3
-cap 7. Play the song | Section 3: the verse again.
+cap 8. Play the song | Section 3: the verse again.
 at A 59 400
 expect row 4
-cap 7. Play the song | Section 4: the chorus again, then an Ending, and the song stops by itself.
+cap 8. Play the song | Section 4: the chorus again. Then the Ending plays, and the song stops.
 at A 67
 expect playing 0
-# ---- 8. save
-cap 8. Save | Press SAVE, or just stop: Polly saves by itself.
+# ---- 9. save
+cap 9. Save | Press SAVE. The header says SAVED.
 wait 2000
 tap SAVE
-wait 3000
+wait 100
+expect msgtext_is_SAVED 1
+wait 2900
 cap Made a mistake? | Hold HOME and press REC to undo. Hold HOME and press PLAY to redo.
 wait 4000

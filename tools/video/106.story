@@ -10,7 +10,7 @@ wait 3500
 expect tempo 105
 expect song1_style1 33
 # ---- 1. an instrument
-cap 1. Pick an instrument | Press PLAY. Press SEQ for the Band page, and turn ALGORITHM to C2.
+cap 1. Pick an instrument | Press PLAY. Press SEQ for the Band page, and turn ALGORITHM to C2. Its row is empty.
 wait 2500
 anchor A
 tap PLAY
@@ -28,7 +28,7 @@ still 1-instrument
 wait 2000
 # ---- 2. record: REC at A 3, it starts at A 4 (the groove's bar 1); pass 1 A 4-5, pass 2 A 6-7
 at A 2 1300
-cap 2. Record | Press REC. Groove A is now your own copy: Groove A (yours). Play from the next bar.
+cap 2. Record | Press REC. Groove A becomes your own copy, Groove A (yours). Play from the next bar.
 at A 3 900
 tap REC
 expect recording 1
@@ -92,7 +92,7 @@ expect song1_style2 40
 expect tempo 100
 wait 3000
 # ---- 5. back to the style (stopped: while playing with changes unsaved it says UNSAVED SAVE FIRST)
-cap 5. Back to the style | Press PLAY to stop. Press SEQ, then SEL.
+cap 5. Give the groove back | Press PLAY to stop. Press SEQ, then SEL for the list.
 wait 2500
 tap PLAY
 wait 600
@@ -104,7 +104,7 @@ tap SEL
 wait 500
 expect list_open 1
 expect list_sel 8
-cap 5. Back to the style | Turn SELECT to BACK TO STYLE and press SEL. Your copy stays in memory.
+cap 5. Give the groove back | Turn SELECT to BACK TO STYLE and press SEL. Your copy stays in Memory.
 wait 2500
 turn SELECT 2 300
 expect list_sel 10
