@@ -48,6 +48,27 @@ static void say(const char *a, const char *b)
     upcase(ui.msg[1]);
     ui.msg_until = plat_ms() + 1300u;
     ui.msg_no = 0;
+    {   /* the icon: done (a check) for what was done, undo / redo their arrows, else "i" */
+        static const char *const DONE[] = {"SAVED", "COPIED", "CLEARED", "DELETED", "INSERTED", "REMOVED", "QUANTISED",
+                                           "FACTORY RESET", "NEW PROGRESSION", "BACK TO", "PLAYS AS WRITTEN", "CHORD CLEARED",
+                                           "GROOVES KEPT"};
+        const char *m = ui.msg[0];
+        ui.msg_kind = AL_INFO;
+        if (m[0] == 'U' && m[1] == 'N' && m[2] == 'D' && m[3] == 'O')
+            ui.msg_kind = AL_UNDO;
+        else if (m[0] == 'R' && m[1] == 'E' && m[2] == 'D' && m[3] == 'O')
+            ui.msg_kind = AL_REDO;
+        else
+            for (uint32_t k = 0; k < sizeof DONE / sizeof DONE[0]; k++) {
+                const char *p = DONE[k], *q = m;
+                while (*p && *p == *q)
+                    p++, q++;
+                if (!*p) {
+                    ui.msg_kind = AL_DONE;
+                    break;
+                }
+            }
+    }
     ui.msg_first = 0;
 #if defined(GM_HOST) && !defined(GM_WEB)        /* the simulator: a message the header cuts is a bug */
     if (8 + text_w(&FONT_B, ui.msg[0]) + 8 + text_w(&FONT_B, ui.msg[1]) > 232) {
@@ -4248,7 +4269,7 @@ static void do_undo(int redo)
     undo_commit();                               /* what was just done is a step too */
     k = redo ? uj_redo_at(&uj) : uj_undo_at(&uj);
     if (k < 0) {
-        say(redo ? "NOTHING TO REDO" : "NOTHING TO UNDO", 0);
+        say_no(redo ? "NOTHING TO REDO" : "NOTHING TO UNDO", 0);
         return;
     }
     mask = uj_mask(&uj, k);

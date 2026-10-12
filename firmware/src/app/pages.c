@@ -24,6 +24,7 @@
 #define K_DIM RGB(112, 98, 84)
 #define K_FAINT RGB(150, 136, 118)
 #define K_TEXT RGB(72, 58, 48)
+#define MSG_BAR 1
 #define K_ACCENT RGB(242, 120, 72)
 #define K_ACCENT_L RGB(248, 196, 172)                /* light coral: a hint where you act (the Song page's insertion line) */
 #define K_TEAL RGB(38, 166, 154)
@@ -195,6 +196,7 @@ static struct {
     uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
+    uint8_t msg_kind;                                /* the message's icon (AL_*: from its first word, say) */
     uint8_t msg_no;                                  /* the message showing is a refusal (say_no): its own look */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
     uint8_t sg_top;                                  /* Song's window: its first row (moved only to keep the cursor in it) */
@@ -238,6 +240,7 @@ static struct {
 } fw;
 static int flash_on(void) { return fw.t && plat_ms() - fw.t < FLASH_MS; }
 /* one of SONG's three pages */
+enum { AL_INFO, AL_DONE, AL_UNDO, AL_REDO, AL_ASK, AL_NO };   /* the header's alerts (alert_box) */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
 /* the Progression page's TYPE knob: "-" (no chord here) first, then the chord types in the order a song needs them
  * (major and minor side by side, then the sevenths, suspended, sixths, ninths, the darker ones, the altered sevenths
@@ -562,6 +565,35 @@ static int32_t segs_w(const felucca_font_t *f, const char *s);
  * HOME, whose KNOB 2 says it), REC's dot, "unsaved". The style, a progression's name, the sections: the knobs' and the
  * tag's to say, not the header's. A message replaces it all, a question (SEL: yes, HOME: no) the message. PLAY's
  * count-in (a recording armed): "Count-in 3", the beats left in coral (REC: you), on every page, over a message */
+/* the header's alerts: a rounded box inset from the edges (an alert over the page, not the page), an icon badge at
+ * its left: a message "i", done a check, undo / redo an arrow (ink badges on beige); a question "?" (a coral box);
+ * a refusal "!" (an ink box, a coral badge) */
+#define AL_X 28                                      /* the words, past the badge */
+static void alert_box(int kind)
+{
+    uint16_t fill = kind == AL_ASK ? K_ACCENT : kind == AL_NO ? K_TEXT : K_PANEL;
+    uint16_t edge = kind == AL_ASK ? K_TEXT : kind == AL_NO ? K_ACCENT : K_DIM;
+    uint16_t badge = kind == AL_ASK ? K_BG : kind == AL_NO ? K_ACCENT : K_TEXT;
+    uint16_t mark = kind == AL_ASK ? K_ACCENT : K_BG;
+    int32_t bx = 6, by = 4;                          /* the badge, 16 x 16 */
+    cv_round(1, 1, 238, HDR_H - 2, 7, edge);
+    cv_round(2, 2, 236, HDR_H - 4, 6, fill);
+    cv_round(bx, by, 16, 16, 8, badge);
+    if (kind == AL_DONE) {                           /* a check */
+        for (int j = 0; j < 3; j++)
+            cv_rect(bx + 4 + j, by + 7 + j, 2, 2, mark);
+        for (int j = 0; j < 5; j++)
+            cv_rect(bx + 7 + j, by + 9 - j, 2, 2, mark);
+    } else if (kind == AL_UNDO || kind == AL_REDO) { /* a hooked arrow: its head back (undo) or on (redo) */
+        int f = kind == AL_REDO;
+        cv_rect(bx + 5, by + 5, 6, 2, mark);         /* its top */
+        cv_rect(bx + (f ? 4 : 10), by + 5, 2, 6, mark);   /* its turn */
+        cv_rect(bx + 5, by + 9, 6, 2, mark);         /* its foot */
+        for (int j = 0; j < 3; j++)                  /* the head, at the top's open end */
+            cv_rect(bx + (f ? 13 - j : 2 + j), by + 6 - j, 1, 2 * j + 1, mark);
+    } else
+        text_c(bx + 8, cap_y(by, 16, &FONT_B), &FONT_B, kind == AL_ASK ? "?" : kind == AL_NO ? "!" : "i", mark);
+}
 static const char *const BTN_LABEL[NB];
 static void draw_header(void)
 {
@@ -584,28 +616,25 @@ static void draw_header(void)
         return;
     ui.sig[0] = h;
     cv_begin(240, HDR_H, K_BG);
-    if (ask) {                                       /* the question, over all */
-        cv_round(0, 0, 240, HDR_H, 0, K_ACCENT);
-        if (text_w(&FONT_B, ui.ask_q) <= 224)
-            cv_text(8, 4, &FONT_B, ui.ask_q, K_BG);
-        else if (text_w(&FONT_S, ui.ask_q) <= 228)   /* a long one: smaller, whole */
-            cv_text(8, 5, &FONT_S, ui.ask_q, K_BG);
+    if (ask) {                                       /* the question, over all: a coral box, "?" */
+        alert_box(AL_ASK);
+        if (text_w(&FONT_B, ui.ask_q) <= 206)
+            cv_text(AL_X, 4, &FONT_B, ui.ask_q, K_BG);
+        else if (text_w(&FONT_S, ui.ask_q) <= 208)   /* a long one: smaller, whole */
+            cv_text(AL_X, 5, &FONT_S, ui.ask_q, K_BG);
         else                                         /* ("SECTION 3 HAS MELODY NOTES: DELETE?") */
-            text_fit(6, 5, &FONT_XS, ui.ask_q, 230, K_BG);
+            text_fit(AL_X, 5, &FONT_XS, ui.ask_q, 232 - AL_X, K_BG);
     } else if (cnt) {                                /* the count-in: "Count-in 3", REC's dot */
         int32_t x = cv_text(8, 4, &FONT_B, "Count-in", K_TEXT);
         itoa_u((uint32_t)cnt, t);
         cv_text(x + 8, 4, &FONT_B, t, K_ACCENT);
         cv_round(222, 8, 9, 9, 4, K_REC);
-    } else if (msg && ui.msg_no) {                   /* a refusal: what was asked, and why not, on its own look */
-        cv_round(0, 0, 240, HDR_H, 0, K_TEXT);       /* an ink bar, a coral "!" */
-        cv_round(6, 3, 18, 18, 9, K_ACCENT);
-        text_c(15, cap_y(3, 18, &FONT_B), &FONT_B, "!", K_BG);
-        int32_t x = cv_text(30, 4, &FONT_B, ui.msg[0], K_BG);
-        text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT_L);
-    } else if (msg) {
-        int32_t x = cv_text(8, 4, &FONT_B, ui.msg[0], K_TEXT);
-        text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), K_ACCENT);
+    } else if (msg) {                                /* a message, a refusal: a box of its own over the title */
+        int no = ui.msg_no;
+        int32_t x;
+        alert_box(no ? AL_NO : ui.msg_kind);
+        x = cv_text(AL_X, 4, &FONT_B, ui.msg[0], no ? K_BG : K_TEXT);
+        text_fit(x + 8, 4, &FONT_B, ui.msg[1], 232 - (x + 8), no ? K_ACCENT_L : K_ACCENT);
     } else if (slots) {                              /* MEMORY: "Memory   3 of 16 free" */
         int32_t x = cv_text(8, 4, &FONT_B, "Memory", K_TEXT);
         if (nfree)
