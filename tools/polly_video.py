@@ -10,6 +10,7 @@ the buttons and keys held and the knobs turned, a caption) and muxed with ffmpeg
 Storyboard, one command a line (# comments); the scenario's own commands pass through (their time is counted as
 the host counts it: tap 80 ms, press / release / key 2, tapkey 90, spin 1, turn N x GAP), plus:
   cap TITLE | DETAIL          the caption from here on (DETAIL optional)
+  head TEXT                   the header line after "Polly" (default: a song from scratch, on the FM-1)
   barms MS                    a bar's length (the tempo), for `at`
   anchor NAME                 NAME = the time now (the next command's moment)
   at NAME BARS [MS]           wait until NAME + BARS bars + MS (a float of bars is fine)
@@ -93,6 +94,8 @@ class Expander:
         if c == "cap":
             title, _, detail = s[4:].partition("|")
             self.ev("cap", title.strip(), detail.strip())
+        elif c == "head":
+            self.ev("head", s[5:].strip())
         elif c == "barms":
             self.barms = float(w[1])
         elif c == "anchor":
@@ -317,6 +320,7 @@ def render(work, events, leds, step, nframes):
     f_small = font(AV, 22, 5)
     f_step = font(AV, 26, 2)
     caps = [e for e in events if e[1] == "cap"]
+    head = next((e[2] for e in events if e[1] == "head"), "a song from scratch, on the FM-1")
     steps = [c for c in caps if re.match(r"^\d+\.", c[2])]
     nsteps = len({re.match(r"^(\d+)\.", c[2]).group(1) for c in steps})
     btn_ev = [e for e in events if e[1] == "btn"]
@@ -363,7 +367,7 @@ def render(work, events, leds, step, nframes):
         d = ImageDraw.Draw(img)
         # header
         d.text((60, 62), "Polly", font=f_brand, fill=CORAL, anchor="ls")
-        d.text((60 + d.textlength("Polly", font=f_brand) + 14, 62), "a song from scratch, on the FM-1",
+        d.text((60 + d.textlength("Polly", font=f_brand) + 14, 62), head,
                font=f_detail, fill=MUTED, anchor="ls")
         mm, ss = divmod(int(T / 1000), 60)
         d.text((W - 60, 62), f"{mm}:{ss:02d}", font=f_detail, fill=MUTED, anchor="rs")
@@ -393,10 +397,6 @@ def render(work, events, leds, step, nframes):
             for ln in wrap(d, detail, f_detail, W - 60 - 852 - 30)[:2]:
                 d.text((852, yy), ln, font=f_detail, fill=MUTED, anchor="ls")
                 yy += 40
-        # the screen's caption
-        d.text((60, 922), "the screen, 240 x 240 shown 3x", font=f_small, fill=MUTED, anchor="ls")
-        d.text((60, 954), "Polly's own firmware in the host simulator,", font=f_small, fill=MUTED, anchor="ls")
-        d.text((60, 986), "screen and sound as rendered", font=f_small, fill=MUTED, anchor="ls")
         img.save(os.path.join(work, f"v{n:05d}.png"), compress_level=1)
         if n % 100 == 0:
             print(f"  frame {n}/{nframes}", flush=True)

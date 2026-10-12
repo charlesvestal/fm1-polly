@@ -37,6 +37,10 @@ Not sure what a button does? Hold it for a second, and a card explains it.
 
 You'll write a verse and a chorus, build a song from them, and play it.
 
+[![Writing a song on Polly, step by step (3 minutes)](docs/video/quickstart.jpg)](docs/video/quickstart.mp4)
+
+*The eight steps below, from a fresh start. Each step pauses so you can follow along.*
+
 1. **Pick a style.** Switch on. You're on the Home page. Turn **KNOB 1** (Style) to pick a style, such as
    Pop or Funk. Press **PLAY**, then play a chord with three keys or more. The band follows your chord.
 2. **Write a verse.** Press **REC** to record a progression. Play Am, F, C and G, one chord per bar, then
