@@ -72,6 +72,13 @@ static int mr_ctl_send(const uint8_t *p, uint32_t n)       /* (before anything i
     return 0;
 }
 static void (*redraw_fn)(void);
+static int tests_on, tests_n;                   /* the test session (op 5) as the app would take it; started */
+static int mr_test(int on)
+{
+    tests_n += on;
+    tests_on = on;
+    return 1;
+}
 static void mr_redraw(void)
 {
     redraws++;
@@ -577,7 +584,22 @@ static void test_remote(void)
     CHECK(remote(++q, 1, B_HOME, 1) == 0, "remote: another connection taken");
     mirror_step();
     CHECK(!mirror_on && !mirror_in_keys(), "remote: another connection: still held");
+    /* a test session (op 5): only while on; ended by off, silence, another connection */
     btn = 0;
+    CHECK(remote(++q, 5, 1, 0) == 0 && !tests_on, "remote: a test session while off");
+    on();
+    CHECK(remote(++q, 5, 1, 0) == 1 && tests_on, "remote: test session refused");
+    CHECK(remote(q, 5, 1, 0) == 1 && tests_n == 1, "remote: test session asked again: done twice");
+    CHECK(remote(++q, 5, 0, 0) == 1 && !tests_on, "remote: test session not ended");
+    CHECK(remote(++q, 5, 2, 0) == 0, "remote: test session 2 taken");
+    remote(++q, 5, 1, 0);
+    mirror_cmd(0);
+    CHECK(!tests_on, "remote: off: the test session goes on");
+    on();
+    remote(++q, 5, 1, 0);
+    now += MR_TIMEOUT_MS + 100;
+    mirror_step();
+    CHECK(!tests_on, "remote: silence: the test session goes on");
     printf("remote: %u requests done, each answered\n", mr_in.ops);
 }
 

@@ -85,6 +85,7 @@ typedef struct {
 /* the bank: QB_NONE (no directory), QB_BAD (a damaged one), QB_OLD (another version or codec), else its styles */
 enum { QB_NONE = 0, QB_BAD = -1, QB_OLD = -2 };
 int qb_mount(void);                      /* main loop, at boot and after a bank is written */
+void qb_unmount(void);                   /* as no bank (a test session: as a fresh FM-1) */
 int qb_status(void);                     /* what qb_mount found */
 int qb_count(void);                      /* the styles (0 unless mounted) */
 const char *qb_name(int i);              /* "Bossa"; "" for none */

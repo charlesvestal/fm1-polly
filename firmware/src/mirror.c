@@ -21,10 +21,15 @@
  *                     op 3 a turn: a = EN_*, b = detents (int8, + clockwise), added to the ones not yet taken
  *                     op 4 MASTER: a | b << 8 = gain 0..4096; 0xFFFF: the pot's again
  *                     op 0 let go: every button and key up, the turns dropped, MASTER the pot's
+ *                     op 5 a test session (version 3): a = 1 start (stopped only: refused while playing or recording;
+ *                       the user's unsaved changes saved first): the FM-1 as at the power-on of a blank one, the flash
+ *                       never written while it lasts (it runs from RAM: project.c; header TEST); a = 1 again: blank
+ *                       again. a = 0 end: the user's own loaded again. Mirroring off ends it too (and a reboot)
  *                   They go in at the plat_* calls (plat_buttons, plat_keys, plat_enc, plat_master: held = the panel's
  *                   OR the host's), the path the panel takes into the UI; the input reports show them. Mirroring off
- *                   (asked, timed out, unplugged, another host): everything let go. Never in the update mode's OCT- +
- *                   OCT+ (main_fm1.c reads the matrix), the calibration, or a restore's question (main.c: the hand's).
+ *                   (asked, timed out, unplugged, another host): everything let go, a test session ended. Never in the
+ *                   update mode's OCT- + OCT+ (main_fm1.c reads the matrix), the calibration, or a restore's question
+ *                   (main.c: the hand's).
  *   device -> host  cmd 0x54: seq, op, 1 done / 0 refused (mirroring off, a bad op). The same seq again (an answer
  *                   lost, the host asks again): answered again, not done twice
  * seq counts rect and fill frames (mod 256): a gap tells the viewer one went missing (it asks for a refresh).
@@ -57,13 +62,14 @@
  *   mr_busy()         nothing to send now (the bus suspended, a backup streaming): rects dropped (dirty), no input
  *   mr_ctl_send(p, n) one whole F0..F7 frame into the SysEx ring if it fits now: 0, else -1 (nothing sent)
  *   mr_redraw()       the UI draws every band again at its next frame
+ *   mr_test(on)       a test session on (1) / off (0): 1 done, 0 refused (ui.c app_test)
  * and plat_ms, plat_buttons, plat_keys, plat_master (plat.h). The flag mirror_on is the includer's (lcd.c). */
 #define MR_REQ 0x50u
 #define MR_RECT 0x51u
 #define MR_FILL 0x52u
 #define MR_INPUT 0x53u
 #define MR_REMOTE 0x54u
-#define MR_VERSION 2u                                 /* 2: the remote (cmd 0x54) */
+#define MR_VERSION 3u                                 /* 2: the remote (cmd 0x54); 3: its test session (op 5) */
 #define MR_W 240u
 #define MR_H 240u
 #define MR_CAP 256u                                   /* a rect frame's pixel code, about (one row more at most) */
@@ -85,6 +91,7 @@ static int mr_link(void);
 static int mr_busy(void);
 static int mr_ctl_send(const uint8_t *p, uint32_t n);
 static void mr_redraw(void);
+static int mr_test(int on);
 
 static struct {
     uint8_t seq, ask_redraw;
@@ -392,6 +399,7 @@ static void mirror_off(void)
     memset(mr.enc, 0, sizeof mr.enc);
     mr_in_letgo();                                    /* the host's buttons and keys up: the UI sees them let go */
     mr_in.have = 0;
+    mr_test(0);                                       /* (a test session: the user's own again) */
 }
 
 /* the host's input, as the plat_* calls add it to the panel's */
@@ -428,7 +436,9 @@ static void mirror_remote(const uint8_t *b)
             else if (op == 3 && a < 7u) {
                 int32_t n = mr_in.enc[a] + (int8_t)v;
                 mr_in.enc[a] = (int8_t)(n > 127 ? 127 : n < -127 ? -127 : n);
-            } else if (op == 4 && (a | v << 8) == 0xFFFFu)
+            } else if (op == 5 && a <= 1u)
+                ok = (uint32_t)mr_test((int)a);
+            else if (op == 4 && (a | v << 8) == 0xFFFFu)
                 mr_in.master = 0;
             else if (op == 4 && (a | v << 8) <= 4096u)
                 mr_in.master = (uint16_t)((a | v << 8) + 1u);

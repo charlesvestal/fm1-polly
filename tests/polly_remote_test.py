@@ -5,7 +5,10 @@ mirror.c and UI, the requests taken as main_fm1.c takes them). Checked: the scre
 a tap, a held button, keys, turns (exact and accelerated), MASTER go through the plat_* calls into the UI; the panel
 reports' LEDs; let go when the tool stops and when it goes silent (6 s); refused while not mirroring; an older Polly
 (no remote) refused by the tool; a whole scenario (tests/scenarios/style_pick.polly) run through the remote, its
-expects read from the simulator; the command line. Run from the repo root:  python3 tests/polly_remote_test.py"""
+expects read from the simulator; a test session (fresh): refused while playing, the unsaved saved first, a used simulator
+blank (its screen below the header a fresh one's, the TEST pill), its saves kept in RAM (the flash untouched), blank
+again, walkthrough.polly's every expect in one, the user's own back at its end and when mirroring stops; the command
+line. Run from the repo root:  python3 tests/polly_remote_test.py"""
 import io
 import os
 import sys
@@ -27,6 +30,19 @@ def ok(cond, what):
     failed += not cond
 
 
+def sim_val(r, what):
+    """the simulator's own value of what (its expect line: "  ok what == N ...")"""
+    ln = r.link.expect(what, ">-100000")
+    return int(ln.split("==")[1].split()[0])
+
+
+TEAL = 4 << 11 | 41 << 5 | 19                   # K_TEAL, RGB(38, 166, 154) in RGB565: the header's TEST pill
+
+
+def header_teal(r):
+    return any(p == TEAL for p in r.scr.px[:24 * 240])
+
+
 def sim_is(r, what, val):
     ln = r.link.expect(what, str(val))
     if not ln.startswith("  ok"):
@@ -36,8 +52,9 @@ def sim_is(r, what, val):
 
 # ---- the screen, the panel
 r = R.connect(sim=True, outdir=OUT)
-ok(r.version == 2 and r.on, "mirroring on, the remote's version (2)")
+ok(r.version == 3 and r.on, "mirroring on, the remote's version (3: the test session)")
 r.shot(os.path.join(OUT, "start.png"))
+start_px = list(r.scr.px)
 ok(r.link.sim_screen(os.path.join(OUT, "start.fb")) == r.scr.px, "the screen mirrored = the simulator's")
 ok(sim_is(r, "page", 0), "Home at the start")
 r.spin("SELECT", 1)
@@ -98,6 +115,63 @@ except R.RemoteError as e:
     ok(e.code == "refused", "a request while off: refused")
 r.link.close()
 
+# ---- a test session (fresh): a used simulator as a blank one, nothing written, the user's own back after
+r = R.connect(sim=True, outdir=OUT)
+r.spin("K1", 2)
+r.spin("K2", 5)
+r.wait(100)
+r.tap("SAVE")
+r.wait(300)
+user_tempo, user_style, writes = sim_val(r, "tempo"), sim_val(r, "song_style"), sim_val(r, "store_writes")
+ok(user_tempo != 105 and writes > 0 and sim_is(r, "dirty", 0), "the user's song: another style and tempo, saved")
+r.shot(os.path.join(OUT, "user.png"))
+ok(not header_teal(r), "no TEST pill outside a session")
+r.tap("PLAY")
+r.wait(200)
+try:
+    r.fresh()
+    ok(False, "fresh while playing: refused")
+except R.RemoteError as e:
+    ok(e.code == "refused" and sim_is(r, "test_session", 0), "fresh while playing: refused")
+r.tap("PLAY")
+r.wait(200)
+r.spin("K2", 1)                                 # (an unsaved change: saved first, to the flash)
+r.fresh()
+user_tempo += 1
+ok(sim_is(r, "test_session", 1) and sim_is(r, "tempo", 105) and sim_is(r, "page", 0) and sim_is(r, "dirty", 0),
+   "fresh: a blank FM-1 (tempo 105, Home, nothing unsaved)")
+ok(sim_val(r, "store_writes") > writes, "fresh: the user's unsaved change saved first")
+writes = sim_val(r, "store_writes")
+r.shot(os.path.join(OUT, "fresh.png"))
+ok(header_teal(r), "fresh: the TEST pill in the header")
+ok(r.scr.px[24 * 240:] == start_px[24 * 240:], "fresh: the screen below the header = a fresh simulator's")
+r.spin("K2", 3)
+r.wait(100)
+r.tap("SAVE")
+r.wait(300)
+ok(sim_is(r, "tempo", 108) and sim_is(r, "dirty", 0) and sim_val(r, "test_bytes") > 0,
+   "in the session: SAVE saved (into RAM)")
+ok(sim_val(r, "store_writes") == writes, "in the session: nothing written to the flash")
+r.fresh()
+ok(sim_is(r, "tempo", 105) and sim_is(r, "test_bytes", 0), "fresh again: blank again")
+log = io.StringIO()
+os.makedirs(os.path.join(OUT, "walk"))
+skipped = r.run(str(ROOT / "tests/scenarios/walkthrough.polly"), os.path.join(OUT, "walk"), lambda t: print(t, file=log),
+                fresh=True)
+ok("FAIL" not in log.getvalue() and "test session ended" in log.getvalue(),
+   "walkthrough.polly in a session (fresh first): every expect")
+if "FAIL" in log.getvalue():
+    print(log.getvalue()[-2000:])
+ok(sim_val(r, "store_writes") == writes, "... nothing written to the flash (its SAVE, its autosaves: RAM)")
+ok(sim_is(r, "test_session", 0) and sim_is(r, "tempo", user_tempo) and sim_is(r, "song_style", user_style) and
+   sim_is(r, "rows", 0), "fresh_end: the user's own again (style, tempo, no walkthrough rows)")
+ok(not header_teal(r), "fresh_end: no TEST pill")
+r.fresh()
+r.stop()
+r.link.read(0.1)
+ok(sim_is(r, "test_session", 0) and sim_is(r, "tempo", user_tempo), "mirroring off: the session ended, the user's own")
+r.link.close()
+
 # ---- an older Polly: mirrors (version 1), no remote
 
 
@@ -147,6 +221,10 @@ ok(rc == 0 and os.path.exists(os.path.join(OUT, "cli.png")) and "leds: buttons" 
    "command line: tap, turn with a gap, wait, shot, leds")
 ok(R.main(["--sim", "jump", "HOME"], out=io.StringIO()) == 2, "command line: no such action (2)")
 ok(R.main(["--sim", "tap", "BOGUS"], out=io.StringIO()) == 2, "command line: no such button (2)")
+ok(R.main(["--sim", "--fresh", "tap", "HOME"], out=io.StringIO()) == 2, "command line: --fresh without run (2)")
+log = io.StringIO()
+rc = R.main(["--sim", "--out", OUT, "fresh", "shot", "cli_fresh.png", "fresh_end"], out=log)
+ok(rc == 0 and "test session ended" in log.getvalue(), "command line: fresh, fresh_end")
 ok(R.actions(["turn", "K1", "3", "tap", "SEL"]) == [["turn", "K1", "3"], ["tap", "SEL"]], "command line: turn without MS")
 
 print("all polly_remote tests passed" if not failed else f"{failed} FAILED")

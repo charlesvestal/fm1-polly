@@ -11,10 +11,13 @@ its panel, only while this tool mirrors it; quit (or 6 s of silence) and everyth
                                                            and shots (PNGs into DIR); what reads the simulator's insides
                                                            (expect, reboot, midi, wav ...) is skipped and counted, but
                                                            "expect lit_BTN 0|1" (the LEDs, from the panel reports)
+    python3 tools/polly_remote.py run SCENARIO --fresh     the same in a test session: the FM-1 as a fresh blank one
+                                                           (as the simulator starts: the scenarios assume it), the
+                                                           flash not written while it lasts; the user's own back after
     ... --sim                                              the simulator (build/host/polly_host --serve) instead
 
 Actions: tap BTN | press BTN | release BTN | key K down|up | tapkey K | turn ENC N [MS] | spin ENC N | master N |
-wait MS | shot FILE.png | leds.   BTN: FX SEL ENV LFO EDIT GLO HOME SAVE ARP SEQ PLAY REC OCT- OCT+;
+wait MS | shot FILE.png | leds | fresh | fresh_end.   BTN: FX SEL ENV LFO EDIT GLO HOME SAVE ARP SEQ PLAY REC OCT- OCT+;
 K: 0..26 (F3 = 0), w0..w15 (white keys), b0..b10 (black); ENC: SELECT ALGO PRESET K1 K2 K3 K4.
 
 As a library:
@@ -22,8 +25,13 @@ As a library:
     with connect() as r:            # (connect(sim=True): the simulator)
         r.tap("HOME"); r.turn("K1", 2); r.wait(300); r.shot("home.png"); print(r.lit("PLAY"))
 
+A test session (fresh; firmware/src/mirror.c op 5, Polly's mirror version 3): stopped only (refused while playing or
+recording); the user's unsaved changes are saved first, then Polly runs as at the power-on of a blank FM-1 from RAM:
+nothing it saves (SAVE, the autosave) reaches the flash, and the header shows TEST. fresh again: blank again. It ends
+with fresh_end, when mirroring stops (this tool quits, or 6 s of silence) or at a reboot: the user's own is loaded again.
+
 Needs mido with python-rtmidi for the FM-1 (as tools/fm1_install.py). Never writes the flash itself (a SAVE you send
-saves, as on the panel); the update mode (OCT- + OCT+ held) is the hand's only. Exit codes: 0 done, 1 failed, 2 bad
+saves, as on the panel; in a test session, into RAM); the update mode (OCT- + OCT+ held) is the hand's only. Exit codes: 0 done, 1 failed, 2 bad
 arguments, 3 FM-1 not found, 4 refused (an older Polly, without the remote), 6 not Polly.
 """
 import argparse
@@ -89,6 +97,7 @@ class Remote:
         self.last_screen = self.last_keep = 0.0
         self.mseq = -1                          # the next screen frame's seq (a gap: a refresh)
         self.screen_frames = 0
+        self.sched = None                       # a scenario's clock (run): where its waits end, as in the simulator
 
     def now(self):
         return self.link.now() if hasattr(self.link, "now") else time.monotonic()
@@ -185,7 +194,7 @@ class Remote:
             self._send(MR_REMOTE, body)
             end = self.now() + 0.3
             while self.now() < end:
-                for cmd, r in self._pump(0.01):
+                for cmd, r in self._pump(0.001):
                     if cmd == MR_REMOTE and len(r) >= 3 and r[0] == self.seq:
                         if not r[2]:
                             raise RemoteError("refused", "the FM-1 refused (mirroring off?)")
@@ -233,6 +242,18 @@ class Remote:
     def letgo(self):
         self._req(0)
 
+    def fresh(self, on=True):
+        """a test session: on, the FM-1 as a blank one from RAM (the flash untouched); off, the user's own again"""
+        if self.version < 3:
+            raise RemoteError("refused", f"this Polly's remote (version {self.version}) has no test session: update it")
+        try:
+            self._req(5, 1 if on else 0)
+        except RemoteError as e:
+            if e.code == "refused":
+                raise RemoteError("refused", "the FM-1 refused the test session (playing or recording? stop first)")
+            raise
+        self.wait_screen()
+
     def wait(self, ms):
         self._pump(ms / 1000.0)
 
@@ -245,12 +266,13 @@ class Remote:
                 return True
         return False
 
-    def shot(self, path, scale=1):
-        self.wait_screen()
+    def shot(self, path, scale=1, quiet=0.25, limit=5.0):
+        """the screen as a PNG, once it stops changing (quiet s; limit s at most: playing, it never does)"""
+        self.wait_screen(quiet, limit)
         if self.scr.bad:
             self._send(MR_REQ, b"\x02")       # (damaged frames: everything again)
             self.scr.bad = 0
-            self.wait_screen()
+            self.wait_screen(quiet, limit)
         self.scr.png(path, scale)
 
     def lit(self, name):
@@ -264,11 +286,26 @@ class Remote:
         return [b for i, b in enumerate(BTN) if s["lit"] >> i & 1], [k for k in range(27) if s["lit_keys"] >> k & 1]
 
     # ---------------------------------------------------------------- scenarios
+    # what each action takes in the simulator's scripts (host/polly_host.c), ms: a scenario's clock moves on by it
+    NOMINAL = dict(tap=80, press=2, release=2, key=2, tapkey=90, spin=1)
+
     def do(self, words, outdir=".", log=print):
-        """one scenario line (split); False when it is one the device cannot run (skipped)"""
+        """one scenario line (split); False when it is one the device cannot run (skipped). In a scenario (run) the
+        waits keep to its clock: the time the requests, a shot or a look at the LEDs took is taken from the next wait (a
+        shot while playing would else shift what follows by its wait for a still screen); a spin (one detent at a time
+        here, at once in the simulator) moves the clock on to its end"""
         c, a = words[0], words[1:]
+        if self.sched is not None:
+            ms = self.NOMINAL.get(c, 0)
+            if c == "turn":
+                ms = abs(int(a[1])) * (int(a[2]) if len(a) > 2 else 80)
+            elif c == "strum":
+                ms = (abs(int(a[1]) - int(a[0])) + 1) * (int(a[2]) if len(a) > 2 else 25) + 2
+            elif c == "wait":
+                ms = int(a[0])
+            self.sched += ms / 1000.0
         if c == "wait":
-            self.wait(int(a[0]))
+            self._pump(max(0.0, self.sched - self.now()) if self.sched is not None else int(a[0]) / 1000.0)
         elif c in ("tap", "press", "release"):
             getattr(self, c)(a[0])
         elif c == "key":
@@ -290,8 +327,14 @@ class Remote:
             self.master(int(a[0]))
         elif c == "shot":
             path = os.path.join(outdir, a[0])
-            self.shot(path)
+            if self.sched is None:
+                self.shot(path)
+            else:
+                self.shot(path, quiet=0.1, limit=0.5)   # (a scenario: the screen now, near enough; playing, it moves)
             log(f"  shot {path}")
+        elif c in ("fresh", "fresh_end"):
+            self.fresh(c == "fresh")
+            log(f"  {'test session: a blank FM-1, nothing saved' if c == 'fresh' else 'test session ended'}")
         elif c == "leds":
             b, k = self.leds()
             log(f"  leds: buttons {' '.join(b) or '-'} keys {' '.join(map(str, k)) or '-'}")
@@ -307,11 +350,28 @@ class Remote:
             log(f"  ok {a[0]} == {got}")
         else:
             return False
+        if self.sched is not None and c in ("spin", "fresh", "fresh_end"):
+            self.sched = max(self.sched, self.now())
         return True
 
-    def run(self, path, outdir=".", log=print):
-        """a .polly scenario: what it can run, in order; the skipped lines' count"""
+    def run(self, path, outdir=".", log=print, fresh=False):
+        """a .polly scenario: what it can run, in order; the skipped lines' count. fresh: in a test session (from a
+        blank FM-1, as the simulator starts), ended after (also when it fails)"""
+        if fresh:
+            self.do(["fresh"], outdir, log)
+            try:
+                return self.run(path, outdir, log)
+            finally:
+                if self.on:
+                    self.do(["fresh_end"], outdir, log)
         skipped = {}
+        self.sched = self.now()
+        try:
+            return self._run(path, outdir, log, skipped)
+        finally:
+            self.sched = None
+
+    def _run(self, path, outdir, log, skipped):
         with open(path) as f:
             for n, line in enumerate(f, 1):
                 words = line.split() if not line.lstrip().startswith("#") else []
@@ -411,7 +471,8 @@ def connect(port=None, sim=False, backend=None, outdir=None):
 
 def actions(words):
     """the command line's words -> actions (each a list of words)"""
-    arity = dict(tap=1, press=1, release=1, key=2, tapkey=1, spin=2, master=1, wait=1, shot=1, leds=0)
+    arity = dict(tap=1, press=1, release=1, key=2, tapkey=1, spin=2, master=1, wait=1, shot=1, leds=0, fresh=0,
+                 fresh_end=0)
     out, i = [], 0
     while i < len(words):
         c = words[i]
@@ -434,17 +495,21 @@ def main(argv=None, backend=None, out=sys.stdout):
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name; default: Polly's)")
     ap.add_argument("--out", metavar="DIR", default=".", help="where shots go (default: here)")
     ap.add_argument("--sim", action="store_true", help="the simulator (build/host/polly_host --serve), not the FM-1")
+    ap.add_argument("--fresh", action="store_true", help="run: in a test session (a blank FM-1, the flash untouched; "
+                                                          "the user's own back after)")
     a = ap.parse_args(argv)
     log = lambda s: print(s, file=out)  # noqa: E731
     try:
         scenario = a.words[0] == "run"
         if scenario and len(a.words) != 2:
             raise RemoteError("usage", "run SCENARIO.polly")
+        if a.fresh and not scenario:
+            raise RemoteError("usage", "--fresh goes with run (else: the actions fresh, fresh_end)")
         acts = [] if scenario else actions(a.words)
         os.makedirs(a.out, exist_ok=True)
         with connect(a.port, a.sim, backend) as r:
             if scenario:
-                skipped = r.run(a.words[1], a.out, log)
+                skipped = r.run(a.words[1], a.out, log, fresh=a.fresh)
                 if skipped:
                     log("skipped (the simulator's only): " + ", ".join(f"{k} x{v}" for k, v in sorted(skipped.items())))
             else:

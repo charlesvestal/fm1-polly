@@ -708,6 +708,8 @@ void app_start(void)
         app.slot_buf[s] = -1;
     qbuf[0].index = qbuf[1].index = -1;
     qb_mount();                                  /* the QY70 style bank, if one is installed */
+    if (ts.on)
+        qb_unmount();                            /* (a test session: none, as a fresh FM-1) */
     project_songs_load(&songs);
     arr_loops(sloops.loop);                      /* the engine reads the song's loops from here (writes: arr_edit) */
     loops_load();
@@ -1966,6 +1968,10 @@ static int one_bank_style(song_t *g, int b)
 /* the QY70 bank written (bank_rx.c) or loaded (the simulator): mounted again, the song's patterns again */
 void app_bank_changed(void)
 {
+    if (ts.on) {                                 /* (a test session: ended, everything the user's again) */
+        app_test(0);
+        return;
+    }
     for (int s = 0; s < ARR_NSECT; s++)          /* no slot plays a decoded style: both buffers free */
         if (app.slot_buf[s] >= 0) {
             pattern_empty(&scratch);
@@ -1981,11 +1987,40 @@ void app_bank_changed(void)
  * power-on (stopped: the restore is refused while playing) */
 void app_restored(void)
 {
+    ts_set(0);                                   /* (a test session's RAM objects gone: the restored ones) */
     project_load();
     project_apply();
     app_start();
     ui_init();
 }
+/* a test session (tools/polly_remote.py run --fresh; mirror.c's remote op 5; project.c's ts): on (1), stopped only,
+ * the user's unsaved changes saved first (to the flash, as the autosave would), then everything as at the power-on of
+ * a blank FM-1 (no project, songs, slots or QY70 bank), loaded from RAM, the flash never written while it lasts (the
+ * header says TEST); on again: blank again. Off (0: asked, mirroring off, a restore): stopped, its RAM objects dropped,
+ * the user's own loaded again. 1 done, 0 refused (playing, recording, or the unsaved changes not saved) */
+int app_test(int on)
+{
+    if (on) {
+        if (arr_playing || arr_recording || ui.take || ui.song_rec || ui.rec_chords)
+            return 0;
+        if (!ts.on && unsaved() && save_all() != 0)
+            return 0;
+        ts_set(1);
+    } else {
+        if (!ts.on)
+            return 1;
+        ts_set(0);
+        if (arr_playing)
+            arr_play(0);
+    }
+    gm_panic();
+    project_load();
+    project_apply();
+    app_start();
+    ui_init();
+    return 1;
+}
+int app_testing(void) { return ts.on; }
 /* a backup over USB: stopped, what is not saved yet saved first (the flash is what it sends); the autosave held
  * while it streams (its objects as they were when it started) */
 static uint8_t save_hold;

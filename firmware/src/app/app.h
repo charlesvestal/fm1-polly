@@ -91,6 +91,8 @@ void app_bank_changed(void);           /* the QY70 style bank was written: mount
 void app_restored(void);               /* a restore over USB was written: everything from the flash again */
 void app_flush(void);                  /* stopped: what is not saved, saved (a backup over USB starts) */
 void app_hold_saves(int on);           /* 1: no autosave (a backup over USB streams), 0: as ever */
+int app_test(int on);                  /* a test session (blank, RAM only) on / off: 1 done, 0 refused */
+int app_testing(void);                 /* 1: in a test session */
 void ui_init(void);
 void ui_frame(void);
 void ui_input_only(void);

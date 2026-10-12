@@ -123,6 +123,11 @@ int qb_mount(void)
     status = count;
     return status;
 }
+void qb_unmount(void)
+{
+    count = 0;
+    status = QB_NONE;
+}
 int qb_status(void) { return status; }
 int qb_count(void) { return count; }
 const char *qb_name(int i) { return i >= 0 && i < count ? ent[i].name : ""; }

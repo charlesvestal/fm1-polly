@@ -974,6 +974,10 @@ hold it), scroll over a knob to turn it. `python3 tools/polly_remote.py` does it
 3`, `shot s.png`, or `run tests/scenarios/home.polly` (a scenario's presses, keys, turns, waits and screenshots; what
 only the simulator can check is skipped). Polly takes them as from its own panel, only while it is mirrored; it never
 writes anything by itself (a SAVE you send saves, as the button does), and the update mode stays the hand's alone.
+`run ... --fresh` plays the scenario in a test session: stopped, Polly saves what you have not saved yet, then starts
+as a new FM-1 would (no songs, no grooves of yours, the first style), the header says TEST, and nothing it saves
+reaches the flash. When the scenario ends (or the mirror stops, or the FM-1 restarts) your own songs come back as
+they were.
 
 The mirror costs nothing until a page asks for it, and stops when the page closes, goes quiet for six seconds or
 the cable comes out; whatever the computer held is let go. Notes and clock go out first: when the computer is slow to take it all, the page skips frames,

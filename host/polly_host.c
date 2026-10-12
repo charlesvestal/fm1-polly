@@ -234,6 +234,7 @@ static void mr_redraw(void)
     for (uint32_t k = 0; k < 6u; k++)
         ui.sig[k] = ~ui.sig[k];
 }
+static int mr_test(int on) { return app_test(on); }
 static void host_mirror_ms(void)                 /* one millisecond of USB */
 {
     uint32_t budget = mr_rate;
@@ -818,6 +819,12 @@ static int expect(const char *what, const char *val)
         got = csong()->transpose;
     else if (!strcmp(what, "track"))              /* the selected track, 1..8 */
         got = proj.trk + 1;
+    else if (!strcmp(what, "song_style"))         /* the song's style (its Intro's pattern number) */
+        got = csong()->sty;
+    else if (!strcmp(what, "test_session"))       /* a test session (the remote's op 5): RAM only, blank */
+        got = ts.on;
+    else if (!strcmp(what, "test_bytes"))         /* its objects' bytes in RAM (coded) */
+        got = (int)ts.used;
     else if (!strcmp(what, "mirror_on"))          /* the screen mirrored over USB */
         got = mirror_on;
     else if (!strcmp(what, "mirror_drops"))       /* frames that did not fit the ring (their rows dirty) */
@@ -1475,6 +1482,7 @@ int main(int argc, char **argv)
             dbg_pat.nev = ARR_NEV + 1;
             project_pattern_save(SEC_A - 1, &dbg_pat);
         } else if (!strcmp(cmd, "reboot")) {
+            ts_set(0);                                /* (RAM cleared: a test session gone) */
             memset(&proj, 0, sizeof proj);
             boot();
         } else if (!strcmp(cmd, "echo"))

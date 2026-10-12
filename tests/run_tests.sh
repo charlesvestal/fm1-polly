@@ -34,6 +34,9 @@ run journal sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -o $OUT/journal_test t
 run xpose sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src/dsp -o $OUT/xpose_test tests/host/xpose_test.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/xpose_test"
 run arr sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -DARR_TEST -Ifirmware/src/dsp -Itests/host -o $OUT/arr_test tests/host/arr_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/arr_test"
 run project sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Ifirmware/src -Ifirmware/src/app -Ifirmware/src/dsp -Ifirmware/hal -Itests/host -o $OUT/project_test tests/host/project_test.c tests/host/gm_stub.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c && $OUT/project_test"
+# a test session's objects in RAM (teststore.c): saved and loaded back whole, replaced, cut at max, a full pool
+# refusing, the calibration and the session off on the flash
+run teststore sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O2 -Ifirmware/src -o $OUT/teststore_test tests/host/teststore_test.c && $OUT/teststore_test"
 # the real synth (gm.c + Sonivox) under the arranger: note-ons on their exact sample, plain MIDI bit-identical
 run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DGM_HOST -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -o $OUT/timing_test tests/host/timing_test.c firmware/src/dsp/gm.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/templates.c firmware/src/dsp/xpose.c firmware/src/dsp/chords.c \$(ls firmware/src/dsp/eas/*.c | grep -v 'wt_22khz\|wt_200k_samples') && $OUT/timing_test"
 # CC74 / CC71 move Sonivox's filter: darker, resonant, bit-identical at 64, reset by CC121, no zipper, no blow-ups
@@ -95,7 +98,8 @@ fi
 run host-build sh host/build_host.sh
 # the remote (firmware/src/mirror.c cmd 0x54) and tools/polly_remote.py against the simulator on a simulated cable
 # (polly_host --serve): the screen as mirrored, taps, keys, turns, MASTER into the UI, let go on stop and on silence,
-# refused while off, an older Polly, a whole scenario (style_pick.polly) run through the remote
+# refused while off, an older Polly, a whole scenario (style_pick.polly) run through the remote; a test session
+# (--fresh): a used simulator blank, walkthrough.polly's expects in it, nothing written, the user's own back after
 run polly-remote python3 tests/polly_remote_test.py
 if command -v emcc >/dev/null 2>&1; then
     run emu sh -c "sh web/emu/build.sh >/dev/null && node tests/host/emu_test.mjs build/emu/polly.wasm"

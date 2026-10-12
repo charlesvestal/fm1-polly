@@ -540,7 +540,7 @@ static void draw_header(void)
     uint32_t h = hash(2166136261u, ui.page | (uint32_t)msg << 8 | (uint32_t)un << 9 | (uint32_t)rec << 11 |
                                        (uint32_t)ext << 12 | (uint32_t)sel << 13 | (uint32_t)ask << 14 |
                                        (uint32_t)csong()->tempo << 16);
-    h = hash(h, (uint32_t)proj.song | (uint32_t)slots << 24 | (uint32_t)nfree << 25);
+    h = hash(h, (uint32_t)proj.song | (uint32_t)slots << 24 | (uint32_t)nfree << 25 | (uint32_t)ts.on << 30);
     if (msg)
         h = hash(h, ui.msg_until);
     for (const char *c = ui.ask_q; ask && *c; c++)
@@ -569,6 +569,13 @@ static void draw_header(void)
         cv_text(x + 10, 4, &FONT_S, t, nfree ? K_DIM : K_ACCENT);
     } else {
         int32_t r = 232;
+        if (ts.on) {                                 /* a test session (polly_remote.py --fresh): nothing is saved */
+            int32_t w = text_w(&FONT_XS, "TEST") + 10;
+            r -= w;
+            cv_round(r, 4, w, 16, 5, K_TEAL);
+            cv_text(r + 5, 4, &FONT_XS, "TEST", K_BG);
+            r -= 6;
+        }
         if (sel) {                                   /* HOME held: what it does with the keys, the song's */
             itoa_u(proj.song + 1u, cat_s(t, "HOME + a key|S"));
             segs(8, 4, &FONT_B, t, K_TEXT);
