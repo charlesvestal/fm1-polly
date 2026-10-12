@@ -195,6 +195,8 @@ static struct {
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
     uint8_t row_follow;                              /* SONG's cursor follows the row playing (from PLAY until ROW turns) */
+    uint8_t row_del;                                 /* Song's PROG turned below P1: row_del - 1 goes when the cursor or
+                                                      * the page leaves it (0: none; ui.c row_del_poll) */
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
     uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
     uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
@@ -1509,7 +1511,7 @@ static void draw_song(void)
         top = 0;
     h = hash(2166136261u, 327680u | (uint32_t)pg | (uint32_t)top << 4 | (uint32_t)cur << 10 | (uint32_t)n << 24);
     h = hash(h, (uint32_t)(play + 1));               /* (its own word: OR-ed into the first, row 1 playing was lost) */
-    h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8);
+    h = hash(h, (uint32_t)ui.song_rec << 3 | (uint32_t)st << 4 | (uint32_t)arr_row << 8 | (uint32_t)ui.row_del << 16);
     if (play >= 0)                                   /* (its clock: 32 steps round) */
         h = hash(h, row_done(&g->row[play]) >> 5);
     else if (st == SEC_INTRO || st == SEC_END)       /* (the Intro's, the Ending's) */
@@ -1563,6 +1565,15 @@ static void draw_song(void)
             glyph_clock(12, y + 8, 6, row_done(&g->row[i]), K_BG);
         if (ghost) {
             cv_text(SG_LOOP, ty, &FONT_S, "END", on ? K_TEXT : K_DIM);
+            continue;
+        }
+        if (ui.row_del == i + 1) {                   /* marked to go: "-", struck through, what happens */
+            cv_round(2, y, 232, ch, 5, K_BG);
+            cv_round(3, y + 1, 230, ch - 2, 4, K_BG);
+            itoa_u((uint32_t)i + 1u, t);
+            text_r(SG_NUM, ty, &FONT_S, t, K_DIM);
+            cv_text(SG_LOOP, ty, &FONT_S, "-  goes when you move on", K_DIM);
+            cv_rect(SG_LOOP - 4, y + ch / 2, 232 - SG_LOOP, 1, K_DIM);
             continue;
         }
         {
@@ -3628,14 +3639,17 @@ static void song_page_knobs(knob_t *k)
             kn(&k[0], "Section", app.row + 1, g->nrows < ARR_ROWS ? g->nrows + 1 : g->nrows);
         else
             kv(&k[0], "Section", "end", g->nrows + 1, g->nrows + 1);
-        if (!w) {
-            kv(&k[1], "Prog", "-", 0, 0);
+        if (!w) {                                    /* (END: PROG up adds a section) */
+            kv(&k[1], "Prog", "-", 0, ARR_LOOPS);
             kv(&k[2], "Groove", "-", 0, 0);
             kv(&k[3], "Repeat", "-", 0, 0);
             break;
         }
         itoa_u((uint32_t)(w->loop % ARR_LOOPS) + 1u, cat_s(b, "P"));
-        kv(&k[1], "Prog", b, w->loop % ARR_LOOPS, ARR_LOOPS - 1);
+        if (ui.row_del == app.row + 1u)              /* marked: "-", gone when the cursor moves on */
+            kv(&k[1], "Prog", "-", 0, ARR_LOOPS);
+        else
+            kv(&k[1], "Prog", b, w->loop % ARR_LOOPS + 1, ARR_LOOPS);
         kv(&k[2], "Groove", ROW_SECT_NAME[w->sect % ROW_NSECT], w->sect % ROW_NSECT, ROW_NSECT - 1);
         itoa_u(w->rep ? w->rep : 1u, cat_s(b, "x"));
         kv(&k[3], "Repeat", b, w->rep, 8);

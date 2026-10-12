@@ -1599,8 +1599,33 @@ static void song_knob(int k, int32_t e)
         ui.row_follow = 0;
         return;
     }
-    if (!w)
-        return;                                  /* the END row: nothing to turn */
+    if (!w) {                                    /* the END row: PROG up adds a section (P1), the cursor on it */
+        if (ui.page == P_SONG && k == 1 && d > 0) {
+            int r;
+            songs_write(1);
+            r = row_tap(g, g->nrows, 0);
+            songs_write(0);
+            if (r < 0) {
+                say("SONG FULL", "32 SECTIONS");
+                return;
+            }
+            ui.row_follow = 0;
+            app.row = (uint8_t)r;
+        }
+        return;
+    }
+    if (ui.page == P_SONG && k == 1) {           /* PROG: "-" below P1 marks the section to go (when the cursor or
+                                                  * the page leaves it: row_del_poll); up again keeps it */
+        if (ui.row_del == app.row + 1u) {
+            if (d > 0)
+                ui.row_del = 0;
+            return;
+        }
+        if (d < 0 && w->loop == 0) {             /* (its row says so: "- goes when you move on") */
+            ui.row_del = (uint8_t)(app.row + 1u);
+            return;
+        }
+    }
     if (ui.page == P_SONG2) {                    /* TRANSPOSE: the cursor's section's (PRESETS steps the sections) */
         v = w->key;
         to = clampi(v + (int)e, -6, 5);   /* (12 steps: no acceleration) */
@@ -2406,6 +2431,36 @@ static int row_change(int ins, int row)
     return 0;
 }
 static void row_do(int ins, int row);
+static void do_delete_row(void);
+/* each frame: a section marked by PROG ("-") goes once the cursor or the page leaves it, as DELETE SECTION (one undo
+ * step; with melody notes it asks; while playing it stays: STOP FIRST) */
+static void row_del_poll(void)
+{
+    int r = ui.row_del - 1;
+    if (!ui.row_del || (song_page() && app.row == r))
+        return;
+    ui.row_del = 0;
+    if (r >= csong()->nrows || ui.ask)
+        return;
+    if (arr_playing) {
+        say("SECTION KEPT", "STOP FIRST");
+        return;
+    }
+    if (leads_count(&leads, r, -1)) {
+        char q[48];
+        ui.tgt.lrow = (uint8_t)r;
+        cat_s(itoa_u((uint32_t)r + 1u, cat_s(q, "SECTION ")), " AND ITS MELODY: DELETE?");
+        ask(q, do_delete_row);
+        return;
+    }
+    {
+        int cur = app.row;
+        undo_commit();                           /* (what came before: its own step) */
+        row_do(0, r);
+        if (cur > r && cur > 0)                  /* (the cursor on the section it had moved to) */
+            app.row = (uint8_t)(cur - 1);
+    }
+}
 static void do_delete_row(void)
 {
     if (row_change(0, ui.tgt.lrow) == 0)
@@ -4274,6 +4329,7 @@ void ui_frame(void)
     }
     if (app.edit_pend && plat_ms() - app.edit_t >= EDIT_MS)
         edits_flush();
+    row_del_poll();
     /* a song picked while playing: now, stopped for a frame (not a PLAY the engine has yet to see) and the
      * voices ended (a save pauses the audio) */
     if (!app.song_pend || ui.stopped <= 1u)

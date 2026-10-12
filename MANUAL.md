@@ -518,7 +518,10 @@ or "Ending · then stop". The Intro and the Ending have a clock of their own at 
 The knobs on page 1:
 
 - **KNOB 1** (Section) moves the cursor.
-- **KNOB 2** (Prog) sets the section's progression.
+- **KNOB 2** (Prog) sets the section's progression. Below P1 is "–": the section is struck through and goes
+  when you move to another section or leave the Song page. Turn back up to keep it. A section with melody notes
+  asks first, and while the song plays it stays (STOP FIRST). On the END row, turning **KNOB 2** up adds a
+  section.
 - **KNOB 3** (Groove) sets the groove: A, A + fill, B or B + fill. When you switch between A and B, the
   other sections that play the same progression on the same groove follow, and keep their fills.
 - **KNOB 4** (Repeat) sets how many times the section plays, from 1 to 8.

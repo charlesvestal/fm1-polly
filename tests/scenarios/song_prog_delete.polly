@@ -1,0 +1,57 @@
+# POLLY, the Song page's PROG: "-" below P1 marks the section to go (struck through, "goes when you move on"); turned
+# up again it stays; the cursor moving on deletes it (one undo step); on the END row PROG up adds a section (P1), the
+# cursor on it. Sections P1 P3 P2 (white keys 1, 3, 2).
+wait 300
+tap HOME
+expect page 1
+tapkey w0
+tapkey w2
+tapkey w1
+expect rows 3
+# ---- section 2 (P3): down to P1, then "-": marked, still there
+turn K1 -2
+expect cursor 2
+spin K2 -1
+spin K2 -1
+expect row_loop2 1
+spin K2 -1
+expect rows 3
+expect knob2_is_- 1
+wait 300
+shot prog_marked.png
+# ---- up again: it stays (P1)
+spin K2 1
+expect knob2_is_P1 1
+turn K1 1
+wait 100
+expect rows 3
+# ---- section 2 marked, the cursor moves on: gone; undo brings it back
+turn K1 -1
+expect cursor 2
+spin K2 -1
+turn K1 1
+wait 100
+expect rows 2
+expect row_loop2 2
+press HOME
+tap REC
+release HOME
+expect rows 3
+# ---- the END row: PROG up adds a section (P1), the cursor on it; on up to P4
+turn K1 5
+expect cursor 4
+spin K2 1
+expect rows 4
+expect cursor 4
+expect row_loop4 1
+spin K2 3
+expect row_loop4 4
+wait 300
+shot prog_added.png
+# ---- leaving the page deletes a marked section too
+spin K2 -3
+spin K2 -1
+expect knob2_is_- 1
+tap ARP
+wait 100
+expect rows 3
