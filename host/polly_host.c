@@ -634,7 +634,25 @@ static int expect(const char *what, const char *val)
         got = !strcmp(t, w);
         if (!got)
             printf("  (where: \"%s\")\n", t);
-    } else if (!strncmp(what, "enc_is_", 7)) {   /* enc_is_WORDS: the encoders' line over the footer, exactly ("_": a
+    } else if (!strncmp(what, "notes_where_is_", 15)) {   /* notes_where_is_WORDS: Notes' readout, exactly ("_": a space,
+                                                  * "|": the dot): "M1|song_bar_5|Chorus_bar_1.1|E5" */
+        char w[96], t[96];
+        int i;
+        for (i = 0; i < 95 && what[15 + i]; i++)
+            w[i] = what[15 + i] == '_' ? ' ' : what[15 + i];
+        w[i] = 0;
+        ne_ctx();
+        ne_where(t, 1);
+        got = !strcmp(t, w);
+        if (!got)
+            printf("  (notes: \"%s\")\n", t);
+    } else if (!strcmp(what, "ne_t"))             /* Notes' cursor: its place (song ticks / the groove's) */
+        got = (ne_ctx(), (int)ne.t);
+    else if (!strcmp(what, "ne_note"))            /* the note selected there: its pitch, -1 none */
+        got = (ne_ctx(), ne.has ? ne.k.note : -1);
+    else if (!strcmp(what, "ne_at"))              /* ... its place, -1 none */
+        got = (ne_ctx(), ne.has ? (int)ne.k.t : -1);
+    else if (!strncmp(what, "enc_is_", 7)) {   /* enc_is_WORDS: the encoders' line over the footer, exactly ("_": a
                                                   * space, "|": between the encoders; "enc_is_" alone: no line) */
         char w[96], t[96];
         int i;

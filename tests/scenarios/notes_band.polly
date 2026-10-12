@@ -1,0 +1,87 @@
+# POLLY, Notes with a groove's instrument (docs/superpowers/specs/2026-10-12-note-editor-design.md): SEQ on Band, SEQ
+# again. The style's Groove A (Pop): BA's first note selected, its pitch changed (the groove yours first: copy-on-write);
+# D1's hits, a chord of drums at one place one by one, a hit's sound named and changed; a snare entered at an empty
+# place, deleted, undone; zoomed. Stopped throughout.
+wait 300
+tap SEQ
+expect page 6
+turn ALGO -1
+expect track 4
+tap SEQ
+expect page 17
+expect ne_t 0
+expect tag_is_S1>Pop>Groove_A>BA_Finger_Bass 1
+expect slot1_trk4_note0 36
+expect ne_note 36
+expect notes_where_is_BA|bar_1.1|C2 1
+wait 300
+shot band_bass.png
+# ---- its pitch up a tone: Groove A (yours) first
+spin K2 2
+expect ne_note 38
+expect slot1_trk4_note0 38
+expect msg_is_GROOVE 1
+expect tag_is_S1>Pop>Groove_A_(yours)>BA_Finger_Bass 1
+wait 300
+shot band_bass_edit.png
+# ---- D1: kick and closed hat at bar 1.1, one by one (by pitch); the hat a pedal hat (named)
+turn ALGO -3
+expect track 1
+expect ne_t 0
+expect ne_note 36
+expect notes_where_is_D1|bar_1.1|Kick 1
+turn SELECT 1
+expect ne_note 42
+expect ne_at 0
+expect notes_where_is_D1|bar_1.1|Closed_hat 1
+spin K2 2
+expect slot1_trk1_note1 44
+expect notes_where_is_D1|bar_1.1|Pedal_hat 1
+wait 300
+shot band_drum.png
+# ---- a snare entered at the empty 16th after it (the keys two octaves down: key 9 is D1, 38), the cursor on after it
+spin K1 1
+expect ne_t 120
+expect ne_note -1
+tap OCT-
+tap OCT-
+tapkey 9
+expect slot1_trk1_count 33
+expect ne_t 240
+turn SELECT -1
+expect ne_note 38
+expect ne_at 120
+expect notes_where_is_D1|bar_1.1|Snare 1
+wait 300
+shot band_enter.png
+# ---- deleted (EDIT), undone (HOME + REC)
+tap EDIT
+expect slot1_trk1_count 32
+expect page 17
+press HOME
+tap REC
+release HOME
+expect slot1_trk1_count 33
+expect msg_is_UNDO 1
+# ---- zoomed to a beat (PRESETS), back to 2 bars
+turn PRESET 2
+wait 300
+shot band_zoom.png
+turn PRESET -2
+# ---- the cards: SEQ, EDIT held on Notes (let go: nothing)
+press SEQ
+wait 1100
+expect card 10
+shot card_notes.png
+release SEQ
+expect page 17
+press EDIT
+wait 1100
+expect card 5
+shot card_delete.png
+release EDIT
+expect page 17
+expect slot1_trk1_count 33
+# ---- SEQ again: Band
+tap SEQ
+expect page 6

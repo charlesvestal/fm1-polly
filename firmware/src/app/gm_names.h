@@ -26,3 +26,13 @@ static const char *const GM_PROGRAM[128] = {
 static const char *const GM_FAMILY[16] = {"Piano", "Chromatic", "Organ", "Guitar", "Bass", "Strings",
                                           "Ensemble", "Brass", "Reed", "Pipe", "Synth Lead", "Synth Pad",
                                           "Synth FX", "Ethnic", "Percussive", "Sound FX"};
+
+/* the GM drum kit's sounds, keys 35..81 (the GM specification's, shortened to fit a knob: Notes' PITCH on a drum) */
+#define GM_DRUM0 35
+static const char *const GM_DRUM[47] = {
+    "Kick 2", "Kick", "Side stick", "Snare", "Clap", "Snare 2", "Low tom 2", "Closed hat", "Low tom", "Pedal hat",
+    "Mid tom 2", "Open hat", "Mid tom", "High tom 2", "Crash", "High tom", "Ride", "China", "Ride bell", "Tambourine",
+    "Splash", "Cowbell", "Crash 2", "Vibraslap", "Ride 2", "High bongo", "Low bongo", "Mute conga", "High conga",
+    "Low conga", "High timbale", "Low timbale", "High agogo", "Low agogo", "Cabasa", "Maracas", "Short whistle",
+    "Long whistle", "Short guiro", "Long guiro", "Claves", "High block", "Low block", "Mute cuica", "Open cuica",
+    "Mute triangle", "Open triangle"};

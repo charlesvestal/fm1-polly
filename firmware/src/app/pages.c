@@ -8,6 +8,7 @@
  * shows changed (a hash of it). Over the main band: a help card (a button held alone), a list (SEL). Pages not
  * built yet show their name. */
 #include "gm_names.h"
+#include "../dsp/notes.h"
 
 /* the colours, one meaning each (docs/superpowers/specs/2026-10-11-visibility-design.md, "The colours"):
  * teal: sounding now (the bar, beat, row, section playing; the playhead) and nothing else. Coral: you (the cursor, an
@@ -34,20 +35,23 @@
 
 /* the pages (the spec's Buttons table): a button opens its first page; SELECT turns them */
 enum { P_HOME, P_SONG, P_SONG2, P_SONG3, P_LOOP, P_LOOP2, P_PATTERN, P_PATSET, P_TRACK, P_TRACK2, P_MIXER, P_TONE, P_MASTER,
-       P_STYLE, P_STYLE2, P_SETUP, P_PANEL, NPAGES };
+       P_STYLE, P_STYLE2, P_SETUP, P_PANEL, P_NOTES, NPAGES };
 /* (the words on screen: docs/superpowers/specs/2026-10-11-vocabulary-design.md; P_LOOP is the Progression page, P_PATTERN
- * Band, P_TRACK Sound, P_MASTER Effects) */
+ * Band, P_TRACK Sound, P_MASTER Effects. P_NOTES, the note editor: SEQ on Band, SEQ again back; SELECT walks its notes,
+ * not pages) */
 static const char *const PAGE_NAME[NPAGES] = {"Home", "Song", "Song", "Song", "Progression", "Progression", "Band",
                                               "Groove length", "Sound", "Sound 2", "Mixer", "Mixer tone", "Effects",
-                                              "Style", "Style", "Setup", "Status"};
+                                              "Style", "Style", "Setup", "Status", "Notes"};
 /* the page buttons: a button opens its first page, SELECT the next (the tag's dots: which). HOME's three: HOME, then
  * SONG's two pages (P_SONG3, once a third, is no longer shown: its knobs are on P_SONG2; the numbers stay) */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
     {B_HOME, P_HOME, 3}, {B_ARP, P_LOOP, 2}, {B_SEQ, P_PATTERN, 2}, {B_EDIT, P_TRACK, 2}, {B_LFO, P_MIXER, 2},
     {B_FX, P_MASTER, 1}, {B_ENV, P_STYLE, 2}, {B_GLO, P_SETUP, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
-static int page_group(int p)                         /* the PAGE_BTN entry page p is on */
+static int page_group(int p)                         /* the PAGE_BTN entry page p is on (Notes: SEQ's) */
 {
+    if (p == P_NOTES)
+        p = P_PATTERN;
     for (uint32_t i = 0; i < NPAGE_BTN; i++)
         if (p >= PAGE_BTN[i].first && p < PAGE_BTN[i].first + PAGE_BTN[i].n)
             return (int)i;
@@ -2072,8 +2076,9 @@ static void lead_where(char *t)                      /* (the simulator's expect)
 /* the line's boxes: x and width a section, as wide as its bars, 5 px at least (32 sections of 5: 1 px apart) */
 #define OV_X 8
 #define OV_W 224
-#define OV_Y 37
-#define OV_H 22
+static int32_t ov_y = 37, ov_h = 22, ov_bars = 4;  /* (Notes: higher, smaller, the lane's bars) */
+#define OV_Y ov_y
+#define OV_H ov_h
 #define OV_MIN 5
 #define LN_Y 66                                      /* the lane's four bars */
 #define LN_H 51
@@ -2194,7 +2199,7 @@ static void draw_song_line(const smap_t *m, const lplace_t *v, int k, uint32_t f
         cv_rect(line_x(m, sx, sw, s, tick), OV_Y - 3, 2, OV_H + 6, K_TEAL);
     }
     if (n) {                                         /* where the lane is: a mark under the line */
-        uint32_t w1 = w0 + 4u > m->total ? m->total : w0 + 4u;
+        uint32_t w1 = w0 + (uint32_t)ov_bars > m->total ? m->total : w0 + (uint32_t)ov_bars;
         int s0 = smap_sect(m, w0), s1 = smap_sect(m, w1 - 1u);
         int32_t x0 = line_x(m, sx, sw, s0, (w0 - m->b0[s0]) * m->blen);
         int32_t x1 = line_x(m, sx, sw, s1, (w1 - m->b0[s1]) * m->blen);
@@ -2336,6 +2341,296 @@ static void draw_lead(int rec)
         if (plays)                                   /* its beats along its foot: the one now bold, those before lit */
             bar_beats(x, y, ch, m.bpb, v.fbeat, fl ? K_BG : K_TEAL, fl ? RGB(250, 196, 170) : K_TEAL_M);
     }
+    cv_blit(0, MAIN_Y);
+}
+/* ---- Notes (SEQ on Band; SEQ again: Band): the note editor, after Melodee's SEQ > NOTES (keremimo, GPL-3.0,
+ * github.com/keremimo/melodee: its piano roll and its selection, ui_graph.c notes_window / notes_bar and seq_notes.c,
+ * adapted to Polly's notes and colours). The selected instrument's or melody's notes as a piano roll over a window of
+ * the groove or the song (PRESETS zooms: 8, 4, 2, 1 bars, an instrument down to a beat; the window holds the cursor,
+ * recording the playhead): by place and pitch, a melody's plum over the other melody's pale, an instrument's ink; the
+ * cursor a coral line at its place on the grid (its cell capped coral along the foot), the selected note ringed coral,
+ * the playhead teal, the bars whose notes just changed flashing. Over it the readout, coral: "M1 . song bar 9 . Chorus
+ * bar 1.3 . E5" ("BA . bar 2.3 . A2"; a drum's sound by name, "Snare"); for a melody the song line between, its window
+ * marked under it. Notes are selected, not steps: SELECT goes through them in time order (a chord's notes one by one);
+ * KNOB 1 moves the cursor through empty places too, where the keys enter notes (ui.c, editor.c) */
+static struct {
+    uint32_t t;                                      /* the cursor: a place on the grid (song ticks / the groove's) */
+    nkey_t k;                                        /* the note selected (has) */
+    uint8_t has, zoom, kind, entering, erasing;
+    uint16_t who;                                    /* whose notes (song, instrument, groove): another, afresh */
+    uint32_t er;                                     /* erasing: the place erased up to */
+} ne = {0, {0, 0}, 0, 2, 0, 0, 0, 0xFFFFu, 0};
+static smap_t ne_sm;                                 /* (a melody's song: bars, and in song ticks) */
+static nmap_t ne_m;
+static uint32_t ne_grid(void)                        /* the cursor's step: Band's GRID (off: a 32nd) */
+{
+    static const uint16_t G[ARR_NQ] = {240, 160, 120, 80, 60, 60};
+    return G[proj.quant % ARR_NQ];
+}
+static int ne_trk(void) { return app.lead ? (app.lead - 1) % ARR_LEADS : proj.trk & 7; }
+static uint32_t ne_blen(void) { return app.lead ? ne_sm.blen : (uint32_t)pat_beats(pslot()) * ARR_PPQ; }
+static uint32_t ne_end(void)
+{
+    return app.lead ? ne_m.start[ne_m.n] : (uint32_t)(app.hdr[pslot()].bars ? app.hdr[pslot()].bars : 1u) * ne_blen();
+}
+static int ne_drums(void) { return !app.lead && (app.trk[pslot()][proj.trk & 7].chan & 15u) == 9u; }
+static int ne_find(void)
+{
+    return app.lead ? nl_find(&leads, &ne_m, ne_trk(), ne.k) : np_find(&view, ne_trk(), ne.k);
+}
+static int ne_near(nkey_t *k, int dir)
+{
+    return app.lead ? nl_near(&leads, &ne_m, ne_trk(), k, dir) : np_near(&view, ne_trk(), ne_end(), k, dir);
+}
+static void ne_pick(void)                            /* the cursor's cell: its first note selected (none: an empty place) */
+{
+    nkey_t k = {ne.t, 0};
+    ne.has = (uint8_t)(ne_near(&k, 0) && k.t < ne.t + ne_grid());
+    if (ne.has)
+        ne.k = k;
+}
+/* the song's map, the notes as they are now; the cursor in range on the grid, its note still there (an undo, a take, an
+ * erase: else the cell's first). Another song, instrument or groove: the cursor afresh, at the melody readout's place
+ * (the Song page's cursor section, the bar playing) or Band's cursor */
+static void ne_ctx(void)
+{
+    uint32_t g = ne_grid(), end;
+    uint16_t who = (uint16_t)(sel_trk() | proj.song << 4 | (app.lead ? 7 : pslot()) << 6);
+    if (app.lead) {
+        song_map(&ne_sm);
+        ne_m.n = ne_sm.n;
+        for (int s = 0; s <= ne_sm.n; s++) {
+            ne_m.start[s] = ne_sm.b0[s] * ne_sm.blen;
+            if (s < ne_sm.n)
+                ne_m.len[s] = ne_sm.len[s];
+        }
+    } else
+        view_refresh(pslot());
+    end = ne_end();
+    if (who != ne.who) {
+        ne.who = who;
+        ne.kind = ne.has = 0;
+        if (app.lead) {
+            lplace_t v;
+            lead_place(&ne_sm, &v);
+            ne.t = (uint32_t)v.at * ne_sm.blen;
+        } else
+            ne.t = (uint32_t)pat_cur(pslot()) * ARR_PPQ;
+    }
+    ne.t = ne.t / g * g;
+    if (ne.t + g > end)
+        ne.t = end > g ? (end - 1u) / g * g : 0;
+    if (!ne.has || ne.k.t / g * g != ne.t || ne_find() < 0)
+        ne_pick();
+}
+static uint32_t ne_ph(void)                          /* the playhead's place; ~0 none */
+{
+    uint32_t b, bt;
+    if (app.lead) {
+        lplace_t v;
+        lead_place(&ne_sm, &v);
+        return v.live && arr_row < ne_m.n ? ne_m.start[arr_row] + arr_row_tick : ~0u;
+    }
+    if (!arr_playing)
+        return ~0u;
+    do {
+        b = arr_bar;
+        bt = arr_beat_tick;
+    } while (b != arr_bar);
+    return b % (app.hdr[pslot()].bars ? app.hdr[pslot()].bars : 1u) * ne_blen() + bt;
+}
+static uint32_t ne_span(void)                        /* the window: 8, 4, 2, 1 bars, a beat (the whole, if shorter) */
+{
+    uint32_t sp = ne.zoom < 4 ? (8u >> ne.zoom) * ne_blen() : ARR_PPQ, end = ne_end();
+    return end && sp > end ? end : sp;
+}
+static void ne_name(int note, char *t)               /* a pitch, "E5"; a drum's sound, "Snare" */
+{
+    if (ne_drums() && note >= GM_DRUM0 && note < GM_DRUM0 + 47)
+        cat_s(t, GM_DRUM[note - GM_DRUM0]);
+    else
+        note_name(note, t);
+}
+/* the readout (t 80 bytes: "ERASING M1|song bar 4096|" + a name of 8 + " bar 448.7|Mute triangle"); full 0: without
+ * the song's bar */
+static void ne_where(char *t, int full)
+{
+    uint32_t blen = ne_blen(), b = ne.t / blen;
+    char *p = cat_s(cat_s(t, ne.erasing ? "ERASING " : ""), TRACK_NAME[sel_trk()]);
+    if (app.lead) {
+        int s;
+        if (!ne_m.n) {
+            cat_s(p, "|no sections yet (Song page)");
+            return;
+        }
+        s = smap_sect(&ne_sm, b);
+        if (full)
+            p = itoa_u(b + 1u, cat_s(p, "|song bar "));
+        p = cat_s(sect_label(csong()->row[s].loop, cat_s(p, "|")), " bar ");
+        b -= ne_sm.b0[s];
+    } else
+        p = cat_s(p, "|bar ");
+    p = itoa_u(b + 1u, p);
+    *p++ = '.';
+    p = itoa_u(ne.t % blen / ARR_PPQ + 1u, p);
+    if (ne.has)
+        ne_name(ne.k.note, cat_s(p, "|"));
+}
+#define NL_X 8
+#define NL_W 224
+static struct { uint32_t w0, span, lo, hi; int32_t ly, lh, nh; } nd;   /* the lane being drawn */
+static int32_t ne_x(uint32_t t) { return NL_X + (int32_t)((t < nd.w0 ? 0u : t - nd.w0) * NL_W / nd.span); }
+static void ne_one(int pass, uint32_t t, uint32_t len, int note, int mine)
+{
+    int32_t x, w, y;
+    uint32_t e = t + len;
+    if (t >= nd.w0 + nd.span || e <= nd.w0)
+        return;
+    if (!pass) {                                     /* (their pitches' span) */
+        nd.lo = (uint32_t)note < nd.lo ? (uint32_t)note : nd.lo;
+        nd.hi = (uint32_t)note > nd.hi ? (uint32_t)note : nd.hi;
+        return;
+    }
+    if (pass < 3 && (mine != pass - 1 || (mine && ne.has && t == ne.k.t && note == ne.k.note)))
+        return;                                      /* (pass 1 the other melody's, 2 this one's, 3 the selected) */
+    x = ne_x(t);
+    w = ne_x(e > nd.w0 + nd.span ? nd.w0 + nd.span : e) - x - 1;
+    w = w < 3 ? 3 : w > NL_X + NL_W - x ? NL_X + NL_W - x : w;
+    y = nd.ly + nd.lh - 3 - nd.nh - (int32_t)(((uint32_t)note - nd.lo) * (uint32_t)(nd.lh - 18 - nd.nh) / (nd.hi - nd.lo));
+    if (pass == 3) {                                 /* the selected: ringed coral (the cursor's) */
+        cv_rect(x - 3, y - 3, w + 6, nd.nh + 6, K_ACCENT);
+        cv_rect(x - 1, y - 1, w + 2, nd.nh + 2, K_BG);
+    }
+    cv_rect(x, y, w, nd.nh, !mine ? K_PLUM_P : app.lead ? K_PLUM : K_TEXT);
+}
+static void ne_each(int pass)                        /* the window's notes, a pass (ne_one) */
+{
+    int k = ne_trk();
+    if (app.lead)
+        for (uint32_t i = 0; i < leads.n; i++) {
+            const lead_ev_t *e = lead_at_c(&leads, i);
+            uint32_t t = nl_time(&ne_m, e);
+            if (t != ~0u)
+                ne_one(pass, t, lead_len(e), e->note, lead_trk(e) == k);
+        }
+    else {
+        const arr_trk_t *tr = &view.trk[k];
+        uint32_t end = ne_end();
+        for (uint32_t i = tr->first; i < (uint32_t)tr->first + tr->count && i < view.nev; i++)
+            if (view.ev[i].tick < end)
+                ne_one(pass, view.ev[i].tick, ne_drums() ? 1u : view.ev[i].len, view.ev[i].note, 1);
+    }
+}
+static void draw_notes(void)
+{
+    const song_t *g = csong();
+    int lead = app.lead != 0, k = ne_trk();
+    uint32_t span, end, blen, ph, gr, h, fb = 0, fr = 0, b;
+    char t[80];
+    ne_ctx();
+    span = ne_span();
+    end = ne_end();
+    blen = ne_blen();
+    ph = ne_ph();
+    gr = ne_grid();
+    nd.w0 = (arr_recording && ph != ~0u ? ph : ne.t) / span * span;
+    nd.span = span;
+    nd.ly = lead ? 49 : 22;
+    nd.lh = 118 - nd.ly;
+    if (flash_on() && (lead ? fw.id == lead_watch_id(&ne_sm, k)
+                            : fw.id == (3u | (uint32_t)proj.song << 4 | (uint32_t)pslot() << 8 | (uint32_t)k << 12))) {
+        fb = fw.bars;
+        fr = fw.rows;
+    }
+    h = hash(hash(2166136261u, ne.t), ne.k.t);
+    h = hash(h, ne.k.note | (uint32_t)ne.has << 8 | (uint32_t)ne.zoom << 9 | (uint32_t)k << 12 | (uint32_t)lead << 16 |
+                (uint32_t)ne.erasing << 17 | (uint32_t)proj.quant << 18 | (uint32_t)arr_recording << 22);
+    h = hash(hash(hash(hash(h, nd.w0), ph == ~0u || ph < nd.w0 ? ~0u : (ph - nd.w0) * NL_W / span), fb), fr);
+    h = hash(hash(h, lead ? leads.gen | (uint32_t)leads.n << 16 : vw.dirty | vw.gen << 16), end);
+    h = bytes_hash(hash(h, app.gen), g->row, (uint32_t)g->nrows * sizeof(row_t));
+    if (lead)
+        for (int s = 0; s < ne_m.n; s++)
+            h = bytes_hash(hash(h, ne_m.start[s]), sloops.loop[g->row[s].loop % ARR_LOOPS].name, 8);
+    if (h == ui.sig[1])
+        return;
+    ui.sig[1] = h;
+    cv_begin(240, MAIN_H, K_BG);
+    ne_where(t, 1);                                  /* the readout (too long: without the song's bar) */
+    if (segs_w(&FONT_S, t) > NL_W)
+        ne_where(t, 0);
+    segs(NL_X, 1, &FONT_S, t, K_ACCENT);
+    if (lead && !ne_m.n) {
+        cv_blit(0, MAIN_Y);
+        return;
+    }
+    if (lead) {                                      /* the song line, its section the cursor's (playing: teal's) */
+        lplace_t v;
+        int s = nmap_sect(&ne_m, ne.t);
+        lead_place(&ne_sm, &v);
+        if (!v.live && s >= 0)
+            v.r = s;
+        ov_y = 20;
+        ov_h = 20;
+        ov_bars = (int32_t)(span / blen ? span / blen : 1u);
+        draw_song_line(&ne_sm, &v, k, fr, nd.w0 / blen);
+        ov_y = 37;
+        ov_h = 22;
+        ov_bars = 4;
+    }
+    cv_round(NL_X - 3, nd.ly, NL_W + 6, nd.lh, 4, K_PANEL);
+    for (b = nd.w0 / blen; b * blen < nd.w0 + span; b++) {   /* the bars: flashing, past the end, lines, names */
+        uint32_t a = b * blen, s = lead ? (uint32_t)smap_sect(&ne_sm, b) : 0u;
+        int32_t x0 = ne_x(a), x1 = ne_x(a + blen > nd.w0 + span ? nd.w0 + span : a + blen);
+        int first = lead && b == ne_sm.b0[s];
+        if (a >= end) {
+            cv_rect(x0, nd.ly, x1 - x0 + 3, nd.lh, K_BG);
+            break;
+        }
+        if (lead ? (fb >> (b & 31u) & 1u) && (fr >> s & 1u) : (fb >> (b & 31u) & 1u) && (fr >> k & 1u))
+            cv_rect(x0, nd.ly + 1, x1 - x0, nd.lh - 2, RGB(250, 214, 196));
+        if (span <= 2 * blen)
+            for (uint32_t q = a + ARR_PPQ; q < a + blen && q < nd.w0 + span; q += ARR_PPQ)
+                if (q > nd.w0)
+                    cv_rect(ne_x(q), nd.ly + 14, 1, nd.lh - 16, K_LINE);
+        if (a < nd.w0)
+            continue;
+        if (a > nd.w0)
+            cv_rect(x0 - (first ? 1 : 0), nd.ly + 1, first ? 2 : 1, nd.lh - 2, first ? K_TEXT : K_FAINT);
+        if (first)
+            label_fit(t, g->row[s].loop, 0, x1 - x0 - 6);
+        else
+            itoa_u(b - (lead ? ne_sm.b0[s] : 0u) + 1u, t);
+        cv_text(x0 + 3, nd.ly, &FONT_XS, t, first ? K_TEXT : K_DIM);
+    }
+    if (ne.t >= nd.w0 && ne.t < nd.w0 + span) {      /* the cursor: a coral line, its cell's cap along the foot */
+        int32_t cx = ne_x(ne.t), cw = ne_x(ne.t + gr) - cx;
+        cv_rect(cx - 1, nd.ly - 3, 3, nd.lh + 3, K_ACCENT);
+        if (cw >= 6)
+            cv_rect(cx, nd.ly + nd.lh - 4, cw, 4, K_ACCENT);
+    }
+    nd.lo = 127;                                     /* the pitches: an octave at least, around the notes */
+    nd.hi = 0;
+    ne_each(0);
+    if (ne.has)
+        ne_one(0, ne.k.t, 1, ne.k.note, 1);
+    if (nd.hi < nd.lo)
+        nd.lo = nd.hi = 60;
+    if (nd.hi - nd.lo < 12) {
+        uint32_t c = (nd.lo + nd.hi) / 2u;
+        nd.lo = c < 6u ? 0u : c - 6u > 115u ? 115u : c - 6u;
+        nd.hi = nd.lo + 12u;
+    }
+    nd.nh = (nd.lh - 18) / (int32_t)(nd.hi - nd.lo + 1u);
+    nd.nh = nd.nh < 3 ? 3 : nd.nh > 6 ? 6 : nd.nh;
+    ne_each(1);
+    ne_each(2);
+    if (ne.has) {
+        int i = ne_find();
+        uint32_t len = i < 0 ? 1u : lead ? lead_len(lead_at_c(&leads, (uint32_t)i)) : ne_drums() ? 1u : view.ev[i].len;
+        ne_one(3, ne.k.t, len, ne.k.note, 1);
+    }
+    if (ph != ~0u && ph >= nd.w0 && ph < nd.w0 + span)   /* the playhead */
+        cv_rect(ne_x(ph), nd.ly - 3, 2, nd.lh + 3, K_TEAL);
     cv_blit(0, MAIN_Y);
 }
 /* Groove length: the groove's bars as a picture (a cell a bar, its number at the top, its beats along its foot; the bars
@@ -3125,11 +3420,67 @@ static void song_page_knobs(knob_t *k)
     default: break;
     }
 }
+/* Notes: PLACE (the cursor: bar.beat, a step past the beat ".2"), the selected note's PITCH (a drum's sound by name),
+ * LENGTH (in beats: "1/2", "1 1/2"), VELOCITY; "-" at an empty place */
+static void ne_knobs(knob_t *k)
+{
+    char b[24], *e;
+    uint32_t g = ne_grid(), blen, len, w, r, x, y;
+    int i, vel;
+    ne_ctx();
+    blen = ne_blen();
+    e = itoa_u(ne.t / blen + 1u, b);
+    *e++ = '.';
+    e = itoa_u(ne.t % blen / ARR_PPQ + 1u, e);
+    if (ne.t % ARR_PPQ / g) {
+        *e++ = '.';
+        itoa_u(ne.t % ARR_PPQ / g + 1u, e);
+    }
+    kv(&k[0], "Place", b, (int32_t)(ne.t / g), (int32_t)(ne_end() / g));
+    if ((i = ne.has ? ne_find() : -1) < 0) {
+        kv(&k[1], "Pitch", "-", 0, 0);
+        kv(&k[2], "Length", "-", 0, 0);
+        kv(&k[3], "Velocity", "-", 0, 0);
+        return;
+    }
+    if (app.lead) {
+        const lead_ev_t *v = lead_at_c(&leads, (uint32_t)i);
+        len = lead_len(v);
+        vel = v->vel;
+    } else {
+        len = view.ev[i].len;
+        vel = view.ev[i].vel;
+    }
+    b[0] = 0;
+    ne_name(ne.k.note, b);
+    kv(&k[1], "Pitch", b, ne.k.note, 127);
+    w = len / ARR_PPQ;                               /* whole beats and a fraction, reduced */
+    r = len % ARR_PPQ;
+    for (x = r, y = ARR_PPQ; y;) {
+        uint32_t q = x % y;
+        x = y;
+        y = q;
+    }
+    e = b;
+    if (w || !r)
+        e = itoa_u(w, b);
+    if (r) {
+        if (w)
+            *e++ = ' ';
+        e = itoa_u(r / x, e);
+        *e++ = '/';
+        itoa_u(ARR_PPQ / x, e);
+    }
+    kv(&k[2], "Length", b, (int32_t)(len < 4u * ARR_PPQ ? len : 4u * ARR_PPQ), 4 * ARR_PPQ);
+    kn(&k[3], "Velocity", vel, 127);
+}
 /* the knobs of page ui.page (the strip; a list's KNOB rows) */
 static void page_knobs(knob_t *k)
 {
     memset(k, 0, 4 * sizeof *k);
-    if (ui.page == P_HOME)
+    if (ui.page == P_NOTES)
+        ne_knobs(k);
+    else if (ui.page == P_HOME)
         home_knobs(k);
     else if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
         edit_knobs(k);
@@ -3307,7 +3658,7 @@ static void page_tag(char *t)
     case P_LOOP: case P_LOOP2:                       /* "S1>P3 Verse" (the cursor: on the grid, its bar and beat lit) */
         loop_label(app.loop, cat_s(crumb_song(t), ">"));
         break;
-    case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2: case P_MIXER: case P_TONE:
+    case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2: case P_MIXER: case P_TONE: case P_NOTES:
         track_crumb(t);
         break;
     case P_MASTER:                                   /* (the effects every song shares) */
@@ -3332,7 +3683,7 @@ static void page_tag(char *t)
 static void draw_tag(void)
 {
     char t[80], *v = t;
-    int g = page_group(ui.page), n = group_n(g), d = ui.page - PAGE_BTN[g].first;
+    int g = page_group(ui.page), n = ui.page == P_NOTES ? 1 : group_n(g), d = ui.page - PAGE_BTN[g].first;
     int32_t r = 232, x, w;
     uint32_t h;
     page_tag(t);
@@ -3431,6 +3782,15 @@ static void page_footer(char *t)
             break;
         }
         cat_s(cat_s(cat_s(t, "KEYS "), TRACK_NAME[sel_trk()]), arr_recording || ui.rec_want ? "|REC stop" : "|REC record");
+        if (ui.page == P_PATTERN)                    /* (Band: SEQ again, its notes to fix) */
+            cat_s(t + slen(t), "|SEQ notes");
+        break;
+    case P_NOTES:                                    /* the keys: hear a note, enter one at an empty place; recording:
+                                                      * as recorded, EDIT held erases */
+        if (arr_recording || ui.rec_want)
+            cat_s(cat_s(cat_s(t, "KEYS "), TRACK_NAME[sel_trk()]), "|REC stop|EDIT held: erase");
+        else
+            cat_s(t, ne.has ? "KEYS hear|EDIT delete|SEL+SELECT move" : "KEYS enter|SEQ Band");
         break;
     case P_MIXER: case P_TONE:
         cat_s(t, "BLACK instrument");
@@ -3455,6 +3815,10 @@ static void enc_line(char *t)
         return;
     if (held) {                                      /* HOME held: the tempo, the song */
         cat_s(t, "SELECT tempo|PRESET song");
+        return;
+    }
+    if (p == P_NOTES) {                              /* (SELECT: the notes, not pages) */
+        cat_s(t, "SELECT note|ALGO instrument|PRESET zoom");
         return;
     }
     if (n > 1)                                       /* the button's pages */
@@ -3487,7 +3851,7 @@ static void enc_line(char *t)
 #define BOT_W 228
 #define BOT_PARTS 8
 static const char *const CTL_WORD[] = {"SELECT", "ALGO", "PRESET", "SEL", "HOME", "REC", "PLAY", "OCT", "KEYS", "WHITE",
-                                       "BLACK", "SAVE"};
+                                       "BLACK", "SAVE", "EDIT", "SEQ"};
 static int ctl_is(const char *s, uint32_t n)         /* s[0..n) names a control */
 {
     for (uint32_t i = 0; i < sizeof CTL_WORD / sizeof CTL_WORD[0]; i++) {
@@ -3671,8 +4035,12 @@ static void draw_footer(void)
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_ARP, PG_ANY, "Progression", "Your chords, 1-16 bars, going round. Play chords.",
      "REC writes them: at the cursor (BAR, BEAT), or in time."},
-    {B_SEQ, PG_ANY, "Band", "The groove's notes, instrument by instrument; BAR, BEAT: the cursor.",
-     "SELECT: its length and name."},
+    {B_SEQ, PG(P_NOTES), "Notes", "SELECT picks a note. KNOB 1: the place; then pitch, length, velocity.",
+     "EDIT deletes; SEL + SELECT moves. SEQ: Band."},
+    {B_EDIT, PG(P_NOTES), "Delete", "Tap: the selected note goes. HOME + REC: back.",
+     "Held while recording: the notes the playhead passes go."},
+    {B_SEQ, PG_ANY, "Band", "The groove's notes by instrument; BAR, BEAT: the cursor.",
+     "SELECT: length, name. SEQ again: Notes, to fix notes."},
     {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "Its sound, channel and velocity; its notes along the song.",
      "SEL: QUANTISE. ALGORITHM: the instruments."},
     {B_EDIT, PG_ANY, "Sound", "The instrument's sound and range; SELECT: high key, channel.",
@@ -3822,7 +4190,7 @@ static void list_build(void)
             lst.sel = (uint8_t)(lst.n - 1);
         return;
     }
-    if (keep == P_HOME)
+    if (keep == P_HOME || keep == P_NOTES)
         f = keep, n = 1;
     else if (song_pg(keep))                          /* SONG: its two pages */
         f = P_SONG, n = 2;
@@ -3875,7 +4243,8 @@ static void list_build(void)
         list_add(ACTION_NAME[A_DELETE_ROW], 0, LK_ACTION, A_DELETE_ROW);
         list_add(ACTION_NAME[A_CLEAR_SONG], 0, LK_ACTION, A_CLEAR_SONG);
         list_add(ACTION_NAME[A_COPY_SONG], v, LK_PICK, A_COPY_SONG);
-    } else if (keep >= P_PATTERN && keep <= P_TONE) {   /* (Effects: every song's, no instrument: no actions) */
+    } else if ((keep >= P_PATTERN && keep <= P_TONE) || keep == P_NOTES) {   /* (Effects: every song's, no instrument: no
+                                                      * actions) */
         if (app.lead) {                              /* a melody: its notes in a section ("the cursor's / playing"), all;
                                                       * a section's notes copied into it (the groove's actions: not the
                                                       * melody's) */
@@ -4042,7 +4411,7 @@ static uint32_t bytes_hash(uint32_t h, const void *p, uint32_t n)
         h = hash(h, *b++);
     return h;
 }
-static int lead_view_shown(void) { return app.lead && (ui.page == P_TRACK || trk_rec_shown()); }
+static int lead_view_shown(void) { return app.lead && (ui.page == P_TRACK || ui.page == P_NOTES || trk_rec_shown()); }
 /* a frame: what the page shows, hashed; what changed flashes (the first look, or another thing: only hashed) */
 static void flash_watch(void)
 {
@@ -4107,7 +4476,8 @@ static void flash_watch(void)
         flash_add(0, rows, 0);
         return;
     }
-    if (!app.lead && (ui.page == P_PATTERN || trk_rec_shown())) {   /* a groove: its instruments, the selected one's bars */
+    if (!app.lead && (ui.page == P_PATTERN || ui.page == P_NOTES || trk_rec_shown())) {   /* a groove: its instruments,
+                                                      * the selected one's bars */
         int s = pslot(), trk = proj.trk & 7;
         uint32_t blen;
         view_refresh(s);
@@ -4156,7 +4526,8 @@ static void flash_watch(void)
         song_map(&m);
         n = m.n;
         id = lead_watch_id(&m, k);                   /* (the sections' lengths changed: watched afresh) */
-        key = hash(leads.gen, leads.n | (uint32_t)n << 16);
+        key = hash(hash(2166136261u, leads.gen), leads.n | (uint32_t)n << 16);   /* (gen and n apart: a note out
+                                                      * as gen goes on never hashes the same) */
         if (fw.ok && fw.id == id && fw.key == key)
             return;
         for (i = 0; i < 32; i++)
@@ -4212,6 +4583,8 @@ static void draw_page(void)
         draw_pattern();
     else if (ui.page == P_PATSET)
         draw_patset();
+    else if (ui.page == P_NOTES)
+        draw_notes();
     else if (ui.page == P_TRACK && app.lead && !sound_browsing())
         draw_lead(0);                                /* (a melody: where its notes are in the song) */
     else if (ui.page == P_TRACK || ui.page == P_TRACK2)

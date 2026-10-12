@@ -18,7 +18,8 @@
  *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 PROG ("-" free, P1..P16; "Song" in a song);
  *   SELECT: Song's three pages (the sections, a section's transpose, the song)
  *   (a page button: always its first page; SELECT, and only SELECT, turns the pages)
- *   ARP Progression (x2), SEQ Band (x2: the groove's notes; its length), EDIT Sound (x2), LFO Mixer (x2), FX Effects,
+ *   ARP Progression (x2), SEQ Band (x2: the groove's notes; its length; SEQ again: Notes, the note editor, editor.c),
+ *   EDIT Sound (x2), LFO Mixer (x2), FX Effects,
  *   ENV Style (x2), GLO Setup (x2); the tag's dots: which of a button's pages
  *   the keys        by the page (key_role): chords (Home, Progression), the selected instrument (Band, Sound), the
  *                   instrument (Mixer's black keys), nothing (Effects, Style, Setup)
@@ -28,6 +29,10 @@
  *   PRESETS         per page
  * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
 #include "journal.c"                            /* undo and redo (HOME + REC, HOME + PLAY) */
+static void ne_key(int note);                   /* Notes, the note editor (editor.c, included below) */
+static void ne_key_up(void);
+static void ne_knob(int kn, int32_t e);
+static void ne_delete(void);
 
 static void say(const char *a, const char *b)
 {
@@ -1315,7 +1320,7 @@ static int key_role(void)
 {
     if (ui.page == P_HOME || ui.page == P_LOOP || ui.page == P_LOOP2)
         return KR_CHORDS;
-    if (ui.page == P_PATTERN || ui.page == P_PATSET || ui.page == P_TRACK || ui.page == P_TRACK2)
+    if (ui.page == P_PATTERN || ui.page == P_PATSET || ui.page == P_TRACK || ui.page == P_TRACK2 || ui.page == P_NOTES)
         return KR_TRACK;
     if (ui.page == P_MIXER || ui.page == P_TONE)
         return KR_PICK;
@@ -1369,6 +1374,8 @@ static void key_down(int k)
         ui.kmode[k] = KM_PLAY;
         arr_key(ui.knote[k], 1, app.lead ? clampi(sel_lead()->vel, 1, 127) : 100);   /* the selected track's sound;
                                                  * recorded when recording (a lead: its VELOCITY) */
+        if (ui.page == P_NOTES && !arr_recording && !ui.rec_want)
+            ne_key(ui.knote[k]);                 /* Notes: at an empty place, entered */
     } else if (r == KR_PICK && song_page())
         song_key(k);                             /* SONG: white the row's loop, black its mutes */
     else if (r == KR_PICK && b >= 0 && b < ARR_ALLTRK)
@@ -1378,8 +1385,10 @@ static void key_up(int k)
 {
     uint8_t m = ui.kmode[k];
     ui.kmode[k] = KM_NONE;
-    if (m == KM_PLAY)
+    if (m == KM_PLAY) {
         arr_key(ui.knote[k], 0, 0);
+        ne_key_up();
+    }
     else if (m == KM_CHORD)
         chord_keys();
     chord_sound(k, 0);
@@ -1768,6 +1777,17 @@ static void button_up(int b)                     /* a tap: released before it wa
     if (lst.open && b == PAGE_BTN[page_group(ui.page)].btn && b != B_HOME) {
         ui.ask = 0;                              /* the list's own button: the list goes, the page stays */
         lst.open = 0;
+        return;
+    }
+    if (!lst.open && b == B_EDIT && ui.page == P_NOTES) {   /* Notes: EDIT deletes the selected note */
+        ui.ask = 0;
+        ne_delete();
+        return;
+    }
+    if (!lst.open && b == B_SEQ && (ui.page == P_PATTERN || ui.page == P_PATSET || ui.page == P_NOTES)) {
+        ui.ask = 0;                              /* SEQ on Band: Notes, the note editor; again: Band */
+        ui.page = ui.page == P_NOTES ? P_PATTERN : P_NOTES;
+        ui.touched = -1;
         return;
     }
     if (b != B_HOME && b != B_SEL && b != B_SAVE && page_button(b)) {   /* another page: the list, a question go */
@@ -3063,26 +3083,6 @@ static int bar_same(const pattern_t *p, const arr_trk_t *t, uint32_t a, uint32_t
     }
     return na == nb;
 }
-static void pat_insert(pattern_t *p, int trk, uint32_t tick, uint32_t len, int note, int vel)
-{
-    arr_trk_t *t = &p->trk[trk];
-    uint32_t ins = t->count ? t->first : p->nev, e = t->count ? (uint32_t)t->first + t->count : p->nev;
-    for (; ins < e && p->ev[ins].tick <= tick; ins++)
-        ;
-    for (uint32_t i = p->nev; i > ins; i--)
-        p->ev[i] = p->ev[i - 1];
-    p->ev[ins].tick = (uint16_t)tick;
-    p->ev[ins].len = (uint16_t)len;
-    p->ev[ins].note = (uint8_t)note;
-    p->ev[ins].vel = (uint8_t)vel;
-    p->nev++;
-    for (int u = 0; u < ARR_TRACKS; u++)
-        if (u != trk && p->trk[u].first >= ins)
-            p->trk[u].first++;
-    if (!t->count)
-        t->first = (uint16_t)ins;
-    t->count++;
-}
 static int pattern_repeat(pattern_t *p, int from, int to)
 {
     uint32_t blen = (uint32_t)(p->beats ? p->beats : 4) * ARR_PPQ, lo = (uint32_t)from * blen, hi = (uint32_t)to * blen;
@@ -3124,7 +3124,7 @@ static int pattern_repeat(pattern_t *p, int from, int to)
                     continue;
                 if (len > hi - tick)
                     len = hi - tick;
-                pat_insert(p, t, tick, len, x->note, x->vel);
+                np_insert(p, t, tick, len, x->note, x->vel);
             }
         }
     return add;
@@ -3332,7 +3332,9 @@ static void edit_knob(int k, int32_t e)
 }
 static void knob(int k, int32_t e)
 {
-    if (ui.page == P_HOME)
+    if (ui.page == P_NOTES)
+        ne_knob(k, e);
+    else if (ui.page == P_HOME)
         home_knob(k, e);
     else if (ui.page >= P_PATTERN && ui.page <= P_MASTER)
         edit_knob(k, e);
@@ -3366,6 +3368,8 @@ static void presets(int32_t e)
         app.row = (uint8_t)clampi(app.row + d, 0, csong()->nrows);
         ui.row_follow = 0;
         touch(0);
+    } else if (ui.page == P_NOTES) {             /* Notes: the window, 8 bars .. 1 (an instrument's: a beat) */
+        ne.zoom = (uint8_t)clampi(ne.zoom + d, 0, app.lead ? 3 : 4);
     } else if (ui.page == P_PATTERN || ui.page == P_PATSET)
         pattern_pick(e);
     else if (ui.page == P_STYLE || ui.page == P_STYLE2) {   /* the style browser: all six from the next style */
@@ -3546,6 +3550,7 @@ static void midi_in(void)
     }
 }
 
+#include "editor.c"                             /* Notes, the note editor */
 static void do_undo(int redo);
 static void input(void)
 {
@@ -3613,6 +3618,8 @@ static void input(void)
             set_tempo_hand(csong()->tempo + accel(EN_SELECT, e));
         else if (lst.open)
             list_move(e);                        /* a list: up and down */
+        else if (ui.page == P_NOTES)
+            ne_select(e);                        /* Notes: the notes (SEL held: the selected one moved) */
         else
             page_turn(e > 0 ? 1 : -1);
     }
@@ -4049,6 +4056,7 @@ void ui_frame(void)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     rec_follow_keys();
     leads_poll();
+    ne_tick();                                   /* (Notes: EDIT held while recording erases) */
     if (!arr_recording && !ui.rec_want)
         ui.follow_hint = 0;                      /* (REC off: the hint goes) */
     if (ui.song_rec && !song_page()) {           /* REC on SONG writes from SONG: leaving it ends it */

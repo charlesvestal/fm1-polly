@@ -36,7 +36,7 @@ shot rec_bars_done.png
 tap REC
 wait 50
 expect recording 0
-expect footer_is_KEYS_C1|REC_record 1
+expect footer_is_KEYS_C1|REC_record|SEQ_notes 1
 # ---- BARS while the loop plays: at the loop's bar 3 the pattern is at its bar 3; shorter (2): its bar 1; longer again
 # (the notes kept past the end come back, nothing repeated over them): bar 4 at the loop's bar 4
 tap PLAY
