@@ -132,7 +132,7 @@ wait 1200
 expect cursor 2
 cap 6. Make the chorus bigger | Turn KNOB 3 (Groove) to B, the busier groove.
 wait 1200
-turn K3 2 450
+turn K3 3 450
 wait 1800
 expect row_sect2 2
 expect row_sect4 0
@@ -140,7 +140,7 @@ cap 6. Make the chorus bigger | Turn KNOB 1 to section 4 and KNOB 3 to B too.
 wait 1500
 turn K1 2 350
 wait 600
-turn K3 2 450
+turn K3 3 450
 wait 2500
 expect cursor 4
 expect row_sect4 2

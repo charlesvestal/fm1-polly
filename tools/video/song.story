@@ -125,7 +125,7 @@ cap 8. Shape it | KNOB 1 to the chorus (section 2), KNOB 3 (Groove) to B: busier
 turn K1 -3 250
 wait 600
 expect cursor 2
-turn K3 2 350
+turn K3 3 350
 wait 1500
 expect row_sect2 2
 expect row_sect4 0
@@ -133,7 +133,7 @@ cap 8. Shape it | The last chorus: KNOB 3 to B too, KNOB 4 (Repeat) to x2, then 
 turn K1 2 300
 wait 500
 expect cursor 4
-turn K3 2 350
+turn K3 3 350
 wait 500
 expect row_sect4 2
 turn K4 1
@@ -143,7 +143,7 @@ turn SELECT 1
 wait 700
 expect page 2
 turn K1 2 350
-wait 1500
+wait 800
 expect row_key4 2
 cap 8. Shape it | A breakdown: back on page 1, KNOB 1 to verse 2 (section 3); black keys 1, 2, 3 mute D1, D2, PC there
 turn SELECT -1

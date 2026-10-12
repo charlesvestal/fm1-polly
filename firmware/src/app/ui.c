@@ -1561,7 +1561,8 @@ static void song_rec_sect(int sec)
     if (r >= g->nrows)
         return;
     songs_write(1);
-    g->row[r].sect = (uint8_t)((sec == SEC_B ? ROW_B : ROW_A) + row_fill(&g->row[r]));
+    g->row[r].sect = (uint8_t)(row_nofill(&g->row[r]) ? (sec == SEC_B ? ROW_B_NOFILL : ROW_A_NOFILL)
+                                                     : (sec == SEC_B ? ROW_B : ROW_A) + row_fill(&g->row[r]));
     songs_write(0);
 }
 /* REC on SONG: on (MODE SONG first; playing, from the cursor's row at the next bar line; stopped, PLAY on SONG
@@ -1639,9 +1640,9 @@ static void song_knob(int k, int32_t e)
     } else if (k == 1) {
         v = w->loop;
         to = clampi(v + accel(EN_K2, e), 0, ARR_LOOPS - 1);
-    } else if (k == 2) {
+    } else if (k == 2) {                         /* GROOVE: along SECT_ORDER (A, A + fill, A no fill, B ...), stopping */
         v = w->sect;
-        to = clampi(v + (int)e, 0, ROW_NSECT - 1);
+        to = SECT_ORDER[clampi(sect_rank(v) + (int)e, 0, ROW_NSECT - 1)];
     } else {
         v = w->rep;
         to = clampi(v + (int)e, 1, 8);

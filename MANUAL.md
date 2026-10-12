@@ -496,7 +496,7 @@ The Song page lists the song's sections, from top to bottom. Each row shows:
 
 - the section's number
 - its progression, such as "P3 Fifties"
-- its groove: a slate A or an amber B, with "+ fill" when a fill leads into the next section
+- its groove: a slate A or an amber B, with "+ fill" or "no fill" when you chose one
 - its repeat, such as "x2"
 - its own transpose, such as "+2". Nothing shows at 0.
 
@@ -522,7 +522,11 @@ The knobs on page 1:
   "section removed". You can mark as many sections as you like. They all go when you leave the Song pages,
   and one undo brings them all back. To keep a marked section, turn **KNOB 2** back up. It comes back as it
   was. On the END row, turning **KNOB 2** up adds a section.
-- **KNOB 3** (Groove) sets the groove: A, A + fill, B or B + fill. It changes only the section at the cursor.
+- **KNOB 3** (Groove) sets the groove and the fill at the section's end. It changes only the section at the
+  cursor.
+  - **A** or **B**: a fill when the next section's groove is different.
+  - **A + fill** or **B + fill**: always a fill.
+  - **A no fill** or **B no fill**: never a fill.
 - **KNOB 4** (Repeat) sets how many times the section plays, from 1 to 8.
 
 While the song plays, you hear a removal at once: the song skips a marked section. A marked section that's
@@ -647,7 +651,7 @@ length page.
   progression. Its bars repeat into the new ones. The **SEL** list has this too, as BARS AS THE PROG. After
   that, what you play over the progression's bar 3 stays with bar 3.
 - **In a song, a fill takes a section's last bar.** This happens when the section has "+ fill", or when the
-  groove changes after it. That bar plays the fill, not the groove. So you won't hear what you record into
+  groove changes after it (unless the section has "no fill"). That bar plays the fill, not the groove. So you won't hear what you record into
   the groove's last bar there.
 - **Press REC before PLAY** outside a song, and the groove you're recording into plays at once, without the
   Intro.

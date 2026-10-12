@@ -160,7 +160,7 @@ tapkey w0
 expect rows 2
 spin K1 -2
 expect cursor 1
-spin K3 2
+spin K3 3
 expect row_sect1 2
 turn SELECT 1
 spin K2 -1

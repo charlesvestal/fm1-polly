@@ -142,7 +142,7 @@ expect row_rep1 2
 # row 2's SECTION: Main B (later chorus rows follow)
 spin K1 1
 expect cursor 2
-spin K3 2
+spin K3 3
 expect row_sect2 2
 spin K1 1
 expect cursor 3
@@ -443,11 +443,11 @@ tap HOME
 expect page 1
 spin K1 -9
 expect cursor 1
-spin K3 -2
+spin K3 -3
 expect row_sect1 0
 expect row_sect2 0
 expect msg_is_P9 0
-spin K3 2
+spin K3 3
 expect row_sect1 2
 expect row_sect2 0
 expect row_sect3 0

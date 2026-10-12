@@ -165,7 +165,9 @@ static inline const lead_ev_t *lead_at_c(const leads_t *l, uint32_t i)
 {
     return i < LEAD_PART_NOTES ? &l->part[0].ev[i] : &l->part[1].ev[i - LEAD_PART_NOTES];
 }
-enum { ROW_A, ROW_A_FILL, ROW_B, ROW_B_FILL, ROW_NSECT };   /* a row's section (+ a fill in its last bar) */
+enum { ROW_A, ROW_A_FILL, ROW_B, ROW_B_FILL, ROW_A_NOFILL, ROW_B_NOFILL, ROW_NSECT };   /* a row's section: plain (a fill
+                                                  * in its last bar when the next row's groove differs), + a fill (always),
+                                                  * no fill (never); the no-fill two after the four saved before */
 typedef struct {
     uint8_t loop;                        /* 0..ARR_LOOPS-1 */
     uint8_t sect;                        /* ROW_* */
@@ -206,8 +208,12 @@ typedef struct {
     uint16_t rsv2;
     loop_t loop[ARR_LOOPS];
 } loops_part_t;
-static inline int row_main(const row_t *r) { return r->sect >= ROW_B ? SEC_B : SEC_A; }
+static inline int row_main(const row_t *r)
+{
+    return r->sect == ROW_B || r->sect == ROW_B_FILL || r->sect == ROW_B_NOFILL ? SEC_B : SEC_A;
+}
 static inline int row_fill(const row_t *r) { return r->sect == ROW_A_FILL || r->sect == ROW_B_FILL; }
+static inline int row_nofill(const row_t *r) { return r->sect == ROW_A_NOFILL || r->sect == ROW_B_NOFILL; }
 
 /* ---- pattern numbers (a song's style[]): 0..ARR_USER_PATTERNS-1 the user patterns; ARR_FACTORY0 + 6 s + k the
  * factory style s's section k (0 Intro, 1 Main A, 2 Main B, 3 Fill AB, 4 Fill BA, 5 Ending: a slot); ARR_BANK0 +

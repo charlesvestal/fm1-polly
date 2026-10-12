@@ -62,7 +62,7 @@ expect cursor 2
 wait 1200
 cap 3. Shape a section | Turn KNOB 3 (Groove) to B, the busier groove, and KNOB 4 (Repeat) to x2.
 wait 2500
-turn K3 2 400
+turn K3 3 400
 expect row_sect2 2
 wait 800
 turn K4 1

@@ -1126,7 +1126,7 @@ static void song_next(char *t, int play, int brief)
         what = g->ending ? "Ending" : "stop";
     if (nr >= 0 && !again && !gone && sect != SEC_INTRO)   /* a fill in the last bar: the row asks, or the groove
                                                             * changes */
-        fill = row_fill(&g->row[r]) || row_main(&g->row[nr]) != row_main(&g->row[r]);
+        fill = !row_nofill(&g->row[r]) && (row_fill(&g->row[r]) || row_main(&g->row[nr]) != row_main(&g->row[r]));
     if (ns == SEC_FILL_AB || ns == SEC_FILL_BA || ns == SEC_FILL)
         fill = 1;                                    /* (one asked for by hand) */
     if (sect == SEC_FILL_AB || sect == SEC_FILL_BA)
@@ -1445,7 +1445,16 @@ static void draw_loop(void)
 #define SG_KEY 232                                   /* TRANSPOSE's right edge */
 #define SG_MUTE_Y 102                                /* the cursor section's mutes */
 /* the row's section knob (on screen: its groove) */
-static const char *const ROW_SECT_NAME[ROW_NSECT] = {"A", "A + fill", "B", "B + fill"};
+static const char *const ROW_SECT_NAME[ROW_NSECT] = {"A", "A + fill", "B", "B + fill", "A no fill", "B no fill"};
+/* GROOVE's order on the knob: each groove plain (a fill where the groove changes), + fill (always), no fill (never) */
+static const uint8_t SECT_ORDER[ROW_NSECT] = {ROW_A, ROW_A_FILL, ROW_A_NOFILL, ROW_B, ROW_B_FILL, ROW_B_NOFILL};
+static int sect_rank(int s)
+{
+    for (int i = 0; i < ROW_NSECT; i++)
+        if (SECT_ORDER[i] == s)
+            return i;
+    return 0;
+}
 /* the section playing's clock: a ring of radius r round (cx, cy) filled clockwise from 12 o'clock to f/1024 of the way
  * round (the angle a diamond's, |x| + |y|: no trigonometry, a degree or two off at 11 px) */
 static void glyph_clock(int32_t cx, int32_t cy, int32_t r, uint32_t f, uint16_t c)
@@ -1627,6 +1636,8 @@ static void draw_song(void)
             text_c(SG_SECT + 8, cap_y(y + 2, ch - 4, &FONT_XS), &FONT_XS, row_main(w) == SEC_B ? "B" : "A", fl || pl ? fill : K_BG);
             if (row_fill(w))
                 cv_text(SG_SECT + 20, ty, &FONT_S, "+ fill", fg);
+            else if (row_nofill(w))
+                cv_text(SG_SECT + 20, ty, &FONT_S, "no fill", dim);
             /* REPEAT: "x2" (x1 dim) */
             itoa_u(w->rep ? w->rep : 1u, cat_s(t, "x"));
             text_r(SG_REP, ty, &FONT_S, t, w->rep > 1 ? fg : dim);
@@ -3680,7 +3691,7 @@ static void song_page_knobs(knob_t *k)
             kv(&k[1], "Prog", "-", 0, ARR_LOOPS);
         else
             kv(&k[1], "Prog", b, w->loop % ARR_LOOPS + 1, ARR_LOOPS);
-        kv(&k[2], "Groove", ROW_SECT_NAME[w->sect % ROW_NSECT], w->sect % ROW_NSECT, ROW_NSECT - 1);
+        kv(&k[2], "Groove", ROW_SECT_NAME[w->sect % ROW_NSECT], sect_rank(w->sect), ROW_NSECT - 1);
         itoa_u(w->rep ? w->rep : 1u, cat_s(b, "x"));
         kv(&k[3], "Repeat", b, w->rep, 8);
         break;

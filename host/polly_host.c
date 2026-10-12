@@ -825,7 +825,7 @@ static int expect(const char *what, const char *val)
         got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].loop + 1;
     else if (!strncmp(what, "row_rep", 7))
         got = csong()->row[(atoi(what + 7) - 1) % ARR_ROWS].rep;
-    else if (!strncmp(what, "row_sect", 8))       /* ROW_A 0, ROW_A_FILL 1, ROW_B 2, ROW_B_FILL 3 */
+    else if (!strncmp(what, "row_sect", 8))       /* ROW_A 0, ROW_A_FILL 1, ROW_B 2, ROW_B_FILL 3, ROW_A_NOFILL 4, ROW_B_NOFILL 5 */
         got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].sect;
     else if (!strncmp(what, "row_mute", 8))
         got = csong()->row[(atoi(what + 8) - 1) % ARR_ROWS].mute;

@@ -178,7 +178,7 @@ static row_t row_new(const song_t *g, int r, int loop)
     row_t w = {(uint8_t)loop, ROW_A, 1, 0, 0, 0};
     for (int k = r - 1; k >= 0; k--)
         if (g->row[k].loop == loop) {
-            w.sect = g->row[k].sect >= ROW_B ? ROW_B : ROW_A;
+            w.sect = row_main(&g->row[k]) == SEC_B ? ROW_B : ROW_A;
             break;
         }
     return w;

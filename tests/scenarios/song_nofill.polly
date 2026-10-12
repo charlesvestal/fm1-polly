@@ -1,0 +1,45 @@
+# POLLY, a section's fill: GROOVE runs A, A + fill, A no fill, B, B + fill, B no fill. Plain A into a B section fills
+# (the groove changes); "A no fill" never does; "A + fill" always does. Two sections of P1 (4 bars; Pop, 105 BPM: a
+# bar 2286 ms; the Intro 2 bars first), section 2 on B.
+wait 300
+tap HOME
+tapkey w0
+tapkey w0
+expect rows 2
+turn K1 -1
+expect cursor 2
+turn K3 3 200
+expect row_sect2 2
+expect knob3_is_B 1
+turn K1 -1
+expect cursor 1
+turn K3 2 200
+expect row_sect1 4
+expect knob3_is_A_no_fill 1
+turn K3 -2 200
+turn K3 1 200
+expect knob3_is_A_+_fill 1
+turn K3 1 200
+expect knob3_is_A_no_fill 1
+wait 300
+shot nofill_row.png
+# ---- A no fill into B: section 1's last bar (about 12.5 s in, after the Intro) plays Groove A, then section 2 B
+tap PLAY
+wait 12500
+expect row 1
+expect sect 2
+wait 2000
+expect row 2
+expect sect 3
+tap PLAY
+wait 300
+# ---- plain A into B: the fill in section 1's last bar
+turn K1 -5
+expect cursor 1
+turn K3 -2 200
+expect row_sect1 0
+tap PLAY
+wait 12500
+expect row 1
+expect sect 4
+tap PLAY

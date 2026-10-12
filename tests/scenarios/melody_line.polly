@@ -37,7 +37,7 @@ expect row_loop2 2
 spin K1 -9
 spin K1 1
 expect cursor 2
-turn K3 2
+turn K3 3
 expect row_sect2 2
 spin K1 2
 expect cursor 4
@@ -202,7 +202,7 @@ expect cursor 5
 turn K4 3
 spin K1 3
 expect cursor 8
-turn K3 2
+turn K3 3
 spin K1 3
 expect cursor 11
 turn K4 7

@@ -169,7 +169,7 @@ shot 4_rows.png
 # too, then page 2, KEY +2; a breakdown: row 3's drums muted (black 1, 2: D1, D2)
 turn K1 -3
 expect cursor 2
-turn K3 2
+turn K3 3
 expect row_sect2 2
 expect row_sect4 0
 expect row_sect1 0
@@ -178,7 +178,7 @@ turn K4 1
 expect row_rep2 2
 turn K1 2
 expect cursor 4
-turn K3 2
+turn K3 3
 expect row_sect4 2
 turn SELECT 1
 expect page 2
