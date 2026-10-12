@@ -589,6 +589,9 @@ static int expect(const char *what, const char *val)
     else if (!strncmp(what, "heard_ch", 8)) {     /* heard_chN: the last note-on into the synth on channel N (1..16), -1 none */
         extern int16_t gm_host_heard[16];
         got = gm_host_heard[(atoi(what + 8) - 1) & 15];
+    } else if (!strncmp(what, "ons_ch", 6)) {     /* ons_chN: note-ons into the synth on channel N (1..16) since hitreset */
+        extern uint32_t gm_host_ons[16];
+        got = (int)gm_host_ons[(atoi(what + 6) - 1) & 15];
     } else if (!strcmp(what, "chord_root"))       /* the chord now: root 0..11 (C = 0), type CH_* */
         got = (int)(arr_chord_now & 0xFFu);
     else if (!strcmp(what, "chord_type"))
@@ -1408,10 +1411,12 @@ int main(int argc, char **argv)
             run_ms(20);
         } else if (!strcmp(cmd, "hitreset")) {
             extern int16_t gm_host_heard[16];
+            extern uint32_t gm_host_ons[16];
             memset(trk_hits, 0, sizeof trk_hits);
             click_count = 0;
             for (int c = 0; c < 16; c++)
                 gm_host_heard[c] = -1;
+            memset(gm_host_ons, 0, sizeof gm_host_ons);
         }
         else if (!strcmp(cmd, "flash_fail"))
             store_fail = atoi(a);

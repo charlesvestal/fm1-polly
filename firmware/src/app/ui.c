@@ -1402,6 +1402,65 @@ static void chord_sound(int k, int on)
         gm_midi(0x80u | ui.ksound_ch[k], ui.ksound_note[k], 0);
     }
 }
+/* Sound's preview: KNOB 1 (Sound) or PRESETS (the family) turned plays a short note in the new sound, on the
+ * instrument's channel straight into the synth (as chord_sound: not out over MIDI), when it would not be heard
+ * otherwise: stopped, or playing while the instrument plays nothing (no notes in the section playing, a melody with
+ * none, muted). Never while recording or armed (the keys' notes are the take's), never the drums (their kit has no
+ * Sound knob). The middle of the instrument's range (as far as 36..84 goes: a bass low, a melody's middle C) at a
+ * moderate velocity, PREVIEW_MS long; a fast turn plays one every PREVIEW_GAP_MS, the sound reached by then (the
+ * last wins) */
+#define PREVIEW_MS 300u
+#define PREVIEW_GAP_MS 120u
+#define PREVIEW_VEL 90u
+static void sound_preview(void) { ui.pv_want = 1; }
+static void preview_end(void)
+{
+    if (!ui.pv_on)
+        return;
+    gm_midi(0x80u | ui.pv_ch, ui.pv_note, 0);
+    ui.pv_on = 0;
+}
+static void preview_poll(void)
+{
+    uint32_t now = plat_ms(), ch, prog, vol;
+    int lo, hi, quiet;
+    if (ui.pv_on && (now - ui.pv_t >= PREVIEW_MS || arr_recording || ui.rec_want))
+        preview_end();
+    if (!ui.pv_want || (ui.pv_t && now - ui.pv_t < PREVIEW_GAP_MS))
+        return;                                  /* (the last one too near: this one waits, the sound reached then plays) */
+    ui.pv_want = 0;
+    if (ui.page != P_TRACK || arr_recording || ui.rec_want || ui.take || ui.rec_chords || ui.song_rec)
+        return;
+    if (app.lead) {
+        const lead_trk_t *l = sel_lead();
+        ch = l->chan & 15u;
+        prog = l->program & 127u;
+        vol = l->vol & 127u;
+        lo = 0;
+        hi = 127;
+        quiet = !leads_count(&leads, -1, (app.lead - 1) & 1) || app.mode != ARR_SONG;
+    } else {
+        const arr_trk_t *t = &app.trk[eslot()][proj.trk & 7];
+        ch = t->chan & 15u;
+        prog = t->program & 127u;
+        vol = t->vol & 127u;
+        lo = t->x.lo;
+        hi = t->x.hi;
+        quiet = !t->count;
+    }
+    if (ch == 9u || (arr_playing && !quiet && !trk_muted(sel_trk())))
+        return;                                  /* (the drums; the band plays it now: heard already) */
+    preview_end();
+    lo = clampi(lo, 36, 84);
+    hi = clampi(hi, lo, 84);
+    ui.pv_ch = (uint8_t)ch;
+    ui.pv_note = (uint8_t)((lo + hi) / 2);
+    gm_midi(0xC0u | ch, prog, 0);                /* (the sound the band gives it anyway, at its next note) */
+    gm_midi(0xB0u | ch, 7, vol);
+    gm_midi(0x90u | ch, ui.pv_note, PREVIEW_VEL);
+    ui.pv_on = 1;
+    ui.pv_t = now ? now : 1u;
+}
 static void song_key(int k);
 static void key_down(int k)
 {
@@ -3700,8 +3759,11 @@ static void lead_knob(int k, int32_t e)
     switch (ui.page) {
     case P_TRACK:                                /* SOUND, CHANNEL, -, VELOCITY (one page) */
         if (k == 0) {
+            uint8_t was = l->program;
             if ((l->chan & 15u) != 9u)
                 lsnd_set(&l->program, l->program + accel(EN_K1, e), 0, 127);
+            if (l->program != was)
+                sound_preview();
         } else if (k == 1)
             lsnd_set(&l->chan, l->chan + d, 0, ARR_CHAN_MAX);   /* (16 is the click's) */
         else if (k == 3)                         /* VELOCITY: the notes recorded from now on */
@@ -3773,8 +3835,11 @@ static void edit_knob(int k, int32_t e)
         break;
     case P_TRACK:
         if (k == 0) {
+            uint8_t was = t->program;
             if ((t->chan & 15u) != 9u)
                 trk_set(&t->program, t->program + accel(EN_K1, e), 0, 127);
+            if (t->program != was)
+                sound_preview();
         } else if (k == 1)
             trk_set(&t->x.type, t->x.type + d, 0, NXT - 1);
         else if (k == 2)
@@ -3861,14 +3926,20 @@ static void presets(int32_t e)
     } else if (ui.page == P_TRACK && app.lead) {  /* (a lead's) */
         lead_trk_t *l = sel_lead();
         if ((l->chan & 15u) != 9u) {
+            uint8_t was = l->program;
             lsnd_set(&l->program, (l->program / 8 + d) * 8, 0, 127);
             touch(0);
+            if (l->program != was)
+                sound_preview();
         }
     } else if (ui.page == P_TRACK) {             /* a family of eight, as the GM module */
         arr_trk_t *t = &app.trk[eslot()][proj.trk];
         if ((t->chan & 15u) != 9u) {
+            uint8_t was = t->program;
             trk_set(&t->program, (t->program / 8 + d) * 8, 0, 127);
             touch(0);
+            if (t->program != was)
+                sound_preview();
         }
     }
 }
@@ -4551,6 +4622,7 @@ void ui_frame(void)
         say("NO SECTIONS:", "FREE");             /* another song): a song with nothing to play is Free (REC on Song */
     }                                            /* writing its first sections: still the song) */
     yours_poll();
+    preview_poll();                              /* (Sound's preview: a sound just picked) */
     rec_follow_keys();
     leads_poll();
     ne_tick();                                   /* (Notes: EDIT held while recording erases) */

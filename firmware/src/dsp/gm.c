@@ -110,6 +110,7 @@ int gm_host_fx_settled(void) { return rev_wet == rev_to && cho_lvl == cho_to; } 
 #ifdef GM_HOST
 int16_t gm_host_heard[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* the tests: each
                                                   * channel's last note-on into the synth (-1 none) */
+uint32_t gm_host_ons[16];                        /* ... and its note-ons counted */
 #endif
 static void synth_write(uint32_t m, uint32_t at)
 {
@@ -118,8 +119,10 @@ static void synth_write(uint32_t m, uint32_t at)
     if (st == 0xC0u)
         gm_program[b[0] & 15u] = b[1];
 #ifdef GM_HOST
-    if (st == 0x90u && b[2])
+    if (st == 0x90u && b[2]) {
         gm_host_heard[b[0] & 15u] = (int16_t)b[1];
+        gm_host_ons[b[0] & 15u]++;
+    }
 #endif
     /* a note-on's start within the next block: the voices it starts read it (WT_StartVoice); EAS parses the
      * message at once, so it is cleared again straight after */

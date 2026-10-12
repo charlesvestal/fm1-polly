@@ -1,0 +1,76 @@
+# POLLY, the Sound page's preview: KNOB 1 (Sound) or PRESETS (the family) turned plays a short note in the new sound
+# (300 ms, the middle of the instrument's range, straight into the synth on its channel: not out over MIDI), when it
+# would not be heard otherwise: stopped, or playing while the instrument plays nothing. A fast turn: one note every
+# 120 ms at most, the sound reached by then. None while recording or armed, none for the drums (no Sound knob).
+# Pop: C1 (the piano) on channel 3, its range's middle G4 (67); C2 (no notes in Groove A) on channel 4; M1 on 7 (a
+# melody's range is all: middle C, 60).
+wait 300
+tap EDIT
+expect page 8
+expect track 5
+# ---- stopped: a turn, a note in the new sound; it ends by itself
+hitreset
+turn K1 1
+wait 20
+expect trk5_program 2
+expect heard_ch3 67
+expect ons_ch3 1
+expect notes_out 0
+expect voices >0
+wait 1500
+expect voices 0
+# PRESETS: the next family (of eight), a note too
+hitreset
+turn PRESET 1
+wait 20
+expect trk5_program 9
+expect ons_ch3 1
+wait 400
+# ---- a fast turn (10 detents, 40 ms apart): a note every 120 ms at most, not one a detent; the last sound wins
+hitreset
+turn K1 10 40
+wait 400
+expect ons_ch3 >2
+expect ons_ch3 <6
+# ---- armed (REC, stopped): no preview (the keys' notes are the take's)
+tap REC
+wait 50
+expect recording 1
+hitreset
+wait 200
+turn K1 1
+wait 300
+expect ons_ch3 0
+tap REC
+wait 50
+expect recording 0
+# ---- the drums: no Sound knob, no preview
+turn ALGO -4
+expect track 1
+hitreset
+turn K1 1
+wait 300
+expect ons_ch10 0
+# ---- playing: C1 plays in Groove A (heard already); C2 has no notes there: its new sound previewed
+turn ALGO 5
+expect track 6
+tap PLAY
+wait 500
+hitreset
+turn K1 1
+wait 20
+expect heard_ch4 >0
+expect ons_ch4 1
+wait 300
+tap PLAY
+wait 300
+# ---- a melody (M1), stopped: on its own channel
+turn ALGO 3
+expect lead_sel 1
+hitreset
+turn K1 1
+wait 20
+expect lsnd1_prog 82
+expect lsnd1_chan 7
+expect heard_ch7 60
+expect ons_ch7 1

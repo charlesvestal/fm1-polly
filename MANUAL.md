@@ -1027,7 +1027,10 @@ sounds, a bar over the whole MIDI keyboard shows the range the instrument plays 
 set its ends.
 
 - **KNOB 1** (Sound) picks one of the 128 General MIDI sounds, by name. **PRESETS** jumps a family of eight:
-  pianos, organs, guitars, basses and so on. A drum instrument plays the drum kit. Its page shows "Drums"
+  pianos, organs, guitars, basses and so on. When stopped, each new sound plays a short note, from the
+  middle of the instrument's range, so you hear it. While playing, it does so only for an instrument that's
+  playing nothing in the groove, or is muted. Turning fast plays a note every so often, not one a step.
+  Nothing plays while you record, or while a recording waits for **PLAY**. A drum instrument plays the drum kit. Its page shows "Drums"
   and the kit, with no family, range, Low or High.
 - **KNOB 2** (Type) sets how the instrument follows the chords. It shows "as played" once Polly has
   switched it (see [Good to know](#good-to-know)).

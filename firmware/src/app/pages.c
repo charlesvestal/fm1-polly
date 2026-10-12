@@ -220,6 +220,10 @@ static struct {
     uint32_t slots_until;                            /* a NO FREE SLOT said: until then SEL opens SLOTS (the footer says) */
     uint8_t pcur;                                    /* Band's cursor: a beat of the groove, 0.. (BAR / BEAT; the place
                                                       * shown, note editing to come) */
+    uint8_t pv_want, pv_on, pv_ch, pv_note;          /* Sound's preview (ui.c sound_preview): a sound picked, to play;
+                                                      * a note sounding, its channel and note */
+    uint32_t pv_t;                                   /* ... when it began (the next waits PREVIEW_GAP_MS, it ends at
+                                                      * PREVIEW_MS) */
 } ui;
 /* the edit lights up where it lands (docs/superpowers/specs/2026-10-11-visibility-design.md): flash_watch(), each frame
  * before the drawing, watches what the page shows (cheap hashes) and what changed since the frame before flashes coral
