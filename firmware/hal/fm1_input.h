@@ -11,18 +11,29 @@
  *   polled:  for (;;) { fm1_input_scan(); ... }
  *   IRQ:     call fm1_input_tick() from a ~10 kHz timer ISR; it advances one
  *            column per call (rows are sampled one tick after the column was
- *            latched, LEDs stay lit in between) and processes a frame every
- *            FM1_NCOL ticks. The main loop reads fm1_in.notes / buttons and
- *            takes edges/steps with fm1_input_edges() / fm1_enc_take().
+ *            latched, LEDs stay lit in between), debounces that column's keys
+ *            at once and the encoders every FM1_NCOL ticks (a frame). The main
+ *            loop reads fm1_in.notes / buttons and takes edges/steps with
+ *            fm1_input_edges() / fm1_enc_take().
  *
  * fm1_input_scan() runs one full frame (11 columns, ~0.6 ms) and calls
  * FM1_INPUT_IDLE() while it waits.
- * Keys/buttons: integrating debounce of FM1_DEBOUNCE frames.
- * Encoders: quadrature decoder (2-sample filter, + = clockwise) with detent
- * counting: states an encoder rests in for >= FM1_REST_FRAMES are learned, and
- * a step is emitted only on reaching a rest state after >= 2 net transitions.
- * One click = one step at any speed, whether a detent is a half or a full
- * quadrature cycle. fm1_enc_take() returns the steps.
+ * The key debounce and the encoder decoder are Felucca 1.5.1's (github.com/hugelton/Felucca, GPL-3.0; its
+ * issue #126), in place of the 8-frame integrating debounce and the learned-rest decoder Polly had from X0X.
+ * Keys/buttons: asymmetric debounce. A press counts after FM1_DEB_PRESS frames closed in a row (1.1-2.2 ms from
+ * the contact with the TIMER5 scan): the matrix has diodes and no ghosting, so a closed sample is a closed key;
+ * two in a row keep one stray sample from playing a note. A release needs FM1_DEB_RELEASE frames open in a row
+ * (~9 ms): a contact bouncing open on the way down, or chattering on the way up, never ends the note early or
+ * plays it twice. A key still bouncing when it is let go holds its note until it has been open that long.
+ * Encoders: stock quadrature decoder (tables 0x2814/0x4182, + = clockwise), plus detent counting. An FM-1
+ * detent is one full quadrature cycle (4 transitions) and the knob rests in one state: the one seen at
+ * power-on (relearned after FM1_REST_FRAMES still elsewhere). Steps are emitted on arriving back at it, the
+ * net transitions rounded to whole cycles (>= 2 counts one: a lost transition or two is forgiven; a two-state
+ * jump counts on in the direction of travel, from the detent the way of a click in the last FM1_ENC_GO
+ * frames). So one click = one step, bounce and back-and-forth cancel out, and every frame's state counts:
+ * a turn is counted up to ~300 clicks/s (the old decoder stepped once per arrival at a rest, however many
+ * cycles the scan had skipped through, and a knob held mid-click taught a second rest that counted twice).
+ * fm1_enc_take() returns the steps.
  * LEDs: set fm1_led[col] (packed row bits, bit1 PA5..bit4 PA8); they are lit
  * while that column is selected. fm1_led_key/btn helpers address them by id.
  * fm1_led_dim[col] / fm1_led_dim_div: the same, dim (see there).
@@ -38,9 +49,11 @@
 #ifndef FM1_LED_US
 #define FM1_LED_US 40u           /* LED on-time per column (brightness vs scan rate) */
 #endif
-#define FM1_DEBOUNCE 8u           /* frames (~0.6 ms each) */
+#define FM1_DEB_PRESS 2u          /* frames closed in a row: a press (a frame = 11 ticks, ~1.1 ms) */
+#define FM1_DEB_RELEASE 8u        /* frames open in a row: a release (~9 ms) */
 #define FM1_SETTLE_US 10u
-#define FM1_REST_FRAMES 40u       /* ~25 ms still = a detent position */
+#define FM1_REST_FRAMES 900u      /* ~1 s still off the detent state: that is the detent (power-on) */
+#define FM1_ENC_GO 20u            /* a 2-state jump from the detent goes on the way of a click this recent (~22 ms) */
 #define FM1_NCOL 11u
 #define FM1_NKEY 41u              /* ids: 0..13 buttons, 14..40 note keys */
 #define FM1_NENC 7u
@@ -70,13 +83,14 @@ static volatile struct {
     uint32_t pressed, released;  /* button edges since the last fm1_input_edges() */
     uint32_t notes_pressed;      /* note-key press edges since the last fm1_input_note_edges() */
     uint8_t raw[FM1_NCOL];       /* last frame, packed rows, 1 = closed */
-    uint8_t cnt[FM1_NKEY];
+    uint8_t cnt[FM1_NKEY];       /* frames in a row against the debounced state */
     uint8_t enc_prev[FM1_NENC], enc_last[FM1_NENC];
-    uint8_t enc_rest[FM1_NENC];  /* learned rest (detent) states, bit per state */
-    uint8_t enc_still[FM1_NENC]; /* frames since the last state change */
+    uint8_t enc_rest[FM1_NENC];  /* the detent state (0..3) */
+    uint16_t enc_still[FM1_NENC]; /* frames since the last state change */
     int8_t enc_sub[FM1_NENC];    /* net transitions since the last rest state */
-    int8_t enc_dir[FM1_NENC];    /* the last valid transition: +1 / -1 (0: none yet) */
     int16_t enc_steps[FM1_NENC]; /* + = clockwise */
+    int8_t enc_dir[FM1_NENC];    /* the last click's direction, and its frame */
+    uint32_t enc_dfr[FM1_NENC];
     uint32_t frames;
 } fm1_in;
 static uint8_t fm1_led[FM1_NCOL];
@@ -157,37 +171,37 @@ static void fm1_input_init(void)
         fm1_in.enc_prev[i] = fm1_in.enc_last[i] = 0xFF;   /* seeded by the first frame */
 }
 
-static void fm1__key(uint32_t id, uint32_t closed)
+static void fm1__key(uint32_t id, uint32_t closed)    /* (Felucca 1.5.1) */
 {
     volatile uint8_t *c = &fm1_in.cnt[id];
-    uint32_t on;
-    if (closed) {
-        if (*c < FM1_DEBOUNCE)
-            (*c)++;
-    } else if (*c) {
-        (*c)--;
-    }
-    if (*c == FM1_DEBOUNCE)
-        on = 1;
-    else if (*c == 0)
-        on = 0;
-    else
+    uint32_t note = id >= 14u, bit = note ? 1u << (id - 14u) : 1u << id;
+    uint32_t on = ((note ? fm1_in.notes : fm1_in.buttons) & bit) != 0u;
+    if (closed == on) {                            /* agrees with the state: start over */
+        *c = 0;
         return;
-    if (id >= 14u) {
-        if (on) {
-            if (!(fm1_in.notes & (1u << (id - 14u))))
-                fm1_in.notes_pressed |= 1u << (id - 14u);
-            fm1_in.notes |= 1u << (id - 14u);
-        }
-        else
-            fm1_in.notes &= ~(1u << (id - 14u));
-    } else if (on != ((fm1_in.buttons >> id) & 1u)) {
-        fm1_in.buttons ^= 1u << id;
-        if (on)
-            fm1_in.pressed |= 1u << id;
-        else
-            fm1_in.released |= 1u << id;
     }
+    if (++*c < (on ? FM1_DEB_RELEASE : FM1_DEB_PRESS))
+        return;
+    *c = 0;
+    if (note) {
+        if (!on)
+            fm1_in.notes_pressed |= bit;
+        fm1_in.notes ^= bit;
+    } else {
+        fm1_in.buttons ^= bit;
+        if (!on)
+            fm1_in.pressed |= bit;
+        else
+            fm1_in.released |= bit;
+    }
+}
+
+static void fm1__keys(uint32_t p)                  /* the keys of column p, just read */
+{
+    uint32_t r, raw = fm1_in.raw[p];
+    for (r = 1; r < 5u; r++)
+        if (FM1_KEYMAP[r][p] >= 0)
+            fm1__key((uint32_t)FM1_KEYMAP[r][p], (raw >> r) & 1u);
 }
 
 static void fm1__frame(void);
@@ -200,6 +214,7 @@ static void fm1_input_scan(void)
         fm1__sr_word(0xFFFFu ^ (1u << p) ^ (p < 2u ? 1u << (11u + p) : 0u));
         fm1__wait(FM1_SETTLE_US);
         fm1_in.raw[p] = (uint8_t)fm1__rows();
+        fm1__keys(p);
         fm1__led_lines(fm1_led[p]);
         fm1__wait(FM1_LED_US);
     }
@@ -207,56 +222,54 @@ static void fm1_input_scan(void)
     fm1__frame();
 }
 
-static void fm1__frame(void)
+static void fm1__frame(void)                       /* the encoders (Felucca 1.5.1, #126) */
 {
-    uint32_t p, r, e;
-    for (p = 0; p < FM1_NCOL; p++)
-        for (r = 1; r < 5u; r++)
-            if (FM1_KEYMAP[r][p] >= 0)
-                fm1__key((uint32_t)FM1_KEYMAP[r][p], (fm1_in.raw[p] >> r) & 1u);
-    for (e = 0; e < FM1_NENC; e++) {               /* quadrature decoder + detents */
+    uint32_t e;
+    for (e = 0; e < FM1_NENC; e++) {               /* stock SOFT2 decoder + detents */
         const uint8_t *m = FM1_ENC[e];
         uint32_t cur = ((fm1_in.raw[m[0]] >> m[1]) & 1u) << 1 | ((fm1_in.raw[m[2]] >> m[3]) & 1u);
         uint32_t idx;
         volatile int8_t *sub = &fm1_in.enc_sub[e];
-        /* X0X: no two-scan filter. A state had to be seen on two scans running (2.2 ms) to count,
-         * so a fast turn, whose states last less than that, did not move the knob at all. The
-         * 1.1 ms between scans is longer than a contact bounce, and a step still needs >= 2 net
-         * transitions between detents, so a glitch cannot make one. */
-        if (cur != fm1_in.enc_last[e]) {
+        if (cur != fm1_in.enc_last[e]) {           /* (no 2-sample filter: every frame's state counts) */
             fm1_in.enc_last[e] = (uint8_t)cur;
             fm1_in.enc_still[e] = 0;
         }
         if (fm1_in.enc_prev[e] == 0xFF) {          /* first frame: the knob rests here */
             fm1_in.enc_prev[e] = (uint8_t)cur;
-            fm1_in.enc_rest[e] = (uint8_t)(1u << cur);
+            fm1_in.enc_rest[e] = (uint8_t)cur;
         }
-        if (fm1_in.enc_still[e] < 255u && ++fm1_in.enc_still[e] == FM1_REST_FRAMES) {
-            /* learn detent states: one state, or a complementary pair (00/11 or
-             * 01/10). Anything else restarts the set; with 3-4 rest states every
-             * arrival would look like a detent with |sub| < 2. */
-            uint32_t r = fm1_in.enc_rest[e], bit = 1u << cur, comp = 1u << (cur ^ 3u);
-            if (!(r & bit))
-                fm1_in.enc_rest[e] = (uint8_t)(r == comp ? (r | bit) : bit);
+        if (fm1_in.enc_still[e] < 0xFFFFu && ++fm1_in.enc_still[e] == FM1_REST_FRAMES &&
+            cur != fm1_in.enc_rest[e]) {
+            /* parked a long time off the detent state (held at power-on): that is the detent.
+             * Never a second state: a knob held mid-click taught the complement of the detent as
+             * one more rest and every click then counted twice; short mid-click pauses of a
+             * slow turn taught the mid states and the knob went dead */
+            fm1_in.enc_rest[e] = (uint8_t)cur;
+            *sub = 0;
         }
         if (cur == fm1_in.enc_prev[e])
             continue;
         idx = (uint32_t)fm1_in.enc_prev[e] << 2 | cur;
         if ((0x4182u >> idx) & 1u) {
             (*sub)++;
-            fm1_in.enc_dir[e] = 1;
         } else if ((0x2814u >> idx) & 1u) {
             (*sub)--;
-            fm1_in.enc_dir[e] = -1;
-        } else {                                   /* both lines changed: a state skipped (a flick) */
-            *sub = (int8_t)(*sub + 2 * fm1_in.enc_dir[e]);   /* two more the way it was going */
+        } else {                                   /* two states in one sample: a fast turn, the way it */
+            int32_t d = *sub > 0 ? 1 : *sub < 0 ? -1 : /* was going (on the detent: a click of the last */
+                        (uint32_t)(fm1_in.frames - fm1_in.enc_dfr[e]) <= FM1_ENC_GO ? fm1_in.enc_dir[e] : 0;
+            *sub = (int8_t)(*sub + 2 * d);         /* FM1_ENC_GO frames, else nothing) */
         }
         fm1_in.enc_prev[e] = (uint8_t)cur;
-        if ((fm1_in.enc_rest[e] >> cur) & 1u) {    /* back on a detent */
-            if (*sub >= 2)
-                fm1_in.enc_steps[e]++;
-            else if (*sub <= -2)
-                fm1_in.enc_steps[e]--;
+        if (*sub > 100 || *sub < -100)
+            *sub = 0;                              /* (never off the detent that long) */
+        if (cur == fm1_in.enc_rest[e]) {          /* back on the detent: whole cycles, a lost transition */
+            int32_t n = *sub < 0 ? -*sub : *sub;   /* or two forgiven (one click = 4 transitions) */
+            n = n >= 2 ? (n + 2) / 4 : 0;
+            fm1_in.enc_steps[e] = (int16_t)(fm1_in.enc_steps[e] + (*sub < 0 ? -n : n));
+            if (n) {
+                fm1_in.enc_dir[e] = (int8_t)(*sub < 0 ? -1 : 1);
+                fm1_in.enc_dfr[e] = fm1_in.frames;
+            }
             *sub = 0;
         }
     }
@@ -273,6 +286,7 @@ static void fm1_input_tick(void)
     fm1__sr_word(0xFFFFu ^ (1u << n) ^ (n < 2u ? 1u << (11u + n) : 0u));
     fm1__led_lines(fm1_led[n] | (fm1_led_dim_div && fm1__dim_frame == 0u ? fm1_led_dim[n] : 0u));
     fm1__tick_col = (uint8_t)n;
+    fm1__keys(p);                                  /* its keys now: no wait for the frame's end */
     if (n == 0u) {
         if (++fm1__dim_frame >= fm1_led_dim_div)
             fm1__dim_frame = 0;
