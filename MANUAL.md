@@ -449,8 +449,9 @@ shows the first empty progression, so you never write over a factory one.
 - **KNOB 1** (Bar) and **KNOB 2** (Beat) move the cursor. Bar keeps the beat, and the grid scrolls to
   follow. While **REC** writes, you can move one bar past the end. A chord there makes the progression
   longer.
-- **KNOB 3** (Root) and **KNOB 4** (Type) change the chord at the cursor. One step below maj, Type shows "·",
-  which means no chord there.
+- **KNOB 3** (Root) and **KNOB 4** (Type) change the chord at the cursor. Type starts at "–" (no chord
+  there: turning down to it clears the chord), then runs maj, m, 7, m7, M7, sus4, 6, the ninths, dim, aug and
+  the altered sevenths. It stops at both ends.
 - **OCT−** and **OCT+** move the cursor one beat.
 
 Turn **SELECT** for page 2:

@@ -54,7 +54,7 @@ wait 2500
 turn K3 -3 400
 expect knob3_is_E 1
 wait 500
-turn K4 6 300
+turn K4 2 300
 expect knob4_is_7 1
 still 2-fix
 expect loop_ch9_12 406

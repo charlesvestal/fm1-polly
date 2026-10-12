@@ -227,6 +227,20 @@ static struct {
 static int flash_on(void) { return fw.t && plat_ms() - fw.t < FLASH_MS; }
 /* one of SONG's three pages */
 static int song_pg(int p) { return p >= P_SONG && p <= P_SONG3; }
+/* the Progression page's TYPE knob: "-" (no chord here) first, then the chord types in the order a song needs them
+ * (major and minor side by side, then the sevenths, suspended, sixths, ninths, the darker ones, the altered sevenths
+ * last); it stops at both ends */
+static const uint8_t TYPE_ORDER[] = {CH_MAJ, CH_MIN, CH_7, CH_MIN7, CH_MAJ7, CH_SUS4, CH_7SUS4, CH_6, CH_MIN6, CH_ADD9,
+                                     CH_MADD9, CH_MAJ7_9, CH_7_9, CH_MIN7_9, CH_MIN7_11, CH_DIM, CH_MIN7_B5, CH_AUG,
+                                     CH_MINMAJ7, CH_7_13, CH_7_B13, CH_7_S9, CH_7_B9, CH_7_S11, CH_7_S5};
+#define NTYPE_ORDER ((int)(sizeof TYPE_ORDER / sizeof TYPE_ORDER[0]))
+static int type_rank(int type)                       /* its place on the knob (not in the list: the first) */
+{
+    for (int i = 0; i < NTYPE_ORDER; i++)
+        if (TYPE_ORDER[i] == type)
+            return i;
+    return 0;
+}
 static int song_page(void) { return song_pg(ui.page); }
 /* the track selected: the keys play it, REC records into it, EDIT and the Mixer show it (0..7, or ARR_LD1 + k) */
 static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEADS : proj.trk & 7; }
@@ -3650,7 +3664,8 @@ static void song_page_knobs(knob_t *k)
         kn(&k[0], "Bar", b / bpb + 1, m / bpb + 1);
         kn(&k[1], "Beat", b % bpb + 1, bpb);
         kv(&k[2], "Root", KEY_NAME[c.root % 12u], c.root, 11);
-        kv(&k[3], "Type", !has ? "-" : c.type == CH_MAJ ? "maj" : chord_type_name(c.type), has ? c.type : 0, CH_DIM);
+        kv(&k[3], "Type", !has ? "-" : c.type == CH_MAJ ? "maj" : chord_type_name(c.type), has ? type_rank(c.type) + 1 : 0,
+           NTYPE_ORDER);
         break;
     }
     case P_LOOP2: {                                  /* LENGTH, BEATS, BASS (the cursor's chord), NAME */

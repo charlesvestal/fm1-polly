@@ -998,19 +998,18 @@ static void chord_turn(int what, int d)
     chord_t c = chord_shift(cursor_chord(&sloops.loop[l], b, &has), xpose_now());
     if (what == 0)
         c.root = (uint8_t)((c.root + 12 + d) % 12);
-    else if (what == 1) {
-        int t = (has ? (int)c.type : -1) + d;
-        if (t < -1)
-            t = CH_DIM;
-        else if (t > CH_DIM)
-            t = -1;
-        if (t < 0) {
+    else if (what == 1) {                        /* TYPE: "-" (no chord here), then along TYPE_ORDER; it stops at
+                                                  * both ends */
+        int was = has ? type_rank(c.type) : -1, r = clampi(was + d, -1, NTYPE_ORDER - 1);
+        if (r == was)
+            return;
+        if (r < 0) {
             songs_write(1);
             loop_unwrite(&sloops.loop[l], b);
             songs_write(0);
             return;
         }
-        c.type = (uint8_t)t;
+        c.type = TYPE_ORDER[r];
     } else {
         int cur = c.bass == CH_NOBASS ? -1 : (int)c.bass;
         cur += d;
