@@ -4124,12 +4124,13 @@ static void do_undo(int redo);
  *                  in chords and notes alike; the instruments' notes with the keys' velocity
  *   pads           the keybed's shortcuts (HOME held + a key) without HOME, laid out as HOME held shows them:
  *                    top row      Intro, Groove A, Groove B, Fill, Ending (black keys 1-5), FOLLOW (no progression: the
- *                                 band follows your chords, as KNOB 4 at "follow"), P1-P8, P9-P16 (the bottom row's half)
+ *                                 band follows your chords, as KNOB 4 at "follow"), -, the bottom row's half (P1-P8 /
+ *                                 P9-P16: blue / yellow)
  *                    bottom row   eight progressions, P1-P8 or P9-P16 (white keys 1-16): what a white key does as a
  *                                 shortcut (HOME held, or on the Song page; SAVE held: copy there)
- *                  lit as HOME held shows them: teal what plays now, coral what comes next, ink (white) where PLAY
- *                  starts; dim, the sections in their pills' colours (Groove A slate, Groove B amber) and the
- *                  progressions with chords; dark, the empty ones
+ *                  lit: the sections and FOLLOW light green, the progressions in their half's colour; dim, bright
+ *                  what plays (stopped: where PLAY starts). A change waiting for the bar line: the pad playing blinks,
+ *                  the one coming is orange. Empty progressions dark
  *   KNOB BANK      the pads' map on the screen (HOME held's screen), pinned; again: away
  *   FADER BANK     what the four faders set: A the volumes of D1 D2 PC BA, B of C1 C2 C3 C4, C of M1 and M2 and the
  *                  Effects' reverb and chorus levels (as the Mixer's and Effects' knobs). A fader takes over once it
@@ -4164,7 +4165,7 @@ static int smk_kb_of(int k) { return k < NKEYS ? k + 5 : k < NKEYS + 5 ? k - NKE
 static int smk_key_vel(int k) { return plat_key_vel(smk_kb_of(k)); }
 
 static const uint8_t SMK_SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
-enum { SMK_PAD_FOLLOW = 5, SMK_PAD_LO = 6, SMK_PAD_HI = 7 };   /* (top-row pads 0..4: the sections) */
+enum { SMK_PAD_FOLLOW = 5, SMK_PAD_HALF = 7 };  /* (top-row pads 0..4: the sections; pad 6 free) */
 /* a pad: what its key does as a shortcut. Sections: HOME held + black key 1-5. Progressions: a white key as a function,
  * as key_down takes it (HOME held: the shortcut; SAVE held: copy; the Song page: a section; else the shortcut) */
 static void smk_pad(int p)
@@ -4180,8 +4181,8 @@ static void smk_pad(int p)
         if (app.mode != ARR_FREE)
             mode_set(ARR_FREE);
         say("FOLLOW", "no progression");
-    } else if (p == SMK_PAD_LO || p == SMK_PAD_HI) {
-        smk.half = (uint8_t)(p == SMK_PAD_HI);
+    } else if (p == SMK_PAD_HALF) {
+        smk.half = (uint8_t)!smk.half;
         say("PADS", smk.half ? "P9-P16" : "P1-P8");
     } else {
         int w = smk.half * 8 + p - 8;
@@ -4321,31 +4322,46 @@ static void smk_input(void)
         ((smk.pitch || smk.modw) && plat_ms() - smk.wheel_t >= 250u))
         smk_wheels_send();                       /* (and while held: a section's start resets the band's controllers) */
 }
-/* the pads' lights (leds()): as HOME held shows them (held_ring, held_sect_ring: 1 teal, 2 coral, 3 ink) */
+/* the pads' lights (leds()), from what HOME held shows (held_ring, held_sect_ring: 1 playing, 2 coming, 3 where PLAY
+ * starts): the sections and FOLLOW light green, the progressions blue (P1-P8) or yellow (P9-P16); dim, bright what
+ * plays or PLAY starts. A change waiting (a 2 in the group): the pad playing blinks, the one coming orange */
 static void smk_rgb(int p, uint32_t c)
 {
     plat_pad_rgb(p, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
 }
-#define SMK_TEAL 0x146E64u
-#define SMK_CORAL 0xA03C1Eu
-#define SMK_INK 0x786E64u
-#define SMK_DIM 0x0A0908u
+#define SMK_RGB(r, g, b) ((uint32_t)(r) << 16 | (uint32_t)(g) << 8 | (uint32_t)(b))
+#define SMK_GREEN SMK_RGB(70, 200, 70)
+#define SMK_GREEN_D SMK_RGB(6, 20, 6)
+#define SMK_BLUE SMK_RGB(40, 70, 220)
+#define SMK_BLUE_D SMK_RGB(4, 8, 24)
+#define SMK_YELLOW SMK_RGB(180, 150, 0)
+#define SMK_YELLOW_D SMK_RGB(20, 16, 0)
+#define SMK_ORANGE SMK_RGB(200, 100, 30)
+#define SMK_BLINK_MS 250u
+static uint32_t smk_shade(int ring, int waiting, uint32_t on, uint32_t dim)
+{
+    if (ring == 2)
+        return SMK_ORANGE;                       /* coming at the bar line */
+    if (ring == 1 && waiting)
+        return plat_ms() / SMK_BLINK_MS & 1u ? dim : on;   /* playing, a change waiting: blinks */
+    return ring ? on : dim;
+}
 static void smk_pads(void)
 {
-    static const uint32_t RING[4] = {0, SMK_TEAL, SMK_CORAL, SMK_INK};
-    static const uint32_t SECT_DIM[5] = {SMK_DIM, 0x080C18u, 0x180D02u, SMK_DIM, SMK_DIM};   /* Groove A slate, B amber */
-    int p, r;
-    for (p = 0; p < 5; p++) {
-        r = held_sect_ring(SMK_SECT[p]);
-        smk_rgb(p, r ? RING[r] : SECT_DIM[p]);
-    }
-    smk_rgb(SMK_PAD_FOLLOW, app.mode != ARR_FREE ? SMK_DIM : arr_playing ? SMK_TEAL : SMK_INK);
-    smk_rgb(SMK_PAD_LO, smk.half ? SMK_DIM : SMK_INK);
-    smk_rgb(SMK_PAD_HI, smk.half ? SMK_INK : SMK_DIM);
+    int p, r[16], ws = 0, wp = 0;
+    uint32_t on = smk.half ? SMK_YELLOW : SMK_BLUE, dim = smk.half ? SMK_YELLOW_D : SMK_BLUE_D;
+    for (p = 0; p < 5; p++)
+        ws |= (r[p] = held_sect_ring(SMK_SECT[p])) == 2;
+    for (p = 0; p < ARR_LOOPS; p++)
+        wp |= held_ring(p) == 2;
+    for (p = 0; p < 5; p++)
+        smk_rgb(p, smk_shade(r[p], ws, SMK_GREEN, SMK_GREEN_D));
+    smk_rgb(SMK_PAD_FOLLOW, app.mode == ARR_FREE ? SMK_GREEN : SMK_GREEN_D);
+    smk_rgb(6, 0u);                              /* (free) */
+    smk_rgb(SMK_PAD_HALF, on);
     for (p = 8; p < 16; p++) {
-        int w = smk.half * 8 + p - 8;
-        r = held_ring(w);
-        smk_rgb(p, r ? RING[r] : sloops.loop[w].bars ? SMK_DIM : 0u);
+        int w = smk.half * 8 + p - 8, rr = held_ring(w);
+        smk_rgb(p, rr || sloops.loop[w].bars ? smk_shade(rr, wp, on, dim) : 0u);
     }
 }
 #endif

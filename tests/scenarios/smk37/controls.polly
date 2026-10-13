@@ -7,40 +7,46 @@ expect mode 0
 expect half 0
 wait 50
 shot home.png
-# ---- the bottom row: progressions P1-P8 (white keys 1-8 as shortcuts); P1, stopped: ink where PLAY starts
+# ---- the bottom row: progressions P1-P8 (white keys 1-8 as shortcuts), blue; P1, stopped: bright (where PLAY starts)
 pad 8
 expect mode 1
 expect app_loop 1
-expect padg8 >100
+expect padb8 >200
+expect padb9 <40
+expect padb15 >0
+expect padb7 >200
 pads
-# the top row: Groove B (black key 3), then PLAY: Groove B plays, its pad teal
+# the top row: Groove B (black key 3), then PLAY: Groove B plays, its pad bright light green
 pad 2
 tap PLAY
 wait 500
 expect sect 3
 expect loop_now 1
-expect padg2 >100
-expect padr2 <40
+expect padg2 >150
+expect padg1 <40
 shot playing.png
-# Groove A from the next bar line: coral until then
+# Groove A from the next bar line: orange until then (Groove B's pad blinks)
 pad 1
 expect next_sect 2
 expect padr1 >100
 wait 2500
 expect sect 2
-# P3 from the next bar line (coral), then playing (teal)
+# P3 from the next bar line (orange), then playing (bright blue)
 pad 10
 expect padr10 >100
 wait 2500
 expect loop_now 3
-expect padg10 >100
-expect padr10 <40
-# the other half: P9-P16 on the bottom row (its pad lit)
+expect padb10 >200
+expect padr10 <60
+# the other half: P9-P16 on the bottom row, yellow (pad 8 too); again: P1-P8, blue
 pad 7
 expect half 1
 expect padg7 >100
-pad 6
+expect padb7 <10
+pad 7
 expect half 0
+expect padb7 >200
+expect padr6 0
 # FOLLOW: no progression, the band follows the chords played
 pad 5
 expect mode 0
