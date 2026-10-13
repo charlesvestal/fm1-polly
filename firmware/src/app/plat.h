@@ -71,6 +71,7 @@ uint64_t plat_keybed_hits(void);       /* keybed presses since the last call */
 int plat_key_vel(int kb);              /* velocity 1..127 of keybed key kb's last press (0 = C3) */
 uint32_t plat_pad_hits(void);          /* pad presses since the last call: bit p = pad p */
 int plat_pad_vel(int pad);             /* velocity 1..127 of pad p's last press */
+uint32_t plat_pad_held(void);          /* pads held now: bit p = pad p */
 int plat_fader(int i);                 /* fader 0..3: 0..127, -1 while the readings settle */
 int plat_wheels(int32_t *pitch, int32_t *modw);   /* 1 = new values: pitch -127..127 (0 at rest), mod 0..127 */
 void plat_pad_rgb(int pad, uint8_t r, uint8_t g, uint8_t b);   /* pad p's LED */

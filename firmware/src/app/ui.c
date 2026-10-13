@@ -4146,6 +4146,7 @@ static struct {
     uint32_t sbtn;                     /* the four extra buttons held (SB_*) */
     uint32_t okeys;                    /* the outer keys held: bit i = UI key NKEYS + i */
     uint8_t half;                      /* the bottom row's progressions: 0 P1-P8, 1 P9-P16 */
+    uint32_t half_t;                   /* its pad last switched or seen held (a press within SMK_HALF_MS: none) */
     uint8_t fbank;                     /* the fader bank, 0..2 */
     uint8_t flast[4];                  /* each fader's last value, 0xFF: not read yet (takes over once it moves) */
     int32_t pitch, modw;               /* the wheels: pitch -127..127 (0 at rest), mod 0..127 */
@@ -4166,6 +4167,9 @@ static int smk_key_vel(int k) { return plat_key_vel(smk_kb_of(k)); }
 
 static const uint8_t SMK_SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
 enum { SMK_PAD_FOLLOW = 5, SMK_PAD_HALF = 7 };  /* (top-row pads 0..4: the sections; pad 6 free) */
+/* the half pad toggles: a pressure wobble while it is held can read as a release and a new press, so a press counts
+ * only SMK_HALF_MS after the last switch and after the pad was last seen held */
+#define SMK_HALF_MS 180u
 /* a pad: what its key does as a shortcut. Sections: HOME held + black key 1-5. Progressions: a white key as a function,
  * as key_down takes it (HOME held: the shortcut; SAVE held: copy; the Song page: a section; else the shortcut) */
 static void smk_pad(int p)
@@ -4266,9 +4270,13 @@ static void smk_input(void)
         smk_select(-1);
     if (sp >> SB_RIGHT & 1u)
         smk_select(1);
+    if ((ph >> SMK_PAD_HALF & 1u) && smk.half_t && plat_ms() - smk.half_t < SMK_HALF_MS)
+        ph &= ~(1u << SMK_PAD_HALF);             /* (a re-trigger of the half pad: ignored) */
     for (i = 0; i < SMK_NPADS; i++)
         if (ph >> i & 1u)
             smk_pad((int)i);
+    if ((ph | plat_pad_held()) >> SMK_PAD_HALF & 1u)
+        smk.half_t = plat_ms() ? plat_ms() : 1u;
     ok = (uint32_t)(kb & 31u) | (uint32_t)(kb >> 32 & 31u) << 5;   /* the outer keys: C3..E3, G#5..C6 */
     och = ok ^ smk.okeys;
     smk.okeys = ok;
@@ -4334,8 +4342,8 @@ static void smk_rgb(int p, uint32_t c)
 #define SMK_GREEN_D SMK_RGB(6, 20, 6)
 #define SMK_BLUE SMK_RGB(40, 70, 220)
 #define SMK_BLUE_D SMK_RGB(4, 8, 24)
-#define SMK_YELLOW SMK_RGB(180, 150, 0)
-#define SMK_YELLOW_D SMK_RGB(20, 16, 0)
+#define SMK_YELLOW SMK_RGB(255, 210, 0)
+#define SMK_YELLOW_D SMK_RGB(70, 56, 0)
 #define SMK_ORANGE SMK_RGB(200, 100, 30)
 #define SMK_BLINK_MS 250u
 static uint32_t smk_shade(int ring, int waiting, uint32_t on, uint32_t dim)

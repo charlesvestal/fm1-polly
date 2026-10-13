@@ -43,7 +43,7 @@
  *   kbkey K [down|up] [VEL]      keybed key K (0..36 = C3..C6): tapped, or held / let go; key / tapkey K are the
  *                                middle 27 as above
  *   sbtn NAME                    tap KNOB_BANK FADER_BANK LEFT RIGHT
- *   pad P                        tap pad P (0..7 the top row, 8..15 the bottom row)
+ *   pad P [MS]                   tap pad P (0..7 the top row, 8..15 the bottom row), held MS (default 40)
  *   fader I V                    fader I (0..3) to V (0..127); they start at 64
  *   wheel pitch|mod V            pitch -127..127, mod 0..127
  *   pads                         print the pads' colours
@@ -147,6 +147,8 @@ uint32_t plat_pad_hits(void)
     return h;
 }
 int plat_pad_vel(int p) { (void)p; return 100; }
+static uint32_t pad_held;
+uint32_t plat_pad_held(void) { return pad_held; }
 int plat_fader(int i) { return (uint32_t)i < 4u ? fader_v[i] : -1; }
 int plat_wheels(int32_t *pitch, int32_t *modw)
 {
@@ -1405,9 +1407,12 @@ int main(int argc, char **argv)
             run_ms(40);
             smk_btn_held &= ~(1u << i);
             run_ms(40);
-        } else if (!strcmp(cmd, "pad")) {
-            pad_hits |= 1u << (atoi(a) & 15);
-            run_ms(40);
+        } else if (!strcmp(cmd, "pad")) {          /* pad P [MS]: tapped, held MS (default 40) */
+            int pd = atoi(a) & 15;
+            pad_hits |= 1u << pd;
+            pad_held |= 1u << pd;
+            run_ms(b[0] ? (uint32_t)atoi(b) : 40u);
+            pad_held &= ~(1u << pd);
         } else if (!strcmp(cmd, "fader")) {
             fader_v[atoi(a) & 3] = atoi(b);
             run_ms(20);

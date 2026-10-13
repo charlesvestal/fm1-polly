@@ -41,8 +41,23 @@ expect padr10 <60
 # the other half: P9-P16 on the bottom row, yellow (pad 8 too); again: P1-P8, blue
 pad 7
 expect half 1
-expect padg7 >100
+expect padg7 >200
 expect padb7 <10
+# a re-trigger within 180 ms (a wobble while held): ignored; held long: one switch
+pad 7 20
+pad 7
+expect half 1
+wait 200
+pad 7 600
+expect half 0
+# the other pads have no lock-out: Intro pressed twice quickly is queued
+pad 0 20
+pad 0
+expect next_sect 1
+wait 200
+pad 7
+expect half 1
+wait 200
 pad 7
 expect half 0
 expect padb7 >200

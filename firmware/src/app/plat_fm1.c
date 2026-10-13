@@ -94,6 +94,14 @@ int plat_pad_vel(int pad)
     uint32_t v = (uint32_t)pad < SMK_NPAD ? fm1_in.key_vel[SMK_KEY_F3 + SMK_WHITE_NOTE[SMK_WHITE_OF_PAD((uint32_t)pad)]] : 0u;
     return v ? (int)v : 100;
 }
+uint32_t plat_pad_held(void)
+{
+    uint32_t n = fm1_in.pnotes, out = 0, w;
+    for (w = 0; w < SMK_NPAD; w++)
+        if (n >> SMK_WHITE_NOTE[w] & 1u)
+            out |= 1u << SMK_PAD_OF_WHITE(w);
+    return out;
+}
 int plat_fader(int i) { return fm1_in.frames < 200u || (uint32_t)i > 3u ? -1 : (int)fm1_in.fader[i]; }
 void plat_pad_rgb(int pad, uint8_t r, uint8_t g, uint8_t b)
 {
