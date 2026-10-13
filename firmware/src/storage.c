@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
- * X0X / POLLY: object map changed (see below). */
+ * X0X / POLLY: object map changed (see below).
+ * SMK-37 port: Copyright (C) 2026 M. Geisler (genkigenki/makkuro) (the SMK-37 map and the store's owner) */
 /* Persistent storage on the SPI NOR.
  *
  * Every object has an A/B sector pair. A save goes to the copy that is not
@@ -57,6 +58,87 @@ static uint32_t st_crc32(const void *p, uint32_t n)   /* zlib CRC-32, 4 bits per
     return ~c;
 }
 
+#if BOARD_SMK37
+/* SMK-37: the 19 objects (38 sectors) in three windows outside every protected range (fm1_flash_map.h), A/B
+ * neighbours, in object order: the project, the panel, the songs and slots 1-6 from 0x9D000 (to 0xAEFFF, the
+ * object area every SMK port shares), slots 7-11 from 0xB0000 (FL_DATA, after the owner tag at 0xAF000), slots
+ * 12-16 from 0xC2000 (FL_EXT, the stock USRFLASH). Never near BTIF / USRTRIM (0xC0000..0xC1FFF), USR (0xF4000..)
+ * or key_mac (0xFF000). */
+#define ST_SMK_BASE 0x9D000u
+#define ST_SMK_OBJ_HI 0xAF000u                 /* the object area every SMK port shares (0x9D000..0xAEFFF) */
+#define ST_SMK_N0 9u                           /* objects there */
+#define ST_SMK_B1 0xB0000u
+#define ST_SMK_N1 5u
+#define ST_SMK_B2 0xC2000u
+#define ST_SMK_N2 5u
+_Static_assert(ST_SMK_N0 + ST_SMK_N1 + ST_SMK_N2 == OBJ_NOBJ, "SMK store: every object has a place");
+_Static_assert(ST_SMK_BASE + 2u * ST_SMK_N0 * ST_SECTOR <= ST_SMK_OBJ_HI, "SMK store: objects past 0xAF000");
+_Static_assert(ST_SMK_B1 >= ST_SMK_OBJ_HI + ST_SECTOR && ST_SMK_B1 + 2u * ST_SMK_N1 * ST_SECTOR <= FL_DATA_HI,
+               "SMK store: the second window past FL_DATA");
+_Static_assert(ST_SMK_B2 >= FL_EXT_LO && ST_SMK_B2 + 2u * ST_SMK_N2 * ST_SECTOR <= FL_EXT_HI,
+               "SMK store: the third window past FL_EXT");
+static uint32_t st_sector(uint32_t obj, uint32_t copy)  /* flash offset of copy A (0) / B (1) */
+{
+    uint32_t o = obj % OBJ_NOBJ, c = copy & 1u;
+    if (o < ST_SMK_N0)
+        return ST_SMK_BASE + (o * 2u + c) * ST_SECTOR;
+    if (o < ST_SMK_N0 + ST_SMK_N1)
+        return ST_SMK_B1 + ((o - ST_SMK_N0) * 2u + c) * ST_SECTOR;
+    return ST_SMK_B2 + ((o - ST_SMK_N0 - ST_SMK_N1) * 2u + c) * ST_SECTOR;
+}
+/* every sector Polly stores in on the SMK-37 (the owner change clears them all) */
+static const uint32_t ST_SMK_REGION[3][2] = {{ST_SMK_BASE, ST_SMK_OBJ_HI},
+                                             {ST_SMK_B1, ST_SMK_B1 + 2u * ST_SMK_N1 * ST_SECTOR},
+                                             {ST_SMK_B2, ST_SMK_B2 + 2u * ST_SMK_N2 * ST_SECTOR}};
+
+/* The owner of the store. Several FM-1 firmwares are ported to the SMK-37 with the same board layer and
+ * this same store area, each with its own object formats: a firmware must never parse another's data. The
+ * sector after the object area (0xAF000) holds "SMK37DATA" + the firmware family (FELUCCA_DATA_FAMILY,
+ * build.py; Polly: "POLLY"). Ours: load as ever. None (erased, data from before the tag) or another
+ * family's: clear every window above and take the store (FELUCCA_DATA_UNTAGGED_OK = 0: Polly never trusts
+ * untagged data). Calibration, BT pairing and key_mac are outside them: never touched.
+ * ST_IDLE() runs between the erases (the device: the watchdog). */
+#ifndef FELUCCA_DATA_FAMILY
+#define FELUCCA_DATA_FAMILY "POLLY"
+#endif
+#ifndef FELUCCA_DATA_UNTAGGED_OK
+#define FELUCCA_DATA_UNTAGGED_OK 0
+#endif
+#ifndef ST_IDLE
+#define ST_IDLE() ((void)0)
+#endif
+#define ST_OWNER_OFF ST_SMK_OBJ_HI
+_Static_assert(ST_OWNER_OFF + ST_SECTOR <= ST_SMK_B1, "SMK store owner: inside the objects");
+static uint8_t st_owner_cleared;                /* (the UI may say so) */
+static void st_owner_check(void)
+{
+    static const char FAM[] = FELUCCA_DATA_FAMILY;
+    uint8_t tag[16], want[16];
+    uint32_t i, erased = 1, ours = 1, s, r;
+    _Static_assert(sizeof FAM >= 2u && sizeof FAM <= 8u, "FELUCCA_DATA_FAMILY: 1..7 characters");
+    for (i = 0; i < 16u; i++)
+        want[i] = i < 9u ? (uint8_t)"SMK37DATA"[i] : i - 9u < sizeof FAM - 1u ? (uint8_t)FAM[i - 9u] : 0u;
+    if (st_read(ST_OWNER_OFF, tag, 16))
+        return;
+    for (i = 0; i < 16u; i++) {
+        erased &= tag[i] == 0xFFu;
+        ours &= tag[i] == want[i];
+    }
+    if (ours)
+        return;
+    if (!erased || !FELUCCA_DATA_UNTAGGED_OK) {     /* another firmware's store (or untagged): clear it */
+        for (r = 0; r < 3u; r++)
+            for (s = ST_SMK_REGION[r][0]; s < ST_SMK_REGION[r][1]; s += ST_SECTOR) {
+                ST_IDLE();
+                st_erase(s);
+            }
+        st_owner_cleared = 1;
+    }
+    ST_IDLE();
+    st_erase(ST_OWNER_OFF);
+    st_prog(ST_OWNER_OFF, want, 16);
+}
+#else
 static uint32_t obj_base(uint32_t obj)
 {
     if (obj == OBJ_PANEL)
@@ -72,6 +154,7 @@ static uint32_t st_sector(uint32_t obj, uint32_t copy)  /* flash offset of copy 
 {
     return obj_base(obj) + copy * ST_SECTOR;
 }
+#endif
 
 static uint8_t st_buf[ST_PAYLOAD_MAX] __attribute__((aligned(4)));
 

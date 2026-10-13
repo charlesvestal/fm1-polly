@@ -8,10 +8,16 @@
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#if BOARD_SMK37
+#include "smk_input.h"           /* SMK-37 Pro: keys, buttons, encoders, LEDs, pads, faders, wheels, battery */
+#else
 #include "fm1_input.h"
+#endif
 #include "fm1_timer.h"
 #include "fm1_audio.h"
+#if !BOARD_SMK37
 #include "fm1_adc.h"
+#endif
 #include "fm1_lcd_hw.h"
 #include "fm1_flash.h"
 #include "fm1_xip.h"
@@ -39,11 +45,23 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 #define FELUCCA_UAC GM_UAC
 #define FELUCCA_MIRROR 1          /* usb.c's ring for mirror.c's frames */
 #ifndef FELUCCA_ID
+#if BOARD_SMK37
+#define FELUCCA_ID "SMK-37 Pro_300"   /* package identity (tools/build.py) */
+#else
 #define FELUCCA_ID "FM-1_300"     /* package identity (tools/build.py) */
+#endif
 #endif
 #include "usb.c"
 #ifndef GM_TRS
+#if BOARD_SMK37
+#define GM_TRS 0                  /* SMK-37: its TRS jack is MIDI OUT (UART1 TX, PC7), and PH8, the FM-1's MIDI IN
+                                   * pin, is a key-matrix row there: it must never become UART RX */
+#else
 #define GM_TRS 1                  /* MIDI IN on the TRS jack */
+#endif
+#endif
+#if BOARD_SMK37 && GM_TRS
+#error "BOARD_SMK37: midi_uart.c is the FM-1 MIDI IN driver (RX on PH8, a key-matrix row on the SMK)"
 #endif
 #if GM_TRS
 #include "midi_uart.c"
@@ -80,10 +98,18 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
         return -8;
     return fl_write(off, src, n);
 }
+#if BOARD_SMK37
+#define ST_IDLE() fm1_wdt_feed()  /* (storage.c: between the erases of a store take-over) */
+#endif
 #include "storage.c"
 
 /* the QY70 style bank (dsp/qybank.c, dsp/qydec.c: their own unit) reads the flash here; bank_rx.c writes it */
 #include "dsp/qybank.h"
+#if BOARD_SMK37
+/* the SMK-37 build has no bank: its 64 sectors do not fit beside the store outside the protected ranges
+ * (fm1_flash_map.h). A read finds nothing (qb_mount: QB_NONE); bank_rx.c refuses to write one */
+int qb_flash_read(uint32_t off, void *dst, uint32_t n) { (void)off; (void)dst; (void)n; return -1; }
+#else
 _Static_assert(FL_BANK_OK(QB_R0_LO, QB_R0_HI - QB_R0_LO) && FL_BANK_OK(QB_R1_LO, QB_R1_HI - QB_R1_LO) &&
                FL_BANK_OK(QB_R2_LO, QB_R2_HI - QB_R2_LO) && FL_BANK_OK(QB_R3_LO, QB_R3_HI - QB_R3_LO) &&
                !FL_BANK_OK(QB_R0_LO - 1u, 1u) && !FL_BANK_OK(QB_R0_HI, 1u) && !FL_BANK_OK(QB_R1_LO - 1u, 1u) &&
@@ -92,6 +118,7 @@ _Static_assert(FL_BANK_OK(QB_R0_LO, QB_R0_HI - QB_R0_LO) && FL_BANK_OK(QB_R1_LO,
                "the HAL's bank window (FL_BANK_OK) is the bank's four regions, exactly");
 _Static_assert(QB_R1_LO == 0x99000u + 16u * 0x2000u, "the bank starts where the 16 user patterns end (storage.c)");
 int qb_flash_read(uint32_t off, void *dst, uint32_t n) { return st_read(off, dst, n); }
+#endif
 
 struct bootguard_s { uint32_t magic, failed, pending; };
 extern struct bootguard_s bootguard;
@@ -116,7 +143,11 @@ static int ota_prog(uint32_t off, const void *p, uint32_t n)
 static int ota_fread(uint32_t off, void *p, uint32_t n) { return st_read(off, p, n); }
 static void ota_show(uint32_t step, int32_t code)
 {
+#if BOARD_SMK37   /* step 5 stays on screen while the loader writes the flash: say so */
+    static const char *const STEP[] = {"", "PACKAGE", "CHECK HEAD", "LOADER", "CONFIRM", "UPDATING..."};
+#else
     static const char *const STEP[] = {"", "PACKAGE", "CHECK HEAD", "LOADER", "CONFIRM", "RESTART"};
+#endif
     lcd_fill(0, 0, 240, 240, C_BLACK);
     draw_text_box(0, 92, 240, &FONT_S, "UPDATE", C_WHITE, 1);
     if (step < 9u) {
@@ -144,6 +175,9 @@ static int bk_erase(uint32_t off)
     uint32_t took;
     if (!QB_FLASH_OK(off, QB_SECTOR) || (off & 0xFFFu))
         return -8;
+#if BOARD_SMK37
+    return -8;                                  /* no bank on the SMK-37: its regions are the store's there */
+#endif
     fm1_wdt_feed();                                 /* 64 erases in a row at most */
     audio_silence();
     return fl_erase4k(off, &took);
@@ -152,6 +186,9 @@ static int bk_prog(uint32_t off, const void *src, uint32_t n)
 {
     if (!QB_FLASH_OK(off, n))
         return -8;
+#if BOARD_SMK37
+    return -8;                                  /* no bank on the SMK-37: its regions are the store's there */
+#endif
     return fl_write(off, src, n);
 }
 static int bk_read(uint32_t off, void *dst, uint32_t n) { return st_read(off, dst, n); }

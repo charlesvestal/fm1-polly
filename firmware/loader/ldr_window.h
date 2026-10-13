@@ -20,6 +20,21 @@
  * Restoring the stock firmware does not come here: the running app (ota.c) stages M-VAVE's own loader, which
  * writes the whole stock flash.bin itself (head and all). */
 #pragma once
+#if BOARD_SMK37
+/* The SMK-37 build: the app area up to the stock PRCT end; records only in the VM below BTIF (0x9D000..0xBFFFF:
+ * Polly's staging at 0xBB000 and the stock firmware's record, wherever it put it there), so the record cleanup can
+ * never reach BTIF / USRTRIM (0xC0000..0xC1FFF, the key calibration) or anything above. Polly's store sectors in
+ * the VM are only erased when their last 256 bytes are a whole update record, CRC and all (ldr_core.c) */
+#define LDR_APP_LO 0x4000u
+#define LDR_APP_HI 0x9D000u
+#define LDR_REC_LO 0x9D000u
+#define LDR_REC_HI 0xC0000u
+_Static_assert(LDR_APP_HI <= LDR_REC_LO && LDR_REC_HI <= 0xC0000u && LDR_APP_LO >= 0x4000u,
+               "SMK loader windows must stay below BTIF / USRTRIM and above the head");
+#define LDR_IN(off, n, lo, hi) ((uint32_t)(off) >= (lo) && (uint32_t)(off) <= (hi) && \
+                                (uint32_t)(n) <= (hi) - (uint32_t)(off))
+#define LDR_WRITE_OK(off, n) (LDR_IN(off, n, LDR_APP_LO, LDR_APP_HI) || LDR_IN(off, n, LDR_REC_LO, LDR_REC_HI))
+#else
 #define LDR_APP_LO 0x4000u
 #define LDR_APP_HI 0x93000u
 #define LDR_STAGE_LO 0xE0000u
@@ -30,3 +45,4 @@
                                 (uint32_t)(n) <= (hi) - (uint32_t)(off))
 #define LDR_WRITE_OK(off, n) (LDR_IN(off, n, LDR_APP_LO, LDR_APP_HI) || LDR_IN(off, n, LDR_STAGE_LO, LDR_STAGE_HI) || \
                               LDR_IN(off, n, LDR_STOCK_REC, LDR_STOCK_REC + 0x1000u))
+#endif
