@@ -19,7 +19,7 @@ barms 2400
 cap Fixing notes | Change, move, delete and enter single notes, without recording again.
 wait 3500
 # ---- 1. open Notes
-cap 1. Open Notes | Press PLAY. On the Band page, turn ALGORITHM to BA, the bass, then press SEQ.
+cap 1. Open Notes | Press PLAY. On the Band page, turn ALGORITHM to BA for the bass, then press SEQ.
 wait 2500
 tap PLAY
 expect playing 1
@@ -55,7 +55,7 @@ expect slot1_trk4_note0 37
 expect asking 1
 still 3-ask
 wait 2500
-cap 3. Change its pitch | Press SEL (yes): the bass plays your notes as written. Keep turning to E2.
+cap 3. Change its pitch | Press SEL for yes, and the bass plays your notes as written. Keep turning to E2.
 wait 2000
 tap SEL
 expect asking 0
@@ -65,7 +65,7 @@ turn K2 3 300
 expect ne_note 40
 expect notes_where_is_BA|bar_1.1|E2 1
 wait 2000
-cap 4. Change its length and velocity | KNOB 3 (Length) makes it longer, KNOB 4 (Velocity) softer.
+cap 4. Change its length and velocity | Turn KNOB 3 (Length) to make it longer, and KNOB 4 (Velocity) to make it softer.
 wait 2500
 turn K3 2 250
 wait 800
@@ -74,7 +74,7 @@ still 3-change
 poster
 wait 2500
 # ---- 4. move it
-cap 5. Move it | Hold SEL and turn SELECT. The note moves one grid step per detent.
+cap 5. Move it | Hold SEL and turn SELECT. The note moves one grid step for each click of the knob.
 wait 2500
 press SEL
 wait 300
@@ -107,7 +107,7 @@ expect ne_t 120
 expect slot1_trk4_count 18
 wait 2500
 # ---- 6. undo
-cap 7. Undo | Hold HOME and press REC. The last edit is undone, and the header says what.
+cap 7. Undo | Hold HOME and press REC. Polly undoes the last edit, and the header says what it undid.
 wait 2500
 press HOME
 wait 300

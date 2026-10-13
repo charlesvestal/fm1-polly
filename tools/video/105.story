@@ -60,7 +60,7 @@ mel A 5 0 2 19
 mel A 5 2 1 16
 mel A 5 3 0.8 12
 at A 6 -150
-cap 2. Play a melody | Section 2: the notes land on the line and in the four bars. Press REC, then PLAY, to stop.
+cap 2. Play a melody | In section 2, the notes land on the line and in the four bars. Press REC, then PLAY, to stop.
 mel A 6 0 1 23
 expect row 2
 mel A 6 1 0.5 24
@@ -104,7 +104,7 @@ wait 700
 expect page 1
 expect cursor 2
 wait 2000
-cap 3. Add to section 2 | Press EDIT, then REC, then PLAY: a bar of clicks counts in, then section 2 plays. Play.
+cap 3. Add to section 2 | Press EDIT, then REC, then PLAY. Polly clicks for one bar, then section 2 plays. Play a few notes.
 wait 2500
 tap EDIT
 wait 500
@@ -137,7 +137,7 @@ expect cursor 2
 expect lead_count1_1 14
 expect lead_count1_2 17
 # ---- 4. M2: strings, from section 2 (the cursor), a held line under M1
-cap 4. Record M2 | Turn ALGORITHM to M2. Press REC, then PLAY, and play after the count-in. M1's notes show pale under it.
+cap 4. Record M2 | Turn ALGORITHM to M2. Press REC, then PLAY, and play after the bar of clicks. M1's notes show pale underneath.
 wait 2500
 turn ALGO 1
 expect lead_sel 2

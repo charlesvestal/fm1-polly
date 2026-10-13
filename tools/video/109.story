@@ -15,7 +15,7 @@ expect track 5
 expect trk5_program 19
 expect transpose 2
 show
-cap Keeping your work | Save, undo, switch songs, free Memory, and back up to your computer.
+cap Keeping your work | Save, undo, switch songs, free a place in Memory, and back up to your computer.
 wait 3500
 expect dirty 0
 expect lit_SAVE 0
@@ -70,7 +70,7 @@ wait 400
 release HOME
 wait 2200
 # ---- 3. four songs
-cap 3. Switch songs | Hold HOME and turn PRESETS: songs S1 to S4.
+cap 3. Switch songs | Hold HOME and turn PRESETS to switch between songs S1 to S4.
 wait 2500
 tap HOME
 expect page 0
@@ -90,7 +90,7 @@ release HOME
 expect page 0
 wait 2000
 # ---- 4. memory (5: a place freed)
-cap 4. Open Memory | Press SEQ, then SEL. Turn SELECT to MEMORY, the last row, and press SEL.
+cap 4. Open Memory | Press SEQ, then SEL. Turn SELECT down to MEMORY at the bottom, and press SEL.
 wait 2500
 tap SEQ
 wait 700
@@ -111,9 +111,9 @@ still 4-memory
 wait 1000
 poster
 wait 1500
-cap 4. Open Memory | Memory's 16 places keep your grooves (yours) and melodies, for all four songs. The header shows how many are used.
+cap 4. Open Memory | Memory has 16 places. They keep your own grooves and melodies for all four songs. The header shows how many are in use.
 wait 2500
-cap 5. Free a place | Turn SELECT to place 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks first.
+cap 5. Free a place | Turn SELECT to place 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks to be sure.
 wait 2500
 expect list_sel 0
 turn SELECT 2 400
@@ -123,7 +123,7 @@ tap SEL
 expect asking 1
 still 5-free
 wait 1800
-cap 5. Free a place | Press SEL again. The place is free, and the copy's notes are gone.
+cap 5. Free a place | Press SEL again. The place is now free, and the copy's notes are gone.
 wait 2000
 tap SEL
 expect asking 0

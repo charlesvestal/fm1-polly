@@ -17,7 +17,7 @@ barms 2400
 cap Making it sound yours | Change an instrument's sound, mix it, set the effects and move the key.
 wait 3500
 # ---- 1. the Sound page, on C1 (BA selected in 107; Funk's C1 plays a clavinet in Groove A)
-cap 1. Open the Sound page | Press HOME for the Home page, then PLAY. Press EDIT for the Sound page. It opens on BA. You picked it in 107.
+cap 1. Open the Sound page | Press HOME for the Home page, then PLAY. Press EDIT for the Sound page. It opens on BA, which you picked in 107.
 wait 2500
 expect page 17
 tap HOME
@@ -48,7 +48,7 @@ expect knob1_is_Rock_Organ 1
 poster
 wait 3500
 # ---- 3. level and pan
-cap 3. Mix it | Press LFO for the Mixer, on C1. KNOB 1 sets its volume, KNOB 2 its pan.
+cap 3. Mix it | Press LFO to open the Mixer on C1. KNOB 1 sets its volume, and KNOB 2 its pan.
 wait 2500
 tap LFO
 expect page 10
@@ -63,7 +63,7 @@ expect knob2_is_R10 1
 still 3-mix
 wait 2500
 # ---- 4. the sends
-cap 4. Add space | KNOB 3 sets how much it sends to the reverb, KNOB 4 to the chorus.
+cap 4. Add space | KNOB 3 sets how much it sends to the reverb, and KNOB 4 how much to the chorus.
 wait 2500
 turn K3 50 70
 wait 600
@@ -73,7 +73,7 @@ expect knob4_is_40 1
 still 4-sends
 wait 2500
 # ---- 5. the effects
-cap 5. Set the effects | Press FX. KNOB 1 picks the reverb, KNOB 2 sets its level.
+cap 5. Set the effects | Press FX for the Effects page. KNOB 1 picks the reverb, and KNOB 2 sets its level.
 wait 2500
 tap FX
 expect page 12
@@ -98,7 +98,7 @@ wait 300
 expect transpose 2
 expect knob3_is_D 1
 wait 2000
-cap 6. Move the key | Play a C chord: the band plays D.
+cap 6. Move the key | Play a C chord, and the band plays D.
 wait 2000
 key 7 down
 key 11 down

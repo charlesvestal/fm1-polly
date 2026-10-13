@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polly test build</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Polly, a pocket arranger for the M-VAVE FM-1 playing Sonivox EAS's General MIDI sound set, in your browser: an internal test build.">
+<meta name="description" content="Polly is a pocket arranger for the M-VAVE FM-1 that plays Sonivox EAS's General MIDI sounds. Try it in your browser: an internal test build.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -88,9 +88,8 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <main>
 <header>
   <h1>Polly</h1>
-  <p>a pocket arranger for the FM-1, playing Sonivox EAS's General MIDI sound set: the same code the FM-1 runs</p>
+  <p>Polly is a pocket arranger for the FM-1. This page runs the same code as the FM-1, so you can try it here.</p>
 </header>
-<p class="note">Internal test build: not announced, not linked from anywhere. Things will change between visits.</p>
 
 <p class="turn">Turn your phone sideways for bigger controls.</p>
 <div class="device" id="device">
@@ -107,12 +106,12 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 
 <section class="qy" id="qy" aria-labelledby="qyTitle">
   <h2 id="qyTitle">QY70 styles</h2>
-  <p>Your ROM stays on your computer; Polly builds its QY70 styles here, in your browser. Pick or drop the QY70's main ROM
-    (MAME's <kbd>qy70main.bin</kbd>): its 128 preset styles then follow Polly's own 16 on the Style knob, and this browser
-    keeps them for your next visit.</p>
+  <p>If you own a QY70, pick or drop its main ROM here (MAME calls it <kbd>qy70main.bin</kbd>). Polly builds the QY70's
+    128 preset styles in your browser, and they come after Polly's own 16 on the Style knob. The ROM never leaves your
+    computer, and this browser keeps the styles for your next visit.</p>
   <div class="row">
-    <label class="load" title="Your QY70 main ROM file (qy70main.bin); it is read here and never uploaded">Load QY70 ROM<input type="file" id="qyFile"></label>
-    <button id="qyForget" type="button" hidden title="Remove the QY70 styles from this browser; Polly keeps its own 16">Forget QY70 styles</button>
+    <label class="load" title="Your QY70's main ROM file (qy70main.bin). It's read here and never uploaded.">Load QY70 ROM<input type="file" id="qyFile"></label>
+    <button id="qyForget" type="button" hidden title="Remove the QY70 styles from this browser. Polly keeps its own 16.">Forget QY70 styles</button>
     <span id="qyState" role="status" aria-live="polite">Checking this browser...</span>
   </div>
 </section>
@@ -120,27 +119,22 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <section class="help">
   <div class="knobs">
     <h2>Getting started</h2>
-    <p>Polly plays styles: a band of eight instruments with an Intro, Groove A and B, two Fills and an Ending,
-      following the chords you give it. A song is a list of sections; each plays a progression (your chords, P1&ndash;P16)
-      with a groove. Press <b>Switch on</b> above, then:</p>
+    <p>Polly plays a style. A band of eight instruments follows the chords you play. Press <b>Switch on</b> above, and try these steps.</p>
     <ol class="steps">
-      <li>Turn <b>KNOB 1</b> on the Home page to pick a style (the screen's header shows it).</li>
-      <li>Press <b>PLAY</b>: Groove A plays.</li>
-      <li>Play a chord: three keys or more. The band follows, and keeps the chord after you let go.</li>
-      <li>Hold <b>HOME</b> (<kbd>Shift</kbd>-click it here) and press a black key: 1 Intro, 2 Groove A, 3 Groove B,
-        4 Fill, 5 Ending, from the next bar.</li>
-      <li>Hold <b>HOME</b> and press a white key: one of 16 progressions goes round. Holding HOME shows both lists on
-        the screen.</li>
-      <li><b>HOME</b>, then <b>SELECT</b>: the Song page. Each white key adds a section playing that progression;
-        <b>PLAY</b> there plays the song.</li>
-      <li>Press <b>SAVE</b>: it's lit while something isn't saved. Polly also saves by itself after a few seconds at
-        rest.</li>
+      <li>Turn <b>KNOB 1</b> on the Home page to pick a style.</li>
+      <li>Press <b>PLAY</b>. Groove A starts.</li>
+      <li>Play a chord with three keys or more. The band follows it, and keeps it after you let go.</li>
+      <li>Hold <b>HOME</b> and press black key 3 for Groove B. On this page, <kbd>Shift</kbd>-click HOME to hold it. The screen
+        shows what each key does while you hold HOME.</li>
+      <li>Hold <b>HOME</b> and press a white key. The band plays that key's progression over and over.</li>
+      <li>Press <b>HOME</b> again for the Song page. Each white key adds a section that plays that progression.</li>
+      <li><b>SAVE</b> is lit when something isn't saved. When Polly is stopped, it also saves by itself after a few seconds.</li>
     </ol>
-    <p><b>Your QY70 styles:</b> press <b>Load QY70 ROM</b> above and pick your QY70's main ROM. It stays in your browser; its
-      128 preset styles then follow Polly's own 16 on the Style knob, marked "QY", and Setup (<b>GLO</b>) shows how many
-      there are. On an FM-1 running Polly, <kbd>python3 tools/qy70_install.py qy70main.bin</kbd> puts them on the device.</p>
-    <p>MIDI in (USB) plays all 16 channels, as a General MIDI sound module.</p>
-    <h2>The controls, as the firmware lists them</h2>
+    <p>The ten short lessons in <a href="../school/">School</a> work here too.</p>
+    <p>For your QY70 styles, press <b>Load QY70 ROM</b> above. The styles are marked "QY" on the Style knob. To put them
+      on an FM-1 running Polly, run <kbd>python3 tools/qy70_install.py qy70main.bin</kbd>.</p>
+    <p>MIDI from your computer plays all 16 channels, like a General MIDI sound module.</p>
+    <h2>The controls</h2>
 <!--CONTROLS-->
   </div>
   <div>
@@ -148,32 +142,31 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
     <ul>
       <li>Drag a knob up or down, or use the scroll wheel over it.</li>
       <li>Click or touch buttons and keys. Several fingers at once work on a touch screen.</li>
-      <li><kbd>Shift</kbd>-click (or right-click) a button to hold it down, click again to let go: for <b>SEL</b> + a key.</li>
-      <li>Hover over a control for what it does.</li>
+      <li>To hold a button down, <kbd>Shift</kbd>-click or right-click it. Click it again to let go.</li>
+      <li>Hover over a control to see what it does.</li>
     </ul>
   </div>
   <div>
     <h2>Keyboard</h2>
     <ul>
-      <li>White keys 1&ndash;8: <kbd>Q</kbd>&ndash;<kbd>I</kbd>, 9&ndash;16: <kbd>A</kbd>&ndash;<kbd>K</kbd>. Black keys 1&ndash;11: <kbd>1</kbd>&ndash;<kbd>0</kbd>, <kbd>-</kbd>.</li>
-      <li><kbd>Space</kbd> PLAY, <kbd>Esc</kbd> HOME, <kbd>Z</kbd> / <kbd>X</kbd> OCT&minus; / OCT+.</li>
-      <li>Up / down arrow keys turn PRESETS; left / right turn ALGORITHM.</li>
+      <li>White keys 1&ndash;8 are <kbd>Q</kbd> to <kbd>I</kbd>, and 9&ndash;16 are <kbd>A</kbd> to <kbd>K</kbd>. Black keys 1&ndash;11 are <kbd>1</kbd> to <kbd>0</kbd> and <kbd>-</kbd>.</li>
+      <li><kbd>Space</kbd> is PLAY, <kbd>Esc</kbd> is HOME, and <kbd>Z</kbd> and <kbd>X</kbd> are OCT&minus; and OCT+.</li>
+      <li>The up and down arrow keys turn PRESETS, and left and right turn ALGORITHM.</li>
     </ul>
   </div>
   <div>
     <h2>Saving</h2>
-    <p>Saving keeps your songs, grooves and settings in this browser, as the FM-1 keeps them in its memory. Factory reset
-      forgets them (not the QY70 styles: Forget does that). It is the firmware, not a recording: what you hear is Polly
-      running, at the FM-1's 44.1 kHz.</p>
+    <p>SAVE keeps your songs, grooves and settings in this browser. <b>Factory reset</b> clears them but keeps the QY70
+      styles. To remove those, press <b>Forget QY70 styles</b>. What you hear is Polly itself running, not a recording.</p>
   </div>
   <div>
     <h2>Credits</h2>
     <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is
       <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Polly's own drum
       grooves come from the <a href="https://magenta.tensorflow.org/datasets/groove">Groove MIDI Dataset</a> (CC BY 4.0,
-      &copy; Google LLC). The QY70 styles are built from your own ROM by <a href="https://pyodide.org/">Pyodide</a> (MPL-2.0)
-      running Polly's tools; the styles are &copy; Yamaha, and nothing of Yamaha's is on this site. Running FM-1 firmware in
-      the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
+      &copy; Google LLC). <a href="https://pyodide.org/">Pyodide</a> (MPL-2.0) runs Polly's tools to build the QY70 styles from your own ROM.
+      The styles are &copy; Yamaha, and nothing of Yamaha's is on this site. The idea of running FM-1 firmware in the
+      browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
   </div>
 </section>
 </main>
@@ -275,13 +268,13 @@ function hit(c, cls) {
 }
 // what each control does, on hover (the Buttons list below says the same)
 // (from the firmware's controls list; the full list is under the device)
-const TIP = { PLAY: "Start / stop (on the Song page: the song)", REC: "Record what the keys play here",
-  SEL: "This page as a list (its actions); in a question: yes", HOME: "Home, then the Song pages. Held: the shortcuts",
-  SEQ: "Band: the groove's notes", EDIT: "Sound: the instrument's", FX: "Effects", LFO: "Mixer pages",
-  ENV: "Style pages", ARP: "Progression pages", GLO: "Setup pages", SAVE: "Save (held + a white key: copy here)",
-  "OCT-": "Octave down", "OCT+": "Octave up", SELECT: "The page (held HOME: the tempo)", ALGORITHM: "The instrument",
-  PRESETS: "Per page (held HOME: the song)", MASTER: "Volume",
-  KNOB1: "What the page shows", KNOB2: "What the page shows", KNOB3: "What the page shows", KNOB4: "What the page shows" };
+const TIP = { PLAY: "Starts and stops. On the Song page, it plays the song.", REC: "Records what the keys play here",
+  SEL: "Shows this page as a list with its actions. In a question, it means yes.", HOME: "Home, then the Song pages. Hold it for the shortcuts.",
+  SEQ: "The Band page, with the groove's notes", EDIT: "The Sound page for the instrument", FX: "Effects", LFO: "Mixer pages",
+  ENV: "Style pages", ARP: "Progression pages", GLO: "Setup pages", SAVE: "Saves. Hold it and press a white key to copy here.",
+  "OCT-": "Octave down", "OCT+": "Octave up", SELECT: "Turns the page. Hold HOME to set the tempo.", ALGORITHM: "Picks the instrument",
+  PRESETS: "Depends on the page. Hold HOME to pick the song.", MASTER: "Volume",
+  KNOB1: "Sets what the page shows", KNOB2: "Sets what the page shows", KNOB3: "Sets what the page shows", KNOB4: "Sets what the page shows" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
 for (const k of Object.values(knobs)) hit(k, "knob");
 for (const b of Object.values(buttons)) hit(b);
@@ -476,10 +469,10 @@ let bank = null, building = false, worker = null;   // bank: { image: ArrayBuffe
 function qySay(text, err) { qyState.textContent = text; qyState.classList.toggle("err", !!err); }
 function bankShown(n) {                              // n: the emulator's mount (styles, 0 none, -1 damaged, -2 old)
   qyForget.hidden = !bank;
-  if (!bank) qySay("None loaded: Polly plays its own 16 styles.");
-  else if (n === -2) qySay("The kept QY70 styles are from an older Polly: load your ROM again to rebuild them.", true);
-  else if (n !== undefined && n <= 0) qySay("The kept QY70 styles did not load: load your ROM again.", true);
-  else qySay(`${bank.styles} QY70 styles, kept in this browser${node ? "" : " (they play once Polly is on)"}.`);
+  if (!bank) qySay("None loaded. Polly plays its own 16 styles.");
+  else if (n === -2) qySay("The kept QY70 styles are from an older Polly. Load your ROM again to rebuild them.", true);
+  else if (n !== undefined && n <= 0) qySay("The kept QY70 styles didn't load. Load your ROM again.", true);
+  else qySay(`This browser keeps ${bank.styles} QY70 styles.${node ? "" : " They play once Polly is on."}`);
 }
 function toEmu(image) {
   if (!node) return Promise.resolve(undefined);
@@ -499,7 +492,7 @@ async function buildFrom(file) {
   const show = () => qySay(`${msg} ${Math.round((performance.now() - t0) / 1000)} s`);
   const tick = setInterval(show, 500);
   try {
-    if (file.size < 65536 || file.size > 16 << 20) throw new Error(`${file.name} is ${file.size} bytes: the QY70's main ROM (qy70main.bin) is 2 MB.`);
+    if (file.size < 65536 || file.size > 16 << 20) throw new Error(`${file.name} is ${file.size} bytes, but the QY70's main ROM (qy70main.bin) is 2 MB.`);
     const rom = await file.arrayBuffer();
     worker ??= new Worker("qybank_worker.js", { type: "module" });
     const r = await new Promise((res) => {

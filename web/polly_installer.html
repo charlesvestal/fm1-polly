@@ -56,8 +56,8 @@
   </ol>
   <p><button id="stockgo" disabled data-t="stockinstall"></button></p>
   <p><a href="../" style="color:inherit" data-t="manual"></a></p>
-  <p class="small">Polly is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments</a>,
-    by way of X0X and FoMni.<br>
+  <p class="small">Polly is built on Felucca by Leo Kuroshita (@kurogedelic) of <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments</a>.
+    It came by way of X0X and FoMni.<br>
     Fonts: Barlow Semi Condensed (SIL OFL 1.1). M-VAVE and FM-1 are trademarks of their respective owners.<br>
     <span data-t="license"></span> <a href="https://github.com/charlesvestal/fm1-polly" target="_blank" rel="noopener" style="color:inherit">github.com/charlesvestal/fm1-polly</a></p>
 </main>
@@ -73,7 +73,7 @@ const TEXT = {
     direct: "USB ケーブルはパソコンに直接つないでください。Probe や Transporter などの機材は不要です。",
     brick: "万一 FM-1 が起動しなくなった場合は、Mac から標準ファームウェアに戻せます:",
     bricklink: "起動しない FM-1 の復旧（英語）",
-    beta: "これはベータ版で、不安定な場合があります。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
+    beta: "このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
     back: "公式ファームウェアに戻すには、このページ下の「純正ファームウェアに戻す」か、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）を使います。",
     stockh: "純正ファームウェアに戻す",
     stockwhy: "M-VAVE の FM-1 V15 を、Polly（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Polly で保存した音色設定は消えることがあります。",
@@ -100,37 +100,37 @@ const TEXT = {
     license: "GPL-3.0、無保証。ソース:",
   },
   en: {
-    intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
+    intro: "Connect the FM-1 to this computer with a USB cable. This page works in Chrome or Edge.",
     warn: "Charge the FM-1 before you start. Until the install is done, keep the computer awake and the USB cable in.",
     install: "Install", other: "日本語",
     manual: "Back to Polly",
-    direct: "Connect the USB cable directly to the computer. No probe or Transporter is needed.",
-    brick: "If the FM-1 no longer starts, a Mac can put the stock firmware back:",
+    direct: "Connect the USB cable directly to the computer. You don't need a probe or a Transporter.",
+    brick: "If the FM-1 no longer starts, a Mac can put the stock firmware back. For the steps, see",
     bricklink: "recovering an FM-1 that won't start",
-    beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
-    back: "To go back to the official firmware, use \"Back to the stock firmware\" below, or M-VAVE's own updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE).",
+    beta: "The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
+    back: "To go back to the official firmware, use \"Back to the stock firmware\" below. You can also use M-VAVE's own updater, M-UPGRADE. On M-VAVE's site, it's under Downloads → PC Software → M-UPGRADE.",
     stockh: "Back to the stock firmware",
-    stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Polly (or its safe mode, X0X or Felucca) over the same USB cable. Sounds saved in Polly may be lost.",
+    stockwhy: "This puts M-VAVE's FM-1 V15 firmware back over the same USB cable. It works from Polly, Polly's safe mode, X0X or Felucca. Sounds saved in Polly may be lost.",
     stock1: "Download M-VAVE's FM-1 V15:",
     stock2: "Choose the file you downloaded:",
-    stock3: "Connect the FM-1 by USB and press the button below.",
+    stock3: "Connect the FM-1 with a USB cable and press the button below.",
     stockinstall: "Install the stock firmware",
     stockok: "That is M-VAVE's FM-1 V15. Press the button to install it.",
     stockbad: "That is not M-VAVE's FM-1 V15 file. Choose the file from the link above.",
     stockdone: "Done. The FM-1 has restarted with its original firmware.",
-    nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
+    nomidi: "This browser can't install Polly. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
     start: "Starting", verify: "Verifying", loader: "Switching to update mode", write: "Writing",
-    reboot: "Restarting", done: "Done", stopped: "Stopped. Replug the USB cable and press Install again.",
+    reboot: "Restarting", done: "Done", stopped: "Stopped. Unplug the USB cable, plug it back in, and press Install again.",
     error: "Error: ",
-    denied: "MIDI (SysEx) access was not allowed. Allow MIDI in the site settings (address bar) and press Install again.",
-    notfound: "FM-1 not found. Check the USB cable (a data cable), close other apps that use MIDI, and press Install again.",
+    denied: "The browser didn't allow MIDI with SysEx. Allow MIDI in the site settings, from the address bar, and press Install again.",
+    notfound: "The page can't find the FM-1. Make sure the USB cable is a data cable, close other apps that use MIDI, and press Install again.",
     model: "The connected device is not an FM-1.",
-    lost: "The USB connection was lost. Replug it and press Install again.",
-    noloader: "The FM-1 in update mode was not found. Replug the USB cable and press Install again.",
-    noreturn: "The FM-1 did not come back. Power-cycle it.",
-    mismatch: "Written, but the FM-1 reports another version: ",
+    lost: "The USB connection was lost. Plug the cable back in and press Install again.",
+    noloader: "The page can't find the FM-1 in update mode. Unplug the USB cable, plug it back in, and press Install again.",
+    noreturn: "The FM-1 didn't come back. Switch it off and on again.",
+    mismatch: "The install finished, but the FM-1 reports another version: ",
     badpkg: "The file to install is damaged. Reload the page.",
-    leave: "Writing. Do not close the page.",
+    leave: "Writing. Don't close the page.",
     license: "GPL-3.0, no warranty. Source:",
   },
 };

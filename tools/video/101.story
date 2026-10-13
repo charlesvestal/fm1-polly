@@ -33,7 +33,7 @@ at A 6 30
 chord 900 4 8 11 14
 # ---- 3. a fill into Groove B
 at A 6 1200
-cap 3. Go busier | Hold HOME and press black key 4: a fill, then Groove B, the busier groove.
+cap 3. Go busier | Hold HOME and press black key 4. A fill plays, then the busier Groove B.
 at A 7 700
 press HOME
 wait 300
@@ -49,7 +49,7 @@ at A 10 30
 chord 900 4 8 11 14
 # ---- 4. back to Groove A
 at A 10 1200
-cap 4. Come back down | Hold HOME and press black key 4 again: a fill, then Groove A.
+cap 4. Come back down | Hold HOME and press black key 4 again. A fill plays, then Groove A.
 at A 11 700
 press HOME
 wait 300

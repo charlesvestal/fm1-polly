@@ -201,6 +201,11 @@ nav.pager .next { grid-column: 2; text-align: right; }
 .toc-side a, .toc-drop a { display: block; padding: .22rem .6rem; border-radius: 8px; text-decoration: none; font-size: .95rem; line-height: 1.3; }
 .toc-side a:hover, .toc-drop a:hover { background: var(--card); color: var(--ink); }
 .toc-side a.on { background: var(--accent-t); font-weight: 600; }
+.toc-side ol.sub { display: none; margin: .1rem 0 .4rem .7rem; padding-left: .5rem; border-left: 2px solid var(--rule); }
+.toc-side li.open > ol.sub { display: block; }
+.toc-side ol.sub a { font-size: .88rem; padding: .16rem .55rem; color: var(--muted); }
+.toc-side li.open > a { font-weight: 600; }
+.toc-side ol.sub a.on { color: var(--ink); }
 .toc-drop { position: sticky; top: 0; z-index: 4; margin: 0 -16px 1rem; padding: .5rem 16px; background: var(--ground); border-bottom: 1px solid var(--rule); }
 .toc-drop summary { cursor: pointer; margin: 0; padding: .2rem 0; color: var(--ink); }
 .toc-drop ol { max-height: 60vh; overflow-y: auto; padding: .4rem 0 .2rem; }
@@ -240,15 +245,23 @@ p.small, ul.small { color: var(--muted); font-size: .92rem; }
 """
 
 TOC_JS = """<script>
-(() => {                                   // the contents beside the manual: the section being read
+(() => {                                   // the contents beside the manual: the chapter being read opens to its sections
   const links = new Map([...document.querySelectorAll(".toc-side a")].map((a) => [a.getAttribute("href").slice(1), a]));
-  const heads = [...document.querySelectorAll(".doc h2[id]")].filter((h) => links.has(h.id));
-  let on = null;
+  const heads = [...document.querySelectorAll(".doc h2[id], .doc h3[id]")].filter((h) => links.has(h.id));
+  const nav = document.querySelector(".toc-side nav");
+  let on = null, open = null;
   const pick = () => {
     let cur = heads[0];
     for (const h of heads) if (h.getBoundingClientRect().top < 120) cur = h;
     const a = cur && links.get(cur.id);
-    if (a !== on) { on?.classList.remove("on"); a?.classList.add("on"); on = a; }
+    if (a === on) return;
+    on?.classList.remove("on"); a?.classList.add("on"); on = a;
+    const ch = a && (a.closest("ol.sub")?.parentElement || a.parentElement);
+    if (ch !== open) { open?.classList.remove("open"); ch?.classList.add("open"); open = ch; }
+    if (a && nav) {                        // keep the highlighted line in view
+      const r = a.getBoundingClientRect(), n = nav.getBoundingClientRect();
+      if (r.top < n.top || r.bottom > n.bottom) nav.scrollTop += r.top - n.top - n.height / 3;
+    }
   };
   addEventListener("scroll", pick, { passive: true });
   pick();
@@ -324,7 +337,6 @@ def rewrite_links(doc, md_path, page):
 
 PAGE_MENTIONS = {"web/polly_installer.html": "the Install page", "web/mirror/index.html": "the Mirror page",
                  "web/backup/index.html": "the Backup page"}
-BACKUP_LINK = '<a href="repo:web/backup/index.html">Backup page</a>'
 
 
 def outside_links(frag, fn):
@@ -373,25 +385,14 @@ class SiteHooks(site_md.Hooks):
     def text(self, frag):
         frag = mention_pages(frag)
         frag = outside_links(frag, link_files)
-        if self.kind == "manual" and "polly_backup.py backup" in frag:
-            frag += f" Or use the {BACKUP_LINK}, in Chrome or Edge."
         return frag
 
     def code_block(self, code, lang):
-        if "polly_backup.py" in code and "backup" in code:
-            if self.kind == "manual":
-                return (f'<p class="web-alt"><strong>In the browser:</strong> the {BACKUP_LINK} backs up and restores in '
-                        f'Chrome or Edge, with nothing to install. <strong>Or from a terminal:</strong></p>')
-            return (f'<p class="web-alt"><strong>Easier:</strong> back up and restore in Chrome or Edge on the '
-                    f'{BACKUP_LINK}, with nothing to install.</p>')
         return ""
 
     def raw(self, block):
         block = re.sub(r"<table(?=[\s>])(?![^>]*class=)", '<table class="steps"', block)
         block = mention_pages(block)
-        if "polly_backup.py" in block and "<pre>" in block:
-            block = block.replace("<pre>", (f'<p class="web-alt"><strong>Easier:</strong> back up and restore in Chrome or '
-                                            f'Edge on the {BACKUP_LINK}, with nothing to install.</p><pre>'), 1)
         return block
 
     def paragraph(self, md):
@@ -475,46 +476,46 @@ def pager(page, order):
 
 
 def landing(version, pkg_name, emu):
-    emu_way = ('<a href="emu/"><strong>Try it in the browser</strong><span>The same code the FM-1 runs, with sound.</span></a>'
+    emu_way = ('<a href="emu/"><strong>Try it in the browser</strong><span>It runs the same code as the FM-1, and you can hear it.</span></a>'
                if emu else "")
     body = f"""<main class="wide">
 <section class="hero">
   <div>
     <h1>Polly</h1>
     <p class="sub">A pocket arranger for the M-VAVE FM-1</p>
-    <p class="lede">Polly turns the FM-1 into a pocket arranger, inspired by the Yamaha QY70. Pick a style, and a band of eight
-    instruments plays along: drums, bass, guitars, strings. Hold a chord, and the band follows it. Write a few bars of chords,
-    put them in order, and Polly plays a whole song from them, with fills, an intro and an ending. The sounds are the 128 General
-    MIDI instruments and a drum kit, from the FM-1's speaker or headphones. MIDI in plays them too.</p>
+    <p class="lede">Polly turns the FM-1 into a pocket arranger. It's inspired by the Yamaha QY70. Pick a style, and a band of eight
+    instruments plays along, with drums, bass, guitars and strings. Hold a chord, and the band follows it. Write a few bars of chords,
+    put them in order, and Polly plays a whole song from them. It adds fills, an intro and an ending. The sounds are the 128
+    General MIDI instruments and a drum kit. They play through the FM-1's speaker or headphones, and MIDI in plays them too.</p>
     <div class="buttons">
-      <a class="btn primary" href="install/"><strong>Install Polly {html.escape(version)}</strong><span>From Chrome or Edge, over USB</span></a>
+      <a class="btn primary" href="install/"><strong>Install Polly {html.escape(version)}</strong><span>Use Chrome or Edge and a USB cable.</span></a>
     </div>
   </div>
   <figure><img src="img/manual/quickstart_song.png" width="240" height="240" alt="Polly's Song page: a song of four sections, verse and chorus, playing section 1"></figure>
 </section>
 
 <nav class="ways" aria-label="Learn Polly">
-  <a href="school/"><strong>School</strong><span>Ten short lessons, each with a video. Start here.</span></a>
-  <a href="manual/"><strong>Manual</strong><span>Every page, knob and setting, with a cheat sheet up front.</span></a>
+  <a href="school/"><strong>School</strong><span>Start here with ten short lessons. Each one has a video.</span></a>
+  <a href="manual/"><strong>Manual</strong><span>It covers every page, knob and setting, and starts with a cheat sheet.</span></a>
   {emu_way}
 </nav>
 <nav class="ways" aria-label="Tools">
-  <a href="backup/"><strong>Backup</strong><span>Keep your songs in a file on the computer, and put them back.</span></a>
-  <a href="mirror/"><strong>Mirror</strong><span>Polly's screen and panel, live on the computer.</span></a>
-  <a href="firmware/{pkg_name}"><strong>Download</strong><span>{pkg_name}, for the command-line installer.</span></a>
+  <a href="backup/"><strong>Backup</strong><span>Save your songs to a file, and load them back later.</span></a>
+  <a href="mirror/"><strong>Mirror</strong><span>See Polly's screen and panel live on your computer.</span></a>
+  <a href="firmware/{pkg_name}"><strong>Download</strong><span>Get {pkg_name} for the command-line installer.</span></a>
 </nav>
 
 <h2>Credits</h2>
 <ul class="small">
-  <li><a href="https://github.com/hugelton/Felucca">Felucca</a> by Leo Kuroshita (Hügelton Instruments): the platform under Polly (GPL-3.0).</li>
-  <li><a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Sonic Network, The Android Open Source Project): the synth and its General MIDI sounds (Apache-2.0).</li>
-  <li><a href="https://magenta.tensorflow.org/datasets/groove">The Groove MIDI Dataset</a> (Google Magenta): the drum performances in Polly's styles (CC BY 4.0).</li>
-  <li><a href="https://github.com/keremimo/melodee">Melodee</a> by Kerem Kilic: the idea of the note editor.</li>
-  <li><a href="https://www.groove-os.com/">Groove OS</a> by Peter Gombos: the idea of running FM-1 firmware in the browser.</li>
-  <li>The full list is in the manual's <a href="manual/#credits">credits</a>.</li>
+  <li>Polly is built on <a href="https://github.com/hugelton/Felucca">Felucca</a> by Leo Kuroshita of Hügelton Instruments (GPL-3.0).</li>
+  <li>The synth and its General MIDI sounds come from <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> by Sonic Network and the Android Open Source Project (Apache-2.0).</li>
+  <li>The drums in Polly's styles come from Google Magenta's <a href="https://magenta.tensorflow.org/datasets/groove">Groove MIDI Dataset</a> (CC BY 4.0).</li>
+  <li>The note editor follows <a href="https://github.com/keremimo/melodee">Melodee</a> by Kerem Kilic.</li>
+  <li>Running FM-1 firmware in the browser was the idea of <a href="https://www.groove-os.com/">Groove OS</a> by Peter Gombos.</li>
+  <li>For the full list, see the manual's <a href="manual/#credits">credits</a>.</li>
 </ul>
-<p class="small">Polly {html.escape(version)} is free software under the GPL-3.0, with no warranty. <a href="{REPO}">Source on GitHub</a>.
-Polly is inspired by the Yamaha QY70 and is not affiliated with Yamaha or M-VAVE; it contains none of Yamaha's data.
+<p class="small">Polly {html.escape(version)} is free software under the GPL-3.0. It comes with no warranty. The <a href="{REPO}">source is on GitHub</a>.
+Polly is inspired by the Yamaha QY70 and is not affiliated with Yamaha or M-VAVE. It contains none of Yamaha's data.
 M-VAVE and FM-1 are trademarks of their owners. To go back to the official firmware, use the installer's
 "Back to the stock firmware".</p>
 </main>"""
@@ -543,7 +544,7 @@ def main(argv):
     shutil.copytree(SRC / "docs" / "course" / "img", out / "school" / "img")
     shutil.copytree(SRC / "docs" / "video", out / "video")
     W = lambda p, s: (out / p).write_text(s, encoding="utf-8")   # noqa: E731
-    desc = "Polly, a pocket arranger for the M-VAVE FM-1"
+    desc = "Polly is a pocket arranger for the M-VAVE FM-1."
 
     # the installer
     inst = (SRC / "web" / "polly_installer.html").read_text(encoding="utf-8")
@@ -580,9 +581,19 @@ def main(argv):
     # the manual
     body, heads, title = render("MANUAL.md", "manual", "manual/index.html")
     toc = "".join(f'<li><a href="#{hid}">{html.escape(t)}</a></li>' for lv, t, hid in heads if lv == 2)
-    man = (f'<div class="manual"><aside class="toc-side" aria-label="Contents"><nav><h2>Contents</h2><ol>{toc}</ol></nav></aside>'
+    side, subs = [], []                    # beside it: each chapter with its sections, shown while you read it
+    for lv, t, hid in heads + [(2, None, None)]:
+        if lv == 2 or t is None:
+            if side:
+                side[-1] += (f'<ol class="sub">{"".join(subs)}</ol>' if subs else "") + "</li>"
+            subs = []
+            if t is not None:
+                side.append(f'<li><a href="#{hid}">{html.escape(t)}</a>')
+        elif lv == 3 and side:
+            subs.append(f'<li><a href="#{hid}">{html.escape(t)}</a></li>')
+    man = (f'<div class="manual"><aside class="toc-side" aria-label="Contents"><nav><h2>Contents</h2><ol>{"".join(side)}</ol></nav></aside>'
            f'<main class="doc"><details class="toc-drop"><summary>Contents</summary><ol>{toc}</ol></details>\n{body}\n</main></div>')
-    W("manual/index.html", page_html(f"Polly · {title or 'Manual'}", f"The manual for {desc}: every page, knob and setting.",
+    W("manual/index.html", page_html(f"Polly · {title or 'Manual'}", f"{desc} The manual explains every page, knob and setting.",
                                      "manual/index.html", "manual", man, version, emu, extra_body=TOC_JS))
 
     # the quick start's old address (v0.1's notes link it): to the first lesson
@@ -597,11 +608,11 @@ def main(argv):
         menu = lessons_menu(page, "" if kind == "school" else short, order)
         doc = f'<main class="doc">\n{menu}\n{body}\n{pager(page, order)}\n</main>'
         t = "Polly · School" if kind == "school" else f"Polly · {short}"
-        W(page, page_html(t, f"{title}: a lesson on {desc}." if kind == "lesson" else f"{title}: {desc}.", page, cur, doc,
+        W(page, page_html(t, f"{title} is a lesson in Polly School. {desc}" if kind == "lesson" else f"Learn Polly in ten short lessons. {desc}", page, cur, doc,
                           version, emu, extra_body=LESSONS_JS))
 
     # the landing page
-    W("index.html", page_html("Polly", "A pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70: a band of eight "
+    W("index.html", page_html("Polly", "Polly is a pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70. A band of eight "
                               "instruments follows the chords you play.", "index.html", "", landing(version, name, emu),
                               version, emu))
     (out / ".nojekyll").write_text("")

@@ -18,7 +18,7 @@ show
 cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
 wait 3500
 # ---- 1. the song, round and round
-cap 1. Play the song round | Turn KNOB 4 (At end) to again. Press PLAY: the song plays round and round.
+cap 1. Loop the song | Turn KNOB 4 (At end) to again. Press PLAY, and the song plays over and over.
 wait 2500
 turn K4 1
 still 1-song
@@ -47,7 +47,7 @@ expect rows 3
 expect row_loop1 1
 expect row_loop2 2
 poster
-cap 2. Change the style | The song keeps its sections and chords. The band and the tempo are Rock's.
+cap 2. Change the style | The song keeps its sections and chords, but now it has Rock's band and tempo.
 wait 9000
 expect playing 1
 expect mode 2
@@ -66,7 +66,7 @@ expect tempo 90
 expect msgtext_is_TEMPO_KEPT_90_(FUNK_100) 1
 wait 6000
 # ---- 4. the style's tempo again
-cap 4. Use the style's tempo | Press SEL for the page's list. It opens on STYLE TEMPO 100. Press SEL again.
+cap 4. Use the style's tempo | Press SEL to see the page's list. It opens on STYLE TEMPO 100. Press SEL again.
 wait 2500
 tap SEL
 wait 300
@@ -80,7 +80,7 @@ expect list_open 0
 expect tempo 100
 expect msgtext_is_TEMPO_100_THE_STYLE'S 1
 wait 3000
-cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 to Pop: 105.
+cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 to Pop, and the tempo goes to 105.
 wait 2500
 turn K1 -1
 expect knob1_is_Pop 1

@@ -1,62 +1,61 @@
 # Polly for the M-VAVE FM-1
 
-Polly is a pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70. A style plays a band of eight
-instruments, and the chords you play steer it. Its sounds are the 200 KB General MIDI set from
+Polly is a pocket arranger for the M-VAVE FM-1. It's inspired by the Yamaha QY70. A style plays a band of eight
+instruments, and the chords you play steer it. The sounds come from the General MIDI set of
 [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox). MIDI in plays them too, so Polly also works as a
-General MIDI sound module. It's built on the platform layer of [Felucca](https://github.com/hugelton/Felucca).
-Polly is private for now.
+General MIDI sound module. Polly is built on the platform layer of [Felucca](https://github.com/hugelton/Felucca).
 
-You can try it in the browser at <https://charles.pizza/qy/>. That's an internal test build, and it's
-unlisted.
+Install it, learn it or try it in the browser on [Polly's site](https://charlesvestal.github.io/fm1-polly/).
 
-- [School](docs/course/README.md): ten short lessons, each with a video. Start here.
-- [MANUAL.md](MANUAL.md): the full manual. Its [cheat sheet](MANUAL.md#cheat-sheet) has the words and the
-  common tasks on one page.
+- Start with [School](docs/course/README.md). It has ten short lessons, and each one comes with a video.
+- For all the details, see [MANUAL.md](MANUAL.md). For the words and the common tasks on one page, see its
+  [cheat sheet](MANUAL.md#cheat-sheet).
 
 ## The words
 
-A **song** is a list of **sections**. Each section plays a **progression** (your chords, P1–P16) with a
-**groove** (Groove A or Groove B of the song's **style**), a set number of times. The style's eight
-**instruments** play it: D1, D2, PC, BA and C1–C4. Two **melodies**, M1 and M2, run along the sections.
+A **song** is a list of **sections**. Each section plays a chord **progression** a set number of times. There
+are 16 progressions, P1 to P16. Each **style** has two **grooves**, Groove A and Groove B, and each section plays
+one of them in the song's style. The style's eight **instruments** are D1, D2, PC, BA and C1–C4. Two **melodies**, M1
+and M2, run along the sections.
 
 ## Good to know
 
-**Your grooves and the style.** When you record into a groove (**SEQ**, **REC**), it plays your own copy
-from then on, and the screen shows "(yours)". Turning the Style knob changes only what still plays the
-style, so your copy stays. The groove's pill shows it's yours: "Groove A (yours)". To give a groove back to
-the style, press **SEL** on the Band page and choose BACK TO STYLE. Mutes (**SEQ**, **KNOB 4**) belong to the
-song. A muted instrument is muted in every groove, and muting never makes a copy.
+**Your grooves and the style.** When you record into a groove with **SEQ** and **REC**, Polly makes your own
+copy and plays it from then on. The groove's pill then shows "(yours)", as in "Groove A (yours)". When you turn the Style knob, only
+the grooves that still play the style change, so your copy stays. To give a groove back to the style, press
+**SEL** on the Band page and choose BACK TO STYLE. You set mutes with **KNOB 4** on the Band page, and they
+belong to the song. A muted instrument is muted in every groove, and muting never makes a copy.
 
-**Your QY70 styles.** Polly can play the QY70's 128 preset styles, built from your own QY70 main ROM
-(MAME's `qy70main.bin`). Nothing of Yamaha's is in Polly. In the browser, press **Load QY70 ROM** on the
-emulator's page, and the ROM stays in your browser. On the FM-1, connect it over USB and run
-`python3 tools/qy70_install.py qy70main.bin`. This needs `pip3 install mido python-rtmidi` and takes about
-30 seconds. The QY70 styles then follow Polly's 16 styles on the Style knob, marked "QY".
+**Your QY70 styles.** If you own a QY70, Polly can play its 128 preset styles. Polly builds them from your QY70's
+main ROM, which MAME calls `qy70main.bin`. Nothing of Yamaha's comes with Polly. In the browser, press **Load QY70 ROM** on the
+emulator's page, and the ROM stays in your browser. To put them on the FM-1, connect it with a USB cable and run
+`python3 tools/qy70_install.py qy70main.bin`. The tool needs `pip3 install mido python-rtmidi`,
+and the install takes about 30 seconds. The QY70 styles then follow Polly's 16 styles on the Style knob, marked "QY".
 
 ## The controls
 
 | Control | What it does |
 |---|---|
-| **PLAY** / **REC** | **PLAY** starts and stops. On the Song page, it plays the song from section 1. **REC** records what the keys play on this page: chords, a new progression (on Home, when free), the selected instrument (Band, Sound), a melody (Sound, in a song) or sections (Song). |
-| **SEL** | Shows the page as a list, over the knobs: its values, MORE, and actions such as LOAD PROGRESSION, CLEAR PROGRESSION, PLAY FROM SECTION, INSERT SECTION, CLEAR C1 and BACK TO STYLE. |
-| **HOME**, held | Shows the shortcuts on screen. Add a white key 1–16 for a progression. Add black key 1–5 for the Intro, Groove A, Groove B, a Fill or the Ending, from the next bar. Turn **SELECT** for the tempo, or **PRESETS** for the song. Press **REC** to undo, **PLAY** to redo. |
-| **HOME** | Home. **KNOB 1** is the style, **KNOB 2** the tempo, **KNOB 3** the transpose, and **KNOB 4** the progression ("–" is free: the band follows your chords). Press **HOME** again for the Song page: each section's progression, groove, repeat and mutes. Turn **SELECT** there for Song page 2: a section's transpose, and the song's Intro, Ending and At end. |
-| **ARP** | Progression: its chords, one per beat, by bar, beat, root and type. Page 2 has its length, beats, bass and name. |
-| **SEQ** | Band: the groove's eight instruments. **KNOB 1** is the grid, **KNOB 2** and **KNOB 3** the cursor's bar and beat, **KNOB 4** the mute. Page 2 is Groove length, with the length, beats and name. Press **SEQ** again for Notes, the note editor. |
-| **EDIT** | Sound: the sound (by name), type and range. Page 2 has the high key and channel. A melody has one page, with its sound, channel and velocity. |
-| **LFO** | Mixer: volume, pan and sends. Page 2 is tone: bright and reso. |
-| **FX** | Effects: reverb and chorus. The page shows each instrument's sends. |
-| **ENV** | Style: which style each groove and extra plays, on two pages. **KNOB 4** is the song's style. |
-| **GLO** | Setup: clock, MIDI out, lights, click, and the QY70 bank's state. Page 2 is Status: CPU, voices and version. |
-| **SAVE** | Saves. It's lit while something isn't saved, and Polly also saves by itself at rest. Hold it and press a white key to copy the progression (Home, Progression) or the groove (Band) there. |
-| **SELECT** / **ALGORITHM** | **SELECT** turns the page, or moves up and down in a list. **ALGORITHM** picks the instrument: D1 to C4, then the melodies M1 and M2. |
+| **PLAY** / **REC** | **PLAY** starts and stops. On the Song page, it plays the song from section 1. **REC** records what the keys play on this page. On Home it records a new progression. On Band and Sound it records the selected instrument or melody, and on Song the sections. |
+| **SEL** | Shows the page as a list over the knobs. The list has the page's values and its actions, such as CLEAR PROGRESSION or BACK TO STYLE. |
+| **HOME**, held | While you hold it, the screen shows the shortcuts. Press a white key 1–16 for a progression, or black key 1–5 for the Intro, Groove A, Groove B, a Fill or the Ending, from the next bar. Turn **SELECT** for the tempo, or **PRESETS** for the song. Press **REC** to undo and **PLAY** to redo. |
+| **HOME** | Opens Home. **KNOB 1** is the style, **KNOB 2** the tempo, **KNOB 3** the transpose and **KNOB 4** the progression. With the progression at "–", the band follows the chords you play. Press **HOME** again for the Song page, which lists the sections. Turn **SELECT** there for page 2, with each section's transpose and the song's Intro, Ending and At end. |
+| **ARP** | Opens the Progression page, where you write chords by bar, beat, root and type. Page 2 has the length, beats, bass and name. |
+| **SEQ** | Opens the Band page, which shows the groove's eight instruments. **KNOB 1** is the grid, **KNOB 2** and **KNOB 3** move the cursor by bar and beat, and **KNOB 4** mutes. Page 2 sets the groove's length, beats and name. Press **SEQ** again to edit notes. |
+| **EDIT** | Opens the Sound page, with the sound, type and range. Page 2 has the high key and channel. A melody has one page with its sound, channel and velocity. |
+| **LFO** | Opens the Mixer, with volume, pan and sends. Page 2 sets the tone with Bright and Reso. |
+| **FX** | Opens Effects, with reverb and chorus. The page shows each instrument's sends. |
+| **ENV** | Opens the Style page. It sets which style each groove plays, on two pages. **KNOB 4** is the song's style. |
+| **GLO** | Opens Setup, with the clock, MIDI out, lights, click and QY70 styles. Page 2 shows the CPU load, voices and version. |
+| **SAVE** | Saves. It's lit when something isn't saved, and Polly also saves by itself when it's stopped. On Home or the Progression page, hold it and press a white key to copy the progression there. On the Band page, it copies the groove. |
+| **SELECT** / **ALGORITHM** | **SELECT** turns the page, or moves up and down in a list. **ALGORITHM** picks the instrument, from D1 to C4 and then the melodies M1 and M2. |
 | **OCT−** / **OCT+** | Move the keys an octave. On Progression, they move the cursor. |
 
 The dots over the knobs show which page of a button you're on. The line over the knobs shows where you are,
 such as "S1 › Pop › Groove A › C1 Piano". Hold any button for a second to see what it does there. Each
-colour means one thing: teal is what sounds now, coral is you (the cursor, an edit, REC), slate and amber
-are Groove A and B, plum is the melodies, and ink is everything else. MIDI in (USB and TRS) plays all 16
-channels, and its clock can drive the arranger (Setup).
+colour means one thing. Teal is what sounds now, and coral is what you do. Slate and amber are Groove A and B,
+plum is the melodies, and ink is everything else. MIDI in, over USB or TRS, plays all 16
+channels. On the Setup page, you can let its clock drive the arranger.
 
 ## Building
 
@@ -67,8 +66,8 @@ python3 tools/fm1_install.py build/polly.fwsc --yes
 web/emu/publish.sh                          # the emulator at charles.pizza/qy/ ([QY70_ROM=...] only for its checks)
 ```
 
-Factory styles are text files in `styles/`, compiled by `tools/make_styles.py`. The format is described in
-`styles/README.md`. Their drums are performances from Google Magenta's
+The factory styles are text files in `styles/`, and `tools/make_styles.py` compiles them. `styles/README.md`
+describes the format. Their drums are performances from Google Magenta's
 [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) (Gillick, Roberts, Engel, Eck,
 Bamman; © Google LLC, CC BY 4.0), excerpted and quantised.
 

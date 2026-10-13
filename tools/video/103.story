@@ -44,7 +44,7 @@ expect row_loop1 1
 expect row_loop2 2
 expect row_loop3 1
 expect row_loop4 2
-cap 1. Add sections | Each white key adds a section that plays its progression: P1 Pop, P2 Ballad, P1 Pop, P2 Ballad.
+cap 1. Add sections | Each white key adds a section that plays its progression. You get P1 Pop, P2 Ballad, P1 Pop and P2 Ballad.
 wait 3000
 # ---- 2. remove the last: PROG below P1 ("-"); it goes when the Song page is left (HOME, HOME again)
 cap 2. Remove a section | Turn KNOB 1 (Section) to section 4. Turn KNOB 2 (Prog) down, past P1, to "-".
@@ -58,7 +58,7 @@ still 2-remove
 wait 2000
 cap 2. Remove a section | The row reads "section removed". It goes when you leave the Song page.
 wait 3000
-cap 2. Remove a section | Press HOME twice, for the Home page and back to the Song page. Section 4 is gone.
+cap 2. Remove a section | Press HOME twice to go to the Home page and back to the Song page. Section 4 is gone.
 wait 2500
 tap HOME
 wait 1200
@@ -76,7 +76,7 @@ wait 2500
 turn K1 -2
 expect cursor 2
 wait 1200
-cap 3. Shape a section | Turn KNOB 3 (Groove) to B, the busier groove, and KNOB 4 (Repeat) to x2: it plays twice.
+cap 3. Shape a section | Turn KNOB 3 (Groove) to B for the busier groove, and KNOB 4 (Repeat) to x2 to play it twice.
 wait 2500
 turn K3 3 400
 expect row_sect2 2
@@ -86,7 +86,7 @@ still 2-shape
 expect row_rep2 2
 wait 2500
 # ---- 4. a mute in section 1
-cap 4. Mute the drums | Turn KNOB 1 to section 1. Press black keys 1, 2 and 3: the drums and percussion rest there.
+cap 4. Mute the drums | Turn KNOB 1 to section 1. Press black keys 1, 2 and 3 to mute the drums and percussion there.
 wait 2500
 turn K1 -1
 expect cursor 1
@@ -113,7 +113,7 @@ expect knob4_is_stop 1
 expect song_intro 1
 expect song_ending 1
 wait 2000
-cap 5. Check the Intro and the Ending | KNOB 4 (At end) is on stop: the song stops after the Ending.
+cap 5. Check the Intro and the Ending | KNOB 4 (At end) is on stop, so the song stops after the Ending.
 wait 3000
 # ---- 6. play: Intro (2 bars), 1 (4), 2 (x2: 8), 3 (4), the Ending
 cap 6. Play the song | Press PLAY. The Intro's clock fills at the top.
@@ -127,18 +127,18 @@ at S 1 0
 at S 2 400
 expect row 1
 expect mutes 7
-cap 6. Play the song | Then each section's clock fills as it plays. Section 1: no drums.
+cap 6. Play the song | Then each section's clock fills as it plays. Section 1 plays without drums.
 at S 6 400
 expect row 2
 expect sect 3
 expect mutes 0
-cap 6. Play the song | Section 2: Ballad on Groove B, twice.
+cap 6. Play the song | Section 2 plays Ballad on Groove B, twice.
 at S 9 0
 poster
 still 5-play
 at S 14 400
 expect row 3
-cap 6. Play the song | Section 3: Pop again. Then the Ending, and the song stops.
+cap 6. Play the song | Section 3 plays Pop again. Then the Ending plays, and the song stops.
 at S 18 400
 expect sect 6
 at S 20 300

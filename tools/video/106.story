@@ -23,7 +23,7 @@ wait 3500
 expect tempo 105
 expect song1_style1 33
 # ---- 1. free, Groove A, an instrument
-cap 1. Pick an instrument | Press HOME for the Home page. Turn KNOB 4 (Prog) down, past P1, to "-". The band plays free, outside the song.
+cap 1. Pick an instrument | Press HOME for the Home page. Turn KNOB 4 (Prog) down, past P1, to "-". The band follows your chords, not the song.
 wait 2500
 tap HOME
 wait 900
@@ -61,7 +61,7 @@ still 1-instrument
 wait 2000
 # ---- 2. record: REC at A 3, it starts at A 4 (the groove's bar 1); pass 1 A 4-5, pass 2 A 6-7
 at A 2 1300
-cap 2. Record | Press REC. Groove A becomes your own copy, Groove A (yours). Play from the next bar.
+cap 2. Record | Press REC. Polly makes your own copy and marks it Groove A (yours). Play from the next bar.
 at A 3 900
 tap REC
 expect recording 1
@@ -104,7 +104,7 @@ expect slot1_bars 4
 still 3-length
 wait 2500
 # ---- 4. another style: the question, kept
-cap 4. Change the style | Press HOME and turn KNOB 1 (Style) to Funk. Polly asks: keep Groove A?
+cap 4. Change the style | Press HOME and turn KNOB 1 (Style) to Funk. Polly asks if you want to keep Groove A.
 wait 2500
 tap HOME
 wait 600

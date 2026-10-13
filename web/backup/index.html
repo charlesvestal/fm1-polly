@@ -8,7 +8,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polly Backup</title>
-<meta name="description" content="Back up the songs of an FM-1 running Polly to a file, and put them back, over USB from Chrome or Edge.">
+<meta name="description" content="Save the songs on an FM-1 running Polly to a file, and load them back later. It works in Chrome or Edge.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -54,24 +54,24 @@ kbd { font: 600 .9em "Barlow Semi Condensed", "Barlow", sans-serif; border: 1px 
 <body>
 <main>
 <h1>Back up Polly</h1>
-<p class="lede">Keep Polly's songs in a file on this computer, and put them back later, over the USB cable. In Chrome or
-Edge, with nothing to install.</p>
+<p class="lede">Save Polly's songs to a file on this computer, and load them back later. Connect the FM-1 with a USB
+cable. This page works in Chrome or Edge, and there is nothing to install.</p>
 
 <div class="status" id="statusBox" role="status" aria-live="polite"><p id="status">Plug the FM-1 running Polly into this computer with a USB cable.</p></div>
 <progress id="bar" max="100" value="0" hidden></progress>
 
 <section class="card" aria-labelledby="bh">
   <h2 id="bh">Back up</h2>
-  <p>Saves the four songs with their progressions, the 16 places of memory with your grooves and melodies, and the
-  settings, to a <b>.plb</b> file. Polly can keep playing. Stop it first if you want changes that aren't saved yet in the
+  <p>This saves everything to a <b>.plb</b> file. That includes the four songs and their progressions, your grooves
+  and melodies, and the settings. Polly can keep playing. If you have changes that aren't saved yet, stop Polly first so they go in the
   file too.</p>
   <div class="row"><button id="backup" class="primary" type="button">Back up</button></div>
 </section>
 
 <section class="card" aria-labelledby="rh">
   <h2 id="rh">Restore</h2>
-  <p>Puts a backup back. It <b>replaces everything</b> on Polly. Stop Polly first. Polly checks the whole file before
-  anything changes, then asks on its screen: <b>RESTORE FROM USB?</b> Press <kbd>SEL</kbd> on the FM-1 to restore, or
+  <p>This puts a backup back on Polly, and it <b>replaces everything</b> there. Stop Polly first. Polly checks the
+  whole file before anything changes. Then its screen asks <b>RESTORE FROM USB?</b> Press <kbd>SEL</kbd> on the FM-1 to restore, or
   <kbd>HOME</kbd> to keep what you have.</p>
   <div class="row">
     <label class="pick">Choose a backup&hellip;<input type="file" id="file" accept=".plb"></label>
@@ -81,11 +81,11 @@ Edge, with nothing to install.</p>
 </section>
 
 <ul class="small">
-  <li>A backup doesn't hold the QY70 styles (install them again from your ROM) or the button calibration.</li>
+  <li>A backup doesn't hold the QY70 styles or the button calibration. Install the QY70 styles again from your ROM.</li>
   <li>A cut cable or a damaged file changes nothing. Even a power cut during the write leaves either the old songs or
     the new ones, never a mix.</li>
-  <li>The browser asks once to allow MIDI with SysEx: allow it. Close other apps that use the FM-1's MIDI first.</li>
-  <li>From a terminal, <code>python3 tools/polly_backup.py</code> in Polly's repository does the same, and makes the same files.</li>
+  <li>The browser asks once for permission to use MIDI with SysEx. Allow it, and close other apps that use the FM-1's MIDI first.</li>
+  <li>You can also back up from a terminal. Run <code>python3 tools/polly_backup.py</code> in Polly's repository. It does the same, and makes the same files.</li>
 </ul>
 </main>
 <script>
@@ -260,7 +260,7 @@ const PB = (() => {
       if (!pkt) {
         if (link.lost) throw fail("lost", "The FM-1 was disconnected. Plug it in and press Back up again.");
         if (Date.now() - last > (first ? DELAY.first : DELAY.idle)) {
-          throw fail("stopped", first ? "Polly did not answer. It may be an older Polly without backup: update it on the Install page."
+          throw fail("stopped", first ? "Polly didn't answer. If it's an older Polly without backup, update it on the Install page."
                                       : "Polly stopped sending. Press Back up again.");
         }
         continue;
@@ -278,7 +278,7 @@ const PB = (() => {
         if (status) throw fail("flash", `Polly could not read its memory (status ${status}). Try again.`);
         const image = Uint8Array.from(got);
         if (n !== image.length || crc !== crc32(image)) throw fail("lost", "The backup arrived damaged. Press Back up again.");
-        try { parse(image); } catch (e) { throw fail("lost", `The backup arrived damaged (${e.message}) Press Back up again.`); }
+        try { parse(image); } catch (e) { throw fail("lost", `The backup arrived damaged (${e.message}). Press Back up again.`); }
         return { image, flags };
       }
     }
@@ -296,7 +296,7 @@ const PB = (() => {
         if (link.lost) throw fail("lost", "The FM-1 was disconnected. Nothing changed, unless Polly said RESTORED.");
         if (Date.now() - last > idle) {
           throw fail("stopped", asked ? "Polly stopped asking for the file. Nothing changed."
-                                      : "Polly did not answer. It may be an older Polly without restore: update it on the Install page.");
+                                      : "Polly didn't answer. If it's an older Polly without restore, update it on the Install page.");
         }
         continue;
       }
@@ -392,8 +392,8 @@ $("backup").addEventListener("click", async () => {
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     progress(null);
-    say(`Done. Saved <b>${esc(name)}</b> to your downloads: ${esc(PB.summary(PB.parse(image).objs))}.` +
-        (flags & 1 ? "<br>Polly was playing, so changes it hadn't saved yet are not in it. Stop Polly, then back up again to have them." : ""));
+    say(`Done. <b>${esc(name)}</b> is in your downloads. It holds ${esc(PB.summary(PB.parse(image).objs))}.` +
+        (flags & 1 ? "<br>Polly was playing, so changes it hadn't saved yet aren't in it. To include them, stop Polly and back up again." : ""));
   } catch (e) {
     progress(null);
     say(esc(e.message), "err");
@@ -436,14 +436,14 @@ $("restore").addEventListener("click", async () => {
       if (what === "progress") { say(`Sending the backup: ${Math.floor(pct)}%`); progress(pct); }
       if (what === "ask") {
         progress(100);
-        say("Sent and checked. Now on the FM-1: Polly asks <b>RESTORE FROM USB?</b> Press <kbd>SEL</kbd> to restore, or <kbd>HOME</kbd> to keep what you have.", "ask");
+        say("Sent and checked. Polly now asks <b>RESTORE FROM USB?</b> on the FM-1. Press <kbd>SEL</kbd> to restore, or <kbd>HOME</kbd> to keep what you have.", "ask");
       }
     });
     progress(null);
     if (code === 0) say("Done. Polly restored the backup and reloaded the songs.");
-    else if (code === PB.PLAYING) say("<b>STOP FIRST</b>: Polly is playing. Press <kbd>PLAY</kbd> on the FM-1 to stop it, then press Restore again. Nothing changed.", "err");
-    else if (code === PB.DECLINED) say("Not restored: <kbd>HOME</kbd> was pressed on the FM-1, or nobody answered within a minute. Nothing changed.", "err");
-    else say(`Not restored: a problem with ${esc(PB.ERRORS[code] || "code " + code)}.` + (code === 12 ? "" : " Nothing changed. Try again."), "err");
+    else if (code === PB.PLAYING) say("<b>STOP FIRST.</b> Polly is playing. Press <kbd>PLAY</kbd> on the FM-1 to stop it, then press Restore again. Nothing changed.", "err");
+    else if (code === PB.DECLINED) say("Not restored. Someone pressed <kbd>HOME</kbd> on the FM-1, or nobody answered within a minute. Nothing changed.", "err");
+    else say(`Not restored. There was a problem with ${esc(PB.ERRORS[code] || "code " + code)}.` + (code === 12 ? "" : " Nothing changed. Try again."), "err");
   } catch (e) {
     progress(null);
     say(esc(e.message), "err");

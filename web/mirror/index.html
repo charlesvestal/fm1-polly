@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polly Mirror</title>
-<meta name="description" content="The screen and panel of an FM-1 running Polly, live over USB-MIDI: view and, for testing, control.">
+<meta name="description" content="See the screen and panel of an FM-1 running Polly live on your computer. You can also play the panel from here.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -74,7 +74,7 @@ a { color: var(--accent); }
 <main>
 <header>
   <h1>Polly Mirror</h1>
-  <p>the FM-1's screen and panel, live over USB: view and, for testing, control</p>
+  <p>See the FM-1's screen and panel live on your computer.</p>
 </header>
 
 <div class="bar" role="group" aria-label="Connection">
@@ -90,7 +90,7 @@ a { color: var(--accent); }
   <button id="refresh" type="button" title="Ask for the whole screen again">Refresh</button>
   <button id="png" type="button" title="Save the screen as a PNG">Save PNG</button>
   <button id="control" type="button" aria-pressed="false" disabled
-          title="Play the panel from here: click buttons and keys (held while pressed), scroll over a knob">Control</button>
+          title="Play the panel from here. Click buttons and keys, and they stay pressed while you hold the mouse. Scroll over a knob to turn it.">Control</button>
   <span class="nums" id="nums"></span>
 </div>
 
@@ -107,25 +107,25 @@ a { color: var(--accent); }
     <h2>How</h2>
     <ol>
       <li>Plug the FM-1 running Polly into this computer.</li>
-      <li>Open this page in Chrome or Edge (Web MIDI), press <b>Connect</b> and allow MIDI with SysEx.</li>
-      <li>Polly is picked by itself; else choose its ports (<i>Polly FM-1</i>) above.</li>
+      <li>Open this page in Chrome or Edge. Press <b>Connect</b> and allow MIDI with SysEx.</li>
+      <li>The page finds Polly by itself. If it doesn't, choose <i>Polly FM-1</i> in both lists above.</li>
     </ol>
   </div>
   <div>
     <h2>What you see</h2>
-    <p>Every screen update, as Polly draws it. Buttons and keys light as their LEDs do; the ones held are outlined in teal; a knob
-      turned flashes and shows its detents. Unplugged or asleep, the page waits and picks it up again.</p>
+    <p>The screen updates as Polly draws it. Buttons and keys light up as their LEDs do. Held ones are outlined in teal.
+      A knob you turn flashes and shows its steps. If you unplug the FM-1 or it sleeps, the page waits and reconnects.</p>
   </div>
   <div>
     <h2>Control (for testing)</h2>
-    <p>With <b>Control</b> on, the drawn panel plays the FM-1: press a button or key (held while you hold it), scroll over a
-      knob to turn it. Polly takes it as from its own panel, only while this page mirrors it; Control off, the page closed
-      or the cable out, everything is let go. tools/polly_remote.py does the same from scripts.</p>
+    <p>Turn on <b>Control</b> to play the FM-1 from this page. Click a button or key, and it stays pressed while you hold
+      the mouse. Scroll over a knob to turn it. When you turn Control off, close the page or unplug the cable, Polly lets
+      go of everything. Scripts can do the same with tools/polly_remote.py.</p>
   </div>
   <div>
     <h2>Speed</h2>
-    <p>The screen goes run-length coded over USB-MIDI, after the notes and the clock. A slow moment (a busy host) skips frames,
-      never the picture: Polly sends what you are missing as soon as there is room.</p>
+    <p>Polly sends the screen after the notes and the clock, so the music always comes first. When the computer is busy,
+      the page skips frames, but the picture always catches up.</p>
   </div>
 </section>
 </main>
@@ -366,7 +366,7 @@ const mirror = createMirror({
     heardHello = true;
     if (!h.on) say("Polly stopped mirroring.", "wait");
     controlBtn.disabled = h.version < 2;
-    controlBtn.title = h.version < 2 ? "This Polly mirrors but takes no input: update it" : controlTitle;
+    controlBtn.title = h.version < 2 ? "This Polly mirrors the screen but takes no input. Update it to use Control." : controlTitle;
   },
   remote(r) { remoteAnswer(r); },
   gap() { askRefresh(); },
@@ -439,7 +439,7 @@ function attach() {
   }
   const fresh = o !== outPort;
   outPort = o;
-  if (!inPort || !outPort) { say("Waiting for Polly: plug the FM-1 in, or pick its ports.", "wait"); return; }
+  if (!inPort || !outPort) { say("Waiting for Polly. Plug the FM-1 in, or pick its ports.", "wait"); return; }
   try { localStorage.setItem("polly-mirror-ports", JSON.stringify({ in: inPort.name, out: outPort.name })); } catch {}
   if (fresh) { heardHello = false; lastHeard = performance.now(); mirror.resync(); send(2); say(`Asking ${outPort.name}...`, "wait"); }
 }
@@ -447,11 +447,11 @@ inSel.addEventListener("change", attach);
 outSel.addEventListener("change", () => { outPort = null; attach(); });
 document.getElementById("refresh").addEventListener("click", () => { lastAsk = 0; askRefresh(); });
 async function connect() {
-  if (!navigator.requestMIDIAccess) { say("This browser has no Web MIDI: use Chrome or Edge.", "err"); return; }
+  if (!navigator.requestMIDIAccess) { say("This browser has no Web MIDI. Use Chrome or Edge.", "err"); return; }
   try {
     access = await navigator.requestMIDIAccess({ sysex: true });
   } catch (e) {
-    say("MIDI was not allowed: press Connect again and allow MIDI with SysEx.", "err");
+    say("MIDI wasn't allowed. Press Connect again and allow MIDI with SysEx.", "err");
     return;
   }
   connectBtn.hidden = true;
@@ -486,7 +486,7 @@ function rpump() {
 }
 function rtry() {
   if (!rbusy) return;
-  if (rbusy.tries++ >= 5) { rbusy = null; rq = []; say("Polly does not take the panel input.", "err"); return; }
+  if (rbusy.tries++ >= 5) { rbusy = null; rq = []; say("Polly doesn't take input from the panel here.", "err"); return; }
   try { outPort?.send(rbusy.msg); } catch { /* the port went away */ }
   rbusy.t = setTimeout(rtry, 300);                   // (the same seq again: Polly does it once)
 }
@@ -494,7 +494,7 @@ function remoteAnswer(r) {
   if (!rbusy || r.seq !== rbusy.seq) return;
   clearTimeout(rbusy.t);
   rbusy = null;
-  if (!r.ok) { rq = []; say("Polly refused the input (mirroring off?).", "wait"); return; }
+  if (!r.ok) { rq = []; say("Polly refused the input. Is mirroring off?", "wait"); return; }
   rpump();
 }
 function setControl(on) {
@@ -540,7 +540,7 @@ let lastBytes = 0, lastPainted = 0;
 setInterval(() => {
   if (!outPort) return;
   const quiet = performance.now() - lastHeard;
-  if (quiet > 4000) { heardHello = false; mirror.resync(); send(2); say("No answer: is Polly running? Asking again...", "wait"); }
+  if (quiet > 4000) { heardHello = false; mirror.resync(); send(2); say("No answer. Is Polly running? Asking again...", "wait"); }
   else { send(1); if (heardHello) say(`Mirroring ${inPort ? inPort.name : ""}.`, "on"); }
 }, 2000);
 setInterval(() => {

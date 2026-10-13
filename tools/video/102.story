@@ -48,7 +48,7 @@ expect loop_ch9_0 916
 expect loop_ch9_4 500
 expect loop_ch9_8 0
 expect loop_ch9_12 700
-cap 1. Record a progression | Press REC again. Your chords become P9, the first empty progression, and the band loops them.
+cap 1. Record a progression | Press REC again. P9 is the first empty progression, so your chords go there. The band loops them.
 at A 7 1500
 # ---- 2. fix the chord on bar 4: G to E7
 cap 2. Fix a chord | Press ARP for the Progression page. Turn KNOB 1 (Bar) to bar 4.
@@ -97,7 +97,7 @@ still 4-name
 expect loop_name9 Verse
 wait 3000
 # ---- 5. from anywhere: P1, then P9 again
-cap 5. Switch progressions | Hold HOME and press white key 1. P1, the first ready-made progression, plays from the next bar.
+cap 5. Switch progressions | Hold HOME and press white key 1. From the next bar, the band plays the ready-made P1.
 at A 24 200
 press HOME
 wait 300
