@@ -14,6 +14,9 @@ the host counts it: tap 80 ms, press / release / key 2, tapkey 90, spin 1, turn 
   still NAME                  a still of the frame a moment from here (the screen and the panel), with --stills DIR:
                               DIR/NAME.jpg, for a lesson's step
   poster                      the thumbnail's frame (else the middle), with --poster FILE: a title card over it
+  card TITLE | LINE | LINE    a full-frame title card from here (the sound plays on), fading in; "card -" fades it
+                              out. Several | lines: the lines under the title
+  look announce               an announcement, not a lesson: no clock, no step numbers on the captions
 
   python3 tools/polly_video.py STORY OUT.mp4 [--stills DIR] [--poster FILE.jpg]
   barms MS                    a bar's length (the tempo), for `at`
@@ -160,6 +163,12 @@ class Expander:
         elif c == "head":                   # (the whole video's: kept while hidden, but not from an include)
             if not self.inc:
                 self.events.append([0, "head", s[5:].strip(), 0])
+        elif c == "card":
+            parts = [p.strip() for p in s[5:].split("|")]
+            self.ev("card", parts[0], parts[1:])
+        elif c == "look":
+            if not self.inc:
+                self.events.append([0, "look", w[1], 0])
         elif c == "still":
             self.ev("still", w[1])
         elif c == "poster":
@@ -415,6 +424,8 @@ def render(work, events, leds, step, nframes):
     f_small = font(AV, 22, 5)
     f_step = font(AV, 26, 2)
     caps = [e for e in events if e[1] == "cap"]
+    cards = [e for e in events if e[1] == "card"]
+    announce = any(e[1] == "look" and e[2] == "announce" for e in events)
     head = next((e[2] for e in events if e[1] == "head"), "a song from scratch, on the FM-1")
     steps = [c for c in caps if re.match(r"^\d+\.", c[2])]
     nsteps = len({re.match(r"^(\d+)\.", c[2]).group(1) for c in steps})
@@ -464,8 +475,9 @@ def render(work, events, leds, step, nframes):
         d.text((60, 62), "Polly", font=f_brand, fill=CORAL, anchor="ls")
         d.text((60 + d.textlength("Polly", font=f_brand) + 14, 62), head,
                font=f_detail, fill=MUTED, anchor="ls")
-        mm, ss = divmod(int(T / 1000), 60)
-        d.text((W - 60, 62), f"{mm}:{ss:02d}", font=f_detail, fill=MUTED, anchor="rs")
+        if not announce:
+            mm, ss = divmod(int(T / 1000), 60)
+            d.text((W - 60, 62), f"{mm}:{ss:02d}", font=f_detail, fill=MUTED, anchor="rs")
         # the screen 3x, crisp, in a bezel
         d.rounded_rectangle([44, 134, 44 + 752, 134 + 752], radius=22, fill=(17, 18, 20))
         img.paste(scr.resize((720, 720), Image.NEAREST), (60, 150))
@@ -478,7 +490,7 @@ def render(work, events, leds, step, nframes):
         d.rounded_rectangle([820, cy, W - 60, 1040], radius=18, fill=CARD, outline=RULE, width=2)
         if cap:
             title, detail = cap[-1][2], cap[-1][3]
-            m = re.match(r"^(\d+)\.\s*(.*)$", title)
+            m = None if announce else re.match(r"^(\d+)\.\s*(.*)$", title)
             x = 852
             if m:
                 lab = f"{m.group(1)} / {nsteps}"
@@ -492,9 +504,64 @@ def render(work, events, leds, step, nframes):
             for ln in wrap(d, detail, f_detail, W - 60 - 852 - 30)[:2]:
                 d.text((852, yy), ln, font=f_detail, fill=MUTED, anchor="ls")
                 yy += 40
+        a = card_alpha(cards, T)
+        if a > 0:
+            img = Image.blend(img, card_image(card_at(cards, T)), a)
         img.save(os.path.join(work, f"v{n:05d}.png"), compress_level=1)
         if n % 100 == 0:
             print(f"  frame {n}/{nframes}", flush=True)
+
+
+CARD_FADE = 450
+
+
+def card_at(cards, t):
+    """the card showing at t, or the one just faded out (for its fade)"""
+    past = [c for c in cards if c[0] <= t]
+    if not past:
+        return None
+    if past[-1][2] == "-":
+        shown = [c for c in past if c[2] != "-"]
+        return shown[-1] if shown else None
+    return past[-1]
+
+
+def card_alpha(cards, t):
+    past = [c for c in cards if c[0] <= t]
+    if not past:
+        return 0.0
+    last = past[-1]
+    age = t - last[0]
+    prev_on = len(past) > 1 and past[-2][2] != "-"
+    if last[2] == "-":
+        return max(0.0, 1 - age / CARD_FADE) if prev_on else 0.0
+    if last[0] == 0 or prev_on:
+        return 1.0
+    return min(1.0, age / CARD_FADE)
+
+
+_card_cache = {}
+
+
+def card_image(c):
+    key = (c[2], tuple(c[3]))
+    if key in _card_cache:
+        return _card_cache[key]
+    im = Image.new("RGB", (W, H), CREAM)
+    d = ImageDraw.Draw(im)
+    f_big, f_title, f_line = font(AV, 150, 2), font(AV, 64, 2), font(AV, 40, 5)
+    lines = [ln for ln in c[3] if ln]
+    y = H // 2 - 60 - 30 * len(lines)
+    d.text((W // 2, y), "Polly", font=f_big, fill=CORAL, anchor="ms")
+    if c[2]:
+        y += 110
+        d.text((W // 2, y), c[2], font=f_title, fill=INK, anchor="ms")
+    y += 30
+    for ln in lines:
+        y += 62
+        d.text((W // 2, y), ln, font=f_line, fill=MUTED, anchor="ms")
+    _card_cache[key] = im
+    return im
 
 
 def frame_at(work, t, step, nframes):
