@@ -557,9 +557,14 @@ def card_image(c):
         y += 110
         d.text((W // 2, y), c[2], font=f_title, fill=INK, anchor="ms")
     y += 30
+    bullets = lines and all(ln.startswith("• ") for ln in lines)   # a list: left-aligned, the block centred
+    x0 = (W - max(d.textlength(ln, font=f_line) for ln in lines)) // 2 if bullets else 0
     for ln in lines:
         y += 62
-        d.text((W // 2, y), ln, font=f_line, fill=MUTED, anchor="ms")
+        if bullets:
+            d.text((x0, y), ln, font=f_line, fill=MUTED, anchor="ls")
+        else:
+            d.text((W // 2, y), ln, font=f_line, fill=MUTED, anchor="ms")
     _card_cache[key] = im
     return im
 

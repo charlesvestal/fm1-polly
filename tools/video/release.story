@@ -33,9 +33,9 @@ wait 900
 key 4 up
 key 7 up
 key 11 up
+card -
 at A 1 -60
 chord 1900 0 4 7
-card -
 cap Play a chord, and the band follows it | Hold three keys or more. Eight instruments play along: drums, percussion, bass, guitars, keys and pads.
 at A 2 -60
 chord 1900 7 11 14
@@ -137,7 +137,9 @@ wait 2500
 tapkey b4
 wait 1000
 release HOME
-wait 9000
+at S 19 1000
+card And more | • Make your own grooves | • Save up to four songs | • Back up your songs from the browser | • Play from a MIDI keyboard, or send MIDI to your computer | • Mirror the screen on your computer | • Play the QY70's styles from your own ROM
+at S 21 300
 expect playing 0
-card charlesvestal.github.io/fm1-polly | Visit the site for the installation, manual, and tips and lessons on how to get started
-wait 6000
+card charlesvestal.github.io/fm1-polly | Visit the site for installation, manual, and tips and lessons on how to get started
+wait 3000
