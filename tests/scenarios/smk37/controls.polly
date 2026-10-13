@@ -12,8 +12,8 @@ pad 8
 expect mode 1
 expect app_loop 1
 expect padb8 >200
-expect padb9 <40
-expect padb15 >0
+expect padb9 >60
+expect padb9 <120
 expect padb7 >200
 pads
 # the top row: Groove B (black key 3), then PLAY: Groove B plays, its pad bright light green
@@ -43,9 +43,9 @@ pad 7
 expect half 1
 expect padg7 >200
 expect padb7 <10
-# the yellow half's empty progressions: dim yellow, not dark
+# the yellow half's empty progressions: pale yellow, not dark
 expect padr15 >40
-expect padg15 >40
+expect padr15 <100
 # a re-trigger within 180 ms (a wobble while held): ignored; held long: one switch
 pad 7 20
 pad 7

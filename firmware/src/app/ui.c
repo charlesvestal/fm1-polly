@@ -4128,9 +4128,10 @@ static void do_undo(int redo);
  *                                 P9-P16: blue / yellow)
  *                    bottom row   eight progressions, P1-P8 or P9-P16 (white keys 1-16): what a white key does as a
  *                                 shortcut (HOME held, or on the Song page; SAVE held: copy there)
- *                  lit: the sections and FOLLOW light green, the progressions in their half's colour; dim, bright
- *                  what plays (stopped: where PLAY starts). A change waiting for the bar line: the pad playing blinks,
- *                  the one coming is orange. Empty progressions dim too
+ *                  lit: the sections and FOLLOW light green (dim, bright what plays; stopped: where PLAY starts); the
+ *                  progressions in their half's colour at three levels: pale empty, brighter with chords, brightest
+ *                  playing (or where PLAY starts). A change waiting for the bar line: the pad playing blinks, the one
+ *                  coming is orange
  *   KNOB BANK      the pads' map on the screen (HOME held's screen), pinned; again: away
  *   FADER BANK     what the four faders set: A the volumes of D1 D2 PC BA, B of C1 C2 C3 C4, C of M1 and M2 and the
  *                  Effects' reverb and chorus levels (as the Mixer's and Effects' knobs). A fader takes over once it
@@ -4341,9 +4342,11 @@ static void smk_rgb(int p, uint32_t c)
 #define SMK_GREEN SMK_RGB(70, 200, 70)
 #define SMK_GREEN_D SMK_RGB(6, 20, 6)
 #define SMK_BLUE SMK_RGB(40, 70, 220)
-#define SMK_BLUE_D SMK_RGB(4, 8, 24)
+#define SMK_BLUE_D SMK_RGB(16, 28, 90)            /* (a progression with chords) */
+#define SMK_BLUE_P SMK_RGB(5, 10, 30)             /* (an empty one: pale) */
 #define SMK_YELLOW SMK_RGB(255, 210, 0)
-#define SMK_YELLOW_D SMK_RGB(70, 56, 0)
+#define SMK_YELLOW_D SMK_RGB(140, 115, 0)
+#define SMK_YELLOW_P SMK_RGB(60, 48, 0)
 #define SMK_ORANGE SMK_RGB(200, 100, 30)
 #define SMK_BLINK_MS 250u
 static uint32_t smk_shade(int ring, int waiting, uint32_t on, uint32_t dim)
@@ -4358,6 +4361,7 @@ static void smk_pads(void)
 {
     int p, r[16], ws = 0, wp = 0;
     uint32_t on = smk.half ? SMK_YELLOW : SMK_BLUE, dim = smk.half ? SMK_YELLOW_D : SMK_BLUE_D;
+    uint32_t pale = smk.half ? SMK_YELLOW_P : SMK_BLUE_P;
     for (p = 0; p < 5; p++)
         ws |= (r[p] = held_sect_ring(SMK_SECT[p])) == 2;
     for (p = 0; p < ARR_LOOPS; p++)
@@ -4369,7 +4373,7 @@ static void smk_pads(void)
     smk_rgb(SMK_PAD_HALF, on);
     for (p = 8; p < 16; p++) {
         int w = smk.half * 8 + p - 8, rr = held_ring(w);
-        smk_rgb(p, smk_shade(rr, wp, on, dim));      /* (an empty one too: the half is always seen) */
+        smk_rgb(p, smk_shade(rr, wp, on, sloops.loop[w].bars ? dim : pale));   /* (empty: pale, the half seen) */
     }
 }
 #endif
