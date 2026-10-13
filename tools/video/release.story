@@ -2,7 +2,7 @@
 # does, from Polly itself, and where to get it. Hidden first: song.story, the demo song (two progressions, four
 # sections, a melody), so the second half can play it. Keys (octave 0): Am 4 7 11, F 0 4 7, C 7 11 14, G 2 6 9.
 look announce
-head 0.3 · a pocket arranger for the M-VAVE FM-1
+head 0.4 · a pocket arranger for the M-VAVE FM-1
 hide
 include song.story
 # Home, the tempo the song's own (picking a style then keeps 105, so the bars stay put)
@@ -18,7 +18,7 @@ expect mode 0
 expect tempo 105
 show
 barms 2285.714
-card Version 0.3 | A pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70 | Free firmware, GPL-3.0
+card Version 0.4 | A pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70 | Free firmware, GPL-3.0
 # ---- the band starts under the title, following the chords played (each a moment before its bar line)
 wait 1200
 key 4 down
