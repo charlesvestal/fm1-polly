@@ -99,10 +99,27 @@ if [ -f build/polly.fwsc ]; then
         $CC -o $OUT/ldr_test tests/ldr_test.c && $OUT/ldr_test $OUT/old.fwsc build/polly.fwsc"
     fi
     run installer python3 tests/install_test.py
+    # The SMK-37 build (BOARD_SMK37): the flash map and the store's owner, the package layout, the update's staging and
+    # the loader's windows, on SMK-layout packages made here from the FM-1 binaries (layout and protocol under test)
+    run smk37-flash sh -c "$CC -O2 -Wall -DBOARD_SMK37=1 -Ifirmware/hal -Ifirmware/src -o $OUT/smk_flash_test tests/smk_flash_test.c &&         $OUT/smk_flash_test"
+    if [ -z "${AC79_SDK:-}" ]; then
+        echo "  skip smk37 package / update path (needs AC79_SDK, as the build)"
+    else
+    run smk37-package sh -c "python3 tools/fm1pkg_make.py --board smk37 build/polly.bin build/loader/ota.bin         $OUT/smk_new.fwsc >/dev/null && python3 tests/smk_pkg_test.py $OUT/smk_new.fwsc"
+    run smk37-ota-entry sh -c "$CC -DBOARD_SMK37=1 -o $OUT/ota_test_smk tests/ota_test.c && $OUT/ota_test_smk $OUT/smk_new.fwsc"
+    for m in 1 2; do                     # the MODEL=elite / mke builds of ota.c
+        run smk37-ota-entry-model$m sh -c "$CC -DBOARD_SMK37=1 -DT_MODEL=$m -o $OUT/ota_test_smk_m$m tests/ota_test.c &&             $OUT/ota_test_smk_m$m $OUT/smk_new.fwsc"
+    done
+    [ -f build/polly-smk37.fwsc ] && run smk37-build-package python3 tests/smk_pkg_test.py build/polly-smk37.fwsc "SMK-37 Pro_300"
+    [ -f build/polly-smk37-elite.fwsc ] && run smk37-build-package-elite python3 tests/smk_pkg_test.py build/polly-smk37-elite.fwsc "SMK-37 Elite_300"
+    [ -f build/polly-smk37-mke.fwsc ] && run smk37-build-package-mke python3 tests/smk_pkg_test.py build/polly-smk37-mke.fwsc "MKE-P37_300"
+    run smk37-update-loader sh -c "head -c 100000 build/polly.bin > $OUT/old_app.bin &&         python3 tools/fm1pkg_make.py --board smk37 $OUT/old_app.bin build/loader/ota.bin $OUT/smk_old.fwsc >/dev/null &&         $CC -DBOARD_SMK37=1 -o $OUT/ldr_test_smk tests/ldr_test.c && $OUT/ldr_test_smk $OUT/smk_old.fwsc $OUT/smk_new.fwsc"
+    fi
 else
     echo "  skip update-path tests (no build/polly.fwsc: run ./build.sh)"
 fi
 run host-build sh host/build_host.sh
+command -v node >/dev/null 2>&1 && run web-installer node web/test_web.mjs   # fm1ota.js / fm1pkg.js against a simulated device
 # the remote (firmware/src/mirror.c cmd 0x54) and tools/polly_remote.py against the simulator on a simulated cable
 # (polly_host --serve): the screen as mirrored, taps, keys, turns, MASTER into the UI, let go on stop and on silence,
 # refused while off, an older Polly, a whole scenario (style_pick.polly) run through the remote; a test session
@@ -118,6 +135,14 @@ for s in tests/scenarios/*.polly; do
     n=$(basename "$s" .polly)
     mkdir -p "build/scenarios/$n"
     run "scenario-$n" build/host/polly_host "$s" "build/scenarios/$n"
+done
+# the SMK-37 build's UI in the simulator: its pads, outer keys, faders, wheels and extra buttons
+run host-build-smk37 sh host/build_host.sh smk37
+for s in tests/scenarios/smk37/*.polly; do
+    [ -f "$s" ] || continue
+    n=$(basename "$s" .polly)
+    mkdir -p "build/scenarios/smk37-$n"
+    run "scenario-smk37-$n" build/host/polly_host_smk37 "$s" "build/scenarios/smk37-$n"
 done
 # the screen mirrored over USB (firmware/src/mirror.c): its pixel code on the simulator's screens (the mirror
 # scenario's dumps: the bytes each takes), rows not sent twice, a full ring (drops, redraws until whole), a refresh,

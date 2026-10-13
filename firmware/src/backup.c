@@ -65,7 +65,11 @@
 #define BU_CHUNK 128u                                 /* a backup frame's data */
 #define BU_STALL_MS 2000u                             /* no frame out for this long: the backup given up */
 #define BU_MAXIMG (BU_HEAD + BU_NOBJ * (BU_REC + ST_PAYLOAD_MAX) + 4u)
+#if defined(BOARD_SMK37) && BOARD_SMK37
+#define RS_REC 0x000BC000u                            /* the SMK-37 build: its staging area's 2nd sector (ota.c) */
+#else
 #define RS_REC 0x000E1000u                            /* the journal record: the update's staging area's 2nd sector */
+#endif
 #define RS_REC_MAGIC 0x31534C50u                      /* "PLS1" */
 enum { RS_E_SIZE = 1, RS_E_FETCH, RS_E_HEAD, RS_E_OBJ, RS_E_CRC, RS_E_TOTAL, RS_E_ERASE, RS_E_PROG, RS_E_VERIFY,
        RS_E_PLAYING, RS_E_NO, RS_E_COMMIT };

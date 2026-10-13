@@ -69,6 +69,11 @@ static int bank_rx(uint32_t len, uint32_t crc, int *begun_out)
 {
     uint32_t n, used, i, l, c_img = 0, c_rx = 0, c_fl = 0, nsect;
     int rc = 0, begun = 0;
+#if BOARD_SMK37
+    (void)n; (void)used; (void)i; (void)l; (void)c_img; (void)c_rx; (void)c_fl; (void)nsect; (void)crc; (void)len;
+    rc = BK_E_SIZE;                                   /* the SMK-37 build has no room for a bank (main.c) */
+    goto out;
+#endif
     if (len <= QB_SECTOR || len > QB_SECTOR + QB_CAPACITY) {
         rc = BK_E_SIZE;
         goto out;

@@ -27,7 +27,8 @@
  *                   to Pn; Band: the groove to memory n)                OCT- / OCT+   the keys' octave (Progression: the cursor)
  *   SELECT          the button's next / previous page      ALGORITHM   the instrument (D1..C4, the melodies M1, M2)
  *   PRESETS         per page
- * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger. */
+ * MIDI in (USB, TRS) plays all 16 channels; its clock drives the arranger.
+ * The SMK-37 build (BOARD_SMK37): the same, and the SMK-37's own controls (below, "SMK-37"). */
 #include "journal.c"                            /* undo and redo (HOME + REC, HOME + PLAY) */
 static void ne_key(int note);                   /* Notes, the note editor (editor.c, included below) */
 static void ne_key_up(void);
@@ -127,7 +128,11 @@ static int ordinal(const uint8_t *t, int n, int k)
 }
 static int key_note(int k)
 {
+#if BOARD_SMK37                                  /* (the SMK-37's outer keys: 27..31 C3..E3, 32..36 G#5..C6) */
+    int n = (k < NKEYS ? 53 + k : k < NKEYS + 5 ? 48 + k - NKEYS : 80 + k - NKEYS - 5) + 12 * proj.oct;
+#else
     int n = 53 + k + 12 * proj.oct;
+#endif
     return n < 0 ? 0 : n > 127 ? 127 : n;
 }
 
@@ -1186,9 +1191,9 @@ static void chord_played(const uint8_t *n, int cnt)
  * all up after a chord written at the cursor: it moves on a step */
 static void chord_keys(void)
 {
-    uint8_t n[NKEYS];
+    uint8_t n[NKEYS_UI];
     int c = 0;
-    for (int i = 0; i < NKEYS; i++)
+    for (int i = 0; i < NKEYS_UI; i++)
         if (ui.kmode[i] == KM_CHORD)
             n[c++] = ui.knote[i];
     if (c < ui.cheld && ui.centry >= 0)
@@ -1393,12 +1398,12 @@ static void chord_sound(int k, int on)
             gm_midi(0xC0u | ch, t->program & 127u, 0);
             gm_midi(0xB0u | ch, 7, t->vol & 127u);
         }
-        ui.ksound |= 1u << k;
+        ui.ksound |= (kbits_t)1 << k;
         ui.ksound_ch[k] = (uint8_t)ch;
         ui.ksound_note[k] = (uint8_t)clampi(ui.knote[k] + xpose_now(), 0, 127);   /* transposed, as everything */
         gm_midi(0x90u | ch, ui.ksound_note[k], 90);
     } else if (ui.ksound >> k & 1u) {
-        ui.ksound &= ~(1u << k);
+        ui.ksound &= ~((kbits_t)1 << k);
         gm_midi(0x80u | ui.ksound_ch[k], ui.ksound_note[k], 0);
     }
 }
@@ -1462,6 +1467,12 @@ static void preview_poll(void)
     ui.pv_t = now ? now : 1u;
 }
 static void song_key(int k);
+#if BOARD_SMK37
+static int smk_key_vel(int k);
+#define KEY_VEL(k) smk_key_vel(k)                /* the SMK-37's keys: their velocity (the factory curves) */
+#else
+#define KEY_VEL(k) 100
+#endif
 static void key_down(int k)
 {
     int r = key_role(), b = ordinal(BLACK_K, 11, k);
@@ -1484,7 +1495,7 @@ static void key_down(int k)
         chord_keys();
     } else if (r == KR_TRACK) {
         ui.kmode[k] = KM_PLAY;
-        arr_key(ui.knote[k], 1, app.lead ? clampi(sel_lead()->vel, 1, 127) : 100);   /* the selected track's sound;
+        arr_key(ui.knote[k], 1, app.lead ? clampi(sel_lead()->vel, 1, 127) : KEY_VEL(k));   /* the selected track's sound;
                                                  * recorded when recording (a lead: its VELOCITY) */
         if (ui.page == P_NOTES && !arr_recording && !ui.rec_want)
             ne_key(ui.knote[k]);                 /* Notes: at an empty place, entered */
@@ -4105,6 +4116,268 @@ static void midi_in(void)
 
 #include "editor.c"                             /* Notes, the note editor */
 static void do_undo(int redo);
+#if BOARD_SMK37
+/* ------------------------------------------------------------- SMK-37 --- */
+/* The M-Vave SMK-37's controls beyond the FM-1's (plat.h SMK section). The FM-1's keep their Polly meaning, HOME held +
+ * a key included, so the manual applies; the screens keep the FM-1's button names (SMK37.md translates).
+ *   keys           all 37: the middle 27 are the FM-1's (F3..G5), the outer ten (C3..E3, G#5..C6) play as they do,
+ *                  in chords and notes alike; the instruments' notes with the keys' velocity
+ *   pads           the keybed's shortcuts (HOME held + a key) without HOME, laid out as HOME held shows them:
+ *                    top row      Intro, Groove A, Groove B, Fill, Ending (black keys 1-5), FOLLOW (no progression: the
+ *                                 band follows your chords, as KNOB 4 at "follow"), -, the bottom row's half (P1-P8 /
+ *                                 P9-P16: blue / yellow)
+ *                    bottom row   eight progressions, P1-P8 or P9-P16 (white keys 1-16): what a white key does as a
+ *                                 shortcut (HOME held, or on the Song page; SAVE held: copy there)
+ *                  lit: the sections and FOLLOW light green (dim, bright what plays; stopped: where PLAY starts); the
+ *                  progressions in their half's colour at three levels: pale empty, brighter with chords, brightest
+ *                  playing (or where PLAY starts). A change waiting for the bar line: the pad playing blinks, the one
+ *                  coming is orange
+ *   KNOB BANK      the pads' map on the screen (HOME held's screen), pinned; again: away
+ *   FADER BANK     what the four faders set: A the volumes of D1 D2 PC BA, B of C1 C2 C3 C4, C of M1 and M2 and the
+ *                  Effects' reverb and chorus levels (as the Mixer's and Effects' knobs). A fader takes over once it
+ *                  moves; the header says what it set. Closes the map (one bank mode at a time)
+ *   < >            SELECT one step back / on (the pages, a list's rows, Notes' notes; never the tempo)
+ *   pitch wheel    pitch bend, +-2 semitones, on every channel but the drums', at once
+ *   mod wheel      vibrato (the GM modulation, CC 1), on every channel but the drums'
+ * The wheels change nothing saved. */
+#define SMK_NBANK 3
+static const char *const SMK_BANK_NAME[SMK_NBANK] = {"FADERS A", "FADERS B", "FADERS C"};
+static const char *const SMK_BANK_WHAT[SMK_NBANK] = {"D1 D2 PC BA", "C1 C2 C3 C4", "M1 M2 REV CHO"};
+static struct {
+    uint32_t sbtn;                     /* the four extra buttons held (SB_*) */
+    uint32_t okeys;                    /* the outer keys held: bit i = UI key NKEYS + i */
+    uint8_t half;                      /* the bottom row's progressions: 0 P1-P8, 1 P9-P16 */
+    uint32_t half_t;                   /* its pad last switched or seen held (a press within SMK_HALF_MS: none) */
+    uint8_t fbank;                     /* the fader bank, 0..2 */
+    uint8_t flast[4];                  /* each fader's last value, 0xFF: not read yet (takes over once it moves) */
+    int32_t pitch, modw;               /* the wheels: pitch -127..127 (0 at rest), mod 0..127 */
+    uint32_t wheel_t;                  /* the wheels' values last sent (sent again while away from rest) */
+    uint8_t wheel_due;                 /* moved since: to send (at most every SMK_WHEEL_MS) */
+} smk;
+static void smk_reset(void)
+{
+    memset(&smk, 0, sizeof smk);
+    memset(smk.flast, 0xFF, sizeof smk.flast);
+    smk.half = (uint8_t)(app.loop >= 8);
+    smk_map = 0;
+}
+
+/* a UI key's keybed key (0 = C3): the middle 27 are keybed 5..31, the outer ten 0..4 and 32..36 */
+static int smk_kb_of(int k) { return k < NKEYS ? k + 5 : k < NKEYS + 5 ? k - NKEYS : k - NKEYS - 5 + 32; }
+static int smk_key_vel(int k) { return plat_key_vel(smk_kb_of(k)); }
+
+static const uint8_t SMK_SECT[5] = {SEC_INTRO, SEC_A, SEC_B, SEC_FILL, SEC_END};
+enum { SMK_PAD_FOLLOW = 5, SMK_PAD_HALF = 7 };  /* (top-row pads 0..4: the sections; pad 6 free) */
+/* the half pad toggles: a pressure wobble while it is held can read as a release and a new press, so a press counts
+ * only SMK_HALF_MS after the last switch and after the pad was last seen held */
+#define SMK_HALF_MS 180u
+/* a pad: what its key does as a shortcut. Sections: HOME held + black key 1-5. Progressions: a white key as a function,
+ * as key_down takes it (HOME held: the shortcut; SAVE held: copy; the Song page: a section; else the shortcut) */
+static void smk_pad(int p)
+{
+    if (ui.ask)
+        return;                                  /* a question: SEL yes, HOME no (as the keys) */
+    ui.card = 0;
+    ui.btn_used |= ui.btn;                       /* a pad with a button held: the combination (its release: nothing) */
+    ui.act_t = plat_ms();
+    if (p < 5)
+        home_key(BLACK_K[p]);
+    else if (p == SMK_PAD_FOLLOW) {
+        if (app.mode != ARR_FREE)
+            mode_set(ARR_FREE);
+        say("FOLLOW", "no progression");
+    } else if (p == SMK_PAD_HALF) {
+        smk.half = (uint8_t)!smk.half;
+        say("PADS", smk.half ? "P9-P16" : "P1-P8");
+    } else {
+        int w = smk.half * 8 + p - 8;
+        if (ui.btn >> B_HOME & 1u)
+            home_key(WHITE_K[w]);
+        else if (ui.btn >> B_SAVE & 1u) {
+            if (!song_page())
+                copy_to(w);
+        } else if (song_page())
+            song_key(WHITE_K[w]);
+        else
+            home_key(WHITE_K[w]);
+    }
+}
+/* SELECT one step, as the encoder turns (HOME held aside: never the tempo) */
+static void smk_select(int d)
+{
+    if (ui.ask)
+        return;
+    if (lst.open)
+        list_move(d);
+    else if (ui.page == P_NOTES)
+        ne_select(d);
+    else
+        page_turn(d);
+}
+/* fader i (bank smk.fbank) to v 0..127: the Mixer's VOLUME of its instrument, or the Effects' levels */
+static void smk_fader(int i, int v)
+{
+    static const uint8_t TRK[SMK_NBANK][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}, {ARR_LD1, ARR_LD1 + 1, 0xFE, 0xFF}};
+    int t = TRK[smk.fbank][i];
+    char a[16], b[8];
+    itoa_u((uint32_t)v, b);
+    if (t == 0xFE || t == 0xFF) {                /* the reverb, the chorus: the Effects' levels */
+        uint8_t *lv = t == 0xFE ? &proj.rev_level : &proj.cho_level;
+        if (*lv != (uint8_t)v) {
+            *lv = (uint8_t)v;
+            fx_apply();
+            mark_dirty();
+        }
+        say(t == 0xFE ? "REVERB LEVEL" : "CHORUS LEVEL", b);
+        return;
+    }
+    if (t >= ARR_TRACKS)                         /* a melody: the song's */
+        lsnd_set(&csong()->lead[(t - ARR_TRACKS) % ARR_LEADS].vol, v, 0, 127);
+    else
+        trk_set(&app.trk[eslot()][t].vol, v, 0, 127);   /* the groove playing's, as the Mixer */
+    cat_s(cat_s(a, TRACK_NAME[t]), " VOLUME");
+    say(a, b);
+}
+/* the wheels to every channel but the drums': pitch bend (+-2 semitones, EAS's default range) and CC 1; 30 messages, at
+ * most every SMK_WHEEL_MS (the synth's queue holds 256) */
+#define SMK_WHEEL_MS 10u
+static void smk_wheels_send(void)
+{
+    uint32_t ch, bend = (uint32_t)clampi(8192 + smk.pitch * 8191 / 127, 0, 16383);
+    for (ch = 0; ch < 16u; ch++)
+        if (ch != 9u) {
+            gm_midi(0xE0u | ch, bend & 127u, bend >> 7);
+            gm_midi(0xB0u | ch, 1, (uint32_t)smk.modw);
+        }
+    smk.wheel_t = plat_ms();
+    smk.wheel_due = 0;
+}
+static void smk_input(void)
+{
+    uint32_t sb = plat_smk_buttons(), sp = sb & ~smk.sbtn, ph = plat_pad_hits(), i, ok, och;
+    uint64_t kb = plat_keybed();
+    int32_t pitch, modw;
+    smk.sbtn = sb;
+    plat_keybed_hits();                          /* (the keys: held states below; their latched presses unused) */
+    if (sp >> SB_KNOB_BANK & 1u)                 /* KNOB BANK: the pads' map, pinned or put away */
+        smk_map = (uint8_t)!smk_map;
+    if (sp >> SB_FADER_BANK & 1u) {              /* FADER BANK: the next bank (the map goes: one at a time) */
+        smk.fbank = (uint8_t)((smk.fbank + 1u) % SMK_NBANK);
+        memset(smk.flast, 0xFF, sizeof smk.flast);
+        smk_map = 0;
+        say(SMK_BANK_NAME[smk.fbank], SMK_BANK_WHAT[smk.fbank]);
+    }
+    if (sp >> SB_LEFT & 1u)
+        smk_select(-1);
+    if (sp >> SB_RIGHT & 1u)
+        smk_select(1);
+    if ((ph >> SMK_PAD_HALF & 1u) && smk.half_t && plat_ms() - smk.half_t < SMK_HALF_MS)
+        ph &= ~(1u << SMK_PAD_HALF);             /* (a re-trigger of the half pad: ignored) */
+    for (i = 0; i < SMK_NPADS; i++)
+        if (ph >> i & 1u)
+            smk_pad((int)i);
+    if ((ph | plat_pad_held()) >> SMK_PAD_HALF & 1u)
+        smk.half_t = plat_ms() ? plat_ms() : 1u;
+    ok = (uint32_t)(kb & 31u) | (uint32_t)(kb >> 32 & 31u) << 5;   /* the outer keys: C3..E3, G#5..C6 */
+    och = ok ^ smk.okeys;
+    smk.okeys = ok;
+    for (i = 0; i < 10u; i++)
+        if (och >> i & 1u) {
+            if (ok >> i & 1u) {
+                ui.card = 0;
+                ui.btn_used |= ui.btn;
+                key_down((int)(NKEYS + i));
+            } else
+                key_up((int)(NKEYS + i));
+        }
+    if (sb || ph || ok)
+        ui.act_t = plat_ms();
+    for (i = 0; i < 4u; i++) {                   /* the faders: once a fader moves */
+        int v = plat_fader((int)i);
+        if (v < 0)
+            continue;
+        if (smk.flast[i] == 0xFFu) {
+            smk.flast[i] = (uint8_t)v;
+            continue;
+        }
+        if (v == smk.flast[i])
+            continue;
+        smk.flast[i] = (uint8_t)v;
+        if (!ui.ask)
+            smk_fader((int)i, v);
+        ui.act_t = plat_ms();
+    }
+    if (plat_wheels(&pitch, &modw)) {
+        char t[8];
+        int32_t st10 = (pitch < 0 ? -pitch : pitch) * 20 / 127;   /* the bend in tenths of a semitone */
+        if (pitch != smk.pitch && st10) {
+            t[0] = pitch > 0 ? '+' : '-';
+            t[1] = (char)('0' + st10 / 10);
+            t[2] = '.';
+            t[3] = (char)('0' + st10 % 10);
+            t[4] = 0;
+            say("PITCH BEND", t);
+        }
+        if (modw != smk.modw && modw) {
+            itoa_u((uint32_t)(modw * 100 / 127), t);
+            say("VIBRATO", t);
+        }
+        smk.pitch = pitch;
+        smk.modw = modw;
+        smk.wheel_due = 1;
+        ui.act_t = plat_ms();
+    }
+    if ((smk.wheel_due && plat_ms() - smk.wheel_t >= SMK_WHEEL_MS) ||
+        ((smk.pitch || smk.modw) && plat_ms() - smk.wheel_t >= 250u))
+        smk_wheels_send();                       /* (and while held: a section's start resets the band's controllers) */
+}
+/* the pads' lights (leds()), from what HOME held shows (held_ring, held_sect_ring: 1 playing, 2 coming, 3 where PLAY
+ * starts): the sections and FOLLOW light green, the progressions blue (P1-P8) or yellow (P9-P16); dim, bright what
+ * plays or PLAY starts. A change waiting (a 2 in the group): the pad playing blinks, the one coming orange */
+static void smk_rgb(int p, uint32_t c)
+{
+    plat_pad_rgb(p, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+}
+#define SMK_RGB(r, g, b) ((uint32_t)(r) << 16 | (uint32_t)(g) << 8 | (uint32_t)(b))
+#define SMK_GREEN SMK_RGB(70, 200, 70)
+#define SMK_GREEN_D SMK_RGB(6, 20, 6)
+#define SMK_BLUE SMK_RGB(40, 70, 220)
+#define SMK_BLUE_D SMK_RGB(16, 28, 90)            /* (a progression with chords) */
+#define SMK_BLUE_P SMK_RGB(5, 10, 30)             /* (an empty one: pale) */
+#define SMK_YELLOW SMK_RGB(255, 210, 0)
+#define SMK_YELLOW_D SMK_RGB(140, 115, 0)
+#define SMK_YELLOW_P SMK_RGB(60, 48, 0)
+#define SMK_ORANGE SMK_RGB(200, 100, 30)
+#define SMK_BLINK_MS 250u
+static uint32_t smk_shade(int ring, int waiting, uint32_t on, uint32_t dim)
+{
+    if (ring == 2)
+        return SMK_ORANGE;                       /* coming at the bar line */
+    if (ring == 1 && waiting)
+        return plat_ms() / SMK_BLINK_MS & 1u ? dim : on;   /* playing, a change waiting: blinks */
+    return ring ? on : dim;
+}
+static void smk_pads(void)
+{
+    int p, r[16], ws = 0, wp = 0;
+    uint32_t on = smk.half ? SMK_YELLOW : SMK_BLUE, dim = smk.half ? SMK_YELLOW_D : SMK_BLUE_D;
+    uint32_t pale = smk.half ? SMK_YELLOW_P : SMK_BLUE_P;
+    for (p = 0; p < 5; p++)
+        ws |= (r[p] = held_sect_ring(SMK_SECT[p])) == 2;
+    for (p = 0; p < ARR_LOOPS; p++)
+        wp |= held_ring(p) == 2;
+    for (p = 0; p < 5; p++)
+        smk_rgb(p, smk_shade(r[p], ws, SMK_GREEN, SMK_GREEN_D));
+    smk_rgb(SMK_PAD_FOLLOW, app.mode == ARR_FREE ? SMK_GREEN : SMK_GREEN_D);
+    smk_rgb(6, 0u);                              /* (free) */
+    smk_rgb(SMK_PAD_HALF, on);
+    for (p = 8; p < 16; p++) {
+        int w = smk.half * 8 + p - 8, rr = held_ring(w);
+        smk_rgb(p, smk_shade(rr, wp, on, sloops.loop[w].bars ? dim : pale));   /* (empty: pale, the half seen) */
+    }
+}
+#endif
+
 static void input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
@@ -4145,6 +4418,9 @@ static void input(void)
     if ((btn & (1u << B_OCTDN | 1u << B_OCTUP)) == (1u << B_OCTDN | 1u << B_OCTUP))
         ui.btn_used |= 1u << B_OCTDN | 1u << B_OCTUP;   /* both: update mode (main loop), not ours */
     holds();
+#if BOARD_SMK37
+    smk_input();                                 /* the pads, the outer keys, the faders, the wheels, the four buttons */
+#endif
     ch = keys ^ ui.keys;
     ui.keys = keys;
     for (i = 0; i < NKEYS; i++)
@@ -4231,6 +4507,10 @@ static void leds(void)
         }
     }
     plat_glow(proj.leds == 1);
+#if BOARD_SMK37
+    plat_smk_leds((uint32_t)smk_map << SB_KNOB_BANK | (uint32_t)(smk.fbank != 0) << SB_FADER_BANK);
+    smk_pads();
+#endif
     plat_keys_dim(dim & ~k);
     plat_play_red(rec || armed);
     plat_leds(b, k);
@@ -4573,6 +4853,9 @@ void ui_init(void)
     ui.centry = -1;
     ui.loop_seen = -1;
     ui.act_t = plat_ms();
+#if BOARD_SMK37
+    smk_reset();
+#endif
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 

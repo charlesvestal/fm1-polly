@@ -1,0 +1,148 @@
+# The SMK-37 build (build/host/polly_host_smk37): the pads as the keybed's shortcuts (HOME held + a key) without HOME,
+# the outer keys, KNOB BANK's map, the fader banks, the wheels, < and >. 120 BPM: a bar is 2000 ms.
+wait 300
+spin K2 15
+expect tempo 120
+expect mode 0
+expect half 0
+wait 50
+shot home.png
+# ---- the bottom row: progressions P1-P8 (white keys 1-8 as shortcuts), blue; P1, stopped: bright (where PLAY starts)
+pad 8
+expect mode 1
+expect app_loop 1
+expect padb8 >200
+expect padb9 >60
+expect padb9 <120
+expect padb7 >200
+pads
+# the top row: Groove B (black key 3), then PLAY: Groove B plays, its pad bright light green
+pad 2
+tap PLAY
+wait 500
+expect sect 3
+expect loop_now 1
+expect padg2 >150
+expect padg1 <40
+shot playing.png
+# Groove A from the next bar line: orange until then (Groove B's pad blinks)
+pad 1
+expect next_sect 2
+expect padr1 >100
+wait 2500
+expect sect 2
+# P3 from the next bar line (orange), then playing (bright blue)
+pad 10
+expect padr10 >100
+wait 2500
+expect loop_now 3
+expect padb10 >200
+expect padr10 <60
+# the other half: P9-P16 on the bottom row, yellow (pad 8 too); again: P1-P8, blue
+pad 7
+expect half 1
+expect padg7 >200
+expect padb7 <10
+# the yellow half's empty progressions: pale yellow, not dark
+expect padr15 >40
+expect padr15 <100
+# a re-trigger within 180 ms (a wobble while held): ignored; held long: one switch
+pad 7 20
+pad 7
+expect half 1
+wait 200
+pad 7 600
+expect half 0
+# the other pads have no lock-out: Intro pressed twice quickly is queued
+pad 0 20
+pad 0
+expect next_sect 1
+wait 200
+pad 7
+expect half 1
+wait 200
+pad 7
+expect half 0
+expect padb7 >200
+expect padr6 0
+# FOLLOW: no progression, the band follows the chords played
+pad 5
+expect mode 0
+wait 300
+# ---- the keys: an outer key plays in a chord (C3 + E4 + G4: C major)
+kbkey 0 down
+key 11 down
+key 14 down
+wait 100
+expect kmode_outer0 2
+wait 500
+expect chord_root 0
+kbkey 0 up
+key 11 up
+key 14 up
+tap PLAY
+wait 200
+# ---- KNOB BANK: the pads' map (HOME held's screen), pinned; again: away
+sbtn KNOB_BANK
+expect smkmap 1
+expect smkleds 1
+wait 50
+shot map.png
+sbtn KNOB_BANK
+expect smkmap 0
+expect smkleds 0
+# ---- the faders: bank A the volumes of D1 D2 PC BA; a fader takes over once it moves
+fader 3 64
+fader 3 100
+expect trkvol3 100
+expect msg_is_BA 1
+# bank C: M1 M2, the reverb and chorus levels; FADER BANK closes the map
+sbtn KNOB_BANK
+sbtn FADER_BANK
+sbtn FADER_BANK
+expect fbank 2
+expect smkmap 0
+expect smkleds 2
+fader 2 30
+expect rev_level 30
+fader 0 90
+expect leadvol1 90
+sbtn FADER_BANK
+expect fbank 0
+expect smkleds 0
+# ---- the wheels: bend +-2 semitones and vibrato on every channel but the drums', at once
+tap PLAY
+wait 300
+wheel pitch 127
+expect bend_ch1 8191
+expect bend_ch5 8191
+expect bend_ch10 0
+expect msg_is_PITCH 1
+wheel mod 127
+expect mod_ch1 127
+expect mod_ch10 0
+wait 600
+expect bend_ch1 8191
+wheel pitch 0
+wheel mod 0
+expect bend_ch1 0
+expect mod_ch1 0
+tap PLAY
+wait 200
+# ---- < >: SELECT one step (the pages), never the tempo
+tap LFO
+expect page 10
+sbtn RIGHT
+expect page 11
+sbtn LEFT
+expect page 10
+expect tempo 120
+# ---- HOME held + a pad: the same shortcut (HOME's release turns no page)
+tap HOME
+wait 100
+expect page 0
+press HOME
+pad 9
+release HOME
+expect app_loop 2
+expect page 0

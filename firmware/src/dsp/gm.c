@@ -111,6 +111,8 @@ int gm_host_fx_settled(void) { return rev_wet == rev_to && cho_lvl == cho_to; } 
 int16_t gm_host_heard[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* the tests: each
                                                   * channel's last note-on into the synth (-1 none) */
 uint32_t gm_host_ons[16];                        /* ... and its note-ons counted */
+int16_t gm_host_bend[16];                        /* ... its pitch bend (-8192..8191) and its CC 1 (the SMK-37's wheels) */
+uint8_t gm_host_mod[16];
 #endif
 static void synth_write(uint32_t m, uint32_t at)
 {
@@ -123,6 +125,10 @@ static void synth_write(uint32_t m, uint32_t at)
         gm_host_heard[b[0] & 15u] = (int16_t)b[1];
         gm_host_ons[b[0] & 15u]++;
     }
+    if (st == 0xE0u)
+        gm_host_bend[b[0] & 15u] = (int16_t)((b[1] | b[2] << 7) - 8192);
+    if (st == 0xB0u && b[1] == 1u)
+        gm_host_mod[b[0] & 15u] = b[2];
 #endif
     /* a note-on's start within the next block: the voices it starts read it (WT_StartVoice); EAS parses the
      * message at once, so it is cleared again straight after */

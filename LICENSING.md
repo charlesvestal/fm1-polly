@@ -14,6 +14,7 @@ your recipients its complete corresponding source under the same licence.
 | The GM synth: `firmware/src/dsp/eas/` (Sonivox EAS, its 200 KB GM sound set, `eas_host_fm1.c` our host wrapper). Modified for Polly: a per-voice start offset, so a note-on starts on its sample within a block (`eas_wtsynth.c`, `eas_voicemgt.c`, `eas_wtengine.h`, `eas_synth.h`), the reverb and chorus sends summed in 32 bits and clamped to 16, and the effects ringing out after the last send and starting clean (`eas_voicemgt.c`, `eas_synth.h`, `eas_reverb.c`, `eas_chorus.c`), and CC 74 / CC 71 moving the voices' low-pass filter (cutoff and resonance, gliding a block at a time, saturating when moved; `eas_wtsynth.c`, `eas_filter.c`, `eas_filter.h`, `eas_wtengine.h`, `eas_synth.h`, `eas_voicemgt.c`, `eas_midictrl.h`); each change marked "Polly:" | [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox), Copyright (c) 2004-2006 Sonic Network Inc., 2008 The Android Open Source Project; Apache-2.0 (`firmware/src/dsp/eas/LICENSE-2.0.txt`, `NOTICE`) | Apache-2.0 |
 | The idea of a browser emulator for FM-1 firmware (`web/emu/`) | [Groove OS](https://www.groove-os.com/) by Peter Gombos, whose site runs its firmware in the browser; no code from it | credit only |
 | Everything else in `firmware/src/{app,dsp}`, `tests/`, the factory styles' parts other than the drums (`styles/*.sty`) | Polly | GPL-3.0-only |
+| The M-Vave SMK-37 port: `firmware/hal/smk_input.h`, `firmware/hal/fm1_flash_map.h`, the code behind `BOARD_SMK37`, `tests/smk_*`, `tests/scenarios/smk37/`, `web/test_web.mjs` | the SMK-37 board layer, adapted for Polly (authors in the files' headers) | GPL-3.0-only |
 
 ## Third-party material
 
@@ -27,7 +28,7 @@ your recipients its complete corresponding source under the same licence.
 ## Trademarks
 
 "Felucca" and "Hügelton Instruments" are names of Hügelton Instruments.
-"M-VAVE" and "FM-1" are trademarks of their respective owners. Polly is independent firmware; it is
+"M-VAVE", "FM-1" and "SMK-37" are trademarks of their respective owners. Polly is independent firmware; it is
 not affiliated with, endorsed by or supported by any of them.
 
 ## Radio

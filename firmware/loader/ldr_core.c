@@ -180,10 +180,16 @@ static int ldr_session(void)
         if (!ota_read(0xF0000000u, sec, 8))
             break;
     ldr_record_clear();
+#if BOARD_SMK37
+    for (s = LDR_REC_HI; s > LDR_REC_LO; s -= 0x1000u)  /* the SMK: any whole record in the VM (ldr_window.h) */
+        if (ldr_is_record(s - 0x1000u))
+            ldr_erase(s - 0x1000u);
+#else
     for (s = LDR_STAGE_LO; s < LDR_STAGE_HI; s += 0x1000u)
         if (ldr_is_record(s))
             ldr_erase(s);
     if (ldr_is_record(LDR_STOCK_REC))
         ldr_erase(LDR_STOCK_REC);
+#endif
     return 0;
 }
