@@ -10,6 +10,7 @@ Install it, learn it or try it in the browser on [Polly's site](https://charlesv
 - Start with [School](docs/course/README.md). It has ten short lessons, and each one comes with a video.
 - For all the details, see [MANUAL.md](MANUAL.md). For the words and the common tasks on one page, see its
   [cheat sheet](MANUAL.md#cheat-sheet).
+- **M-Vave SMK-37:** see [SMK-37 instructions](SMK37.md). Until this project's releases include SMK-37 packages, unofficial builds can be installed with the web installer: https://genkigenki.github.io/smk37/
 
 ## The words
 
