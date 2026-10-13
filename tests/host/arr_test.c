@@ -3693,9 +3693,9 @@ static void test_lead_play(void)
     arr_mode_song(&SG, 0);
     arr_play(1);
     run_to((uint32_t)(5 * BAR));
-    i = find(stub_log, stub_n, 0, 0xC6, 80);
+    i = find(stub_log, stub_n, 0, 0xC6, 52);
     j = find(stub_log, stub_n, 0, 0x96, 60);
-    CHECK(i >= 0 && find(stub_log, stub_n, 0, 0xC7, 48) >= 0 && find(stub_log, stub_n, 0, 0xB6, 7) >= 0, "the leads' sounds: LD1 GM 81 on 7, LD2 GM 49 on 8");
+    CHECK(i >= 0 && find(stub_log, stub_n, 0, 0xC7, 48) >= 0 && find(stub_log, stub_n, 0, 0xB6, 7) >= 0, "the leads' sounds: LD1 GM 53 on 7, LD2 GM 49 on 8");
     CHECK(i >= 0 && j > i, "... before the first lead note");
     CHECK(on_at(0x96, 60, 0.f), "row 1 at 0: C4 as played (same chord)");
     CHECK(on_at(0x96, 64, 96.f + 24.f), "row 1's second pass, beat 2: E4 (pos 2400)");

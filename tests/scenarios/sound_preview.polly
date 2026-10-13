@@ -70,7 +70,7 @@ expect lead_sel 1
 hitreset
 turn K1 1
 wait 20
-expect lsnd1_prog 82
+expect lsnd1_prog 54
 expect lsnd1_chan 7
 expect heard_ch7 60
 expect ons_ch7 1

@@ -57,7 +57,7 @@ expect ne_note -1
 expect notes_where_is_M1|song_bar_1|Verse_bar_1.1 1
 expect enc_is_SELECT_note|ALGO_instrument|PRESET_zoom 1
 expect footer_is_KEYS_enter|SEQ_Band 1
-expect tag_is_S1>M1_Square_Lead 1
+expect tag_is_S1>M1_Choir_Aahs 1
 wait 300
 shot empty.png
 # ---- enter: C4, E4, G4 a step each (the cursor on after each); a chord C4 + E4 on beat 3

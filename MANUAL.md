@@ -195,7 +195,7 @@ From top to bottom, the screen has five parts.
 - **The tag line**, just above the knobs, tells you where you are, from the song down. On Band, Sound and
   Mixer it reads something like "S1 › Pop › Groove A › C1 Acoustic Grand". On the Progression page it's
   "S1 › P9 Verse", and on the Song page, or on Home in a song, just "S1". With no progression playing it
-  reads "S1 › follow", and with a melody selected, "S1 › M1 Square Lead". If the line gets too long, the
+  reads "S1 › follow", and with a melody selected, "S1 › M1 Choir Aahs". If the line gets too long, the
   first steps drop off. Your place inside the page, such as a bar or a section, is shown by the cursor.
 - **The knobs strip** shows what **KNOB 1–4** do on this page, with their values. The knob you just turned
   shows coral for a moment. Pages without knobs, such as Status, don't have the strip.
@@ -891,7 +891,7 @@ root and keeps its shape. Over the same chord and Transpose, it plays exactly as
 
 1. On the Song page, press **PLAY**.
 2. Press **EDIT** and turn **ALGORITHM** past C4 to **M1**. The keys now play its sound. M1 starts out as a
-   square lead, and M2 as strings.
+   choir, and M2 as strings.
 3. Press **REC**. The click counts in to the next bar line, and the screen says "REC M1 · starts at the next
    bar", counting down the beats in that bar in large numbers. If the Intro is playing, recording waits for
    section 1.
@@ -945,8 +945,8 @@ three parts.
 - **Quantise.** QUANTISE M1 IN SECTION 3, in the **SEL** list, moves that section's M1 notes to the nearest
   line of the Band page's grid, which you'll see at the right as 16, 8T and so on. So you can record with the
   grid off to play freely, then set the grid on the Band page and quantise. One undo takes it back.
-- **Sound.** A melody has a single Sound page, with the sound's family at the top in plum, such as "M1 Synth
-  Lead". Turn **KNOB 1** to change the sound, or **PRESETS** to jump to the next family. As with an
+- **Sound.** A melody has a single Sound page, with the sound's family at the top in plum, such as "M1
+  Ensemble". Turn **KNOB 1** to change the sound, or **PRESETS** to jump to the next family. As with an
   instrument, the family's eight sounds show for a moment, with the current one ringed. **KNOB 1** sets the
   sound and **KNOB 2** the channel. Because the keys have no velocity, **KNOB 4** (Velocity) sets how loud the
   notes you record from now on will play. It starts at 100. A melody always plays as played across the whole

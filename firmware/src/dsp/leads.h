@@ -6,10 +6,10 @@
 #include "arr.h"
 
 void leads_clear(leads_t *l);                    /* no notes (the sounds kept) */
-/* LD1: a lead synth (GM 81, Lead 1) on channel 7; LD2: strings (GM 49) on channel 8 (after the patterns' 2..6, 10) */
+/* LD1: a choir (GM 53, Choir Aahs: melodies are mostly sung) on channel 7; LD2: strings (GM 49) on channel 8 (after the patterns' 2..6, 10) */
 static inline void lead_trk_default(lead_trk_t *t, int k)
 {
-    t->program = (uint8_t)(k ? 48 : 80);
+    t->program = (uint8_t)(k ? 48 : 52);
     t->chan = (uint8_t)(k ? 7 : 6);
     t->vol = 100;
     t->pan = 64;

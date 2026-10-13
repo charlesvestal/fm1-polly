@@ -156,7 +156,7 @@ expect song_ending 1
 expect song_at_end 0
 expect loop_ch1_0 0
 expect loop_bars9 0
-expect lsnd1_prog 81
+expect lsnd1_prog 53
 expect mode 0
 expect app_loop 1
 # the groove it made: still in Memory (place 1), played by no song now

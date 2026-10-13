@@ -149,7 +149,7 @@ static void test_defaults(void)
 {
     lead_trk_t t;
     lead_trk_default(&t, 0);
-    CHECK(t.program == 80 && t.chan == 6 && t.vol == 100 && t.pan == 64, "LD1: GM 81 on channel 7");
+    CHECK(t.program == 52 && t.chan == 6 && t.vol == 100 && t.pan == 64, "LD1: GM 53 on channel 7");
     lead_trk_default(&t, 1);
     CHECK(t.program == 48 && t.chan == 7, "LD2: GM 49 on channel 8");
     CHECK(t.vel == 100, "recorded at velocity 100");

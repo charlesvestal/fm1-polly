@@ -21,15 +21,15 @@ turn K2 -1
 expect song_intro 0
 turn SELECT -1
 expect page 1
-# ---- EDIT: ALGORITHM past C4 to LD1 (its sound: GM 81, the song's)
+# ---- EDIT: ALGORITHM past C4 to LD1 (its sound: GM 53, the song's)
 tap EDIT
 expect page 8
 expect track 5
 turn ALGO 4
 expect lead_sel 1
-expect tag_is_S1>M1_Square_Lead 1
+expect tag_is_S1>M1_Choir_Aahs 1
 expect footer_is_KEYS_M1|REC_record 1
-expect lsnd1_prog 81
+expect lsnd1_prog 53
 wait 1500
 shot track_ld1.png
 turn SELECT 1
@@ -198,7 +198,7 @@ tap EDIT
 # ---- the Mixer: ten strips, LD1's volume by KNOB 1; black key 10 picks LD2; the tone
 tap LFO
 expect page 10
-expect tag_is_S1>M1_Square_Lead 1
+expect tag_is_S1>M1_Choir_Aahs 1
 spin K1 -20
 expect lsnd1_vol 80
 wait 100

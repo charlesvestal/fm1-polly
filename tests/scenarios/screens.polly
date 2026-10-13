@@ -238,7 +238,7 @@ turn K1 1
 shot sound_melody_turned.png
 turn K1 -1
 wait 1500
-expect tag_is_S1>M1_Square_Lead 1
+expect tag_is_S1>M1_Choir_Aahs 1
 tap SEL
 shot list_melody.png
 tap HOME

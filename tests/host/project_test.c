@@ -54,8 +54,8 @@ static void test_defaults(void)
     CHECK(project_songs_load(&s) != 0, "nothing stored: defaults");
     CHECK(s.format == SONGS_FORMAT && SONGS_FORMAT == 10u && s.plen[0] == 0 && s.plen[3] == 0, "format 10, no loops stored");
     CHECK(s.song[1].lead[0].vel == 100 && s.song[1].lead[1].vel == 100, "the leads recorded at velocity 100");
-    CHECK(s.song[2].lead[0].program == 80 && s.song[2].lead[0].chan == 6 && s.song[2].lead[1].program == 48 &&
-              s.song[2].lead[1].chan == 7 && s.song[2].lead[1].vol == 100, "the lead tracks: LD1 GM 81 on 7, LD2 GM 49 on 8");
+    CHECK(s.song[2].lead[0].program == 52 && s.song[2].lead[0].chan == 6 && s.song[2].lead[1].program == 48 &&
+              s.song[2].lead[1].chan == 7 && s.song[2].lead[1].vol == 100, "the lead tracks: LD1 GM 53 on 7, LD2 GM 49 on 8");
     CHECK(s.song[0].nrows == 0 && s.song[0].intro && s.song[0].ending && s.song[0].tempo == arr_style_tempo(0), "an empty song at its style's tempo");
 }
 static void test_old_format(void)
@@ -71,7 +71,7 @@ static void test_old_format(void)
     s.format = 7;                                       /* (prerelease: no migration) */
     s.song[0].nrows = 3;
     project_songs_save(&s);
-    CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0 && s.song[0].lead[0].program == 80, "format 7: defaults");
+    CHECK(project_songs_load(&s) != 0 && s.song[0].nrows == 0 && s.song[0].lead[0].program == 52, "format 7: defaults");
     memset(&s, 0, sizeof s);
     s.magic = SONGS_MAGIC;
     s.format = 9;                                       /* (the loops in the slots: their songs reset, tidy lets them go) */
