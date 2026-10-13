@@ -18,7 +18,7 @@ expect mode 0
 expect tempo 105
 show
 barms 2285.714
-card Version 0.4 | A pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70 | Free firmware, GPL-3.0
+card Version 0.4 | A pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70
 # ---- the band starts under the title, following the chords played (each a moment before its bar line)
 wait 1200
 key 4 down
@@ -46,7 +46,7 @@ chord 1900 4 7 11
 at A 5 -60
 chord 1900 0 4 7
 # ---- the styles: Funk, Bossa, House, two bars each, then Pop again
-cap 16 styles of its own | Each has an Intro, two grooves, fills and an Ending. The drums are real drummers' performances.
+cap 16 styles of its own | Each has an Intro, two grooves, fills and an Ending.
 at A 5 1950
 turn K1 1
 at A 6 -60
@@ -104,19 +104,21 @@ at S 3 0
 cap Record melodies along the whole song | Two melody tracks, recorded section by section, follow the song's chords.
 tap EDIT
 wait 200
-at S 9 0
-cap Fix any note in the piano roll | Change, move, delete or add single notes in a melody or any instrument.
+at S 8 0
+cap See what every instrument plays | SEQ opens the Band page, with each instrument's notes, bar by bar.
 tap SEQ
 wait 300
+at S 10 0
+cap Fix any note in the piano roll | SEQ again opens Notes. Here a note just ahead is moved up a fourth, and you hear it when the song gets there.
 tap SEQ
-wait 1800
-turn SELECT 3 450
-wait 900
-turn K2 2 350
-wait 900
-turn K3 2 350
-wait 900
-turn SELECT 2 450
+wait 600
+expect ne_at 15360
+turn SELECT 6 150
+expect ne_at 19200
+expect ne_note 67
+wait 400
+turn K2 5 150
+expect ne_note 72
 at S 14 0
 cap 128 General MIDI sounds, a mixer and effects | Every instrument and melody has its own sound, volume, pan, reverb and chorus.
 tap LFO
@@ -137,5 +139,5 @@ wait 1000
 release HOME
 wait 9000
 expect playing 0
-card charlesvestal.github.io/fm1-polly | Install it from Chrome or Edge, or try it in your browser first. | Ten short lessons with videos show you around.
+card charlesvestal.github.io/fm1-polly | Visit the site for the installation, manual, and tips and lessons on how to get started
 wait 6000
