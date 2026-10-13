@@ -87,6 +87,15 @@ static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
 static const char *const LOOP_NAME_LIST[] = {"Verse", "Chorus", "Bridge", "Pre", "Intro", "Outro", "Solo", "Break"};
 #define NLOOP_NAMES ((int)(sizeof LOOP_NAME_LIST / sizeof LOOP_NAME_LIST[0]))
 enum { KM_NONE, KM_PLAY, KM_CHORD };                 /* what a held key does */
+#if BOARD_SMK37
+/* the SMK-37 build: the keys the UI knows are the FM-1's 27 (0..26, F3..G5) and the SMK-37's 10 outer keys (27..31
+ * C3..E3, 32..36 G#5..C6); they play as the others, in chords and notes alike (ui.c) */
+#define NKEYS_UI (NKEYS + 10)
+typedef uint64_t kbits_t;
+#else
+#define NKEYS_UI NKEYS
+typedef uint32_t kbits_t;
+#endif
 
 static songs_t songs EN_POOL;                        /* the four songs (the selected one plays) */
 /* the selected song's 16 loops (each song has its own: loaded with it, stored in a slot when not the defaults); the
@@ -193,7 +202,7 @@ static struct {
     uint8_t wrote_loop, wrote_beat;                  /* (it flashes coral on HOME's bars and LOOP's grid a moment) */
     int8_t loop_seen;                                /* arr_loop_now as last seen (app.loop follows its changes) */
     uint8_t role_was;                                /* what the keys did last frame (REC ends when that changes) */
-    uint8_t kmode[NKEYS], knote[NKEYS];              /* each held key: KM_*, its note */
+    uint8_t kmode[NKEYS_UI], knote[NKEYS_UI];        /* each held key: KM_*, its note */
     uint32_t sig[6];                                 /* the bands' hashes: header, main, knobs, tag, footer,
                                                       * the encoders' line */
     uint8_t msg_kind;                                /* the message's icon (AL_*: from its first word, say) */
@@ -210,11 +219,11 @@ static struct {
     uint32_t marks_sent;                             /* ... as the engine has them */
     uint8_t marks_asked;                             /* ... their melody asked about on leaving (no answer: kept) */
     uint8_t song_rec;                                /* REC on SONG: the rows written from HOME + keys, the mutes */
-    uint32_t ksound;                                 /* stopped: the chord keys sounding on C1's channel (bit = key) */
+    kbits_t ksound;                                  /* stopped: the chord keys sounding on C1's channel (bit = key) */
     uint8_t follow_told, follow_hint;                /* REC kept a track with notes on its chord type: told (bit t), the
                                                       * footer's hint showing (ui.c rec_as_played) */
-    uint8_t ksound_ch[NKEYS];                        /* ... the channel each one went to */
-    uint8_t ksound_note[NKEYS];                      /* ... and its note (transposed) */
+    uint8_t ksound_ch[NKEYS_UI];                     /* ... the channel each one went to */
+    uint8_t ksound_note[NKEYS_UI];                   /* ... and its note (transposed) */
     uint8_t click_sent;                              /* the click's mode and the app's REC as the engine has them (+1) */
     uint32_t count_sent;                             /* ... a free take's count-in (arr_count_in) */
     uint32_t slots_until;                            /* a NO FREE SLOT said: until then SEL opens SLOTS (the footer says) */
@@ -579,6 +588,9 @@ static int home_shown(void)
 {
     return (ui.btn >> B_HOME & 1u) && !ui.ask && plat_ms() - ui.btn_t[B_HOME] >= HOME_HOLD_MS;
 }
+#if BOARD_SMK37
+static uint8_t smk_map;                              /* the SMK-37's KNOB BANK: the pads' map pinned (draw_home_held) */
+#endif
 static void song_style_text(char *t);
 static char *loop_label(int i, char *t);
 static int32_t segs(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c);
@@ -5113,6 +5125,10 @@ static void draw_page(void)
         draw_card();
     else if (home_shown())
         draw_home_held();
+#if BOARD_SMK37
+    else if (smk_map && !lst.open)
+        draw_home_held();                            /* (KNOB BANK: what the pads do, as HOME held shows it) */
+#endif
     else if (lst.open)
         draw_list();
     else if (ui.page == P_HOME)

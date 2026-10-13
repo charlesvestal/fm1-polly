@@ -256,7 +256,7 @@ static void ne_key(int note)
 }
 static void ne_key_up(void)
 {
-    for (int k = 0; k < NKEYS; k++)
+    for (int k = 0; k < NKEYS_UI; k++)
         if (ui.kmode[k] == KM_PLAY)
             return;
     if (!ne.entering)
