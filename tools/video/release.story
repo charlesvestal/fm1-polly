@@ -34,9 +34,9 @@ key 4 up
 key 7 up
 key 11 up
 card -
+cap Play a chord, and the band follows it | Hold three keys or more. Eight instruments play along: drums, percussion, bass, guitars, keys and pads.
 at A 1 -60
 chord 1900 0 4 7
-cap Play a chord, and the band follows it | Hold three keys or more. Eight instruments play along: drums, percussion, bass, guitars, keys and pads.
 at A 2 -60
 chord 1900 7 11 14
 at A 3 -60

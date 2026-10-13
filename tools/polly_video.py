@@ -244,6 +244,8 @@ def expand(story, step, wav):
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 W, H = 1920, 1080
+TOP = 230                                   # the screen's bezel's top: the caption band above it
+CAP = (44, 94, W - 44, 206)                 # the caption band, under the header: a title and one line
 CREAM, CARD, INK, MUTED, RULE = (250, 244, 232), (255, 250, 241), (72, 57, 47), (138, 119, 100), (230, 220, 203)
 CORAL, CORAL_L, TEAL, TEAL_L = (224, 104, 58), (246, 180, 142), (38, 166, 154), (143, 214, 206)
 BODY, TRAY, KEY_W, KEY_B, KNOB, BTNC, LABEL = ((58, 61, 66), (38, 40, 44), (217, 218, 220), (201, 202, 205),
@@ -417,7 +419,7 @@ def wrap(d, text, f, width):
 
 
 def render(work, events, leds, step, nframes):
-    panel = Panel(820, 150, 1.06)
+    panel = Panel(820, TOP + 16, 1.06)
     f_title = font(AV, 46, 2)        # Avenir Next Demi Bold
     f_detail = font(AV, 30, 5)
     f_brand = font(AV, 30, 2)
@@ -472,38 +474,35 @@ def render(work, events, leds, step, nframes):
         img = Image.new("RGB", (W, H), CREAM)
         d = ImageDraw.Draw(img)
         # header
-        d.text((60, 62), "Polly", font=f_brand, fill=CORAL, anchor="ls")
-        d.text((60 + d.textlength("Polly", font=f_brand) + 14, 62), head,
+        d.text((60, 72), "Polly", font=f_brand, fill=CORAL, anchor="ls")
+        d.text((60 + d.textlength("Polly", font=f_brand) + 14, 72), head,
                font=f_detail, fill=MUTED, anchor="ls")
         if not announce:
             mm, ss = divmod(int(T / 1000), 60)
-            d.text((W - 60, 62), f"{mm}:{ss:02d}", font=f_detail, fill=MUTED, anchor="rs")
+            d.text((W - 60, 72), f"{mm}:{ss:02d}", font=f_detail, fill=MUTED, anchor="rs")
         # the screen 3x, crisp, in a bezel
-        d.rounded_rectangle([44, 134, 44 + 752, 134 + 752], radius=22, fill=(17, 18, 20))
-        img.paste(scr.resize((720, 720), Image.NEAREST), (60, 150))
+        d.rounded_rectangle([44, TOP, 44 + 752, TOP + 752], radius=22, fill=(17, 18, 20))
+        img.paste(scr.resize((720, 720), Image.NEAREST), (60, TOP + 16))
         # the panel
         small = scr.resize((int(200 * panel.s), int(200 * panel.s)), Image.LANCZOS)
         panel.draw(d, shown_b, lb, shown_k, lit_k, enc, small, img)
-        # the caption card
+        # the caption band, over the device
         cap = [c for c in caps if c[0] <= T]
-        cy = 150 + 640 * panel.s + 30
-        d.rounded_rectangle([820, cy, W - 60, 1040], radius=18, fill=CARD, outline=RULE, width=2)
+        d.rounded_rectangle(CAP, radius=18, fill=CARD, outline=RULE, width=2)
         if cap:
             title, detail = cap[-1][2], cap[-1][3]
             m = None if announce else re.match(r"^(\d+)\.\s*(.*)$", title)
-            x = 852
+            x0 = CAP[0] + 32
+            x = x0
             if m:
                 lab = f"{m.group(1)} / {nsteps}"
                 tw = d.textlength(lab, font=f_step)
-                d.rounded_rectangle([x, cy + 30, x + tw + 28, cy + 70], radius=20, fill=CORAL)
-                d.text((x + 14, cy + 59), lab, font=f_step, fill=(255, 250, 241), anchor="ls")
+                d.rounded_rectangle([x, CAP[1] + 17, x + tw + 28, CAP[1] + 57], radius=20, fill=CORAL)
+                d.text((x + 14, CAP[1] + 46), lab, font=f_step, fill=(255, 250, 241), anchor="ls")
                 x += tw + 46
                 title = m.group(2)
-            d.text((x, cy + 66), title, font=f_title, fill=INK, anchor="ls")
-            yy = cy + 112
-            for ln in wrap(d, detail, f_detail, W - 60 - 852 - 30)[:2]:
-                d.text((852, yy), ln, font=f_detail, fill=MUTED, anchor="ls")
-                yy += 40
+            d.text((x, CAP[1] + 52), title, font=f_title, fill=INK, anchor="ls")
+            d.text((x0, CAP[1] + 92), detail, font=f_detail, fill=MUTED, anchor="ls")
         a = card_alpha(cards, T)
         if a > 0:
             img = Image.blend(img, card_image(card_at(cards, T)), a)
@@ -580,8 +579,7 @@ def stills(work, events, step, nframes, out):
     for e in events:
         if e[1] == "still":
             im = frame_at(work, e[0] + 600, step, nframes)
-            ImageDraw.Draw(im).rectangle([810, 850, W, H], fill=CREAM)   # (the caption card's top: gone)
-            im = im.crop((30, 112, W - 40, 896))
+            im = im.crop((30, TOP - 22, W - 40, TOP + 768))          # the device: no header, no caption
             im = im.resize((960, im.height * 960 // im.width), Image.LANCZOS)
             im.save(os.path.join(out, e[2] + ".jpg"), quality=86)
             print(f"  still {e[2]}")
@@ -595,14 +593,13 @@ def poster(work, events, step, nframes, out):
     d = ImageDraw.Draw(im)
     head = next((e[2] for e in events if e[1] == "head"), "Polly")
     mm, ss = divmod(int(nframes * step / 1000), 60)
-    d.rectangle([W - 300, 20, W, 90], fill=CREAM)
-    cy = int(150 + 640 * 1.06 + 30)
-    d.rounded_rectangle([820, cy, W - 60, 1040], radius=18, fill=CARD, outline=RULE, width=2)
-    r, cx, ccy = 52, 820 + 40 + 52, (cy + 1040) // 2
+    d.rectangle([W - 300, 30, W, 90], fill=CREAM)
+    d.rounded_rectangle(CAP, radius=18, fill=CARD, outline=RULE, width=2)   # the caption band: the title card
+    r, cx, ccy = 48, CAP[0] + 32 + 48, (CAP[1] + CAP[3]) // 2
     d.ellipse([cx - r, ccy - r, cx + r, ccy + r], fill=CORAL)
     d.polygon([(cx - 16, ccy - 26), (cx - 16, ccy + 26), (cx + 28, ccy)], fill=(255, 250, 241))
-    d.text((cx + r + 30, ccy + 6), head, font=font(AV, 56, 2), fill=INK, anchor="ls")
-    d.text((cx + r + 30, ccy + 52), f"{mm}:{ss:02d}", font=font(AV, 32, 5), fill=MUTED, anchor="ls")
+    d.text((cx + r + 30, ccy + 4), head, font=font(AV, 56, 2), fill=INK, anchor="ls")
+    d.text((cx + r + 30, ccy + 46), f"{mm}:{ss:02d}", font=font(AV, 30, 5), fill=MUTED, anchor="ls")
     im.resize((1280, 720), Image.LANCZOS).save(out, quality=88)
     print(f"  poster {out}")
 
@@ -635,6 +632,10 @@ def main():
             os.remove(os.path.join(work, f))
     step = 1000 // fps
     x = expand(story, step, "song.wav")
+    d0 = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    long = [e[3] for e in x.events if e[1] == "cap" and d0.textlength(e[3], font=font(AV, 30, 5)) > CAP[2] - CAP[0] - 64]
+    if long:
+        raise SystemExit("caption detail longer than one line: " + " / ".join(long))
     scen = os.path.join(work, "video.polly")
     open(scen, "w").write("\n".join(x.out) + "\n")
     json.dump(x.events, open(os.path.join(work, "events.json"), "w"))

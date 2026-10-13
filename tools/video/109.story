@@ -113,18 +113,18 @@ poster
 wait 1500
 cap 4. Open Memory | Memory has 16 places. They keep your own grooves and melodies for all four songs. The header tells you how many are in use.
 wait 2500
-cap 5. Free a place | Turn SELECT to the third row, numbered 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks if you're sure.
+cap 5. Free a place | Turn SELECT to the third row, numbered 2. It holds your copy from 106, which no song plays.
 wait 2500
 expect list_sel 0
 turn SELECT 2 400
 expect list_sel 2
 wait 800
+cap 5. Free a place | Press SEL, and Polly asks if you're sure. Press SEL again, and the place is free.
+wait 1200
 tap SEL
 expect asking 1
 still 5-free
-wait 1800
-cap 5. Free a place | Press SEL again. The place is now free, and the copy's notes are gone.
-wait 2000
+wait 2600
 tap SEL
 expect asking 0
 expect slottext2_is_free 1
