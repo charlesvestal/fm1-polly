@@ -43,6 +43,9 @@ pad 7
 expect half 1
 expect padg7 >200
 expect padb7 <10
+# the yellow half's empty progressions: dim yellow, not dark
+expect padr15 >40
+expect padg15 >40
 # a re-trigger within 180 ms (a wobble while held): ignored; held long: one switch
 pad 7 20
 pad 7

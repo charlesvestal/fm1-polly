@@ -4130,7 +4130,7 @@ static void do_undo(int redo);
  *                                 shortcut (HOME held, or on the Song page; SAVE held: copy there)
  *                  lit: the sections and FOLLOW light green, the progressions in their half's colour; dim, bright
  *                  what plays (stopped: where PLAY starts). A change waiting for the bar line: the pad playing blinks,
- *                  the one coming is orange. Empty progressions dark
+ *                  the one coming is orange. Empty progressions dim too
  *   KNOB BANK      the pads' map on the screen (HOME held's screen), pinned; again: away
  *   FADER BANK     what the four faders set: A the volumes of D1 D2 PC BA, B of C1 C2 C3 C4, C of M1 and M2 and the
  *                  Effects' reverb and chorus levels (as the Mixer's and Effects' knobs). A fader takes over once it
@@ -4369,7 +4369,7 @@ static void smk_pads(void)
     smk_rgb(SMK_PAD_HALF, on);
     for (p = 8; p < 16; p++) {
         int w = smk.half * 8 + p - 8, rr = held_ring(w);
-        smk_rgb(p, rr || sloops.loop[w].bars ? smk_shade(rr, wp, on, dim) : 0u);
+        smk_rgb(p, smk_shade(rr, wp, on, dim));      /* (an empty one too: the half is always seen) */
     }
 }
 #endif

@@ -30,7 +30,7 @@ SEL, ENV, ...). Holding HOME and pressing a key works as on the FM-1. The SMK-37
 | Key velocity | the instruments' notes play and record with the keys' velocity; a melody keeps its own VELOCITY setting |
 | Pads, top row | pads 1-6: Intro, Groove A, Groove B, Fill, Ending (as HOME + black keys 1-5), FOLLOW (no progression: the band follows your chords, as KNOB 4 at "follow"); pad 7: free (dark); pad 8: switches the bottom row between P1-P8 (blue) and P9-P16 (yellow) |
 | Pads, bottom row | eight progressions, P1-P8 or P9-P16: a pad plays its progression (as HOME + a white key; the one playing again: follow). On the Song page it adds a section, as a white key there. Hold SAVE (BT) and press one to copy there, as SAVE + a white key |
-| Pad lights | the sections and FOLLOW light green, the progressions in their half's colour (P1-P8 blue, P9-P16 yellow): dim, bright for what plays (stopped: where PLAY starts). A change waiting for the bar line: the pad playing blinks, the one coming is light orange. Empty progressions stay dark |
+| Pad lights | the sections and FOLLOW light green, the progressions in their half's colour (P1-P8 blue, P9-P16 yellow): dim, bright for what plays (stopped: where PLAY starts). A change waiting for the bar line: the pad playing blinks, the one coming is light orange. Empty progressions are dim too, so the active half always shows |
 | K1 | MASTER (volume) |
 | K2 / K3 / K4 | SELECT / ALGORITHM / PRESETS |
 | K5..K8 | KNOB 1..4 |
