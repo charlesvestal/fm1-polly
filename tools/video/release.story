@@ -120,15 +120,20 @@ turn SELECT 2 450
 at S 14 0
 cap 128 General MIDI sounds, a mixer and effects | Every instrument and melody has its own sound, volume, pan, reverb and chorus.
 tap LFO
+wait 900
+cap 128 General MIDI sounds, a mixer and effects | On the Mixer, KNOB 3 and KNOB 4 send the melody to the reverb and the chorus.
+turn K3 50 30
+wait 500
+turn K4 60 30
 wait 300
 at S 17 0
 cap The Ending, and Polly stops by itself | Hold HOME and press black key 5 at any time.
 tap HOME
 wait 900
 press HOME
-wait 1400
+wait 2500
 tapkey b4
-wait 600
+wait 1000
 release HOME
 wait 9000
 expect playing 0

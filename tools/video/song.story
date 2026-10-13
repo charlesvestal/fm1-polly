@@ -161,7 +161,7 @@ expect row_mute3 7
 # ---- 9. a melody: one pass along the whole song, M1, a different line in each section (the song from bar A 28:
 # section 1 the verse A 28-31 (Am F C G), 2 the chorus A 32-35 (C G Am F, Groove B), 3 verse 2 A 36-39 (the
 # breakdown), 4 the last chorus A 40-47 (x2, +2: the keys sound a tone up, stored as played). mel A BAR BEAT DUR KEY
-cap 9. Add a melody | On the Song page PLAY: the song takes over at the next bar. EDIT, ALGORITHM past C4 to M1, REC
+cap 9. Add a melody | On the Song page, PLAY. EDIT, ALGORITHM past C4 to M1, PRESETS and KNOB 1 to Choir Aahs, then REC
 at A 27 100
 tap PLAY
 wait 250
@@ -169,7 +169,11 @@ tap EDIT
 wait 200
 turn ALGO 4 110
 expect lead_sel 1
-wait 100
+wait 50
+turn PRESET -4 50
+wait 50
+turn K1 4 50
+wait 50
 tap REC
 expect recording 1
 at A 28 -150

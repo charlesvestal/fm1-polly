@@ -1037,9 +1037,12 @@ static void lead_as_trk(const lead_trk_t *l, arr_trk_t *t)
     t->bright = l->bright;
     t->reso = l->reso;
 }
-/* the leads play now: a song's row (not its Intro or Ending) */
-static int leads_heard(void) { return mode == ARR_SONG && rows_live && ld && !row_gone; }   /* (a row deleted: its
-                                                                                              * notes went with it) */
+/* the leads play now: a song's row, not its Intro or Ending (an Ending asked for mid-row: the row's notes still to
+ * come would play over the Ending's held chord); a row deleted: its notes went with it */
+static int leads_heard(void)
+{
+    return mode == ARR_SONG && rows_live && ld && !row_gone && arr_sect != SEC_INTRO && arr_sect != SEC_END;
+}
 /* the leads' sounds, when they are wanted (SONG, or the keys on a lead) and changed, or after a setup: to the synth
  * now, to MIDI out what it lacks (the rest in later blocks: lead_sounds_out). Not while the app writes them */
 static void lead_sounds(void)
