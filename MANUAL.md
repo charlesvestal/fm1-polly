@@ -2,7 +2,7 @@
 
 Polly turns the M-VAVE FM-1 into a pocket arranger, inspired by the Yamaha QY70. Pick a style, and a band of
 eight instruments plays along. Hold a chord, and the bass, the guitars and the strings follow it. Write a few
-bars of chords, and Polly plays a whole song from them.
+bars of chords, and Polly plays a full song from them.
 
 The sounds are the 128 General MIDI instruments and a drum kit, from Sonivox EAS. You hear them through the
 speaker or the headphone jack, and MIDI coming in can play them too.
@@ -58,7 +58,8 @@ Song (S1–S4)
 - **Style**: the way the band plays, such as Pop or Funk. Each song has one style.
 - **Groove**: how the band plays a section. **Groove A** is calmer and **Groove B** is busier.
 - **Intro, Fill, Ending**: extra parts of a style that the band plays by itself. The Intro opens the song
-  and the Ending closes it. A Fill plays when the band changes groove, or whenever you ask for one.
+  and the Ending closes it. In a song, a Fill plays when the next section has a different groove, and you can
+  ask for one at any time.
 - **Instrument**: one player in the band. D1 and D2 are drums, PC is percussion and BA is bass. C1–C4 play
   chords, riffs and pads. Each instrument has a sound and its own notes.
 - **Sound**: what an instrument or a melody plays with: one of the 128 General MIDI sounds, or the drum kit.
@@ -104,17 +105,17 @@ press…" means keep **HOME** down while you press the next thing.
 | loop the song | On the Song page, turn **SELECT** to page 2 and turn **KNOB 4** (At end) to "again". |
 | change an instrument's sound | Press **EDIT**, turn **ALGORITHM** to the instrument and turn **KNOB 1** (Sound). |
 | mute an instrument in one section | On the Song page, move to the section and press the instrument's black key. Black keys 1–8 are D1 to C4. Or, while you're in a song, press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted in 2). |
-| mute an instrument outside a song | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted). Turn it back to unmute. |
+| mute an instrument outside a song | Press **SEQ**, turn **ALGORITHM** to the instrument and turn **KNOB 4** (Muted). Turn it again to unmute. |
 | record into an instrument | Press **SEQ**, turn **ALGORITHM** to the instrument, and press **REC** and then **PLAY**. Play along, then press **REC** again. |
 | record a melody | On the Song page, press **PLAY**. Press **EDIT** and turn **ALGORITHM** past C4 to M1. Press **REC**, play, and press **REC** again. |
 | fix one wrong note | Press **SEQ** twice to open Notes, and turn **ALGORITHM** to the instrument or melody. Turn **SELECT** until the coral ring is on the note, then turn **KNOB 2** (Pitch). To delete the note, press **EDIT**. |
 | undo or redo | Hold **HOME** and press **REC** to undo, or **PLAY** to redo. |
 | switch songs | Hold **HOME** and turn **PRESETS**. |
-| save | Press **SAVE**. Polly also saves by itself a few seconds after you stop. |
+| save | Press **SAVE**. Polly also saves by itself when it's stopped, about four seconds after you last touch it. |
 | see what's using the memory | Press **SEQ**, then **SEL**. Turn **SELECT** down to MEMORY at the end of the list, and press **SEL**. |
 | back up | Connect the FM-1 to a computer, open the [Backup page](https://charlesvestal.github.io/fm1-polly/backup/) in Chrome or Edge, and press **Back up**. |
 | start a song from scratch | Stop. On the Song page, press **SEL**, turn **SELECT** to NEW SONG and press **SEL**. Press **SEL** again to confirm. |
-| go back to factory settings | Stop. Press **GLO**, then **SEL**, and choose FACTORY RESET. |
+| go back to factory settings | Stop. Press **GLO**, then **SEL**, and choose FACTORY RESET. Press **SEL** again to confirm. |
 
 ### The buttons
 
@@ -159,7 +160,7 @@ than one thing. For every page and its knobs, see [Page by page](#page-by-page).
 | Hold **HOME** | Shows the shortcuts on the screen. Press a white key to play that progression, or press the one that's playing to go back to free. Press black keys 1–5 for a groove or an extra. Turn **SELECT** to set the tempo, or **PRESETS** to change songs. Press **REC** to undo and **PLAY** to redo. |
 | **SEQ** | Opens the Band page, where you see the groove's notes. Its page 2 is Groove length. Press **SEQ** again on either page to edit single notes, and press it once more to go back to Band. |
 | **EDIT** | Opens the Sound page. Its page 2, Sound 2, has the high key and the channel. A melody has only the first page. In Notes, **EDIT** deletes the selected note. |
-| Hold **SAVE** | Hold it and press white key *n* to make a copy. On Home or the Progression page, Polly copies the progression to P*n*. On Band or Groove length, it copies the groove to place *n* in memory. Copying works only while Polly is stopped, and Polly asks first if the place already holds something. |
+| Hold **SAVE** | Hold it and press white key *n* to make a copy. On Home or the Progression page, Polly copies the progression to P*n*. On Band or Groove length, it copies the groove to place *n* in memory. You can copy a progression while Polly plays, but to copy a groove, stop first. Polly asks first if the place already holds something. |
 | **SELECT** | Turns to the button's next or previous page. In a list, it moves up and down. |
 | **ALGORITHM** | Picks the instrument, on any page. It goes D1, D2, PC, BA, C1, C2, C3, C4, and then the melodies M1 and M2. |
 | **PRESETS** | Does something different on each page. On Home and the Progression page, it steps to the next progression. Hold **HOME** and turn it to change songs. |
@@ -171,7 +172,8 @@ than one thing. For every page and its knobs, see [Page by page](#page-by-page).
 
 ![Home on a new FM-1: free and stopped](docs/img/manual/home.png)
 
-A page button stays lit while you're on one of its pages, and pressing it always opens its first page. Some
+A page button stays lit while you're on one of its pages, and pressing it opens its first page. (On the Band
+pages, **SEQ** opens Notes instead.) Some
 buttons have a second page: turn **SELECT** to reach it. The dots at the right, above the knobs, tell you
 which page you're on.
 
@@ -194,8 +196,8 @@ From top to bottom, the screen has five parts.
   "S1 › P9 Verse", and on the Song page, or on Home in a song, just "S1". With no progression playing it
   reads "S1 › free", and with a melody selected, "S1 › M1 Square Lead". If the line gets too long, the
   first steps drop off. Your place inside the page, such as a bar or a section, is shown by the cursor.
-- **The knobs strip** shows what **KNOB 1–4** do on this page, with their values. The knob you turned last
-  is coral. Pages without knobs, such as Status, don't have the strip.
+- **The knobs strip** shows what **KNOB 1–4** do on this page, with their values. The knob you just turned
+  shows coral for a moment. Pages without knobs, such as Status, don't have the strip.
 - **The two bottom lines** label each control with a pill, like the labels printed on the panel, followed by
   what it does here.
 
@@ -233,7 +235,7 @@ Short messages such as "SAVED" or "NEXT GROOVE B" cover the header for a moment,
 tells you what kind of message it is:
 
 - **i** (beige): news, such as "PROGRESSION P1 POP".
-- **✓** (beige): something done, such as "SAVED" or "COPIED".
+- **✓** (beige): something done, such as "SAVED" or "CLEARED".
 - **An arrow back or forward** (beige): an undo or a redo, and what it changed.
 - **?** (coral): a question. It stays until you answer: **SEL** means yes, and **HOME** means no.
 - **!** (ink): Polly couldn't do what you asked, and the message says why, such as "RESET · STOP FIRST". It
@@ -319,7 +321,7 @@ setting the tempo. Every style has two grooves, plus extras that play before, be
 Polly has 16 styles of its own: Pop, Funk, Rock, Ballad, Bossa, Swing, Shuffle, Reggae, Hip hop, House,
 Disco, Country, Gospel, Waltz, Latin and Ambient. Their drums are real drummers' performances from the
 Groove MIDI Dataset. If you install a [QY70 bank](#the-qy70-bank), the QY70's 128 preset styles come after
-them on the Style knob, with "QY" in front of their names.
+them on the Style knob, whose label then reads "QY style".
 
 ### Picking a style
 
@@ -338,11 +340,11 @@ sounds, Polly plays [your own copy](#your-own-copy-yours) instead of the style's
 Turning the Style knob only changes the grooves that still play the style, and yours stay as they are. That
 way you can keep your Groove A and hear the rest of the band in Funk, then in Rock. When you stop turning the
 knob, Polly asks "GROOVE A IS YOURS: KEEP IT?" or "2 GROOVES ARE YOURS: KEEP THEM?". Press **SEL** to keep
-them, or **HOME** to play the new style's grooves instead, just as BACK TO STYLE would. Either way, your
+them, or **HOME** to play the new style's grooves instead, as BACK TO STYLE would. Either way, your
 copies stay in memory.
 
-To give a groove back to the style, play it, or pick it by holding **HOME** and pressing its black key. Then
-press **SEL** on the Band page and choose BACK TO STYLE (see [the groove's actions](#the-grooves-actions-sel)).
+To give a groove back to the style, play it first. While the band plays, hold **HOME** and press the groove's
+black key. Then press **SEL** on the Band page and choose BACK TO STYLE (see [the groove's actions](#the-grooves-actions-sel)).
 Your copy stays in memory, so you can pick it again later.
 
 ### Changing grooves
@@ -360,7 +362,7 @@ Hold **HOME** and press a black key:
 ![Holding HOME: the grooves and extras, and the progressions](docs/img/manual/home_held.png)
 
 While you hold **HOME**, the screen lists these five, each under its black key's number. Below them are the
-progressions that have chords, in large letters, and the empty ones share a line underneath, such as "P9–P16
+progressions that have chords, and the empty ones share a line underneath, such as "P9–P16
 empty".
 
 - What's playing now is teal: a teal ring around a groove, or a progression with its number on teal and its
@@ -409,13 +411,13 @@ play Funk's Groove A with Rock's fills.
 - On page 1, **KNOB 1–3** set the Intro, Groove A and Groove B, which are shown in bold on a panel.
 - Turn **SELECT** for page 2, where **KNOB 1–3** set Fill AB, Fill BA and the Ending.
 - Each knob lists your own copies first, such as "Funk (yours)", and then the styles by name.
-- **KNOB 4** and **PRESETS** set the song's style, just like Home's **KNOB 1**. They change the grooves that
+- **KNOB 4** and **PRESETS** set the song's style, like Home's **KNOB 1**. They change the grooves that
   play a style, and leave yours alone.
 
 ## Chords
 
 Polly's grooves are written as if the chord were C major 7. As the band plays, Polly moves every note of every
-instrument to fit the chord of the moment. There are three ways to give it chords: play them on the keys,
+instrument to fit the current chord. There are three ways to give it chords: play them on the keys,
 play a progression, or play a song.
 
 ### Playing chords
@@ -456,7 +458,7 @@ There are 25 chord types.
 | | 7(#5) | m7(b5) | |
 
 When a beat doesn't have a chord of its own, the Progression page's Type knob shows "–". A progression with
-no chords yet plays "–" too, and every instrument simply follows the root.
+no chords yet plays "–" too, and every instrument follows the root.
 
 ### Transpose
 
@@ -496,7 +498,7 @@ They come in this order:
 
 1. On Home, turn **KNOB 4** (Prog) anticlockwise to "–", so that the band follows you.
 2. Press **REC**, then **PLAY**, and Polly counts in with a bar of clicks. If the band is already playing,
-   just press **REC**, and recording starts at the next bar.
+   press only **REC**, and recording starts at the next bar.
 3. Play the chords on the keys, in time. Each one lands on the nearest beat.
 4. Press **REC** again. Polly saves the bars you played in the first empty progression, such as P9, tells you
    "NEW PROGRESSION P9", and plays it in a loop. If P1–P16 all have chords, Polly says "NO EMPTY PROG", and
@@ -511,7 +513,7 @@ cells. The cursor is a thick coral ring, and its bar and beat numbers are coral 
 beat that's playing is teal.
 
 The page shows the progression that's playing, or the one you picked last. Until you've picked one, it opens
-on the first empty progression, so you never write over a factory one by accident.
+on the first empty progression, so you never write over a factory one.
 
 - **KNOB 1** (Bar) and **KNOB 2** (Beat) move the cursor. Changing the bar keeps the beat, and the grid
   scrolls to follow. While you're recording, you can move one bar past the end, and a chord there makes the
@@ -529,7 +531,7 @@ Turn **SELECT** for page 2:
 - **KNOB 2** (Beats) sets the number of beats in a bar, from 2 to 7. Every chord stays where it was: a chord
   on bar 2, beat 1 is still on bar 2, beat 1.
 - **KNOB 3** (Bass) sets the bass note of the chord at the cursor. "–" means the chord's own root.
-- **KNOB 4** (Name) gives the progression a name from a list, or just its number, such as "P9".
+- **KNOB 4** (Name) gives the progression a name from a list, or its number, such as "P9".
 
 **Writing at the cursor.** While Polly is stopped, press **REC**. Each chord you play goes in at the cursor,
 and the cursor moves on one bar. To move by a beat or half a bar instead, change STEP in the **SEL** list.
@@ -547,7 +549,7 @@ these actions:
 **Shorter, then longer again.** If you shorten a progression, with Length or with fewer Beats, Polly hides
 the chords that no longer fit and tells you, for example "2 CHORDS HIDDEN". Hidden chords don't play, and
 they come back if you lengthen the progression again before you leave the Progression pages. Once you leave,
-they're gone for good and never saved. Undo brings back a shortening, chords and all. A chord written past
+they're gone and aren't saved. Undo brings back a shortening, chords and all. A chord written past
 the end makes the progression longer, into empty bars.
 
 **Copying.** Hold **SAVE** and press white key *n* to copy the progression to P*n*. If P*n* already has
@@ -714,14 +716,14 @@ these actions:
 - DELETE SECTION deletes the section at the cursor, along with its melody notes. If it has any, Polly asks
   first: "SECTION 3 HAS MELODY NOTES: DELETE?".
 - CLEAR SECTIONS clears the sections and the melodies, after asking "CLEAR S1'S SECTIONS?". The style, tempo,
-  transpose and progressions stay.
+  transpose, mutes and progressions stay. The Intro and Ending turn on again, and At end goes back to "stop".
 - NEW SONG makes the song as it is on a new Polly, after asking "NEW SONG: CLEAR ALL OF S1?". The song then
   has no sections or melodies, the ready-made progressions, and Pop in every groove at Pop's tempo. Nothing is
   transposed or muted, the Intro and Ending are on, and At end is "stop". The melodies' sounds go back to
   their defaults too. Grooves of yours that the song played stay in [memory](#memory) for any song to use,
   until you free them there. One undo brings the whole song back.
-- COPY SONG TO copies the song into another one, such as S2. Turn **ALGORITHM** to pick it, and Polly asks
-  first. The melodies aren't copied, and the other song's melodies are cleared.
+- COPY SONG TO copies the song into another one, such as S2. Turn **ALGORITHM** to pick it. If that song has sections,
+  Polly asks before replacing it. The melodies aren't copied, and the other song's melodies are cleared.
 
 INSERT SECTION, DELETE SECTION, NEW SONG and COPY SONG TO only work while Polly is stopped. If it's playing,
 Polly says "STOP FIRST".
@@ -770,7 +772,8 @@ Groove length page.
 - **KNOB 1** (Grid) sets the grid (see *The grid* below).
 - **KNOB 2** (Bar) and **KNOB 3** (Beat) move the cursor.
 - **KNOB 4** (Muted) mutes or unmutes the selected instrument. See [Mutes](#mutes).
-- **PRESETS** changes what the playing groove plays, starting with your own copies and then the styles'.
+- **PRESETS** changes what the playing groove plays, starting with your own copies and then the styles'. If the band
+  is playing and the groove has unsaved changes, press **SAVE** first.
 - To fix a single note, press **SEQ** again. See [Fixing notes](#fixing-notes).
 
 ### How recording works
@@ -788,7 +791,7 @@ Groove length page.
   16th triplet or 32nd. At "off", they stay exactly as you played them. Turning clockwise makes the grid
   finer: 8, 8T, 16, 16T, 32, off.
 - **As played.** The first time you record into an empty instrument whose type is Chord 1, Chord 2 or Bass,
-  Polly switches it to Parallel and tells you "C1: AS PLAYED". Your notes then play back just as you played
+  Polly switches it to Parallel and tells you "C1: AS PLAYED". Your notes then play back exactly as you played
   them, over the chord you played them on. Over a different chord, they move with the root by the shorter
   way and keep their shape. For example, a line you played over Am goes up a third over C. The instrument's
   range also opens up to the whole keyboard. You can see and change the type on the Sound page (**EDIT**).
@@ -828,9 +831,9 @@ KEPT": your change still plays, but you'll lose it once you pick something else.
 change moves into it right away, and Polly tells you, for example "GROOVE A KEPT IN MEMORY 14". See
 [Memory](#memory).
 
-To copy a groove into a place of your choice, stop first. Then, on the Band page, hold **SAVE** and press
+To copy a groove into a place of your choice, stop first. Then, on the Band or Groove length page, hold **SAVE** and press
 white key *n*. Polly copies the groove to place *n* and says, for example, "COPIED TO MEMORY 7". If the place
-holds another groove, Polly asks first. A place that holds melodies can't take a groove.
+holds another groove, Polly asks first. A place that holds melodies or progressions can't take a groove.
 
 ### Groove length (SEQ, SELECT)
 
@@ -864,7 +867,7 @@ that's playing:
 - CLEAR GROOVE A clears the groove, or the extra that's playing.
 - BACK TO STYLE gives the groove back to the style. If the band is playing, save your changes first, or
   Polly says "UNSAVED · SAVE FIRST". Press **SAVE**, or stop.
-- MEMORY shows what's using the memory. You'll find it only on the **SEQ** and **EDIT** pages.
+- MEMORY shows what's using the memory. It's on the Band, Groove length, Sound and Sound 2 pages.
 
 With a melody selected, the list has the melody's actions instead: CLEAR M1 IN SECTION n, CLEAR M1, QUANTISE
 M1 IN SECTION n and COPY M1 TO SECTION n. See [Melodies](#more-about-melodies).
@@ -938,7 +941,7 @@ three parts.
   moved with its root. You can undo the copy in one step.
 - **Quantise.** QUANTISE M1 IN SECTION 3, in the **SEL** list, moves that section's M1 notes to the nearest
   line of the Band page's grid, which you'll see at the right as 16, 8T and so on. So you can record with the
-  grid off to play freely, and quantise afterwards. One undo takes it back.
+  grid off to play freely, then set the grid on the Band page and quantise. One undo takes it back.
 - **Sound.** A melody has a single Sound page, with the sound's family at the top in plum, such as "M1 Synth
   Lead". Turn **KNOB 1** to change the sound, or **PRESETS** to jump to the next family. As with an
   instrument, the family's eight sounds show for a moment, with the current one ringed. **KNOB 1** sets the
@@ -999,17 +1002,17 @@ Each bar shows its number, and a section's first bar shows the section's name.
 - **Delete a note.** Press **EDIT**.
 - **Add a note.** Move the cursor to an empty place and play a key. The note goes in there, one grid step
   long. A melody note gets the melody's velocity and the root of the chord sounding there, so it follows chord
-  changes just like a recorded note. If you hold several keys, they go in as a chord. When you let go, the
-  cursor moves on one step, so you can write a line note by note. On an existing note, the keys just play.
+  changes like a recorded note. If you hold several keys, they go in as a chord. When you let go, the
+  cursor moves on one step, so you can write a line note by note. On an existing note, the keys only play.
   Notes you add to an instrument are stored as if over C major 7, the way the styles store theirs.
 - **Zoom.** **PRESETS** shows 8, 4, 2 or 1 bars, and down to a single beat for an instrument. Notes starts at
   two bars.
 - **Erase while recording.** While Polly plays with **REC** on, hold **EDIT**. Polly erases the notes the
   playhead passes, from the step it's in until you let go, and the readout says "ERASING". The keys keep
-  recording in the meantime.
+  recording while you hold it.
 - **Undo.** Every edit is one undo step. Hold **HOME** and press **REC** to undo, or **PLAY** to redo. A
   recording pass, along with anything you erased during it, is one step too.
-- **Your copy.** Your first edit to a style's groove makes it yours, just as recording does ("GROOVE A NOW
+- **Your copy.** Your first edit to a style's groove makes it yours, as recording does ("GROOVE A NOW
   YOURS"). A groove holds 600 notes, and Polly says "GROOVE FULL" if you go past that.
 - **While recording**, Notes shows the recording as it happens. The view follows the playhead, and the keys
   record.
@@ -1045,11 +1048,11 @@ ring marks the instrument's sound, and its General MIDI number is at the right i
 As you turn **KNOB 1**, the ring moves through the family, so you can see where you're going. Under the
 sounds, a bar across the whole MIDI keyboard shows the instrument's range, which the Low and High knobs set.
 
-- **KNOB 1** (Sound) picks one of the 128 General MIDI sounds, by name. **PRESETS** jumps a whole family of
+- **KNOB 1** (Sound) picks one of the 128 General MIDI sounds, by name. **PRESETS** jumps a family of
   eight at a time: pianos, organs, guitars, basses and so on. When Polly is stopped, each new sound plays a
   short note from the middle of the instrument's range, so you can hear it. While the band plays, you only
   hear that note for an instrument that's muted or silent in the groove. If you turn fast, it plays a note
-  now and then rather than on every step. Nothing plays while you record, or while a recording is waiting for
+  every few steps rather than on every step. Nothing plays while you record, or while a recording is waiting for
   **PLAY**. A drum instrument plays the drum kit, so its page says "Drums" and shows the kit, without a
   family, range, Low or High.
 - **KNOB 2** (Type) sets how the instrument follows the chords. It says "as played" once Polly has switched
@@ -1105,7 +1108,7 @@ sound darker, and higher Reso makes it more pronounced.
 
 On the Effects page, you set the effects that every instrument shares, in every song.
 
-- **KNOB 1** (Reverb) picks the reverb: Off, Large hall, Hall, Chamber or Room.
+- **KNOB 1** (Reverb) picks the reverb: off, L.hall (large hall), Hall, Chamb. (chamber) or Room.
 - **KNOB 2** (Level) sets the reverb level.
 - **KNOB 3** (Chorus) picks the chorus, from 1 to 4.
 - **KNOB 4** (Level) sets the chorus level.
@@ -1150,7 +1153,7 @@ To start the song you're on from scratch, use NEW SONG in the Song page's list. 
 
 - When you have something to save, **SAVE** lights and the header says "unsaved".
 - Press **SAVE** to save right away. It saves the songs, the grooves you've changed and the settings.
-- Polly also saves by itself about four seconds after you stop, once no key or button is held and the last
+- Polly also saves by itself while it's stopped, about four seconds after you last touch it, once the last
   notes have faded.
 
 Saving pauses the FM-1 for a moment, which is why Polly waits until you stop.
@@ -1181,7 +1184,7 @@ Everything you change before pausing for about a second counts as one undo step.
 step, and so is one pass of an instrument recording. Polly keeps up to 32 steps while it's switched on, or
 fewer after big ones. Switching songs or switching off clears them.
 
-Undo doesn't cover tempo changes made while playing, the Setup and Effects pages, freeing a place in memory,
+Undo doesn't cover tempo changes made while playing, the Setup and Effects pages, freeing a groove's place in memory,
 or a factory reset. Whatever undo brings back is saved like any other change.
 
 ### Memory
@@ -1196,7 +1199,7 @@ progressions".
 
 When every place is taken, Polly says MEMORY FULL, and the bottom line offers "[SEL] memory: free one".
 Press **SEL** to see what's using the memory. You can also get there by choosing MEMORY at the end of the
-**SEL** list on the **SEQ** or **EDIT** pages.
+**SEL** list on the Band, Groove length or Sound pages.
 
 The list shows one place per line, grouped by song: Song 1's first, then Song 2's, and so on, with the free
 places last. For example:
@@ -1205,7 +1208,7 @@ places last. For example:
   plays as, and its name.
 - "S1: melodies" holds Song 1's melody notes. A song with very long melodies takes a second place, "S1:
   melodies, part 2".
-- "No song: groove (yours)" is a groove of yours that no song plays at the moment.
+- "No song: groove (yours)" is a groove of yours that no song plays now.
 - "free" is a free place.
 
 The list fills the screen. The header shows how much is used, as a gauge and in words, such as "Memory 9 of
@@ -1222,7 +1225,8 @@ To free a place, stop, select it and press **SEL**. Polly asks first.
 
 **HOME** takes you back. If MEMORY FULL left a change playing but not kept, that change moves into the freed
 place right away, and Polly tells you, for example "GROOVE A KEPT IN MEMORY 14". The change can be a groove's
-sound, a recording or the song's melodies.
+sound, a recording or the song's progressions. Melody notes played while memory was full aren't kept, so
+record them again.
 
 ### Backup
 
@@ -1276,7 +1280,7 @@ line is about the QY70 bank.
 | --- | --- |
 | **KNOB 1** (Clock) | **MIDI** (the default): Polly keeps its own time, but follows MIDI clock, start and stop whenever they come in. **internal**: Polly ignores MIDI clock. |
 | **KNOB 2** (MIDI out) | **on** (the default): each instrument goes out over USB on its own channel, with its sound and mixer settings. When Polly keeps its own time, it also sends MIDI clock, start and stop. **off**: nothing goes out. |
-| **KNOB 3** (Lights) | **on** (the default): keys light up as you play, and the other buttons glow. **notes**: keys light up, but the buttons don't glow. **off**: no lights. |
+| **KNOB 3** (Lights) | **on** (the default): keys light up as you play, and the other buttons glow. **notes**: keys light up, but the buttons don't glow. **off**: the keys stay dark, and only the buttons light. |
 | **KNOB 4** (Click) | **rec** (the default): a woodblock on every beat while you record, higher on the first beat of the bar. **on**: the click plays whenever Polly plays. **off**: the click only plays during the count-in. |
 
 The click uses MIDI channel 16, so it goes out over MIDI too. It sits a little below the band in the mix, and
@@ -1286,17 +1290,17 @@ off. If the band is already playing, it clicks the beats until a recording start
 The last line shows the state of the QY70 bank: none, the number of styles, "damaged" or "old format".
 
 **Factory reset.** Stop first. On Setup, press **SEL** and choose FACTORY RESET. Polly asks "ERASE ALL SONGS
-AND MEMORY?". Press **SEL** to erase, or **HOME** to keep everything. Afterwards, Polly is as good as new: the
+AND MEMORY?". Press **SEL** to erase, or **HOME** to keep everything. Afterwards, Polly is as it was new: the
 four songs are empty, memory's 16 places are free, and Setup and the mixer are back to their defaults. The QY70
 bank stays installed. A reset can't be undone, so [back up](#backup) first if you might want your songs
 again.
 
-Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, and the version. It
+Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, any audio dropouts (Xruns), and the version. It
 has no knobs.
 
 **MIDI in.** MIDI coming in over USB or the TRS jack plays Polly's sounds on all 16 channels, like a General
 MIDI sound module, with drums on channel 10. It plays alongside the arranger and isn't transposed. Controller
-74 changes each channel's filter brightness and controller 71 its resonance, just like the Mixer tone page.
+74 changes each channel's filter brightness and controller 71 its resonance, like the Mixer tone page.
 
 **USB.** The FM-1 shows up as a class-compliant MIDI device called "Polly FM-1". The FM-1 has no MIDI out
 jack, so MIDI only goes out over USB.
@@ -1318,7 +1322,7 @@ python3 tools/qy70_install.py qy70main.bin
 
 The tool builds the bank and asks before writing it (add `--yes` to skip the question). Writing takes about 30
 seconds, and the FM-1 stops playing while it writes. Polly checks everything it receives before using it, so
-if the cable comes out, you're left with no bank rather than half of one. Just run the tool again. When it's
+if the cable comes out, you're left with no bank rather than half of one. Run the tool again. When it's
 done, Setup says "128 styles".
 
 ### Loading it in the emulator
@@ -1329,7 +1333,7 @@ computer: the page builds the bank in your browser and keeps it there for your n
 
 ### Playing QY70 styles
 
-The QY70 styles come after Polly's 16 on Home's **KNOB 1** (Style), marked "QY". You can also pick them on the
+The QY70 styles come after Polly's 16 on Home's **KNOB 1** (Style), whose label then reads "QY style". You can also pick them on the
 Style pages (**ENV**). They play with their own bends, swells and filter moves, and change grooves and styles
 without a gap. A song plays one QY70 style at a time, so if you pick a groove from another QY70 style, the
 song's other QY70 grooves switch to it too.
@@ -1340,7 +1344,7 @@ song's other QY70 grooves switch to it too.
 - **XG voices.** Variations play their General MIDI instrument, and sound-effect voices play a General MIDI
   effect.
 - **Pan on the drum channel.** The drum instruments share one pan setting and one set of effects.
-- **Editing.** If you record into a QY70 groove or change it, it becomes yours, just like Polly's own styles.
+- **Editing.** If you record into a QY70 groove or change it, it becomes yours, as with Polly's own styles.
   Your copy then has the 600-note limit, so the quietest short notes are left out first, and Polly leaves out
   its bends and controllers. As long as you play QY70 styles as they are, there's no note limit.
 
@@ -1353,7 +1357,7 @@ The QY70's styles are © Yamaha Corporation. Don't share the bank, or anything b
 
 ## Updating and safety
 
-These features come from Felucca, which Polly is built on, and work just as they do in the other FM-1
+These features come from Felucca, which Polly is built on, and work as they do in the other FM-1
 firmwares.
 
 - **Update mode.** Hold **OCT−** and **OCT+** for 5 seconds. The screen counts down, and the FM-1 restarts,
@@ -1396,8 +1400,8 @@ C4, then the melodies M1 and M2), **SELECT** turns a button's pages, and holding
 
 ## Screen mirroring
 
-Polly can show its screen and panel live on a computer connected by USB. It's handy for showing Polly to
-others, for teaching, filming or a big screen. You can also play Polly's panel from the computer.
+Polly can show its screen and panel live on a computer connected by USB. Use it to show Polly on a big screen,
+or when you teach or film. You can also play Polly's panel from the computer.
 
 1. Plug the FM-1 into the computer.
 2. Open the [Mirror page](https://charlesvestal.github.io/fm1-polly/mirror/) in Chrome or Edge.
@@ -1416,7 +1420,7 @@ You can also control Polly from a terminal with `python3 tools/polly_remote.py`,
 `tap HOME`, `turn K1 3`, `shot s.png` or `run tests/scenarios/home.polly`. A scenario runs its presses, keys,
 turns, waits and screenshots, and skips the checks only the simulator can make. Polly takes these commands as
 if they came from its own panel, but only while it's being mirrored. The remote never saves anything by
-itself, though a SAVE you send saves, just like the button. Update mode can only be started by hand.
+itself, though a SAVE you send saves, as the button does. Update mode can only be started by hand.
 
 `run ... --fresh` plays the scenario in a test session. Polly stops, saves anything unsaved, and then starts as
 a new FM-1 would, with no songs, no grooves of yours and the first style. The header says TEST, and nothing
@@ -1424,8 +1428,8 @@ saved during the test is kept. Your own songs come back as they were when the sc
 or the FM-1 restarts.
 
 The mirror costs Polly nothing until a page asks for it. It stops when the page closes, goes quiet for six
-seconds, or the cable comes out, and the computer then lets go of the panel. Notes and clock always go out
-first, so if the computer is slow to keep up, the page skips frames and then catches up by itself.
+seconds, or the cable comes out, and any buttons the computer was holding are released. Notes and clock always go out
+first, so if the computer is slow to keep up, the page skips frames and then catches up.
 
 ## Credits
 

@@ -18,7 +18,7 @@ show
 cap Changing styles | Play your song in another style, and choose whose tempo it plays at.
 wait 3500
 # ---- 1. the song, round and round
-cap 1. Loop the song | Turn KNOB 4 (At end) to again. Press PLAY, and the song plays over and over.
+cap 1. Loop the song | Turn KNOB 4 (At end) to "again". Press PLAY, and the song plays over and over.
 wait 2500
 turn K4 1
 still 1-song
@@ -57,7 +57,7 @@ wait 2500
 turn K2 -30 70
 expect tempo 90
 wait 2000
-cap 3. Set your own tempo | Turn KNOB 1 back to Funk. Funk's band plays, and your tempo stays.
+cap 3. Set your own tempo | Turn KNOB 1 back to Funk. Funk's band comes in, but your tempo stays at 90.
 wait 2500
 turn K1 -1
 still 3-tempo
@@ -66,7 +66,7 @@ expect tempo 90
 expect msgtext_is_TEMPO_KEPT_90_(FUNK_100) 1
 wait 6000
 # ---- 4. the style's tempo again
-cap 4. Use the style's tempo | Press SEL to see the page's list. It opens on STYLE TEMPO 100. Press SEL again.
+cap 4. Use the style's tempo | Press SEL, and the list opens on STYLE TEMPO 100. Press SEL again to use it.
 wait 2500
 tap SEL
 wait 300
@@ -80,7 +80,7 @@ expect list_open 0
 expect tempo 100
 expect msgtext_is_TEMPO_100_THE_STYLE'S 1
 wait 3000
-cap 4. Use the style's tempo | From now on, each style brings its own tempo. Turn KNOB 1 to Pop, and the tempo goes to 105.
+cap 4. Use the style's tempo | From now on, each style brings its own tempo again. Turn KNOB 1 to Pop, and the tempo goes to 105.
 wait 2500
 turn K1 -1
 expect knob1_is_Pop 1

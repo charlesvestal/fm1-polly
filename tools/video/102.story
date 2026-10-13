@@ -18,7 +18,7 @@ barms 2400
 cap Your own progressions | Record your chords, fix one, set the length, name it, and play it from anywhere.
 wait 3500
 # ---- 1. record: REC late in bar 0 counts in to bar 1; Am F C G on bars 1-4; REC just before bar 5
-cap 1. Record a progression | On the Home page, press PLAY, then REC. A click counts in to the next bar.
+cap 1. Record a progression | On the Home page, press PLAY, then REC. Polly clicks until the next bar, then starts recording.
 wait 2500
 anchor A
 tap PLAY
@@ -48,7 +48,7 @@ expect loop_ch9_0 916
 expect loop_ch9_4 500
 expect loop_ch9_8 0
 expect loop_ch9_12 700
-cap 1. Record a progression | Press REC again. P9 is the first empty progression, so your chords go there. The band loops them.
+cap 1. Record a progression | Press REC again. Your chords go into P9, the first empty progression, and the band loops them.
 at A 7 1500
 # ---- 2. fix the chord on bar 4: G to E7
 cap 2. Fix a chord | Press ARP for the Progression page. Turn KNOB 1 (Bar) to bar 4.

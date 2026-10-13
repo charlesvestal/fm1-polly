@@ -56,7 +56,7 @@ turn K2 -2 400
 expect knob2_is_- 1
 still 2-remove
 wait 2000
-cap 2. Remove a section | The row reads "section removed". It goes when you leave the Song page.
+cap 2. Remove a section | The row says "section removed". Polly removes it when you leave the Song page.
 wait 3000
 cap 2. Remove a section | Press HOME twice to go to the Home page and back to the Song page. Section 4 is gone.
 wait 2500
@@ -113,10 +113,10 @@ expect knob4_is_stop 1
 expect song_intro 1
 expect song_ending 1
 wait 2000
-cap 5. Check the Intro and the Ending | KNOB 4 (At end) is on stop, so the song stops after the Ending.
+cap 5. Check the Intro and the Ending | KNOB 4 (At end) is on "stop", so the song stops after the Ending.
 wait 3000
 # ---- 6. play: Intro (2 bars), 1 (4), 2 (x2: 8), 3 (4), the Ending
-cap 6. Play the song | Press PLAY. The Intro's clock fills at the top.
+cap 6. Play the song | Press PLAY. The Intro plays first, with its clock filling up at the top.
 wait 2500
 anchor S
 tap PLAY
@@ -127,7 +127,7 @@ at S 1 0
 at S 2 400
 expect row 1
 expect mutes 7
-cap 6. Play the song | Then each section's clock fills as it plays. Section 1 plays without drums.
+cap 6. Play the song | Then each section's clock fills up as it plays. Section 1 plays without drums.
 at S 6 400
 expect row 2
 expect sect 3

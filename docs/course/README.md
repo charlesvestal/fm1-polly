@@ -1,7 +1,8 @@
 # Polly School
 
-Ten short lessons teach you Polly. Each one has a video and a picture for every step. Start with 101 and take them
-in order, because each lesson starts where the one before ended. For all the details, see the [manual](../../MANUAL.md).
+These ten short lessons teach you Polly, each with a video and a picture for every step. Start with 101 and take
+them in order, because each lesson picks up where the one before left off. When you want the details, see the
+[manual](../../MANUAL.md).
 
 | Lesson | What you do |
 | --- | --- |

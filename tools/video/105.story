@@ -42,7 +42,7 @@ expect msgtext_is_RECORD_M1_INTO_THE_SONG 1
 still 2-arm
 # ---- 2. the line, across sections 1 and 2 (M1: section 1 A 2-5, section 2's first pass A 6-9)
 at A 2 -150
-cap 2. Play a melody | Play across sections 1 and 2. The top line shows the whole song, with four bars below it.
+cap 2. Play a melody | Play across sections 1 and 2. The top line shows the whole song, and below it the four bars around where you are.
 mel A 2 0 1.5 23
 expect sect 2
 expect row 1

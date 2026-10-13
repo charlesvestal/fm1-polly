@@ -23,7 +23,7 @@ at A 0 400
 still 2-play
 chord 1500 11 14 18 21
 at A 1 1200
-cap 2. Play chords | The chord stays when you let go. Play Em7 and A7, two bars each.
+cap 2. Play chords | The chord keeps playing when you let go. Play Em7 and A7, two bars each.
 at A 2 30
 poster
 chord 1500 4 8 11 14

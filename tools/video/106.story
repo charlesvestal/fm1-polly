@@ -80,7 +80,7 @@ mel A 5 0 1.5 21
 mel A 5 1.5 0.5 19
 mel A 5 2 2 14
 at A 6 -150
-cap 2. Record | The groove loops, and each pass adds to it. Press REC again to stop.
+cap 2. Record | The groove keeps looping, so you can keep adding notes. Press REC again to stop.
 mel A 6 0.5 0.5 14
 expect rec_pass 2
 mel A 6 2.5 0.5 19

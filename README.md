@@ -30,7 +30,7 @@ belong to the song. A muted instrument is muted in every groove, and muting neve
 main ROM, which MAME calls `qy70main.bin`. Nothing of Yamaha's comes with Polly. In the browser, press **Load QY70 ROM** on the
 emulator's page, and the ROM stays in your browser. To put them on the FM-1, connect it with a USB cable and run
 `python3 tools/qy70_install.py qy70main.bin`. The tool needs `pip3 install mido python-rtmidi`,
-and the install takes about 30 seconds. The QY70 styles then follow Polly's 16 styles on the Style knob, marked "QY".
+and the install takes about 30 seconds. The QY70 styles then follow Polly's 16 styles on the Style knob, whose label then reads "QY style".
 
 ## The controls
 

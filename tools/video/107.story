@@ -48,7 +48,7 @@ expect notes_where_is_BA|bar_1.1|C2 1
 still 2-pick
 wait 2500
 # ---- 3. change it
-cap 3. Change its pitch | Turn KNOB 2 (Pitch) one step. Here the bass plays the chord's root, so Polly asks.
+cap 3. Change its pitch | Turn KNOB 2 (Pitch) one step. On this note the bass always plays the chord's root, so Polly asks.
 wait 2500
 turn K2 1
 expect slot1_trk4_note0 37
@@ -107,7 +107,7 @@ expect ne_t 120
 expect slot1_trk4_count 18
 wait 2500
 # ---- 6. undo
-cap 7. Undo | Hold HOME and press REC. Polly undoes the last edit, and the header says what it undid.
+cap 7. Undo | Hold HOME and press REC. Your last edit is undone, and the header tells you what changed.
 wait 2500
 press HOME
 wait 300

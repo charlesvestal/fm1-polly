@@ -20,7 +20,7 @@ wait 3500
 expect dirty 0
 expect lit_SAVE 0
 # ---- 1. save
-cap 1. Save | Press EDIT and turn KNOB 1 (Sound) one step. SAVE lights, and the header shows "unsaved".
+cap 1. Save | Press EDIT and turn KNOB 1 (Sound) one step. SAVE lights up, and the header says "unsaved".
 wait 2500
 tap EDIT
 expect page 8
@@ -111,9 +111,9 @@ still 4-memory
 wait 1000
 poster
 wait 1500
-cap 4. Open Memory | Memory has 16 places. They keep your own grooves and melodies for all four songs. The header shows how many are in use.
+cap 4. Open Memory | Memory has 16 places. They keep your own grooves and melodies for all four songs. The header tells you how many are in use.
 wait 2500
-cap 5. Free a place | Turn SELECT to place 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks to be sure.
+cap 5. Free a place | Turn SELECT to the third row, numbered 2. It holds your copy from 106, which no song plays. Press SEL, and Polly asks if you're sure.
 wait 2500
 expect list_sel 0
 turn SELECT 2 400
