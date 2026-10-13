@@ -13,7 +13,7 @@ turn K1 1 600
 turn K1 -3 250
 wait 900
 expect tempo 105
-# ---- 2. chords in free
+# ---- 2. chords, the band following
 cap 2. Play some chords | Three keys make a chord; PLAY, and the band follows whatever you play: Am, F, C, G
 chord 900 4 7 11
 wait 300
@@ -61,7 +61,7 @@ turn K4 1
 wait 1800
 expect loop_name9 Verse
 # ---- 5. the chorus
-cap 5. Record the chorus | HOME, KNOB 4 back past P1 to "-": free again. REC, then C, G, Am, F; REC
+cap 5. Record the chorus | HOME, KNOB 4 back past P1 to "follow". REC, then C, G, Am, F; REC
 tap HOME
 wait 700
 turn K4 -9 90

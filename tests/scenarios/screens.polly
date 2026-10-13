@@ -20,7 +20,7 @@ tap HOME
 expect list_open 0
 expect footer_is_KEYS_chords|REC_new_progression 1
 expect enc_is_HOME_song|PRESET_prog 1
-expect tag_is_S1>free 1
+expect tag_is_S1>follow 1
 # free: a chord played, then playing (the groove's bar at the right, the chord teal while the band plays it)
 key 7 down
 key 11 down

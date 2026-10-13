@@ -10,12 +10,12 @@
  *                   a question: SEL yes, HOME no
  *   a button held alone 1 s: its help card (letting go does nothing)
  *   HOME held       the shortcuts on screen (after HOME_HOLD_MS):
- *     + white key 1..16   progression Pn goes round (from the next bar while playing); the one playing again: free
+ *     + white key 1..16   progression Pn goes round (from the next bar while playing); the one playing again: follow
  *     + black key 1..5    Intro, Groove A, Groove B, Fill (AB from Groove A, BA from Groove B), Ending, from the next bar
  *     + SELECT            the song's tempo
  *     + PRESETS           the song (while playing: after the stop)
  *     + REC / + PLAY      undo / redo (the journal: below)
- *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 PROG ("-" free, P1..P16; "Song" in a song);
+ *   HOME: KNOB 1 the style, 2 the tempo, 3 TRANSPOSE (the song's), 4 PROG ("follow", P1..P16; "Song" in a song);
  *   HOME on Home: Song (HOME again: Home); SELECT there: Song's two pages (the sections, a section's transpose)
  *   (a page button: always its first page; SELECT, and only SELECT, turns the pages)
  *   ARP Progression (x2), SEQ Band (x2: the groove's notes; its length; SEQ again: Notes, the note editor, editor.c),
@@ -1157,7 +1157,7 @@ static void chord_played(const uint8_t *n, int cnt)
             return;
         }
         if (ui.mode_wait || arr_loop_now != l) { /* the loop asked for has not started: its place is not known */
-            say("WRITE", "from the bar line");
+            say("WRITE", "from the next bar");
             return;
         }
         if (arr_pre && !count_lands())
@@ -1332,7 +1332,7 @@ static void loop_pick(int i)
         return;
     if (arr_mode == ARR_LOOP && (arr_playing ? arr_loop_now == i : app.loop == i)) {   /* stopped: the one picked */
         mode_set(ARR_FREE);
-        say("FREE", "no progression");
+        say("FOLLOW", "no progression");
         return;
     }
     app_loop_set(i);
@@ -1927,7 +1927,7 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
             break;
         }
         if (on && r != KR_TRACK) {               /* REC records what the keys play: a track on SEQ, EDIT */
-            say_no("REC", "not here");
+            say_no("REC", "nothing to record here");
             break;
         }
         if (app.lead) {                          /* a lead track: into the song's rows as they play */
@@ -2309,9 +2309,9 @@ static void yours_poll(void)
         if (csong()->style[s] < ARR_USER_PATTERNS)
             one = s;
     if (n == 1)
-        cat_s(cat_s(q, SECT_NAME[one + 1]), " IS YOURS: KEEP IT?");
+        cat_s(cat_s(cat_s(q, "KEEP YOUR "), SECT_NAME[one + 1]), "?");
     else
-        cat_s(itoa_u((uint32_t)n, q), " GROOVES ARE YOURS: KEEP THEM?");
+        cat_s(itoa_u((uint32_t)n, cat_s(q, "KEEP YOUR ")), " GROOVES?");
     upcase(q);
     cat_s(cat_s(cat_s(foot, "SEL keep|HOME use "), style_label(i)), "'s");
     ask2(q, do_grooves_keep, do_grooves_style, foot);
@@ -2327,7 +2327,7 @@ static void song_pick(int d)
     if (arr_playing) {
         app.song_pend = (uint8_t)(s == proj.song ? 0 : s + 1);
         itoa_u((uint32_t)s + 1u, cat_s(t, "SONG S"));
-        say(t, s == proj.song ? "stays" : "after the stop");
+        say(t, s == proj.song ? "stays" : "when you stop");
     } else
         song_change(s);
 }
@@ -3000,7 +3000,7 @@ static void act_quant_lead(void)
     e = cat_s(cat_s(a, TRACK_NAME[ARR_LD1 + k]), " SECTION ");
     itoa_u((uint32_t)r + 1u, e);
     if (proj.quant % ARR_NQ == ARR_Q_OFF) {
-        say("GRID IS OFF", "SEQ: GRID");
+        say("GRID IS OFF", "set it on SEQ");
         return;
     }
     if (r >= g->nrows || !leads_count(&leads, r, k)) {
@@ -3018,7 +3018,7 @@ static void act_quant_lead(void)
     n = leads_quantise(&leads, r, k, GRID_TICKS[proj.quant % ARR_NQ], end);
     lead_write(0);
     if (!n) {
-        say(a, "ON THE GRID");
+        say(a, "ALREADY ON GRID");
         return;
     }
     lead_changed(from, before);
@@ -3077,7 +3077,7 @@ static void do_copy_lead(void)
     undo_commit();                               /* one step */
     itoa_u((uint32_t)to + 1u, cat_s(itoa_u((uint32_t)from + 1u, cat_s(cat_s(b, TRACK_NAME[ARR_LD1 + k]), " SECTION ")), " > "));
     if (put || !n)
-        say_no("COPIED", b);                        /* (else what lead_put said: MEMORY FULL, MELODY FULL) */
+        say("COPIED", b);                           /* (else what lead_put said: MEMORY FULL, MELODY FULL) */
 }
 static void act_copy_lead(void)
 {
@@ -3327,7 +3327,7 @@ static void do_free_slot(void)
         loops_default(sloops.loop);
         songs_write(0);
         save_all();
-        cat_s(b, "PROGS: FACTORY");
+        cat_s(b, "FACTORY PROGS");
     } else if (w.kind == SLOT_LEAD || w.kind == SLOT_LOOPS) {
         if (project_slot_clear(i) != 0) {
             say_no("NOT FREED", "FLASH ERROR");
@@ -3508,8 +3508,7 @@ static void copy_to(int n)
         int src = app.mode == ARR_SONG && arr_loop_now >= 0 && arr_loop_now < ARR_LOOPS ? arr_loop_now : app.loop;
         ui.copy_src = (uint8_t)src;
         if (n == src) {
-            loop_name_l(n, q);
-            say(q, "IS THIS PROGRESSION");
+            say("COPY", "SAME PROGRESSION");
         } else if (sloops.loop[n].bars)
             ask_loop("REPLACE ", n, do_copy_loop);
         else
@@ -4211,6 +4210,8 @@ static void leds(void)
     for (i = 0; i < NPAGE_BTN; i++)
         if (ui.page >= PAGE_BTN[i].first && ui.page < PAGE_BTN[i].first + PAGE_BTN[i].n)
             b |= 1u << PAGE_BTN[i].btn;
+    if (ui.page == P_NOTES)
+        b |= 1u << B_SEQ;                        /* (Notes: SEQ's page) */
     if (ui.btn >> B_HOME & 1u) {                 /* HOME held: the section (next, else playing) and the loop playing */
         int n = arr_next_sect, s = n >= SEC_INTRO && n <= SEC_FILL ? n : arr_sect, t = arr_loop_now;
         static const int8_t KEY_OF[SEC_FILL + 1] = {-1, 0, 1, 2, 3, 3, 4, 3};   /* SEC_* -> black key */
@@ -4602,7 +4603,7 @@ void ui_frame(void)
             ui.rec_seen = 1;
         else if (ui.rec_seen) {
             ui.rec_want = ui.rec_seen = 0;
-            say("RECORD OFF", "the band moved on");
+            say("RECORD OFF", "new section");
         }
     }
     ui.stopped = arr_playing ? 0 : ui.stopped < 255u ? ui.stopped + 1u : 255u;
@@ -4619,7 +4620,7 @@ void ui_frame(void)
         ui.mode_wait = 0;                        /* the bar line passed (or stopped: PLAY starts it) */
     if (app.mode == ARR_SONG && !csong()->nrows && !ui.song_rec) {
         mode_set(ARR_FREE);                      /* the song emptied (CLEAR SECTIONS, NEW SONG, its last deleted, undo, */
-        say("NO SECTIONS:", "FREE");             /* another song): a song with nothing to play is Free (REC on Song */
+        say("NO SECTIONS", "following you");             /* another song): a song with nothing to play is Free (REC on Song */
     }                                            /* writing its first sections: still the song) */
     yours_poll();
     preview_poll();                              /* (Sound's preview: a sound just picked) */

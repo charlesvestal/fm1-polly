@@ -748,6 +748,8 @@ static int expect(const char *what, const char *val)
         got = uj.cur;
     else if (!strcmp(what, "msg"))                /* a message showing */
         got = plat_ms() < ui.msg_until;
+    else if (!strcmp(what, "msg_refusal"))        /* the message showing is a refusal (say_no's look) */
+        got = plat_ms() < ui.msg_until && ui.msg_no;
     else if (!strcmp(what, "black_lit")) {        /* the black keys lit, bit i = black key i (b0..b10) */
         got = 0;
         for (int i = 0; i < 11; i++)

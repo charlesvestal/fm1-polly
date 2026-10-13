@@ -70,8 +70,8 @@ Song (S1–S4)
   transpose, and each section can add its own.
 - **Repeat**: how many times a section plays.
 - **Mute**: silences an instrument or a melody. See [Mutes](#mutes).
-- **Free**: no progression is playing, so the band follows the chords you play. Home's **KNOB 4** (Prog)
-  shows "–".
+- **Follow**: no progression is playing, so the band follows the chords you play. Home's **KNOB 4** (Prog)
+  shows "follow".
 - **Memory**: 16 places that keep your grooves and melodies. The four songs share them. Progressions don't
   use memory, because each song keeps its own.
 - **Undo / Redo**: take back a change, or bring it back.
@@ -91,7 +91,7 @@ press…" means keep **HOME** down while you press the next thing.
 | play a progression | Hold **HOME** and press white key *n*, and P*n* plays in a loop. If the band is already playing, it switches at the next bar. |
 | change the groove | Hold **HOME** and press black key 2 for Groove A or 3 for Groove B. Black key 4 plays a fill, 1 the Intro and 5 the Ending. |
 | set the tempo | Turn **KNOB 2** on Home. On any other page, hold **HOME** and turn **SELECT**. |
-| write a progression | Press **HOME** and turn **KNOB 4** anticlockwise to "–". Press **REC**, then **PLAY**. After a bar of clicks, play one chord per bar, then press **REC** again. |
+| write a progression | Press **HOME** and turn **KNOB 4** anticlockwise to "follow". Press **REC**, then **PLAY**. After a bar of clicks, play one chord per bar, then press **REC** again. |
 | go to bar 1, beat 3 | Press **ARP**. Turn **KNOB 1** (Bar) to 1 and **KNOB 2** (Beat) to 3. **OCT−** and **OCT+** step one beat back or forward. |
 | fix a chord | Press **ARP**. Move to the chord with **KNOB 1** (Bar) and **KNOB 2** (Beat), then turn **KNOB 3** (Root) or **KNOB 4** (Type). To change its bass note, turn **SELECT** to page 2 and turn **KNOB 3** (Bass). |
 | delete a chord | Press **ARP** and move to the chord with **KNOB 1** and **KNOB 2**. Press **SEL**, and the list opens on CLEAR CHORD. Press **SEL** again. |
@@ -157,7 +157,7 @@ than one thing. For every page and its knobs, see [Page by page](#page-by-page).
 | **REC** | Records what the keys play on this page. On Home and the Progression page, it writes chords into the progression. If no progression is playing on Home, it starts a new one. On Home in a song, it pauses the song ("SONG PAUSED") and writes into the progression of the section that was playing, or of the section at the Song page's cursor. On Band, Sound and Notes, it records the selected instrument, or a melody if you're in a song. On the Song page, it [writes sections](#writing-sections-while-the-song-plays). |
 | **SEL** | Opens a list of the page's actions and settings. The list starts on the first action, such as LOAD PROGRESSION, PLAY FROM SECTION or CLEAR C1. Turn **SELECT** up to reach the page's values and MORE. The bottom line tells you what **SELECT**, **ALGORITHM**, **SEL** and **HOME** do in the list. |
 | **HOME** | Opens Home. On Home, it opens the Song page, and on the Song page it takes you back to Home. |
-| Hold **HOME** | Shows the shortcuts on the screen. Press a white key to play that progression, or press the one that's playing to go back to free. Press black keys 1–5 for a groove or an extra. Turn **SELECT** to set the tempo, or **PRESETS** to change songs. Press **REC** to undo and **PLAY** to redo. |
+| Hold **HOME** | Shows the shortcuts on the screen. Press a white key to play that progression, or press the one that's playing to stop it, so the band follows your chords again. Press black keys 1–5 for a groove or an extra. Turn **SELECT** to set the tempo, or **PRESETS** to change songs. Press **REC** to undo and **PLAY** to redo. |
 | **SEQ** | Opens the Band page, where you see the groove's notes. Its page 2 is Groove length. Press **SEQ** again on either page to edit single notes, and press it once more to go back to Band. |
 | **EDIT** | Opens the Sound page. Its page 2, Sound 2, has the high key and the channel. A melody has only the first page. In Notes, **EDIT** deletes the selected note. |
 | Hold **SAVE** | Hold it and press white key *n* to make a copy. On Home or the Progression page, Polly copies the progression to P*n*. On Band or Groove length, it copies the groove to place *n* in memory. You can copy a progression while Polly plays, but to copy a groove, stop first. Polly asks first if the place already holds something. |
@@ -170,7 +170,7 @@ than one thing. For every page and its knobs, see [Page by page](#page-by-page).
 
 ### Pages and dots
 
-![Home on a new FM-1: free and stopped](docs/img/manual/home.png)
+![Home on a new FM-1, stopped, with the band following your chords](docs/img/manual/home.png)
 
 A page button stays lit while you're on one of its pages, and pressing it opens its first page. (On the Band
 pages, **SEQ** opens Notes instead.) Some
@@ -194,7 +194,7 @@ From top to bottom, the screen has five parts.
 - **The tag line**, just above the knobs, tells you where you are, from the song down. On Band, Sound and
   Mixer it reads something like "S1 › Pop › Groove A › C1 Acoustic Grand". On the Progression page it's
   "S1 › P9 Verse", and on the Song page, or on Home in a song, just "S1". With no progression playing it
-  reads "S1 › free", and with a melody selected, "S1 › M1 Square Lead". If the line gets too long, the
+  reads "S1 › follow", and with a melody selected, "S1 › M1 Square Lead". If the line gets too long, the
   first steps drop off. Your place inside the page, such as a bar or a section, is shown by the cursor.
 - **The knobs strip** shows what **KNOB 1–4** do on this page, with their values. The knob you just turned
   shows coral for a moment. Pages without knobs, such as Status, don't have the strip.
@@ -339,7 +339,7 @@ sounds, Polly plays [your own copy](#your-own-copy-yours) instead of the style's
 
 Turning the Style knob only changes the grooves that still play the style, and yours stay as they are. That
 way you can keep your Groove A and hear the rest of the band in Funk, then in Rock. When you stop turning the
-knob, Polly asks "GROOVE A IS YOURS: KEEP IT?" or "2 GROOVES ARE YOURS: KEEP THEM?". Press **SEL** to keep
+knob, Polly asks "KEEP YOUR GROOVE A?" or "KEEP YOUR 2 GROOVES?". Press **SEL** to keep
 them, or **HOME** to play the new style's grooves instead, as BACK TO STYLE would. Either way, your
 copies stay in memory.
 
@@ -496,7 +496,7 @@ They come in this order:
 
 ### Writing a new progression
 
-1. On Home, turn **KNOB 4** (Prog) anticlockwise to "–", so that the band follows you.
+1. On Home, turn **KNOB 4** (Prog) anticlockwise to "follow", so that the band follows you.
 2. Press **REC**, then **PLAY**, and Polly counts in with a bar of clicks. If the band is already playing,
    press only **REC**, and recording starts at the next bar.
 3. Play the chords on the keys, in time. Each one lands on the nearest beat.
@@ -559,7 +559,7 @@ chords, Polly asks first.
 
 Home's **KNOB 4** (Prog) chooses what steers the band.
 
-- At "–", the band is free and follows your chords.
+- At "follow", the band follows your chords.
 - At P1–P16, the band plays that progression. If it's already playing, the change happens at the next bar.
 - In a song, the knob says "Song", and turning it takes you out of the song.
 
@@ -730,7 +730,8 @@ Polly says "STOP FIRST".
 
 A song with no sections can't play as a song. If you press **PLAY** on the Song page, Polly says "NO SECTIONS
 · WHITE KEYS FIRST". If you empty the song you're in, with CLEAR SECTIONS or by deleting its last section,
-Polly goes back to free and says "NO SECTIONS: FREE". After NEW SONG, Polly is free too, on P1.
+the band follows your chords again, and Polly says "NO SECTIONS FOLLOWING YOU". After NEW SONG, Prog is on
+"follow" too, and the Progression page shows P1.
 
 ## Recording an instrument
 
@@ -797,22 +798,22 @@ Groove length page.
   range also opens up to the whole keyboard. You can see and change the type on the Sound page (**EDIT**).
   If you set it back there, Polly won't switch it again.
 - **An instrument that already has notes**, such as a style's comping, keeps its type, and its notes keep
-  following the chords. Polly tells you "C1 FOLLOWS CHORDS", and the bottom line offers "[SEL] clear C1:
-  plays as played". Anything you record into it follows the chords too.
+  following the chords. Polly tells you "C1 FOLLOWS CHORDS", and the bottom line offers "[SEL] clear C1 to
+  record as played". Anything you record into it follows the chords too.
 - **REC while the band plays** starts at the next bar line, wherever the groove is. The screen rings that bar
   and counts down its beats, and a note played just before the bar line lands on it. The passes count from
   there, so if you start at bar 3 of a 4-bar groove, each pass goes bars 3, 4, 1, 2.
 - **A groove shorter than the progression.** Say a style's 2-bar Groove A plays over a 4-bar progression.
-  While you record, the bottom line offers "[SEL] 4 bars, as the prog". Press **SEL**, and the groove becomes
+  While you record, the bottom line offers "[SEL] make it 4 bars". Press **SEL**, and the groove becomes
   as long as the progression, its bars repeating into the new ones. You'll also find this in the **SEL** list
-  as BARS AS THE PROG. Afterwards, what you play over the progression's bar 3 stays with bar 3.
+  as MATCH PROG LENGTH. Afterwards, what you play over the progression's bar 3 stays with bar 3.
 - **In a song, a fill takes the last bar of a section** if the section has "+ fill", or if the groove changes
   after it (unless the section has "no fill"). That bar plays the fill instead of the groove, so you won't
   hear what you record into the groove's last bar there.
 - **Pressing REC before PLAY** outside a song plays the groove you're recording into right away, without the
   Intro.
 - **When the band changes groove, recording stops.** That includes a fill, an ending, or the next section of
-  a song. Polly tells you "RECORD OFF THE BAND MOVED ON". To record, play without a song, or on a groove that
+  a song. Polly tells you "RECORD OFF NEW SECTION". To record, play without a song, or on a groove that
   loops.
 - **A groove holds 600 notes.** Once it's full, Polly drops new notes.
 
@@ -862,7 +863,7 @@ progression is on its bar 3, a 4-bar groove plays its own bar 3. The Band page s
 On the Band, Groove length, Sound, Mixer and Notes pages, the **SEL** list opens on actions for the groove
 that's playing:
 
-- BARS AS THE PROG comes first if the groove is shorter than the progression.
+- MATCH PROG LENGTH comes first if the groove is shorter than the progression.
 - CLEAR C1 clears the selected instrument's notes.
 - CLEAR GROOVE A clears the groove, or the extra that's playing.
 - BACK TO STYLE gives the groove back to the style. If the band is playing, save your changes first, or
@@ -928,8 +929,8 @@ three parts.
 
 - **Punch in.** On the Song page, move the cursor to the section with **KNOB 1** (Section). Then press
   **EDIT**, **REC** and **PLAY**. After a bar of count-in, the song starts at that section, and recording
-  starts on its first downbeat. If you press **REC** while Polly is stopped and free, or stopped on a
-  progression, it switches to the song first.
+  starts on its first downbeat. If you press **REC** while Polly is stopped and following your chords, or stopped
+  on a progression, it switches to the song first.
 - **A second melody.** Turn **ALGORITHM** to M2, and you keep recording, now into M2. M1's notes show dimly
   under M2's, so you can play against them.
 - **Clear.** On the Sound page (**EDIT**), the **SEL** list opens on CLEAR M1 IN SECTION 3, for the section
@@ -952,7 +953,7 @@ three parts.
 - **Mutes.** On the Song page, black keys 9 and 10 mute M1 and M2 in the section at the cursor.
 - **On Home**, in a song, M1 and M2 appear at the right of the "next:" line if they have notes. They're plum,
   turn teal while a note sounds, and are outlined and struck through while muted.
-- **Outside a song.** If you press REC on a melody while the band is free or playing a progression, Polly
+- **Outside a song.** If you press REC on a melody while the band follows your chords or plays a progression, Polly
   tells you "MELODIES RECORD IN A SONG".
 - **Memory.** Melodies share memory's 16 places. A song's melodies take one place, which holds about 420
   notes, and a second place if they outgrow it. "MEMORY FULL" or "MELODY FULL" means no place is left. See
@@ -1021,10 +1022,10 @@ Each bar shows its number, and a section's first bar shows the section's name.
 
 An instrument of type Bass plays the chord's root on its first note after a chord change, whatever note is
 written there (see the [types](#sound-edit)). In Notes, that's the first note on a bar's first beat, unless
-it's written as a C, because the grooves are written in C. The readout marks that note, for example "F2, root
-on changes".
+it's written as a C, because the grooves are written in C. The readout marks that note, for example "F2, heard as
+the root".
 
-When you change or add such a note, Polly asks you once for that groove: "BASS PLAYS THE ROOT HERE. AS
+When you change or add such a note, Polly asks you once for that groove: "PLAY THIS BASS AS
 WRITTEN?".
 
 - Press **SEL** for yes, and the bass plays every note as written. Its Type becomes Chord 1, and Polly tells
@@ -1073,7 +1074,7 @@ sounds, a bar across the whole MIDI keyboard shows the instrument's range, which
 - **KNOB 1** (High key) sets the highest root a Chord 1 or Bass line can play from before it drops an
   octave, from C to B, or off. It keeps a bass line from climbing out of reach as the chords rise. The page
   draws an octave of keys, with the high key in coral and the roots above it shaded, and explains it in
-  words, such as "roots above F#: an octave down". Drums have no high key.
+  words, such as "roots above F# drop an octave". Drums have no high key.
 - **KNOB 2** (Channel) sets the MIDI channel, from 1 to 15. Drums are on channel 10, and the click uses
   channel 16.
 
@@ -1120,7 +1121,7 @@ dark bar and the chorus send as a grey one. To change the sends, use the Mixer's
 
 Mutes belong to the song, not to the groove, so muting never makes a groove yours.
 
-- **Outside a song**, when the band is free or playing a progression, the Band page's **KNOB 4** (Muted)
+- **Outside a song**, when the band follows your chords or plays a progression, the Band page's **KNOB 4** (Muted)
   mutes the selected instrument. It stays muted in every groove and through fills. The mute is saved with the
   song, and each song has its own.
 - **In a song**, each section has its own mutes. You can set them on the Song page with black keys 1–10 (see
@@ -1143,7 +1144,7 @@ Polly holds four songs, each with its own sections, progressions, melodies, temp
 mutes. A song's progressions are saved with the song, so they never use [memory](#memory).
 
 To change songs, hold **HOME** and turn **PRESETS**, on any page. If the band is playing, the new song waits
-until you stop, and Polly tells you "SONG S2 AFTER THE STOP". Polly saves before it loads another song, and
+until you stop, and Polly tells you "SONG S2 WHEN YOU STOP". Polly saves before it loads another song, and
 saving pauses the sound for a moment.
 
 To start the song you're on from scratch, use NEW SONG in the Song page's list. See

@@ -184,7 +184,7 @@ static void ne_lands_ask(void)
     ne_bass_asked |= (uint8_t)(1u << s);
     ne_bass_s = (int8_t)s;
     ne_bass_t = (int8_t)(proj.trk & 7);
-    ask("BASS PLAYS THE ROOT HERE. AS WRITTEN?", ne_bass_yes);
+    ask("PLAY THIS BASS AS WRITTEN?", ne_bass_yes);
 }
 static void ne_knob(int kn, int32_t e)
 {

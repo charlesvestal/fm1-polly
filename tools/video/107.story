@@ -1,12 +1,12 @@
 # Polly 107, fixing notes (docs/course/107-fixing-notes.md), where 106 ended (hidden: 101 to 106 replayed), with a
 # pause on each step's caption before its first move and after its last
 # (tools/polly_video.py tools/video/107.story OUT.mp4).
-# Funk (106's), 100 BPM: a bar 2400 ms, the band free on Groove A. Funk's Groove A on BA (the bass), 18 notes: C2 at
+# Funk (106's), 100 BPM: a bar 2400 ms, the band following on Groove A. Funk's Groove A on BA (the bass), 18 notes: C2 at
 # bar 1.1 (tick 0), C2 at 1.1.3 (240), C3 at 1.1.4 (360), B1 at 1.2.3 (720), ... 480 ticks a beat, the grid 16ths
 # (120). C2 at 1.1 goes to E2 and moves one step, to 1.1.2 (an empty place), then is deleted.
 # Keys (octave 0): key K is MIDI 53 + K: G3 2.
 head 107 Fixing notes
-# ---- where 106 ended: Funk, stopped on the Band page on C2, free, Groove A Funk's again
+# ---- where 106 ended: Funk, stopped on the Band page on C2, Prog on follow, Groove A Funk's again
 hide
 include 106.story
 expect playing 0

@@ -32,7 +32,7 @@ wait 50
 expect rows 0
 expect mode 0
 expect playing 1
-expect msgtext_is_NO_SECTIONS:_FREE 1
+expect msgtext_is_NO_SECTIONS_FOLLOWING_YOU 1
 shot song_cleared_free.png
 tap PLAY
 wait 200

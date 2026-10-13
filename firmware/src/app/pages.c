@@ -75,7 +75,7 @@ static const char *const REV_NAME[5] = {"Off", "Large hall", "Hall", "Chamber", 
 static const char *const REV_SHORT[5] = {"off", "L.hall", "Hall", "Chamb.", "Room"};
 static const char *const LIGHTS_NAME[3] = {"off", "on", "notes"};
 static const char *const CLICK_NAME[3] = {"off", "rec", "on"};   /* ARR_CLICK_* */
-static const char *const MODE_NAME[3] = {"free", "progression", "song"};   /* ARR_* */
+static const char *const MODE_NAME[3] = {"follow", "progression", "song"};   /* ARR_* */
 static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#";
 #define NNAME_CHARS ((int)sizeof NAME_CHARS - 1)
 /* a loop's name (mixed case: "Verse", as the factory's "Pop") */
@@ -274,7 +274,7 @@ enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLE
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
                                                   "INSERT SECTION", "DELETE SECTION", "CLEAR SECTIONS", "COPY SONG TO",
                                                   "CLEAR C", "CLEAR", "BACK TO STYLE", "CLEAR M IN SECTION",
-                                                  "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "BARS AS THE PROG",
+                                                  "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "MATCH PROG LENGTH",
                                                   "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO",
                                                   "FACTORY RESET", "NEW SONG"};
 #define LIST_ROWS 24
@@ -801,7 +801,7 @@ static void loop_set_name_preset(loop_t *l, int li, int idx)
  * and where it is; the chord sounding, big (coral: one from the keys, holding until the source's next change; teal:
  * the loop's or the song's) and the next; a line (LOOP: the progression's name, "starts after the Intro" while an
  * Intro holds; SONG: what comes next, the melodies M1 M2 at its right); the bars under it, two rows (scrolled to the
- * bar playing). FREE: the chord alone, bigger ("Play a chord: 3 keys" until one is heard), and a line: no
+ * bar playing). FREE: the chord alone, bigger ("Play three keys for a chord" until one is heard), and a line: no
  * progression, the band follows your chords */
 /* HOME's place: the engine's, as HOME shows it (stopped: the loop picked from its beat 0, and the chord PLAY starts on,
  * unless chord keys are held: that chord while they are). 1: the chord is the source's (PLAY's), not one from the keys */
@@ -1138,7 +1138,7 @@ static void draw_home_rec(void)
     else if (wait == 3)
         cat_s(t + slen(t), "|after the Intro");
     else if (wait == 4)
-        cat_s(t + slen(t), "|from the bar line");
+        cat_s(t + slen(t), "|from the next bar");
     else {
         e = itoa_u((uint32_t)v.focus + 1u, cat_s(t + slen(t), "|bar "));
         *e++ = '.';
@@ -1281,7 +1281,7 @@ static void draw_home(void)
                 break;
         }
     } else if (mode == ARR_SONG)
-        cat_s(line, "no sections yet|SELECT: the Song page");
+        cat_s(line, "no sections yet|add them on Song");
     else if (intro)
         cat_s(line, "the progression starts after the Intro");
     else if (alone)
@@ -1359,7 +1359,7 @@ static void draw_home(void)
     if (alone) {                                     /* FREE: the chord, big, in a box across; the line under it */
         cv_round(8, 24, 224, HOME_FREE_H, 6, K_PANEL);
         if (fresh)
-            text_c(120, cap_y(24, HOME_FREE_H, &FONT_B), &FONT_B, "Play a chord: 3 keys", K_DIM);
+            text_c(120, cap_y(24, HOME_FREE_H, &FONT_B), &FONT_B, "Play three keys for a chord", K_DIM);
         else {
             chord_name(arr_chord_unpack(pl.chord), t);   /* (teal: the band plays it now) */
             text_c(120, cap_y(24, HOME_FREE_H, &FONT_L), &FONT_L, t, play ? K_TEAL : K_TEXT);
@@ -2354,7 +2354,7 @@ static void lead_where_at(const smap_t *m, const lplace_t *v, char *t)
     int s;
     char *p;
     if (!m->n) {
-        cat_s(t, "no sections yet (Song page)");
+        cat_s(t, "no sections yet: add them on Song");
         return;
     }
     s = smap_sect(m, (uint32_t)v->at);
@@ -2509,7 +2509,7 @@ static void draw_song_line(const smap_t *m, const lplace_t *v, int k, uint32_t f
 static void draw_lead(int rec)
 {
     static const char *const WHY[8] = {"", "in a song only", "no sections yet", "starts with PLAY", "after the Intro",
-                                       "the song is ending", "from the bar line", "starts at the next bar"};
+                                       "the song is ending", "from the next bar", "starts at the next bar"};
     const song_t *g = csong();
     int k = (app.lead ? app.lead - 1 : 0) % ARR_LEADS, b, nl, s;
     uint32_t h, i, lo = 127, hi = 0, fbars = 0, frows = 0, w0 = 0, sh;
@@ -2575,7 +2575,7 @@ static void draw_lead(int rec)
             cat_s(cat_s(p, "|"), WHY[v.why]);
         segs(24, 2, &FONT_B, r1, K_TEXT);
         if (v.why == 1)
-            cv_text(8, 19, &FONT_S, "On Song: PLAY, then REC here", K_ACCENT);
+            cv_text(8, 19, &FONT_S, "Start the song on Song, then REC", K_ACCENT);
         else {
             int32_t x = segs(8, 19, &FONT_S, t, m.n ? K_ACCENT : K_DIM), gw;
             cat_s(cat_s(r1, "grid "), GRID_NAME[proj.quant % ARR_NQ]);
@@ -2782,7 +2782,7 @@ static void ne_where(char *t, int full)
     if (app.lead) {
         int s;
         if (!ne_m.n) {
-            cat_s(p, "|no sections yet (Song page)");
+            cat_s(p, "|no sections yet: add them on Song");
             return;
         }
         s = smap_sect(&ne_sm, b);
@@ -2799,7 +2799,7 @@ static void ne_where(char *t, int full)
         p = cat_s(p, "|");
         ne_name(ne.k.note, p);
         if (ne_lands())                              /* (heard as the root where the chord changes on its beat) */
-            cat_s(p + slen(p), ", root on changes");
+            cat_s(p + slen(p), ", heard as the root");
     }
 }
 #define NL_X 8
@@ -3263,13 +3263,13 @@ static void draw_track(void)
             text_c(x + (kw - 2) / 2, y0 + 36, &FONT_XS, KEY_NAME[n], n == hk ? K_ACCENT : K_DIM);
         }
         if (hk >= XT_NOKEY)
-            cat_s(a, "off: every root where it is");
+            cat_s(a, "off: roots stay where they are");
         else {
-            cat_s(cat_s(cat_s(a, "roots above "), KEY_NAME[hk % 12]), ": an octave down");
+            cat_s(cat_s(cat_s(a, "roots above "), KEY_NAME[hk % 12]), " drop an octave");
         }
         cv_text(8, 84, &FONT_S, a, works ? K_TEXT : K_DIM);
         if (!works)
-            cv_text(8, 100, &FONT_XS, "(it moves Chord 1 and Bass only)", K_DIM);
+            cv_text(8, 100, &FONT_XS, "(only for Chord 1 and Bass types)", K_DIM);
         cv_blit(0, MAIN_Y);
         return;
     }
@@ -3473,14 +3473,14 @@ static void bank_text(char *t)                       /* the QY70 bank: "128 styl
  * computer) */
 static void setup_says(int k, const char **name, const char **what)
 {
-    static const char *const LIGHTS[3] = {"Off: no lights but the buttons'.", "The keys light their notes; the buttons glow.",
-                                          "The keys light their notes; no glow."};
-    static const char *const CLICK[3] = {"A click in the count-in only.", "A click while recording, and the count-in.",
+    static const char *const LIGHTS[3] = {"Only the buttons light.", "The keys light their notes; the buttons glow.",
+                                          "The keys light their notes; the buttons don't glow."};
+    static const char *const CLICK[3] = {"A click in the count-in only.", "A click in the count-in and while recording.",
                                          "A click on every beat."};
     *name = k == 0 ? "Clock" : k == 1 ? "MIDI out" : k == 2 ? "Lights" : "Click";
-    *what = k == 0 ? (proj.clock ? "Follows MIDI clock in when it comes; its own tempo when not."
-                                 : "Its own tempo; MIDI clock in is ignored.")
-          : k == 1 ? (proj.mout ? "Every instrument out on its channel, and the clock." : "Nothing out over MIDI.")
+    *what = k == 0 ? (proj.clock ? "Follows incoming MIDI clock; keeps its own tempo without it."
+                                 : "Keeps its own tempo and ignores incoming MIDI clock.")
+          : k == 1 ? (proj.mout ? "Sends each instrument on its own channel, and the clock." : "Sends nothing over MIDI.")
           : k == 2 ? LIGHTS[proj.leds % 3u] : CLICK[proj.click % 3u];
 }
 static uint8_t setup_shown;                          /* what Setup's box shows: 1 the four knobs' jobs (none turned yet
@@ -3501,7 +3501,7 @@ static void draw_setup(void)
     if (k < 0) {   /* no knob turned yet (the page just opened): what each of the four is for, a line each, the name in
                     * ink, its job dim (17 px apart, centred down the box as the block below) */
         static const char *const NM[4] = {"Clock", "MIDI out", "Lights", "Click"};
-        static const char *const JOB[4] = {"follow MIDI clock in", "the band out over MIDI", "the keys and buttons",
+        static const char *const JOB[4] = {"follow MIDI clock in", "send the band over MIDI", "the keys and buttons",
                                            "when the click plays"};
         int32_t top = 1 + (88 - (3 * 17 + 11)) / 2, x = 18 + text_w(&FONT_B, NM[1]) + 10;   /* (the jobs in a column,
                                                       * after the longest name) */
@@ -3731,7 +3731,7 @@ static void transpose_knob(knob_t *k)
     int x = csong()->transpose;
     kv(k, "Transpose", KEY_NAME[(x + 12) % 12], x + 6, 11);
 }
-/* HOME: the song's style, tempo, transpose; PROG ("-" FREE, P1..P16, "Song" while in the song) */
+/* HOME: the song's style, tempo, transpose; PROG ("follow" FREE, P1..P16, "Song" while in the song) */
 static void home_knobs(knob_t *k)
 {
     char t[8];
@@ -3744,7 +3744,7 @@ static void home_knobs(knob_t *k)
         itoa_u(app.loop + 1u, cat_s(t, "P"));
         kv(&k[3], "Prog", t, app.loop + 1, ARR_LOOPS);
     } else
-        kv(&k[3], "Prog", "-", 0, ARR_LOOPS);
+        kv(&k[3], "Prog", "follow", 0, ARR_LOOPS);
 }
 static void edit_knobs(knob_t *k)
 {
@@ -4167,14 +4167,14 @@ static void page_tag(char *t)
     *t = 0;
     switch (ui.page) {
     case P_HOME:                                     /* "S1>P3 Verse", "S1" (the song: its place is HOME's to say),
-                                                      * "S1>free", "S1>new P9" */
+                                                      * "S1>follow", "S1>new P9" */
         e = crumb_song(t);
         if (ui.take)                                 /* a new loop's take (not FREE) */
             itoa_u(ui.take_loop + 1u, cat_s(e, ">new P"));
         else if (app.mode == ARR_LOOP)
             loop_label(app.loop, cat_s(e, ">"));
         else if (app.mode == ARR_FREE)
-            cat_s(e, ">free");
+            cat_s(e, ">follow");
         break;
     case P_SONG: case P_SONG2: case P_SONG3:         /* "S1" (the cursor's section: by the cursor) */
         crumb_song(t);
@@ -4297,12 +4297,12 @@ static void page_footer(char *t)
         break;
     case P_PATTERN: case P_PATSET: case P_TRACK: case P_TRACK2:   /* "KEYS C1|REC record" (its sound: on the page) */
         if (trk_rec_shown() && !app.lead && loop_longer()) {   /* REC's screen: SEL makes it as long as the loop */
-            itoa_u((uint32_t)loop_longer(), cat_s(t, "SEL "));
-            cat_s(t + slen(t), " bars, as the prog|REC stop");
+            itoa_u((uint32_t)loop_longer(), cat_s(t, "SEL make it "));
+            cat_s(t + slen(t), " bars|REC stop");
             break;
         }
         if (ui.follow_hint) {                        /* REC kept the track's type (it has notes): how to change that */
-            cat_s(cat_s(cat_s(t, "SEL clear "), TRACK_NAME[sel_trk()]), ": plays as played");
+            cat_s(cat_s(cat_s(t, "SEL clear "), TRACK_NAME[sel_trk()]), " to record as played");
             break;
         }
         cat_s(cat_s(cat_s(t, "KEYS "), TRACK_NAME[sel_trk()]), arr_recording || ui.rec_want ? "|REC stop" : "|REC record");
@@ -4559,47 +4559,47 @@ static void draw_footer(void)
 #define CF_LEAD (1u << 31)                           /* (pages past NPAGES) only with a lead track selected */
 #define CF_NOLEAD (1u << 30)                         /* only without (PG_ANY: both, either) */
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
-    {B_ARP, PG_ANY, "Progression", "Your chords, 1-16 bars, going round. Play chords.",
-     "REC writes them: at the cursor (BAR, BEAT), or in time."},
-    {B_SEQ, PG(P_NOTES), "Notes", "SELECT picks a note. KNOB 1: the place; then pitch, length, velocity.",
-     "EDIT deletes; SEL + SELECT moves. SEQ: Band."},
-    {B_EDIT, PG(P_NOTES), "Delete", "Tap: the selected note goes. HOME + REC: back.",
-     "Held while recording: the notes the playhead passes go."},
-    {B_SEQ, PG_ANY, "Band", "The groove's notes by instrument; BAR, BEAT: the cursor.",
-     "SELECT: length, name. SEQ again: Notes, to fix notes."},
-    {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "Its sound, channel and velocity; its notes along the song.",
-     "SEL: QUANTISE. ALGORITHM: the instruments."},
-    {B_EDIT, PG_ANY, "Sound", "The instrument's sound and range; SELECT: high key, channel.",
-     "ALGORITHM past C4: the melodies M1, M2."},
-    {B_LFO, PG_ANY, "Mixer", "Volume, pan and sends; SELECT: the tone. Black keys pick the instrument.", 0},
+    {B_ARP, PG_ANY, "Progression", "Your chords, 1 to 16 bars, played in a loop. Play chords on the keys.",
+     "REC writes them at the cursor (BAR, BEAT), or in time as it plays."},
+    {B_SEQ, PG(P_NOTES), "Notes", "SELECT picks a note. The knobs set place, pitch, length, velocity.",
+     "EDIT deletes it. SEL + SELECT moves it. SEQ goes back to Band."},
+    {B_EDIT, PG(P_NOTES), "Delete", "Tap to delete the selected note. HOME + REC brings it back.",
+     "Hold it while recording to erase notes as they play."},
+    {B_SEQ, PG_ANY, "Band", "The groove's notes by instrument. BAR and BEAT move the cursor.",
+     "SELECT for length and name; SEQ again to fix notes."},
+    {B_EDIT, PG_ANY & ~CF_NOLEAD, "Melody", "The melody's sound, channel and velocity, and its notes in the song.",
+     "SEL has QUANTISE. ALGORITHM picks an instrument."},
+    {B_EDIT, PG_ANY, "Sound", "The instrument's sound and its range.",
+     "SELECT for high key and channel; ALGORITHM past C4 for M1, M2."},
+    {B_LFO, PG_ANY, "Mixer", "Volume, pan and effect sends. Turn SELECT for the tone. Black keys pick the instrument.", 0},
     {B_FX, PG_ANY, "Effects", "The reverb and the chorus every instrument sends to.", 0},
-    {B_ENV, PG_ANY, "Style", "Which style plays the grooves, the intro, fills and ending. PRESETS: the next style.", 0},
-    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights, the click (off, rec, on); SELECT: the status.", 0},
-    {B_SEL, PG_TRACK, "Lists", "This page as a list; MEMORY: what fills the 16 places, FREE one.",
+    {B_ENV, PG_ANY, "Style", "Which style plays the grooves, Intro, fills and Ending. Turn PRESETS for the next style.", 0},
+    {B_GLO, PG_ANY, "Setup", "Clock, MIDI out, lights and the click. Turn SELECT for the status page.", 0},
+    {B_SEL, PG_TRACK, "Lists", "This page as a list. MEMORY shows what fills the 16 places.",
      "SELECT moves, ALGORITHM changes, HOME goes back."},
-    {B_SEL, PG_ANY, "Lists", "The page's knobs, then what you can do here: SEL does it.",
+    {B_SEL, PG_ANY, "Lists", "The page's knobs, then its actions. SEL runs the one picked.",
      "SELECT moves, ALGORITHM changes, HOME goes back."},
-    {B_SAVE, PG_SONG, "Save", "Tap: save.", "Nothing to copy here: a white key on its own adds a section."},
-    {B_SAVE, PG_ANY, "Save", "Tap: save. Hold + a white key: copy here.", 0},
-    {B_REC, PG(P_HOME) | PG(P_LOOP) | PG(P_LOOP2), "Write chords",
-     "Into the progression playing: at the cursor, or in time as it plays.",
-     "On HOME in free: a new progression. HOME + REC: undo."},
+    {B_SAVE, PG_SONG, "Save", "Tap to save.", "Nothing to copy on this page. A white key on its own adds a section."},
+    {B_SAVE, PG_ANY, "Save", "Tap to save. Hold SAVE and press a white key to copy to that place.", 0},
+    {B_REC, PG(P_HOME), "Write chords", "Writes into the progression playing, at the cursor or in time.",
+     "With none playing, starts a new one. HOME + REC undoes."},
+    {B_REC, PG(P_LOOP) | PG(P_LOOP2), "Write chords", "Writes into the progression, at the cursor or in time as it plays.",
+     "HOME + REC undoes."},
     {B_REC, PG_TRACK | CF_NOLEAD, "Record the instrument", "What the keys play goes into the selected instrument.",
-     "HOME + REC: undo (a pass at a time)."},
-    {B_REC, PG_TRACK | CF_LEAD, "Record the melody",
-     "While the song plays, what the keys play goes into the section playing.",
-     "PLAY here starts the song; SEL: PLAY FROM SECTION on Song."},
-    {B_REC, PG_SONG, "Record the sections", "With PLAY: the progressions and grooves you pick with HOME + keys,",
-     "and the mutes you change. HOME + REC: undo."},
-    {B_REC, PG_ANY, "Record", "Nothing to record on this page.", "HOME + REC: undo."},
-    {B_PLAY, PG_ANY, "Play", "Start and stop. On Song: the song from section 1 (from a progression: at the next bar).",
-     "HOME + PLAY: redo."},
-    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor a beat back (OCT+ a beat on); the chords stay as they are.",
-     "BAR and BEAT go straight there."},
-    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor a beat on (OCT- a beat back); the chords stay as they are.",
-     "BAR and BEAT go straight there."},
-    {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Both held 5 s: update mode."},
-    {B_OCTUP, PG_ANY, "Octave", "The keys an octave up.", "Both held 5 s: update mode."},
+     "HOME + REC undoes one pass at a time."},
+    {B_REC, PG_TRACK | CF_LEAD, "Record the melody", "While the song plays, what you play goes into the section playing.",
+     "PLAY starts the song; PLAY FROM SECTION is in Song's list."},
+    {B_REC, PG_SONG, "Record the sections",
+     "While the song plays, records what you pick with HOME + keys, and your mutes.", "HOME + REC undoes."},
+    {B_REC, PG_ANY, "Record", "Nothing to record on this page.", "HOME + REC undoes."},
+    {B_PLAY, PG_ANY, "Play", "Starts and stops. On Song, plays from section 1, at the next bar if a progression is playing.",
+     "HOME + PLAY redoes."},
+    {B_OCTDN, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor back a beat. The chords don't change.",
+     "OCT+ moves it forward; BAR and BEAT jump to a place."},
+    {B_OCTUP, PG(P_LOOP) | PG(P_LOOP2), "Cursor", "Moves the cursor forward a beat. The chords don't change.",
+     "OCT- moves it back; BAR and BEAT jump to a place."},
+    {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", "Hold both for 5 seconds for update mode."},
+    {B_OCTUP, PG_ANY, "Octave", "The keys an octave up.", "Hold both for 5 seconds for update mode."},
 };
 #define NCARDS (sizeof CARD / sizeof CARD[0])
 static int card_find(int btn)                        /* the card for btn on this page, -1 none */

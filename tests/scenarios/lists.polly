@@ -3,7 +3,7 @@
 # Pages: 0 Home, 1-2 Song, 4-5 Progression, 6 Band, 7 Groove length. Cards: the button + 1 (ARP 9, SAVE 8)
 wait 300
 # the tag and the footer before any button: FREE, the hint
-expect tag_is_S1>free 1
+expect tag_is_S1>follow 1
 expect footer_is_REC_new_prog|hold_a_button:_help 1
 # HOME's list: it opens on its first action (LOAD PROGRESSION, row 4: Style, Tempo, Transpose, Loop above it);
 # SELECT moves (not the page) up to the knobs' rows, ALGORITHM changes the row's value, HOME backs out
@@ -254,7 +254,7 @@ expect asking 1
 tap SEL
 expect rows 0
 expect mode 0
-expect msgtext_is_NO_SECTIONS:_FREE 1
+expect msgtext_is_NO_SECTIONS_FOLLOWING_YOU 1
 # the list's own button let go: the list goes, the page stays
 tap SEL
 expect list_open 1

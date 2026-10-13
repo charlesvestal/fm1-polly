@@ -4,14 +4,14 @@
 # Funk (101's), 100 BPM: a bar 2400 ms. Keys (octave 0): F3 0, G3 2, A3 4, B3 6, C4 7, D4 9, E4 11, G4 14.
 # Am 4 7 11, F 0 4 7, C 7 11 14, G 2 6 9. White key 1 = key 0, white key 9 = key 14. Anchor A: PLAY.
 head 102 Your own progressions
-# ---- where 101 ended: Funk, stopped on Home, free, the song empty, P9 the first empty progression
+# ---- where 101 ended: Funk, stopped on Home, Prog on follow, the song empty, P9 the first empty progression
 hide
 include 101.story
 expect playing 0
 expect page 0
 expect tempo 100
 expect knob1_is_Funk 1
-expect knob4_is_- 1
+expect knob4_is_follow 1
 expect rows 0
 show
 barms 2400

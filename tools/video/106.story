@@ -1,9 +1,9 @@
 # Polly 106, your own grooves (docs/course/106-your-own-grooves.md), where 105 ended (hidden: 101 to 105 replayed),
 # with a pause on each step's caption before its first move and after its last
 # (tools/polly_video.py tools/video/106.story OUT.mp4).
-# Pop (104's), 105 BPM: a bar 2285.714 ms. Out of the song (Home's Prog on "-"), on Groove A (stopped in section 2,
+# Pop (104's), 105 BPM: a bar 2285.714 ms. Out of the song (Home's Prog on "follow"), on Groove A (stopped in section 2,
 # Polly would start on its Groove B). Pop's Groove A is 2 bars; its C2 (Clean Guitar) has no notes, so the first REC
-# makes it "as played". The band plays free, on the song's last chord. Keys (octave 0): key K is MIDI 53 + K: C4 7,
+# makes it "as played". The band follows (Prog on follow), on the song's last chord. Keys (octave 0): key K is MIDI 53 + K: C4 7,
 # E4 11, G4 14, A4 16, C5 19, D5 21, E5 23, G5 26. Anchor A: PLAY (Groove A from A 0).
 head 106 Your own grooves
 # ---- where 105 ended: Pop, stopped on the Sound page on M2, in the song (stopped in section 2)
@@ -22,15 +22,15 @@ cap Your own grooves | Record an instrument into the style's groove, and the gro
 wait 3500
 expect tempo 105
 expect song1_style1 33
-# ---- 1. free, Groove A, an instrument
-cap 1. Pick an instrument | Press HOME for the Home page. Turn KNOB 4 (Prog) down, past P1, to "-". The band follows your chords, not the song.
+# ---- 1. follow, Groove A, an instrument
+cap 1. Pick an instrument | Press HOME for the Home page. Turn KNOB 4 (Prog) down, past P1, to "follow". The band follows your chords, not the song.
 wait 2500
 tap HOME
 wait 900
 expect page 0
 expect knob4_is_Song 1
 turn K4 -2 400
-expect knob4_is_- 1
+expect knob4_is_follow 1
 expect mode 0
 wait 1500
 cap 1. Pick an instrument | Hold HOME and press black key 2 for Groove A.

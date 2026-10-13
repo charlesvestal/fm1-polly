@@ -20,7 +20,7 @@ expect slot1_trk4_count 18
 tap REC
 wait 50
 expect recording 1
-expect footer_is_SEL_4_bars,_as_the_prog|REC_stop 1
+expect footer_is_SEL_make_it_4_bars|REC_stop 1
 wait 100
 shot rec_bars_hint.png
 tap SEL
@@ -250,6 +250,7 @@ expect asking 0
 expect lead_count1_1 2
 expect lead_count1_2 2
 expect msgtext_is_COPIED_M1_SECTION_2_>_1 1
+expect msg_refusal 0
 # one step: undone, redone
 press HOME
 tap REC

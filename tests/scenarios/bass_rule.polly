@@ -24,7 +24,7 @@ shot bass_ask.png
 tap HOME
 expect asking 0
 expect slot1_trk4_xtype 4
-expect notes_where_is_BA|bar_1.1|F2,_root_on_changes 1
+expect notes_where_is_BA|bar_1.1|F2,_heard_as_the_root 1
 wait 300
 shot bass_root.png
 # ---- asked once a groove: another edit there, no question

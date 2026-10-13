@@ -1,0 +1,1251 @@
+# POLLY, the help cards: every button held alone a second on every kind of page (Home, Song, Progression, Band,
+# Notes, Sound, Mixer, Effects, Style, Setup; then with the melody M1 selected: Sound, Band, Notes), so the simulator's
+# check (a card's words past its box fail) covers every card's words. PLAY's card: held on Home and on Song (PLAY
+# starts on its press: tapped again to stop). Card = the button's number + 1 (FX 1 .. OCT+ 14).
+# On Notes, SEQ stays lit (its page).
+wait 300
+expect page 0
+# ---- Home
+expect page 0
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 0
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 0
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 0
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 0
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 0
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 0
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 0
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 0
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 0
+press REC
+wait 1100
+expect card 12
+shot card_rec_home.png
+release REC
+wait 50
+expect card 0
+expect page 0
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 0
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 0
+press PLAY
+wait 1100
+expect card 11
+release PLAY
+wait 50
+expect card 0
+tap PLAY
+wait 300
+# ---- Song
+tap HOME
+expect page 1
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 1
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 1
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 1
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 1
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 1
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 1
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 1
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 1
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 1
+press REC
+wait 1100
+expect card 12
+shot card_rec_song.png
+release REC
+wait 50
+expect card 0
+expect page 1
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 1
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 1
+press PLAY
+wait 1100
+expect card 11
+release PLAY
+wait 50
+expect card 0
+tap PLAY
+wait 300
+# ---- Song 2
+turn SELECT 1
+expect page 2
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 2
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 2
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 2
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 2
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 2
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 2
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 2
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 2
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 2
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 2
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 2
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 2
+# ---- Progression
+tap ARP
+expect page 4
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 4
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 4
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 4
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 4
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 4
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 4
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 4
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 4
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 4
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 4
+press OCT-
+wait 1100
+expect card 13
+shot card_cursor.png
+release OCT-
+wait 50
+expect card 0
+expect page 4
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 4
+# ---- Band
+tap SEQ
+expect page 6
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 6
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 6
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 6
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 6
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 6
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 6
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 6
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 6
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 6
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 6
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 6
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 6
+# ---- Notes
+tap SEQ
+expect page 17
+expect lit_SEQ 1
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 17
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 17
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 17
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 17
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 17
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 17
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 17
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 17
+press SEQ
+wait 1100
+expect card 10
+shot card_notes.png
+release SEQ
+wait 50
+expect card 0
+expect page 17
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 17
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 17
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 17
+# ---- Sound (from Notes, EDIT deletes: Home first)
+tap HOME
+tap EDIT
+expect page 8
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 8
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 8
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 8
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 8
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 8
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 8
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 8
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 8
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 8
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 8
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 8
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 8
+# ---- Mixer
+tap LFO
+expect page 10
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 10
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 10
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 10
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 10
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 10
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 10
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 10
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 10
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 10
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 10
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 10
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 10
+# ---- Effects
+tap FX
+expect page 12
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 12
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 12
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 12
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 12
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 12
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 12
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 12
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 12
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 12
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 12
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 12
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 12
+# ---- Style
+tap ENV
+expect page 13
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 13
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 13
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 13
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 13
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 13
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 13
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 13
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 13
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 13
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 13
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 13
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 13
+# ---- Setup
+tap GLO
+expect page 15
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 15
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 15
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 15
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 15
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 15
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 15
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 15
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 15
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 15
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 15
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 15
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 15
+# ---- Sound, M1
+tap EDIT
+turn ALGO 4
+expect lead_sel 1
+expect page 8
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 8
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 8
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 8
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 8
+press EDIT
+wait 1100
+expect card 5
+shot card_melody.png
+release EDIT
+wait 50
+expect card 0
+expect page 8
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 8
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 8
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 8
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 8
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 8
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 8
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 8
+# ---- Band, M1
+tap SEQ
+expect page 6
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 6
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 6
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 6
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 6
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 6
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 6
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 6
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 6
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 6
+press REC
+wait 1100
+expect card 12
+shot card_rec_melody.png
+release REC
+wait 50
+expect card 0
+expect page 6
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 6
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 6
+# ---- Notes, M1
+tap SEQ
+expect page 17
+expect lit_SEQ 1
+press FX
+wait 1100
+expect card 1
+release FX
+wait 50
+expect card 0
+expect page 17
+press SEL
+wait 1100
+expect card 2
+release SEL
+wait 50
+expect card 0
+expect page 17
+press ENV
+wait 1100
+expect card 3
+release ENV
+wait 50
+expect card 0
+expect page 17
+press LFO
+wait 1100
+expect card 4
+release LFO
+wait 50
+expect card 0
+expect page 17
+press EDIT
+wait 1100
+expect card 5
+release EDIT
+wait 50
+expect card 0
+expect page 17
+press GLO
+wait 1100
+expect card 6
+release GLO
+wait 50
+expect card 0
+expect page 17
+press SAVE
+wait 1100
+expect card 8
+release SAVE
+wait 50
+expect card 0
+expect page 17
+press ARP
+wait 1100
+expect card 9
+release ARP
+wait 50
+expect card 0
+expect page 17
+press SEQ
+wait 1100
+expect card 10
+release SEQ
+wait 50
+expect card 0
+expect page 17
+press REC
+wait 1100
+expect card 12
+release REC
+wait 50
+expect card 0
+expect page 17
+press OCT-
+wait 1100
+expect card 13
+release OCT-
+wait 50
+expect card 0
+expect page 17
+press OCT+
+wait 1100
+expect card 14
+release OCT+
+wait 50
+expect card 0
+expect page 17

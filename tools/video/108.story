@@ -1,7 +1,7 @@
 # Polly 108, making it sound yours (docs/course/108-making-it-sound-yours.md), where 107 ended (hidden: 101 to 107
 # replayed), with a pause on each step's caption before its first move and after its last
 # (tools/polly_video.py tools/video/108.story OUT.mp4).
-# Funk (106's), 100 BPM, the band free on Groove A (yours: 107's notes). C1 (track 5): Clavinet, to Rock Organ (+11).
+# Funk (106's), 100 BPM, the band following on Groove A (yours: 107's notes). C1 (track 5): Clavinet, to Rock Organ (+11).
 # Its Mixer: volume 78, pan L24, reverb 20, chorus 0. Effects: Hall, level 90.
 head 108 Making it sound yours
 # ---- where 107 ended: Funk, stopped in Notes on BA, Groove A yours
