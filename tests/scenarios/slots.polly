@@ -40,10 +40,10 @@ expect slots_list 1
 expect slot_shown1 1
 expect slot_shown7 1
 expect slot_shown13 1
-expect memrow1_is_S1:_Intro_(yours) 1
-expect memrow2_is_S1:_Groove_A_(yours) 1
-expect memrow7_is_S2:_Intro_(yours) 1
-expect memrow13_is_No_song:_groove_(yours) 1
+expect memrow1_is_S1:_Intro_(edited) 1
+expect memrow2_is_S1:_Groove_A_(edited) 1
+expect memrow7_is_S2:_Intro_(edited) 1
+expect memrow13_is_No_song:_groove_(edited) 1
 wait 100
 shot slots_list.png
 # P13 (no song plays it; the 13th row): FREE asks, SEL frees it
@@ -63,7 +63,7 @@ expect msgtext_is_PROGS_KEPT_IN_MEMORY_13 1
 expect loops_slot 13
 expect slot_shown13 4
 expect memrow7_is_S1:_progressions 1
-expect memrow8_is_S2:_Intro_(yours) 1
+expect memrow8_is_S2:_Intro_(edited) 1
 expect footer_is_SELECT_move|SEL_free|HOME_back 1
 wait 100
 shot slots_freed.png
@@ -226,7 +226,7 @@ expect song1_style1 33
 expect trk5_program 2
 tap SEL
 expect slots_list 1
-expect memrow14_is_No_song:_groove_(yours) 1
+expect memrow14_is_No_song:_groove_(edited) 1
 spin SELECT 13
 tap SEL
 expect asking 1

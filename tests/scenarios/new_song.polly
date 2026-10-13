@@ -32,7 +32,7 @@ expect transpose 2
 tap EDIT
 expect page 8
 turn K1 1
-expect msgtext_is_GROOVE_A_NOW_YOURS 1
+expect msgtext_is_EDITING_A_COPY_GROOVE_A 1
 expect song1_style1 0
 tap SEQ
 turn ALGO -4

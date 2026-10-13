@@ -160,8 +160,8 @@ expect track 5
 expect trk5_program 8
 turn K1 1
 expect trk5_program 9
-expect msgtext_is_GROOVE_A_NOW_YOURS 1
-expect songtext_is_Funk|Groove_A_(yours) 1
+expect msgtext_is_EDITING_A_COPY_GROOVE_A 1
+expect songtext_is_Funk|Groove_A_(edited) 1
 shot sound_yours.png
 wait 1500
 shot sound.png

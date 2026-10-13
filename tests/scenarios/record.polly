@@ -27,7 +27,7 @@ expect recording 1
 expect play_led 3
 leds
 expect type5 2
-expect msgtext_is_C1_FOLLOWS_CHORDS_(YOURS) 1
+expect msgtext_is_C1_FOLLOWS_CHORDS_(EDITED) 1
 # (the pattern, 2 bars, is shorter than the loop: the footer says SEL makes it 4 first, over the hint)
 expect footer_is_SEL_make_it_4_bars|REC_stop 1
 shot rec_follows.png

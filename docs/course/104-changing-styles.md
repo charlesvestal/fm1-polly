@@ -15,8 +15,8 @@ Picks up where [103](103-your-song.md) left off, on page 2 of the Song page with
 
 ## More in the manual
 
-For how a style sets the tempo, and what happens to grooves that are yours, see
-[Picking a style](../../MANUAL.md#picking-a-style). See also [Your own copy (yours)](../../MANUAL.md#your-own-copy-yours)
+For how a style sets the tempo, and what happens to edited grooves, see
+[Picking a style](../../MANUAL.md#picking-a-style). See also [Edited grooves](../../MANUAL.md#edited-grooves)
 and [Tempo](../../MANUAL.md#tempo).
 
 Next: [105 Recording a melody](105-recording-a-melody.md)

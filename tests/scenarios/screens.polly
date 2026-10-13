@@ -208,7 +208,7 @@ turn K1 1
 shot sound_turned.png
 wait 1500
 turn PRESET 11
-expect tag_is_S1>Pop>Intro_(yours)>C1_New_Age_Pad 1
+expect tag_is_S1>Pop>Intro_(edited)>C1_New_Age_Pad 1
 turn K1 2
 wait 1500
 shot sound_pads.png
@@ -217,7 +217,7 @@ wait 1500
 shot sound_ethnic.png
 turn PRESET -13
 turn K1 -1
-expect tag_is_S1>Pop>Intro_(yours)>C1_Acoustic_Grand 1
+expect tag_is_S1>Pop>Intro_(edited)>C1_Acoustic_Grand 1
 wait 1500
 turn SELECT 1
 expect page 9
@@ -251,8 +251,8 @@ tap SEL
 turn SELECT 12
 tap SEL
 expect slots_list 1
-expect slottext1_is_S1:_Intro_(yours)|Pop 1
-expect memrow1_is_S1:_Intro_(yours)|Pop 1
+expect slottext1_is_S1:_Intro_(edited)|Pop 1
+expect memrow1_is_S1:_Intro_(edited)|Pop 1
 expect memrow2_is_free 1
 expect slot_shown2 0
 expect loops_slot 0

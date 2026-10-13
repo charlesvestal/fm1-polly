@@ -427,9 +427,9 @@ static int slot_own(int s)
     app.songs_dirty = 1;
     app.chg++;
     app.gen++;
-    cat_s(t, SECT_NAME[s + 1]);                  /* "GROOVE A NOW YOURS": a user pattern ("(yours)" on screen; its
-                                                  * number never) */
-    say(upcase(t), "NOW YOURS");
+    cat_s(t, SECT_NAME[s + 1]);                  /* "EDITING A COPY GROOVE A": a user pattern ("(edited)" on screen;
+                                                  * its number never) */
+    say("EDITING A COPY", upcase(t));
     return 0;
 }
 /* ---- the lead tracks' notes (leads): the song's, loaded with it, written as the engine hands recorded notes over,
@@ -1948,10 +1948,10 @@ static void button_down(int b)                   /* PLAY: at once; REC: at its r
         ui.rec_seen = 0;
         if (!on)
             say("RECORD OFF", 0);
-        else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: "GROOVE A (YOURS)" */
-            cat_s(cat_s(t, SECT_NAME[s + 1]), " (yours)");
+        else if (songs.song[proj.song].style[s] != st) {   /* a new user pattern took the section: "GROOVE A (EDITED)" */
+            cat_s(cat_s(t, SECT_NAME[s + 1]), " (edited)");
             upcase(t);
-            say(a, 8 + text_w(&FONT_B, a) + 8 + text_w(&FONT_B, t) > 232 ? "(YOURS)" : t);
+            say(a, 8 + text_w(&FONT_B, a) + 8 + text_w(&FONT_B, t) > 232 ? "(EDITED)" : t);
         } else
             say(a, SECT_NAME[s + 1]);
     }
@@ -2209,7 +2209,7 @@ void app_flush(void)
 void app_hold_saves(int on) { save_hold = (uint8_t)(on != 0); }
 static void style_all(int n);
 static void ask2(const char *q, void (*yes)(void), void (*no)(void), const char *foot);
-#define YOURS_ASK_MS 900u                        /* a style picked: its grooves (yours) asked about after the knob rests */
+#define YOURS_ASK_MS 900u                        /* a style picked: its grooves (edited) asked about after the knob rests */
 static int grooves_yours(void)                   /* the song's sections playing your copy (a user pattern) */
 {
     int n = 0;
@@ -2272,7 +2272,7 @@ static void act_style_tempo(void)
     itoa_u(g->tempo, cat_s(a, "TEMPO "));
     say(a, "THE STYLE'S");
 }
-/* the grooves (yours) of a style just picked: asked once the knob rests (YOURS_ASK_MS), on Home or Style, nothing else
+/* the grooves (edited) of a style just picked: asked once the knob rests (YOURS_ASK_MS), on Home or Style, nothing else
  * open: "2 GROOVES ARE YOURS: KEEP THEM?" SEL keeps them, HOME puts the style's back (BACK TO STYLE: your copies stay in
  * memory) */
 static void do_grooves_style(void)
@@ -2294,7 +2294,7 @@ static void do_grooves_style(void)
         say(n > 1 ? "GROOVES BACK TO" : "GROOVE BACK TO", b);
     }
 }
-static void do_grooves_keep(void) { say("GROOVES KEPT", "(YOURS)"); }
+static void do_grooves_keep(void) { say("GROOVES KEPT", "(EDITED)"); }
 static void yours_poll(void)
 {
     static char q[40], foot[32];
@@ -2304,14 +2304,14 @@ static void yours_poll(void)
     ui.yours_t = 0;
     if (!n || i < 0 || ui.ask || lst.open || ui.card || home_shown() ||
         !(ui.page == P_HOME || ui.page == P_STYLE || ui.page == P_STYLE2))
-        return;                                  /* (the Style knob's value says "(yours)" anyway) */
+        return;                                  /* (the Style knob's value says "(edited)" anyway) */
     for (int s = 0; s < ARR_NSECT; s++)
         if (csong()->style[s] < ARR_USER_PATTERNS)
             one = s;
     if (n == 1)
-        cat_s(cat_s(cat_s(q, "KEEP YOUR "), SECT_NAME[one + 1]), "?");
+        cat_s(cat_s(cat_s(q, "KEEP YOUR EDITED "), SECT_NAME[one + 1]), "?");
     else
-        cat_s(itoa_u((uint32_t)n, cat_s(q, "KEEP YOUR ")), " GROOVES?");
+        cat_s(itoa_u((uint32_t)n, cat_s(q, "KEEP YOUR ")), " EDITED GROOVES?");
     upcase(q);
     cat_s(cat_s(cat_s(foot, "SEL keep|HOME use "), style_label(i)), "'s");
     ask2(q, do_grooves_keep, do_grooves_style, foot);
@@ -2748,7 +2748,7 @@ static void act_clear_song(void)
 /* NEW SONG: the song as on a new FM-1 (song_default): no sections, no melodies (their sounds the defaults), the
  * factory progressions, the first style in all six sections at its tempo (set by hand no more), transpose 0, nothing
  * muted, Intro and Ending on, stop at the end; Free, P1 picked (none yet: ARP opens on the first empty). The grooves
- * (yours) it played stay in Memory as they were saved (any song can pick them again; MEMORY frees them): the song
+ * (edited) it played stay in Memory as they were saved (any song can pick them again; MEMORY frees them): the song
  * only stops playing them, so it is one undo step (undo loads them back), never a flash erase. Stopped only (every
  * section loads its pattern); what is unsaved is saved first, so nothing of the song before is lost for undo */
 static void do_new_song(void)
@@ -3170,8 +3170,8 @@ static int songs_n(uint8_t plays)
     return k;
 }
 /* what memory place i holds, in the screen's words, each the same way: the song(s) first, then what, then its name:
- * "S1: Groove A (yours)|Funk" (a user pattern: the songs playing it, the section it plays as, its name if it has one),
- * "No song: groove (yours)|Funk", "S2: melodies" (a song's lead notes; "S2: melodies, part 2" its second place),
+ * "S1: Groove A (edited)|Funk" (a user pattern: the songs playing it, the section it plays as, its name if it has one),
+ * "No song: groove (edited)|Funk", "S2: melodies" (a song's lead notes; "S2: melodies, part 2" its second place),
  * "S1: progressions" (a song's, only when they did not fit the songs' own room), "free". Returns its place in the
  * list (slots_scan): song n's 16 n + its section (grooves), + 8 + part (melodies), + 12 (progressions); grooves no song
  * plays 64; free 80 */
@@ -3208,7 +3208,7 @@ static int slot_text(int i, char *t)
             if (w.plays >> n & 1u)
                 first = n;
         e = w.plays ? song_list(w.plays, t) : cat_s(t, "No song");
-        e = cat_s(cat_s(cat_s(e, ": "), sect >= 0 ? SECT_NAME[sect % ARR_NSECT + 1] : "groove"), " (yours)");
+        e = cat_s(cat_s(cat_s(e, ": "), sect >= 0 ? SECT_NAME[sect % ARR_NSECT + 1] : "groove"), " (edited)");
         if (nm[0])
             cat_s(cat_s(e, "|"), nm);
         return first >= 0 ? first * 16 + (sect >= 0 ? sect % ARR_NSECT : 6) : 64;

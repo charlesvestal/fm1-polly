@@ -20,9 +20,9 @@ and M2, run along the sections.
 
 ## Good to know
 
-**Your grooves and the style.** When you record into a groove with **SEQ** and **REC**, Polly makes your own
-copy and plays it from then on. The groove's pill then shows "(yours)", as in "Groove A (yours)". When you turn the Style knob, only
-the grooves that still play the style change, so your copy stays. To give a groove back to the style, press
+**Your grooves and the style.** When you record into a groove with **SEQ** and **REC**, Polly makes an edited
+copy and plays it from then on, and the style itself doesn't change. The groove's pill then shows "(edited)", as in "Groove A (edited)". When you turn the Style knob, only
+the grooves that still play the style change, so your edited copy stays. To give a groove back to the style, press
 **SEL** on the Band page and choose BACK TO STYLE. You set mutes with **KNOB 4** on the Band page, and they
 belong to the song. A muted instrument is muted in every groove, and muting never makes a copy.
 

@@ -165,7 +165,7 @@ static struct {
     void (*ask_yes)(void);                           /* what SEL does */
     void (*ask_no)(void);                            /* what HOME does (0: nothing) */
     const char *ask_foot;                            /* the footer's words for it (0: "SEL yes|HOME no") */
-    uint32_t yours_t;                                /* a style picked with grooves (yours): when to ask about them (0 none) */
+    uint32_t yours_t;                                /* a style picked with grooves (edited): when to ask about them (0 none) */
     uint8_t copy_to, copy_src;                       /* SAVE + white key: the loop / pattern asked about, the loop copied */
     /* what an action acts on, taken when it is asked for (a question's yes acts on what it asked about) */
     struct { uint8_t loop, prog, song, trk, slot, lrow, ltrk, free, lfrom; } tgt;   /* lrow: a row (255 all), ltrk: a
@@ -285,7 +285,7 @@ static struct {
     uint8_t back_sel, back_top;                      /* the list it came from: its row (HOME goes back there) */
     struct { const char *name; char val[24]; uint8_t kind, id; } row[LIST_ROWS];
 } lst;
-/* the 16 places of memory as the MEMORY list shows them ("S1: Groove A (yours)|Funk", "S2: melodies", "free"; "S1:
+/* the 16 places of memory as the MEMORY list shows them ("S1: Groove A (edited)|Funk", "S2: melodies", "free"; "S1:
  * progressions" only when a song's did not fit the songs' own room), made when it opens and after a FREE (ui.c
  * slots_scan: it reads the flash); kind SLOT_* (SLOT_NONE: free); slot_ord: the list's order, by song (S1's grooves,
  * melodies, then S2's, ..., grooves no song plays), the free places last */
@@ -1230,14 +1230,14 @@ static void song_next(char *t, int play, int brief)
         cat_s(cat_s(e, "|"), SECT_NAME[row_main(&g->row[nr])]);
 }
 #define HOME_FREE_H 58                               /* FREE: the chord's box, taller */
-/* the section playing's pill, "(yours)" on it when it plays your copy: "Groove A (yours)" */
+/* the section playing's pill, "(edited)" on it when it plays your copy: "Groove A (edited)" */
 static int32_t home_pill(int32_t x, int32_t y, int sect, uint16_t ring)
 {
     char t[24];
     int s = sect >= SEC_INTRO && sect <= SEC_END ? sect : SEC_A;
     cat_s(t, SECT_NAME[s]);
     if (csong()->style[s - 1] < ARR_USER_PATTERNS)
-        cat_s(t + slen(t), " (yours)");
+        cat_s(t + slen(t), " (edited)");
     if (ring) {
         int32_t w = text_w(&FONT_S, t) + 16;
         cv_round(x - 2, y - 2, w + 4, 24, 7, ring);
@@ -1906,7 +1906,7 @@ static int style_tempo(int i) { return style_bank(i) ? qb_tempo(i - arr_styles()
 /* the song's style (song_t.sty: the Style knob's), 0..styles_n()-1; -1: a QY70 style with no bank installed */
 static int song_style(void) { return style_index(songs.song[proj.song].sty); }
 /* the song's style and the sections on user patterns (yours: the style's no longer): "Funk", "QY Bossa", "Pop|Groove A
- * (yours)" (one), "Pop|3 (yours)", "Pop|all (yours)" ("|": a dot on screen) */
+ * (edited)" (one), "Pop|3 (edited)", "Pop|all (edited)" ("|": a dot on screen) */
 static void song_style_text(char *t)
 {
     const song_t *g = &songs.song[proj.song];
@@ -1920,14 +1920,14 @@ static void song_style_text(char *t)
             one = k;
         }
     if (n == 1)
-        cat_s(cat_s(cat_s(e, "|"), SECT_NAME[one + 1]), " (yours)");
+        cat_s(cat_s(cat_s(e, "|"), SECT_NAME[one + 1]), " (edited)");
     else if (n == ARR_NSECT)
-        cat_s(e, "|all (yours)");
+        cat_s(e, "|all (edited)");
     else if (n)
-        cat_s(itoa_u((uint32_t)n, cat_s(e, "|")), " (yours)");
+        cat_s(itoa_u((uint32_t)n, cat_s(e, "|")), " (edited)");
 }
 
-/* a song's pattern number by its style: "Pop", "QY Bossa" (a QY70 bank style's; "QY -" with no bank), "(yours)" (a
+/* a song's pattern number by its style: "Pop", "QY Bossa" (a QY70 bank style's; "QY -" with no bank), "(edited)" (a
  * user pattern: its number is never on screen; pat_title adds its name); the section is the caller's to say; up to 16
  * characters */
 static void style_name(int st, char *t)
@@ -1935,7 +1935,7 @@ static void style_name(int st, char *t)
     int i = style_index(st);
     *t = 0;
     if (st >= 0 && st < ARR_USER_PATTERNS)
-        cat_s(t, "(yours)");
+        cat_s(t, "(edited)");
     else if (i >= 0)
         cat_s(style_bank(i) ? cat_s(t, "QY ") : t, style_label(i));
     else
@@ -1952,7 +1952,7 @@ static char *pat_name8(const char *nm, char *t)
     *e = 0;
     return e;
 }
-/* "Pop (yours)", slot s's user pattern by its name (no name: "(yours)"); a style's: "Pop", "QY Bossa" */
+/* "Pop (edited)", slot s's user pattern by its name (no name: "(edited)"); a style's: "Pop", "QY Bossa" */
 static void pat_title(int s, char *t)
 {
     int st = songs.song[proj.song].style[s];
@@ -1962,11 +1962,11 @@ static void pat_title(int s, char *t)
         return;
     }
     e = pat_name8(app.hdr[s].name, t);
-    cat_s(e == t ? e : cat_s(e, " "), "(yours)");
+    cat_s(e == t ? e : cat_s(e, " "), "(edited)");
 }
 /* the Pattern page shows 8 bars at most: a longer pattern by halves (the playhead's), "bars 9-16 of 16" */
 #define PAT_WIN 8
-/* the groove's pill ("Groove A", "Groove A (yours)": your copy plays) and, len: its length at the right ("2 bars, 4/4",
+/* the groove's pill ("Groove A", "Groove A (edited)": your copy plays) and, len: its length at the right ("2 bars, 4/4",
  * a window of a longer one "bars 9-16 of 16") */
 static int32_t pattern_head(int s, int win, int len)
 {
@@ -3427,7 +3427,7 @@ static void draw_master(void)
     cv_blit(0, MAIN_Y);
 }
 /* -------------------------------------------------- the song's pages --- */
-/* STYLE (ENV): the song's six sections, a row each: its pill, the style it plays ("Pop", "Funk (yours)": your copy). The
+/* STYLE (ENV): the song's six sections, a row each: its pill, the style it plays ("Pop", "Funk (edited)": your copy). The
  * three the knobs turn on this page (P_STYLE: Intro, Groove A, Groove B; P_STYLE2: the fills and the Ending) on a panel,
  * bold (in the knobs' order) */
 static void draw_style(void)
@@ -3448,7 +3448,7 @@ static void draw_style(void)
         int32_t y = 1 + (int32_t)i * 19;         /* (a row 19 px, the pill 17 in it; the name on the pill's baseline) */
         int on = i >= first && i < first + 3u;
         sect_pill(8, y + 1, 76, 17, (int)i + 1, 0);
-        pat_title((int)i, t);                    /* "Pop", "Funk (yours)" */
+        pat_title((int)i, t);                    /* "Pop", "Funk (edited)" */
         text_fit(92, y + 1, on ? &FONT_B : &FONT_S, t, 138, on ? K_TEXT : K_DIM);   /* the knobs' three: bold */
     }
     cv_blit(0, MAIN_Y);
@@ -3714,9 +3714,9 @@ static void style_knob(knob_t *k)
     int i = song_style(), y = 0;
     for (int s = 0; s < ARR_NSECT; s++)
         y |= songs.song[proj.song].style[s] < ARR_USER_PATTERNS;
-    if (i >= 0 && y) {                               /* a groove or more plays your copy: "House (yours)" */
+    if (i >= 0 && y) {                               /* a groove or more plays your copy: "House (edited)" */
         char t[24];
-        cat_s(cat_s(t, style_label(i)), " (yours)");
+        cat_s(cat_s(t, style_label(i)), " (edited)");
         kv(k, style_bank(i) ? "QY style" : "Style", t, i + 1, styles_n());
     } else if (i >= 0)
         kv(k, style_bank(i) ? "QY style" : "Style", style_label(i), i + 1, styles_n());
@@ -3919,7 +3919,7 @@ static void song_page_knobs(knob_t *k)
         for (int i = 0; i < 3; i++) {
             int st = g->style[first + i], si = style_index(st);
             char y[24];
-            /* a style's knob: its name (the label is the section); a user pattern's: "Funk (yours)", as its row */
+            /* a style's knob: its name (the label is the section); a user pattern's: "Funk (edited)", as its row */
             if (st < ARR_USER_PATTERNS) {
                 pat_title(first + i, y);
                 b[0] = 0;
@@ -4140,7 +4140,7 @@ static char *upcase(char *s)
  * hierarchy: song > style > groove > instrument; song > progression; song > section; song > melody). Shortened from the
  * left when long (draw_tag) */
 static char *crumb_song(char *t) { return itoa_u(proj.song + 1u, cat_s(t, "S")); }
-/* "S1>Pop>Groove A>C1 Acoustic Grand", "S1>Pop>Groove A (yours)>C1 ..." (the section playing a user pattern: its name
+/* "S1>Pop>Groove A>C1 Acoustic Grand", "S1>Pop>Groove A (edited)>C1 ..." (the section playing a user pattern: its name
  * first, the song's style when it has none), "S1>M1 Square Lead" (a melody: the song's, no style) */
 static void track_crumb(char *t)
 {
@@ -4152,7 +4152,7 @@ static void track_crumb(char *t)
             char *n = pat_name8(app.hdr[s].name, e);
             if (n == e)
                 n = cat_s(e, song_style() < 0 ? "-" : style_label(song_style()));
-            e = cat_s(cat_s(cat_s(n, ">"), SECT_NAME[s + 1]), " (yours)>");
+            e = cat_s(cat_s(cat_s(n, ">"), SECT_NAME[s + 1]), " (edited)>");
         } else {
             style_name(st, e);
             e = cat_s(cat_s(e + slen(e), ">"), SECT_NAME[s + 1]);
@@ -4857,7 +4857,7 @@ static void list_paint(int32_t oy)
             continue;
         }
         cv_round(6, y, 222, LIST_RH - 1, 5, on ? K_TEXT : K_PANEL);   /* (the selection: ink, light text) */
-        if (k == LK_SLOT) {                          /* "3  S1: Groove A (yours)|Funk", "S2: melodies", "free" (dim): its
+        if (k == LK_SLOT) {                          /* "3  S1: Groove A (edited)|Funk", "S2: melodies", "free" (dim): its
                                                       * number (SAVE + white key 3 copies a groove
                                                       * there), what it holds (a long one smaller) */
             int id = lst.row[i].id;

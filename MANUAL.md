@@ -63,8 +63,9 @@ Song (S1–S4)
 - **Instrument**: one player in the band. D1 and D2 are drums, PC is percussion and BA is bass. C1–C4 play
   chords, riffs and pads. Each instrument has a sound and its own notes.
 - **Sound**: what an instrument or a melody plays with: one of the 128 General MIDI sounds, or the drum kit.
-- **(yours)**: once you change a groove, Polly plays your own copy of it, and the screen says
-  "Groove A (yours)". BACK TO STYLE gives the groove back to the style. See [Your own copy](#your-own-copy-yours).
+- **(edited)**: once you change a groove, Polly plays an edited copy of it, and the screen says
+  "Groove A (edited)". The style itself doesn't change, and BACK TO STYLE switches back to it. See
+  [Edited grooves](#edited-grooves).
 - **Tempo**: the song's speed, in BPM.
 - **Transpose**: moves everything up or down in pitch, including the keys you play. The song has a
   transpose, and each section can add its own.
@@ -333,13 +334,13 @@ then on, Polly keeps your tempo when you change styles and tells you so, for exa
 122)". If you'd rather have the style's tempo, press **SEL**: the list opens on STYLE TEMPO 122, and pressing
 **SEL** again uses it. After that, picking a style sets the tempo again.
 
-**A groove you've changed stays yours.** Once you record into a groove or an extra, or change one of its
-sounds, Polly plays [your own copy](#your-own-copy-yours) instead of the style's. You'll see "Groove A
-(yours)" on its pill on Home and Band, "House (yours)" on the Style knob, and "Pop (yours)" on the Style page.
+**Edited grooves stay.** Once you record into a groove or an extra, or change one of its sounds, Polly plays
+an [edited copy](#edited-grooves) instead of the style's. You'll see "Groove A (edited)" on its pill on Home
+and Band, "House (edited)" on the Style knob, and "Pop (edited)" on the Style page.
 
-Turning the Style knob only changes the grooves that still play the style, and yours stay as they are. That
-way you can keep your Groove A and hear the rest of the band in Funk, then in Rock. When you stop turning the
-knob, Polly asks "KEEP YOUR GROOVE A?" or "KEEP YOUR 2 GROOVES?". Press **SEL** to keep
+Turning the Style knob only changes the grooves that still play the style, and edited ones stay as they are.
+That way you can keep your edited Groove A and hear the rest of the band in Funk, then in Rock. When you stop turning the
+knob, Polly asks "KEEP YOUR EDITED GROOVE A?" or "KEEP YOUR 2 EDITED GROOVES?". Press **SEL** to keep
 them, or **HOME** to play the new style's grooves instead, as BACK TO STYLE would. Either way, your
 copies stay in memory.
 
@@ -410,9 +411,9 @@ play Funk's Groove A with Rock's fills.
 
 - On page 1, **KNOB 1–3** set the Intro, Groove A and Groove B, which are shown in bold on a panel.
 - Turn **SELECT** for page 2, where **KNOB 1–3** set Fill AB, Fill BA and the Ending.
-- Each knob lists your own copies first, such as "Funk (yours)", and then the styles by name.
+- Each knob lists your edited copies first, such as "Funk (edited)", and then the styles by name.
 - **KNOB 4** and **PRESETS** set the song's style, like Home's **KNOB 1**. They change the grooves that
-  play a style, and leave yours alone.
+  play a style, and leave edited ones alone.
 
 ## Chords
 
@@ -720,7 +721,7 @@ these actions:
 - NEW SONG makes the song as it is on a new Polly, after asking "NEW SONG: CLEAR ALL OF S1?". The song then
   has no sections or melodies, the ready-made progressions, and Pop in every groove at Pop's tempo. Nothing is
   transposed or muted, the Intro and Ending are on, and At end is "stop". The melodies' sounds go back to
-  their defaults too. Grooves of yours that the song played stay in [memory](#memory) for any song to use,
+  their defaults too. Edited grooves that the song played stay in [memory](#memory) for any song to use,
   until you free them there. One undo brings the whole song back.
 - COPY SONG TO copies the song into another one, such as S2. Turn **ALGORITHM** to pick it. If that song has sections,
   Polly asks before replacing it. The melodies aren't copied, and the other song's melodies are cleared.
@@ -767,13 +768,13 @@ The Band page shows the eight instruments of the groove that's playing, with the
 - The cursor is a coral line down through the instruments, with its position in coral above it, such as
   "bar 2.3".
 
-The groove's pill, such as "Groove A (yours)", is at the top left. To change the groove's length, go to the
+The groove's pill, such as "Groove A (edited)", is at the top left. To change the groove's length, go to the
 Groove length page.
 
 - **KNOB 1** (Grid) sets the grid (see *The grid* below).
 - **KNOB 2** (Bar) and **KNOB 3** (Beat) move the cursor.
 - **KNOB 4** (Muted) mutes or unmutes the selected instrument. See [Mutes](#mutes).
-- **PRESETS** changes what the playing groove plays, starting with your own copies and then the styles'. If the band
+- **PRESETS** changes what the playing groove plays, starting with your edited copies and then the styles'. If the band
   is playing and the groove has unsaved changes, press **SAVE** first.
 - To fix a single note, press **SEQ** again. See [Fixing notes](#fixing-notes).
 
@@ -817,17 +818,18 @@ Groove length page.
   loops.
 - **A groove holds 600 notes.** Once it's full, Polly drops new notes.
 
-### Your own copy (yours)
+### Edited grooves
 
-![GROOVE A NOW YOURS](docs/img/manual/yours.png)
+![EDITING A COPY · GROOVE A](docs/img/manual/edited.png)
 
 The styles themselves never change. The first time you record into a style's groove or extra, or change its
-sound, mixer or length, Polly copies it into a free place in [memory](#memory) and tells you, for example
-"GROOVE A NOW YOURS" or "RECORD C1 GROOVE A (YOURS)". From then on, that groove plays your copy whatever the
-Style knob says, and the screen marks it "(yours)", until you choose BACK TO STYLE. Muting an instrument
+sound, mixer or length, Polly copies it into a free place in [memory](#memory), and you edit the copy. Polly
+tells you, for example "EDITING A COPY · GROOVE A" or "RECORD C1 · GROOVE A (EDITED)". From then on, that
+groove plays the edited copy whatever the Style knob says, and the screen marks it "(edited)", until you
+choose BACK TO STYLE. Muting an instrument
 doesn't make a copy, because mutes belong to the song, not to the groove.
 
-Your copies share memory's 16 places with the melodies. If no place is free, Polly says MEMORY FULL and "NOT
+Edited grooves share memory's 16 places with the melodies. If no place is free, Polly says MEMORY FULL and "NOT
 KEPT": your change still plays, but you'll lose it once you pick something else. If you free a place, the
 change moves into it right away, and Polly tells you, for example "GROOVE A KEPT IN MEMORY 14". See
 [Memory](#memory).
@@ -1013,8 +1015,8 @@ Each bar shows its number, and a section's first bar shows the section's name.
   recording while you hold it.
 - **Undo.** Every edit is one undo step. Hold **HOME** and press **REC** to undo, or **PLAY** to redo. A
   recording pass, along with anything you erased during it, is one step too.
-- **Your copy.** Your first edit to a style's groove makes it yours, as recording does ("GROOVE A NOW
-  YOURS"). A groove holds 600 notes, and Polly says "GROOVE FULL" if you go past that.
+- **An edited copy.** Your first edit to a style's groove makes an edited copy, as recording does ("EDITING A
+  COPY · GROOVE A"). A groove holds 600 notes, and Polly says "GROOVE FULL" if you go past that.
 - **While recording**, Notes shows the recording as it happens. The view follows the playhead, and the keys
   record.
 
@@ -1119,7 +1121,7 @@ dark bar and the chorus send as a grey one. To change the sends, use the Mixer's
 
 ### Mutes
 
-Mutes belong to the song, not to the groove, so muting never makes a groove yours.
+Mutes belong to the song, not to the groove, so muting never makes an edited copy.
 
 - **Outside a song**, when the band follows your chords or plays a progression, the Band page's **KNOB 4** (Muted)
   mutes the selected instrument. It stays muted in every groove and through fills. The mute is saved with the
@@ -1159,7 +1161,7 @@ To start the song you're on from scratch, use NEW SONG in the Song page's list. 
 
 Saving pauses the FM-1 for a moment, which is why Polly waits until you stop.
 
-If two grooves in a song play the same copy of yours and you changed both, Polly keeps the newest change and
+If two grooves in a song play the same edited copy and you changed both, Polly keeps the newest change and
 tells you, for example "SHARED GROOVE KEPT GROOVE B".
 
 ### Undo
@@ -1205,11 +1207,11 @@ Press **SEL** to see what's using the memory. You can also get there by choosing
 The list shows one place per line, grouped by song: Song 1's first, then Song 2's, and so on, with the free
 places last. For example:
 
-- "S1: Groove A (yours) · Funk" is a groove of yours. The line tells you which songs play it, which groove it
+- "S1: Groove A (edited) · Funk" is one of your edited grooves. The line tells you which songs play it, which groove it
   plays as, and its name.
 - "S1: melodies" holds Song 1's melody notes. A song with very long melodies takes a second place, "S1:
   melodies, part 2".
-- "No song: groove (yours)" is a groove of yours that no song plays now.
+- "No song: groove (edited)" is an edited groove that no song plays now.
 - "free" is a free place.
 
 The list fills the screen. The header shows how much is used, as a gauge and in words, such as "Memory 9 of
@@ -1218,7 +1220,7 @@ groove there from the Band page ("COPIED TO MEMORY 7").
 
 To free a place, stop, select it and press **SEL**. Polly asks first.
 
-- A groove of yours goes back to the style in the songs that play it. Polly clears its notes, and you can't
+- An edited groove goes back to the style in the songs that play it. Polly clears its notes, and you can't
   undo this.
 - A song's melody notes are cleared.
 - A song's progressions go back to the factory ones, after Polly asks "S1'S PROGRESSIONS BACK TO FACTORY?".
@@ -1345,8 +1347,8 @@ song's other QY70 grooves switch to it too.
 - **XG voices.** Variations play their General MIDI instrument, and sound-effect voices play a General MIDI
   effect.
 - **Pan on the drum channel.** The drum instruments share one pan setting and one set of effects.
-- **Editing.** If you record into a QY70 groove or change it, it becomes yours, as with Polly's own styles.
-  Your copy then has the 600-note limit, so the quietest short notes are left out first, and Polly leaves out
+- **Editing.** If you record into a QY70 groove or change it, Polly edits a copy, as with its own styles.
+  The copy then has the 600-note limit, so the quietest short notes are left out first, and Polly leaves out
   its bends and controllers. As long as you play QY70 styles as they are, there's no note limit.
 
 ### Keeping the bank
@@ -1424,7 +1426,7 @@ if they came from its own panel, but only while it's being mirrored. The remote 
 itself, though a SAVE you send saves, as the button does. Update mode can only be started by hand.
 
 `run ... --fresh` plays the scenario in a test session. Polly stops, saves anything unsaved, and then starts as
-a new FM-1 would, with no songs, no grooves of yours and the first style. The header says TEST, and nothing
+a new FM-1 would, with no songs, no edited grooves and the first style. The header says TEST, and nothing
 saved during the test is kept. Your own songs come back as they were when the scenario ends, the mirror stops
 or the FM-1 restarts.
 

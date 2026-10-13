@@ -3,7 +3,7 @@
 #    in it (CLEAR SECTIONS) goes Free, said ("NO SECTIONS: FREE")
 #  - a tempo set by hand stays when a style is picked, said ("TEMPO KEPT 84 (HOUSE 122)"); SEL's first row on
 #    Home takes the style's (STYLE TEMPO 122), and styles bring their tempo again after
-#  - grooves (yours) on a style pick: the Style knob says "(yours)"; once the knob rests it asks "GROOVE A IS YOURS:
+#  - grooves (edited) on a style pick: the Style knob says "(edited)"; once the knob rests it asks "GROOVE A IS YOURS:
 #    KEEP IT?" (SEL keep, HOME the style's: BACK TO STYLE, your copy kept in memory)
 wait 300
 expect mode 0
@@ -64,7 +64,7 @@ spin K1 -9
 wait 30
 expect tempo 105
 expect msgtext_is_STYLE_POP 1
-# ---- a groove (yours): Groove A's C1 louder on Sound; then House: the knob says "(yours)", the question once it rests
+# ---- a groove (edited): Groove A's C1 louder on Sound; then House: the knob says "(edited)", the question once it rests
 tap EDIT
 spin K2 3
 wait 100
@@ -72,7 +72,7 @@ tap HOME
 spin K1 9
 wait 30
 expect asking 0
-expect knob1_is_House_(yours) 1
+expect knob1_is_House_(edited) 1
 wait 1000
 expect asking 1
 expect footer_is_SEL_keep|HOME_use_House's 1
@@ -81,8 +81,8 @@ shot yours_ask.png
 tap SEL
 wait 30
 expect asking 0
-expect msgtext_is_GROOVES_KEPT_(YOURS) 1
-expect knob1_is_House_(yours) 1
+expect msgtext_is_GROOVES_KEPT_(EDITED) 1
+expect knob1_is_House_(edited) 1
 # another style, then HOME: the style's grooves back (the copy kept in memory)
 spin K1 1
 wait 1000

@@ -18,7 +18,7 @@ expect lead_count1_2 17
 expect song1_style1 33
 show
 barms 2285.714
-cap Your own grooves | Record an instrument into the style's groove, and the groove becomes yours.
+cap Your own grooves | Record an instrument into the style's groove, and Polly keeps an edited copy.
 wait 3500
 expect tempo 105
 expect song1_style1 33
@@ -61,11 +61,11 @@ still 1-instrument
 wait 2000
 # ---- 2. record: REC at A 3, it starts at A 4 (the groove's bar 1); pass 1 A 4-5, pass 2 A 6-7
 at A 2 1300
-cap 2. Record | Press REC. Polly makes your own copy and marks it Groove A (yours). Play from the next bar.
+cap 2. Record | Press REC. Polly makes an edited copy and marks it Groove A (edited). Play from the next bar.
 at A 3 900
 tap REC
 expect recording 1
-expect msgtext_is_C2:_AS_PLAYED_GROOVE_A_(YOURS) 1
+expect msgtext_is_C2:_AS_PLAYED_GROOVE_A_(EDITED) 1
 # (Memory's place 1 holds 105's melodies: the copy goes into place 2)
 expect slot_kind1 2
 expect song1_style1 1
@@ -110,7 +110,7 @@ tap HOME
 wait 600
 expect page 0
 turn K1 1
-expect knob1_is_Funk_(yours) 1
+expect knob1_is_Funk_(edited) 1
 wait 1200
 expect asking 1
 expect footer_is_SEL_keep|HOME_use_Funk's 1
@@ -121,7 +121,7 @@ wait 2500
 tap SEL
 wait 50
 expect asking 0
-expect msgtext_is_GROOVES_KEPT_(YOURS) 1
+expect msgtext_is_GROOVES_KEPT_(EDITED) 1
 expect song1_style1 1
 expect song1_style2 40
 expect tempo 100
