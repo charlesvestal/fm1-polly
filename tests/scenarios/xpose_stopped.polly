@@ -1,0 +1,23 @@
+# POLLY, the transposition Home shows a song's chords at: the section playing's while the song plays; stopped, section
+# 1's (where PLAY starts, the section Home shows), not the last section played's. Two sections of P1, the second +2.
+wait 300
+tap HOME
+expect page 1
+tapkey w0
+tapkey w0
+expect rows 2
+turn K1 -1
+expect cursor 2
+turn SELECT 1
+expect page 2
+turn K1 2
+expect row_key2 2
+tap PLAY
+wait 16000
+expect playing 1
+expect row 2
+expect xpose_now 2
+tap PLAY
+wait 500
+expect playing 0
+expect xpose_now 0

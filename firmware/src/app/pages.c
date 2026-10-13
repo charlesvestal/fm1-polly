@@ -456,11 +456,13 @@ static int32_t sect_pill(int32_t x, int32_t y, int32_t w, int32_t h, int s, cons
 }
 
 static song_t *csong(void) { return &songs.song[proj.song]; }
-/* the transposition chords play at now: the song's TRANSPOSE (+ the row's KEY in SONG) */
+/* the transposition chords play at now: the song's TRANSPOSE (+ the row's KEY in SONG: the row playing; stopped, row
+ * 1's, where PLAY starts and what Home shows, not the row last played) */
 static int xpose_now(void)
 {
     const song_t *g = csong();
-    return g->transpose + (app.mode == ARR_SONG && arr_row < g->nrows ? g->row[arr_row].key : 0);
+    int r = arr_playing && arr_mode == ARR_SONG && arr_loop_now >= 0 && arr_row < g->nrows ? arr_row : 0;
+    return g->transpose + (app.mode == ARR_SONG && r < g->nrows ? g->row[r].key : 0);
 }
 
 /* the engine's published place, read as a consistent set (the render may move it between two reads: read

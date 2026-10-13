@@ -730,7 +730,10 @@ static int expect(const char *what, const char *val)
     } else if (!strcmp(what, "home_chord_root") || !strcmp(what, "home_chord_type")) {   /* the big chord HOME shows */
         chord_t c = arr_chord_unpack(home_chord());
         got = what[11] == 'r' ? c.root : c.type;
-    } else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
+    } else if (!strcmp(what, "xpose_now"))        /* the transposition chords show at: the song's + the row playing's
+                                                      * (stopped: row 1's, where PLAY starts) */
+        got = xpose_now();
+    else if (!strcmp(what, "home_shown"))       /* HOME held long enough: the loops and sections on screen */
         got = home_shown();
     else if (!strcmp(what, "setup_box"))          /* Setup's box: 1 the four knobs' jobs, 2 + K knob K's (0..3) words */
         got = setup_shown;
