@@ -36,9 +36,9 @@ wait 1500
 cap 1. Pick an instrument | Hold HOME and press black key 2 for Groove A.
 wait 2500
 press HOME
-wait 300
+wait 1400
 note 900 b1
-wait 300
+wait 700
 expect next_sect 2
 release HOME
 wait 1500

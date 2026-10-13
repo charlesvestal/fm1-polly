@@ -45,7 +45,7 @@ wait 2200
 cap 2. Undo and redo | Hold HOME and press REC to undo the last change.
 wait 2500
 press HOME
-wait 300
+wait 1400
 still 2-undo
 press REC
 wait 800
@@ -59,7 +59,7 @@ wait 1800
 cap 2. Undo and redo | Hold HOME and press PLAY to redo it.
 wait 2500
 press HOME
-wait 300
+wait 1400
 press PLAY
 wait 800
 release PLAY
@@ -76,7 +76,7 @@ tap HOME
 expect page 0
 wait 1000
 press HOME
-wait 400
+wait 1400
 turn PRESET 1
 expect song 2
 still 3-song

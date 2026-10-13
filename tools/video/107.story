@@ -110,7 +110,7 @@ wait 2500
 cap 7. Undo | Hold HOME and press REC. Your last edit is undone, and the header tells you what changed.
 wait 2500
 press HOME
-wait 300
+wait 1400
 tap REC
 expect msg_is_UNDO 1
 still 6-undo

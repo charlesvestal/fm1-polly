@@ -27,15 +27,15 @@ expect mode 0
 at A 0 1100
 tap REC
 expect take 2
-at A 1 30
+at A 1 -60
 cap 1. Record a progression | Play Am, F, C and G, one chord per bar.
 chord 1900 4 7 11
-at A 2 30
+at A 2 -60
 chord 1900 0 4 7
-at A 3 30
+at A 3 -60
 still 1-record
 chord 1900 7 11 14
-at A 4 30
+at A 4 -60
 chord 1900 2 6 9
 at A 5 -250
 tap REC
@@ -98,10 +98,11 @@ expect loop_name9 Verse
 wait 3000
 # ---- 5. from anywhere: P1, then P9 again
 cap 5. Switch progressions | Hold HOME and press white key 1. From the next bar, the band plays the ready-made P1.
-at A 24 200
+at A 23 1300
 press HOME
-wait 300
+wait 1400
 note 900 0
+wait 700
 release HOME
 expect page 5
 expect loop_now 9
@@ -109,11 +110,12 @@ wait 2600
 expect loop_now 1
 wait 2500
 cap 5. Switch progressions | Hold HOME and press white key 9. Your Verse comes back at the next bar.
-at A 28 200
+at A 27 1300
 press HOME
-wait 300
+wait 1400
 still 5-anywhere
 note 900 14
+wait 700
 release HOME
 wait 2600
 expect loop_now 9
