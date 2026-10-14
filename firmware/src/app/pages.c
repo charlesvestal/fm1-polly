@@ -83,6 +83,7 @@ static const char LOOP_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
 #define NLOOP_CHARS ((int)sizeof LOOP_CHARS - 1)
 /* the step writing's step (app.cstep, the Progression list's STEP): a beat, half a bar, a bar */
 static const char *const STEP_NAME[3] = {"beat", "half", "bar"};
+static const char *const USBA_NAME[2] = {"follows knob", "full"};   /* proj.usb_full */
 /* NAME (LOOP page 2): the presets the knob turns through, then "Prog N" (its own number) */
 static const char *const LOOP_NAME_LIST[] = {"Verse", "Chorus", "Bridge", "Pre", "Intro", "Outro", "Solo", "Break"};
 #define NLOOP_NAMES ((int)(sizeof LOOP_NAME_LIST / sizeof LOOP_NAME_LIST[0]))
@@ -270,13 +271,13 @@ static int sel_trk(void) { return app.lead ? ARR_LD1 + (app.lead - 1) % ARR_LEAD
 enum { LK_KNOB, LK_MORE, LK_NAME, LK_ACTION, LK_PICK, LK_SUB, LK_SLOT };
 enum { A_LOAD_PROG, A_CLEAR_LOOP, A_PLAY_FROM, A_INSERT_ROW, A_DELETE_ROW, A_CLEAR_SONG, A_COPY_SONG, A_ERASE_TRACK,
        A_CLEAR_PATTERN, A_BACK_TO_STYLE, A_ERASE_LEAD_ROW, A_ERASE_LEAD, A_QUANT_LEAD_ROW, A_COPY_LEAD, A_MATCH_BARS, A_SLOTS,
-       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, A_FACTORY_RESET, A_NEW_SONG, NACTIONS };
+       A_CLEAR_CHORD, A_STEP, A_STYLE_TEMPO, A_FACTORY_RESET, A_NEW_SONG, A_USB_AUDIO, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {"LOAD PROGRESSION", "CLEAR PROGRESSION", "PLAY FROM SECTION",
                                                   "INSERT SECTION", "DELETE SECTION", "CLEAR SECTIONS", "COPY SONG TO",
                                                   "CLEAR C", "CLEAR", "BACK TO STYLE", "CLEAR M IN SECTION",
                                                   "CLEAR M", "QUANTISE M", "COPY M TO SECTION", "MATCH PROG LENGTH",
                                                   "MEMORY", "CLEAR CHORD", "STEP", "STYLE TEMPO",
-                                                  "FACTORY RESET", "NEW SONG"};
+                                                  "FACTORY RESET", "NEW SONG", "USB AUDIO"};
 #define LIST_ROWS 24
 #define LIST_SHOWN 10                                /* rows on screen (the list covers the knobs) */
 static struct {
@@ -4278,7 +4279,8 @@ static void page_footer(char *t)
         int k = lst.row[lst.sel].kind;
         cat_s(t, k == LK_NAME ? "ALGO letter|SEL next|HOME back"
                : k == LK_ACTION ? "SELECT move|SEL do it|HOME back"
-               : k == LK_PICK && lst.row[lst.sel].id == A_STEP ? "SELECT move|ALGO set|HOME back"
+               : k == LK_PICK && (lst.row[lst.sel].id == A_STEP || lst.row[lst.sel].id == A_USB_AUDIO)
+                 ? "SELECT move|ALGO set|HOME back"
                : k == LK_PICK ? "ALGO pick|SEL do it|HOME back"
                : k == LK_SUB ? "SELECT move|SEL open|HOME back"
                : k == LK_SLOT ? (slot_kind[lst.row[lst.sel].id] == SLOT_NONE ? "SELECT move|HOME back"
@@ -4821,8 +4823,11 @@ static void list_build(void)
         }
         if (keep <= P_TRACK2)                        /* SEQ, EDIT: what fills the 16 places of memory */
             list_add(ACTION_NAME[A_SLOTS], 0, LK_SUB, A_SLOTS);
-    } else if (keep == P_SETUP || keep == P_PANEL)   /* Setup: everything as new (asks) */
+    } else if (keep == P_SETUP || keep == P_PANEL) { /* Setup: everything as new (asks; the list opens on it); USB
+                                                      * audio's level */
         list_add(ACTION_NAME[A_FACTORY_RESET], 0, LK_ACTION, A_FACTORY_RESET);
+        list_add(ACTION_NAME[A_USB_AUDIO], USBA_NAME[proj.usb_full & 1u], LK_PICK, A_USB_AUDIO);
+    }
     if (lst.sel >= lst.n)
         lst.sel = (uint8_t)(lst.n ? lst.n - 1 : 0);
 }

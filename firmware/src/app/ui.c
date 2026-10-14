@@ -3422,6 +3422,7 @@ static void action_run(int a)
     case A_CLEAR_LOOP: act_clear_loop(); break;
     case A_CLEAR_CHORD: act_clear_chord(); break;
     case A_STEP: break;
+    case A_USB_AUDIO: break;
     case A_PLAY_FROM: song_play_from(app.row); break;
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
@@ -4032,6 +4033,12 @@ static void list_change(int32_t e)
     case LK_PICK:
         if (lst.row[lst.sel].id == A_STEP)     /* STEP: beat, half, bar (the keys' step writing) */
             app.cstep = (uint8_t)clampi(app.cstep + d, 0, 2);
+        else if (lst.row[lst.sel].id == A_USB_AUDIO) {   /* USB AUDIO: follows knob, full (main_fm1.c render_block) */
+            if (proj.usb_full != (uint8_t)(d > 0)) {
+                proj.usb_full = (uint8_t)(d > 0);
+                mark_dirty();
+            }
+        }
         else if (lst.row[lst.sel].id == A_LOAD_PROG)
             ui.pick_prog = (uint8_t)(((ui.pick_prog + e) % NTEMPLATES + NTEMPLATES) % NTEMPLATES);
         else if (lst.row[lst.sel].id == A_COPY_LEAD) {   /* COPY LD1 TO ROW n: from another row, a step a detent */

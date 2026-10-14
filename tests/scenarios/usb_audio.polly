@@ -1,0 +1,21 @@
+# POLLY, USB AUDIO (Setup's SEL list, fm1-polly#2): FULL keeps USB audio at full level, the MASTER knob for the
+# speaker and headphones only; kept with the settings
+wait 300
+tap GLO
+tap SEL
+expect list_open 1
+expect list_has_FACTORY_RESET 1
+turn SELECT 1
+turn ALGO 1
+expect usb_full 1
+expect dirty 1
+wait 300
+shot usb_full.png
+turn ALGO -1
+expect usb_full 0
+turn ALGO 1
+tap HOME
+tap SAVE
+wait 300
+expect dirty 0
+expect usb_full 1

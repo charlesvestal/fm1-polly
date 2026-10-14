@@ -1298,6 +1298,10 @@ four songs are empty, memory's 16 places are free, and Setup and the mixer are b
 bank stays installed. A reset can't be undone, so [back up](#backup) first if you might want your songs
 again.
 
+**USB audio.** On Setup, press **SEL**, turn **SELECT** down to USB AUDIO, and turn **ALGO**. **follows knob**
+(the default): USB audio is as loud as the FM-1, MASTER knob and all. **full**: USB audio stays at full level
+whatever the MASTER knob says, so you can record over the cable with the speaker turned down.
+
 Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, any audio dropouts (Xruns), and the version. It
 has no knobs.
 

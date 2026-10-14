@@ -34,11 +34,18 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
 #endif
     {
         uint32_t k;
+        const int full = proj.usb_full != 0;      /* USB AUDIO full: render at full level for the tap, then the knob */
         for (k = 0; k < HALF_FRAMES; k += REND_FRAMES) {
-            gm_render(o + 2u * k, REND_FRAMES, master_q12);
+            gm_render(o + 2u * k, REND_FRAMES, full ? 4096u : master_q12);
 #if FELUCCA_UAC
             uac_tap(o + 2u * k, REND_FRAMES);       /* the USB audio input: the same master output */
 #endif
+            if (full) {                             /* the speaker and headphones: the MASTER knob after the tap */
+                const float g = (float)master_q12 * (1.0f / 4096.0f);
+                uint32_t i;
+                for (i = 0; i < 2u * REND_FRAMES; i++)
+                    o[2u * k + i] = (int32_t)((float)o[2u * k + i] * g);
+            }
         }
     }
     us = (fm1_ticks() - t0) / FM1_TICKS_PER_US;
