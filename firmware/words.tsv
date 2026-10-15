@@ -1,0 +1,60 @@
+# Polly's words for the screen reader (fm1-reader): the screen's text <TAB> what to say. "#" a number, "*" a word
+# left out. tools/gen_words.py makes web/words/<id>.json (published with the site) and the link the FM-1 sends.
+# Change a line and a new file is made: keep the old ones (devices in the wild point at them).
+# Chord and note names are put in words by the firmware (ui.c speak): "Bb" here would also be "BB", "Ab" "AB".
+# url: https://charlesvestal.github.io/fm1-polly/words/
+S#	song #
+P#	progression #
+Prog P#	progression #
+Prog	progression
+PROGS	progressions
+D#	drums #
+PC	percussion
+BA	bass
+C#	chords #
+M#	melody #
+Fill AB	fill A to B
+Fill BA	fill B to A
+Groove A	groove A
+Groove B	groove B
+A + fill	A with fill
+B + fill	B with fill
+A no fill	A, no fill
+A major	A major
+A minor	A minor
+A flat	A flat
+A seventh	A seventh
+A sixth	A sixth
+A ninth	A ninth
+A thirteenth	A thirteenth
+A diminished	A diminished
+A augmented	A augmented
+A suspended	A suspended
+A add	A add
+A minus	A minus
+Muted in #	muted in section #
+SEL	S E L
+PRESET	presets
+QY70	Q Y 70
+QY	Q Y
+L.hall	large hall
+Chamb.	chamber
+E.Piano #	electric piano #
+Perc. Organ	percussive organ
+Orch.	orchestral
+Gtr	guitar
+Str	strings
+Bass + Lead	bass and lead
+ii-V-I	two five one
+MinBlues	minor blues
+Mixo	mixolydian
+Pre	pre-chorus
+Reso	resonance
+Progression P#	progression #
+Song S#	song #
+Click rec	click while recording
+TO 8T	to eighth triplets
+TO 16T	to sixteenth triplets
+TO 8	to eighths
+TO 16	to sixteenths
+TO 32	to thirty-seconds

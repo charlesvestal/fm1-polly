@@ -346,6 +346,12 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
             }
         }
+        {   /* a screen reader's SysEx (announce.c), before the updater and the others look */
+            const uint8_t *p;
+            uint32_t n;
+            if (ota_frame_get(&p, &n) && ann_frame(p, n, fm1_ms))
+                ota_frame_done();
+        }
         uint32_t req = ota_service();
         if (req == 11u && ota_dec[2] == BU_REQ && bu_rd32(ota_dec + 6) == BU_MAGIC && flash_ok)
             bu_start(arr_playing);                  /* a backup to the host: streamed by bu_step, playing on */

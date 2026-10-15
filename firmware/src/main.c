@@ -136,6 +136,10 @@ static void ota_commit(const uint8_t *parm)
 }
 
 #include "app/app.h"
+#define ANN_NAME "Polly " GM_VERSION
+#define ANN_DATA EN_POOL
+#include "ann_words.h"            /* the link to Polly's words file (tools/gen_words.py, from firmware/words.tsv) */
+#include "announce.c"             /* the screen as text for a screen reader (fm1-reader); ann_wire_send: below */
 /* the QY70 style bank from the host (tools/qy70_install.py) */
 #include "bank_rx.c"
 static int bk_fetch(uint32_t addr, uint8_t *dst, uint32_t n) { return ota_read(addr, dst, n); }
@@ -188,6 +192,7 @@ static void bk_done(int code, int begun)            /* the result, to the host (
     lcd_fill(0, 0, 240, 240, C_BLACK);
     draw_text_box(0, 92, 240, &FONT_S, "QY70 STYLES", C_WHITE, 1);
     draw_text_box(0, 124, 240, &FONT_S, code ? "NOT WRITTEN" : "WRITTEN", C_HI, 1);
+    ann_say(code ? "QY70 styles not written" : "QY70 styles written", 0, ANN_NOW | (code ? ANN_KEEP : 0u));
     fm1_delay_ms(1200);
 }
 
@@ -236,6 +241,7 @@ static int rs_ask(void)                             /* SEL yes, HOME no; PLAY or
     uint32_t t0 = fm1_ms, was = plat_buttons() & ~mirror_in_buttons();   /* (the hand's only, never the remote's) */
     rs_screen("RESTORE FROM USB?", "SEL yes   HOME no");
     draw_text_box(0, 156, 240, &FONT_S, "replaces all songs", C_GRAY, 1);
+    ann_say("Restore from USB? It replaces all songs. SEL: yes. HOME: no.", 0, ANN_NOW | ANN_KEEP);
     while (fm1_ms - t0 < 60000u) {
         uint32_t b = plat_buttons() & ~mirror_in_buttons(), down = b & ~was;
         fm1_wdt_feed();
@@ -281,6 +287,13 @@ static int mr_busy(void) { return !usb.config || usb.suspended || bu.on; }
 static int mr_ctl_send(const uint8_t *p, uint32_t n)
 {
     if (sx_busy || SXQ - (so_w - so_r) < (n + 2u) / 3u)
+        return -1;
+    return ota_wire_send(p, n);
+}
+/* the screen reader's messages (announce.c): never waits; no room (nobody reading), a backup streaming: not sent */
+static int ann_wire_send(const uint8_t *p, uint32_t n)
+{
+    if (!usb.config || usb.suspended || bu.on || sx_busy || SXQ - (so_w - so_r) < (n + 2u) / 3u)
         return -1;
     return ota_wire_send(p, n);
 }

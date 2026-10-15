@@ -1,0 +1,177 @@
+# the screen reader (fm1-reader, announce.c): a reader listens, and each page, knob, chord, list row, card, question,
+# message and the transport is said once, in the screen's own text (the words file says it in full); chord and note
+# names in words; what changes by itself while playing (the bar, the section, the chord) is not said.
+# Keys: A3 4, C4 7, E4 11, G4 14.
+wait 300
+listen
+wait 100
+said Home page. S1, follow: Style Pop, Tempo 105, Transpose C, Prog follow. Stopped. Groove A. Play three keys for a chord. The band follows your chords.
+# a chord from the keys: its name, at once
+key 7 down
+key 11 down
+key 14 down
+wait 50
+said C major
+key 7 up
+key 11 up
+key 14 up
+key 4 down
+key 7 down
+key 11 down
+wait 50
+said A minor
+key 4 up
+key 7 up
+key 11 up
+wait 200
+# a knob: its name and value once it settles; the transpose a note's name in words
+spin K3 -2
+wait 300
+said Transpose B flat
+spin K3 2
+wait 300
+said Transpose C
+spin K2 1
+wait 300
+said Tempo 106
+# a progression from HOME + a white key: the message
+press HOME
+tapkey w0
+release HOME
+wait 300
+said PROGRESSION P1 Pop
+# a page settles before it is said; its chords on WHERE
+tap ARP
+wait 300
+said Progression, page 1 of 2. S1, P1 Pop: Bar 1, Beat 1, Root C, Type major.
+said_none
+where
+wait 100
+said P1 Pop: bar 1 C major, bar 2 G major, bar 3 A minor, bar 4 F major.
+# SELECT: the button's next page
+turn SELECT 1
+wait 300
+said Progression, page 2 of 2. S1, P1 Pop: Length 4, Beats 4, Bass none, Name Pop.
+turn SELECT -1
+wait 300
+said Progression, page 1 of 2
+# the cursor's chord: Bar moves, Root and Type with it; a type in words
+spin K1 2
+wait 300
+said Bar 3, Root A, Type minor
+spin K4 1
+wait 300
+said Type seventh
+spin K4 -1
+wait 300
+said Type minor
+# the transport
+tap PLAY
+wait 50
+said Play
+# playing: the bars and their chords go by, nothing said
+wait 4000
+said_none
+tap PLAY
+wait 50
+said Stop
+# a list: its name and its row, with its place; SELECT moves, ALGORITHM changes
+tap SEL
+wait 300
+said Progression list. CLEAR CHORD, action, 10 of 13
+turn SELECT 1
+wait 300
+said STEP bar, 11 of 13
+turn ALGO -1
+wait 300
+said STEP half, 11 of 13
+# a question: at once, and how to answer it; HOME no (back to the list)
+turn SELECT 2
+wait 300
+said CLEAR PROGRESSION, action, 13 of 13
+tap SEL
+wait 50
+said CLEAR P1? SEL: yes. HOME: no.
+tap HOME
+wait 300
+said Progression list. CLEAR PROGRESSION, action, 13 of 13
+tap HOME
+wait 300
+said Progression, page 1 of 2
+# a help card (a button held alone a second): its button first
+press FX
+wait 1100
+said FX button. Effects. The reverb and the chorus every instrument sends to.
+release FX
+wait 300
+# HOME held: the shortcuts
+press HOME
+wait 700
+said HOME held: white keys pick a progression
+release HOME
+wait 300
+# the Sound page: the instrument and its sound; a note's name in words (after the message the edit says)
+tap EDIT
+wait 300
+said Sound, page 1 of 2. S1, Pop, Groove A, C1 Acoustic Grand: Sound Acoustic Grand, Type Chord 1, Low G 3, High G 5.
+spin K3 -1
+wait 300
+said Low F sharp 3
+# ALGORITHM: the instrument, said by its message (not again as a page)
+turn ALGO 1
+wait 300
+said C2 Clean Guitar
+said_none
+# the Mixer: pan in words
+tap LFO
+wait 300
+said Mixer, page 1 of 2
+spin K2 -24
+wait 300
+said Pan left 2
+# a message: SAVE
+tap SAVE
+wait 50
+said SAVED
+# undo (HOME + REC): what it undid, then the knob it moved back
+press HOME
+tap REC
+release HOME
+wait 300
+said Pan right 22
+# WHERE: everything again, then the controls
+where
+said Mixer, page 1 of 2. S1, Pop, Groove A, C2 Clean Guitar: Volume 70, Pan right 22, Reverb 50, Chorus 40. Stopped, tempo 106, unsaved.
+where
+said black keys: instrument. SELECT: page. ALGO: instrument.
+# the Song page: a white key adds a section (its message); while the song plays, its sections and bars go by unsaid
+tap HOME
+tap HOME
+wait 300
+said Song, page 1 of 2
+tapkey w0
+wait 300
+tapkey w1
+wait 300
+said Section 2 added: P2 Ballad, A
+# WHERE on Song: the sections, a message of their own
+where
+said Section 1: P1 Pop, A. Section 2: P2 Ballad, A.
+tap PLAY
+wait 50
+said Play
+wait 500
+said Section 1, Prog P1, Groove A, Repeat x1
+wait 9000
+said_none
+# HOME while the song plays: where it is, on WHERE only
+tap HOME
+wait 300
+said Home page. S1: Style Pop, Tempo 106, Transpose C, Prog Song.
+wait 3000
+said_none
+where
+said Playing, unsaved. Groove A, section 1 of 2. Chord
+tap PLAY
+wait 50
+said Stop

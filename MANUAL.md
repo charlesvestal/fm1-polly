@@ -27,6 +27,7 @@ want to look something up.
 - [Updating and safety](#updating-and-safety)
 - [Page by page](#page-by-page)
 - [Screen mirroring](#screen-mirroring)
+- [Screen reader](#screen-reader)
 - [Credits](#credits)
 
 ## Cheat sheet
@@ -1437,6 +1438,22 @@ or the FM-1 restarts.
 The mirror costs Polly nothing until a page asks for it. It stops when the page closes, goes quiet for six
 seconds, or the cable comes out, and any buttons the computer was holding are released. Notes and clock always go out
 first, so if the computer is slow to keep up, the page skips frames and then catches up.
+
+## Screen reader
+
+Polly can tell a screen reader what its screen shows, so you can play it without looking. Plug the FM-1 into
+a computer with a USB cable and open the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/) in
+Chrome or Edge. The page speaks with its own voice, or passes the words to your computer's screen reader.
+
+You hear the page when you open it, with its knobs and their values, and a knob's new value as you turn it.
+Chords and notes are said in full, such as "F sharp minor seven flat five" or "B flat 3". You also hear the
+chord your keys play, a list's row and where it is in the list, the help card when you hold a button, each
+question with how to answer it, play and stop, and every message on the screen. While a song plays, the bars,
+sections and chords going by aren't read out, so you can listen to the music. Press **Read the whole screen**
+on the page, or the W key, to hear everything: the page, the progression's chords or the song's sections, and
+what the keys and encoders do here.
+
+Polly sends nothing until the page asks for it, so a DAW on the same cable never sees a thing.
 
 ## Credits
 

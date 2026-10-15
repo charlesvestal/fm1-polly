@@ -57,6 +57,11 @@ colour means one thing. Teal is what sounds now, and coral is what you do. Slate
 plum is the melodies, and ink is everything else. MIDI in, over USB or TRS, plays all 16
 channels. On the Setup page, you can let its clock drive the arranger.
 
+Polly also works with the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/). Over USB, it says
+the page and its knobs, a knob's value as it turns, the chords you play, list rows, help cards, questions,
+play and stop, and every message, with chord and note names in full ("B flat major seventh"). See
+[Screen reader](MANUAL.md#screen-reader) in the manual.
+
 ## Building
 
 ```sh

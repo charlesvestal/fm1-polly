@@ -34,9 +34,20 @@ static void ne_key_up(void);
 static void ne_knob(int kn, int32_t e);
 static void ne_delete(void);
 
-static void say(const char *a, const char *b)
+/* the screen reader (announce.c; fm1-reader): a message is sent as it is said (speak(), below, leaves that frame be) */
+static uint8_t sp_said;                         /* a message went to the reader this frame */
+static uint32_t sp_in_t;                        /* the last input (a button, a key, an encoder): a value changing within
+                                                 * SP_IN_MS of it is the answer to it, and said */
+static void sp_msg(const char *a, const char *b, uint32_t flags);
+static void say_as(const char *a, const char *b, uint32_t flags);
+static void sp_chord_keys(const uint8_t *n, int cnt);
+static void sp_section_added(int r);
+static void speak(void);
+static void say(const char *a, const char *b) { say_as(a, b, ANN_NOW); }
+static void say_as(const char *a, const char *b, uint32_t flags)
 {
     uint32_t i;
+    sp_msg(a, b, flags);                         /* (before the copies: a caller's buffer may be upcased below) */
     for (i = 0; i < 23u && a && a[i]; i++)
         ui.msg[0][i] = a[i];
     ui.msg[0][i] = 0;
@@ -80,7 +91,7 @@ static void say(const char *a, const char *b)
 /* a refusal (what was asked could not be done, and why): its own look in the header, a little longer */
 static void say_no(const char *a, const char *b)
 {
-    say(a, b);
+    say_as(a, b, ANN_NOW | ANN_KEEP);            /* (a reader hears it whole: what follows does not cut it off) */
     ui.msg_no = 1;
     ui.msg_until = plat_ms() + 2000u;
 }
@@ -1196,6 +1207,7 @@ static void chord_keys(void)
     ui.cheld = (uint8_t)c;
     if (arr_keys_held(n, c)) {
         app.played = 1;
+        sp_chord_keys(n, c);                     /* (the screen reader: the chord's name) */
         chord_played(n, c);
     }
     if (!c && ui.centry >= 0) {
@@ -1599,6 +1611,7 @@ static void song_tap(int w)
     if (before && r < g->nrows - 1)
         lead_changed(0, before);
     song_anim(r, 1);                             /* (the rows after it slide down) */
+    sp_section_added(r);                         /* (the screen reader: the new section, as the screen shows it) */
     ui.row_follow = 0;                           /* (writing: the cursor stays where the keys write) */
     app.row = (uint8_t)(r + 1 <= g->nrows ? r + 1 : g->nrows);
 }
@@ -4118,6 +4131,8 @@ static void input(void)
     int32_t e, ev[NE];
     ch = btn ^ ui.btn;
     ui.btn = btn;
+    if (ch || keys != ui.keys)
+        sp_in_t = plat_ms();                     /* (the screen reader: what changes now answers this) */
     for (i = 0; i < NB; i++) {
         uint32_t m = 1u << i;
         int hold = i != B_PLAY;                  /* (on release: unless a key, a knob, a card used it; REC too, so
@@ -4166,6 +4181,7 @@ static void input(void)
     midi_in();
     for (i = 0; i < NE; i++)
         if ((ev[i] = plat_enc((int)i)) != 0) {   /* a knob with a button held: the combination, no card */
+            sp_in_t = plat_ms();
             ui.card = 0;
             ui.btn_used |= btn;
         }
@@ -4572,6 +4588,999 @@ static void do_undo(int redo)
     say(redo ? "REDO" : "UNDO", t);
 }
 
+/* ============================================================ screen reader === */
+/* The screen as text for a screen reader on the computer (announce.c; fm1-reader): a page once it settles, with its
+ * knobs; a knob's value as it turns (or what a button, an encoder changed on the page); a list's row; a help card; a
+ * question; HOME held; the chord the keys play; play and stop; and every message (say). WHERE (the reader asks, or it
+ * has just started listening) is everything on the screen, then (a frame at a time) the progression's chords or the
+ * song's sections, then what the controls do here. What changes by itself while playing (the bar, the section, the
+ * chord) is said only on WHERE. The screen's own words are sent (firmware/words.tsv says them in full); chord and note
+ * names are put in words here ("Bb" and "Ab" are also "BB" and "AB" to the words file, which ignores capitals). Nothing
+ * is built while no reader listens. */
+#define SP_IN_MS 400u                           /* a value that changes this soon after an input answers it */
+static struct {
+    uint32_t page, trk;                         /* what is in front, hashed (the page, a list, a card ...); the instrument */
+    uint32_t kh[4], lh;                         /* the knobs' names and values, the list's row, hashed */
+    int16_t lsel;
+    int16_t tempo;
+    int8_t playing;
+    uint8_t started, step;                      /* WHERE's next part (1 the details, 2 the controls), 0 none */
+} sp EN_POOL;
+static char sp_buf[ANN_MAX + 1] EN_POOL;
+static uint32_t sp_n;
+
+static void sp_cat(const char *s)
+{
+    while (s && *s && sp_n < ANN_MAX)
+        sp_buf[sp_n++] = *s++;
+    sp_buf[sp_n] = 0;
+}
+static void sp_int(int v)
+{
+    char b[12];
+    if (v < 0) {
+        sp_cat("minus ");
+        v = -v;
+    }
+    itoa_u((uint32_t)v, b);
+    sp_cat(b);
+}
+static void sp_end(const char *s)               /* a sentence's end: ". " (none after a mark already there) */
+{
+    while (sp_n && sp_buf[sp_n - 1] == ' ')
+        sp_n--;
+    sp_buf[sp_n] = 0;
+    if (sp_n && sp_buf[sp_n - 1] != '.' && sp_buf[sp_n - 1] != '?' && sp_buf[sp_n - 1] != ':')
+        sp_cat(s);
+    else if (sp_n)
+        sp_cat(" ");
+}
+/* the screen's text: its crumbs ("S1>Pop") and parts ("S1: Groove A|Funk") as a list ("S1, Pop"); a message's arrow
+ * ("S1 > S2 copied") "to"; "POP'S" Pop's */
+static void sp_text(const char *s)
+{
+    for (const char *s0 = s; s && *s && sp_n < ANN_MAX; s++)
+        if (*s == '>' && s > s0 && s[-1] == ' ' && s[1] == ' ')
+            sp_cat("to");
+        else if (*s == '>' || *s == '|')
+            sp_cat(", ");
+        else if (*s == 'S' && s > s0 && s[-1] == '\'' && !(s[1] >= 'A' && s[1] <= 'Z'))
+            sp_buf[sp_n++] = 's';
+        else if (*s != ' ' || (sp_n && sp_buf[sp_n - 1] != ' '))
+            sp_buf[sp_n++] = *s;
+    while (sp_n && sp_buf[sp_n - 1] == ' ')
+        sp_n--;
+    sp_buf[sp_n] = 0;
+}
+static const char *const SP_NOTE[12] = {"C", "C sharp", "D", "E flat", "E", "F", "F sharp", "G", "A flat", "A", "B flat",
+                                         "B"};
+/* a note's name in words: "Bb3" B flat 3, "C#" C sharp, "C3" C 3 (not the instrument C3); anything else as it is */
+static void sp_note(const char *s)
+{
+    int k = 1, ok = s[0] >= 'A' && s[0] <= 'G';
+    if (ok && (s[1] == '#' || s[1] == 'b'))
+        k = 2;
+    for (int j = k; ok && s[j]; j++)
+        ok = (s[j] >= '0' && s[j] <= '9') || (s[j] == '-' && j == k);
+    if (!ok) {
+        sp_text(s);
+        return;
+    }
+    sp_buf[sp_n < ANN_MAX ? sp_n++ : sp_n] = s[0];
+    sp_buf[sp_n] = 0;
+    if (k == 2)
+        sp_cat(s[1] == '#' ? " sharp" : " flat");
+    if (s[k]) {
+        sp_cat(s[k] == '-' ? " minus " : " ");
+        sp_cat(s + k + (s[k] == '-'));
+    }
+}
+/* a chord in words: "F sharp minor seven flat five", "B flat major over C" */
+static const char *const SP_TYPE[CH_NTYPES] = {
+    "major", "add nine", "major seventh", "major ninth", "sixth", "augmented", "seventh", "ninth", "seventh sharp nine",
+    "seventh flat nine", "thirteenth", "seventh flat thirteen", "seventh sharp eleven", "seventh sharp five",
+    "seventh suspended fourth", "suspended fourth", "minor", "minor add nine", "minor seventh", "minor ninth",
+    "minor eleventh", "minor sixth", "minor major seventh", "minor seven flat five", "diminished", "none"};
+static void sp_chord(chord_t c)
+{
+    if (c.type >= CH_NONE) {
+        sp_cat("no chord");
+        return;
+    }
+    sp_cat(SP_NOTE[c.root % 12u]);
+    sp_cat(" ");
+    sp_cat(SP_TYPE[c.type]);
+    if (c.bass != CH_NOBASS && c.bass % 12u != c.root % 12u) {
+        sp_cat(" over ");
+        sp_cat(SP_NOTE[c.bass % 12u]);
+    }
+}
+/* the chord the keys just played (chord_keys): its name, at once */
+static void sp_chord_keys(const uint8_t *n, int cnt)
+{
+    chord_t c;
+    if (!ann_on() || !chord_recognize(n, cnt, &c))
+        return;
+    sp_n = 0;
+    sp_chord(chord_shift(c, xpose_now()));      /* (as heard: the engine moves the keys' chords too) */
+    ann_say(sp_buf, 0, ANN_NOW);
+    sp_said = 1;
+}
+/* a section a white key added on Song (song_tap): "Section 2 added: P2 Ballad, A" (the screen shows it in its place) */
+static void sp_section_added(int r)
+{
+    const song_t *g = csong();
+    char t[24];
+    if (!ann_on() || r < 0 || r >= g->nrows)
+        return;
+    sp_n = 0;
+    sp_cat("Section ");
+    sp_int(r + 1);
+    sp_cat(" added: ");
+    loop_label(g->row[r].loop % ARR_LOOPS, t);
+    sp_text(t);
+    sp_cat(", ");
+    sp_text(ROW_SECT_NAME[g->row[r].sect % ROW_NSECT]);
+    ann_say(sp_buf, 0, ANN_NOW);
+    sp_said = 1;
+}
+/* a message (say): "a b" as written (the screen's are upper case, cut to fit); "UPDATE MODE IN 3..": the dots are for
+ * the eye */
+static void sp_msg(const char *a, const char *b, uint32_t flags)
+{
+    char t[100];
+    uint32_t i, k = 0;
+    if (!ann_on())
+        return;
+    for (i = 0; i < 48u && a && a[i]; i++)
+        t[k++] = a[i];
+    if (b && b[0] && k)
+        t[k++] = ' ';
+    for (i = 0; i < 48u && b && b[i]; i++)
+        t[k++] = b[i];
+    while (k && t[k - 1] == '.')
+        k--;
+    t[k] = 0;
+    sp_n = 0;
+    sp_text(t);
+    ann_say(sp_buf, 0, flags);
+    sp_said = 1;
+}
+/* a knob's value in words: notes, chord types, the grid, pan, the length of a note */
+static int sp_same(const char *a, const char *b) { return same(a, b); }
+static void sp_grid(const char *v)
+{
+    static const char *const SAID[ARR_NQ] = {"eighth", "eighth triplet", "sixteenth", "sixteenth triplet", "thirty-second",
+                                             "off"};
+    for (int i = 0; i < ARR_NQ; i++)
+        if (sp_same(v, GRID_NAME[i])) {
+            sp_cat(SAID[i]);
+            return;
+        }
+    sp_text(v);
+}
+static void sp_frac(const char *v)              /* Notes' LENGTH in beats: "1 1/2" one and a half beats, "1/4" a quarter */
+{
+    static const char *const ONE[17] = {0, 0, "a half", "a third", "a quarter", "a fifth", "a sixth", 0, "an eighth", 0, 0, 0,
+                                        "a twelfth", 0, 0, 0, "a sixteenth"};
+    static const char *const MANY[17] = {0, 0, "halves", "thirds", "quarters", "fifths", "sixths", 0, "eighths", 0, 0, 0,
+                                         "twelfths", 0, 0, 0, "sixteenths"};
+    uint32_t w = 0, num = 0, den = 0;
+    const char *p = v;
+    while (*p >= '0' && *p <= '9')
+        w = w * 10u + (uint32_t)(*p++ - '0');
+    if (*p == '/') {                            /* (no whole beats: the number was the fraction's) */
+        num = w;
+        w = 0;
+        p++;
+        while (*p >= '0' && *p <= '9')
+            den = den * 10u + (uint32_t)(*p++ - '0');
+    } else if (*p == ' ') {
+        p++;
+        while (*p >= '0' && *p <= '9')
+            num = num * 10u + (uint32_t)(*p++ - '0');
+        if (*p == '/')
+            p++;
+        while (*p >= '0' && *p <= '9')
+            den = den * 10u + (uint32_t)(*p++ - '0');
+    }
+    if (*p || (num && (!den || den > 16u || !ONE[den]))) {   /* (a fraction with no word: as numbers) */
+        if (*p || !num) {
+            sp_text(v);
+            return;
+        }
+    }
+    if (w || !num) {
+        sp_int((int)w);
+        if (num)
+            sp_cat(" and ");
+    }
+    if (!w && num == 1u && den == 2u) {
+        sp_cat("half a beat");
+        return;
+    }
+    if (num && den <= 16u && ONE[den]) {
+        if (num == 1u)
+            sp_cat(ONE[den]);
+        else {
+            sp_int((int)num);
+            sp_cat(" ");
+            sp_cat(MANY[den]);
+        }
+    } else if (num) {
+        sp_int((int)num);
+        sp_cat(" over ");
+        sp_int((int)den);
+    }
+    sp_cat(w > 1u || (w == 1u && num) || (!w && !num) ? " beats" : w == 1u ? " beat" : " of a beat");
+}
+static void sp_place(const char *v)             /* Notes' PLACE "2.1.3": bar 2 beat 1 step 3 */
+{
+    static const char *const W[3] = {"bar ", " beat ", " step "};
+    int part = 0;
+    if (!(*v >= '0' && *v <= '9')) {
+        sp_text(v);
+        return;
+    }
+    sp_cat(W[0]);
+    for (; *v && sp_n < ANN_MAX; v++)
+        if (*v == '.') {
+            if (++part < 3)
+                sp_cat(W[part]);
+        } else
+            sp_buf[sp_n++] = *v;
+    sp_buf[sp_n] = 0;
+}
+static void sp_value(int page, int i, const knob_t *k)
+{
+    const char *v = k->val;
+    if (page == P_LOOP && i == 3 && !sp_same(v, "-")) {   /* the chord's type: "maj", "m7(b5)" */
+        for (int t = 0; t < CH_NTYPES; t++)
+            if (sp_same(v, t == CH_MAJ ? "maj" : chord_type_name(t))) {
+                sp_cat(SP_TYPE[t]);
+                return;
+            }
+    }
+    if (page == P_PATSET && i == 3) {           /* a letter of the name: "_" none yet */
+        if (v[0] >= 'a' && v[0] <= 'z')
+            sp_cat("small ");
+        sp_cat(v[0] == '_' || v[0] == ' ' ? "blank" : v[0] == '-' ? "dash" : v[0] == '#' ? "sharp sign" : v);
+        return;
+    }
+    if (sp_same(v, "-")) {
+        sp_cat("none");
+        return;
+    }
+    if (page == P_PATTERN && i == 0) {
+        sp_grid(v);
+        return;
+    }
+    if (page == P_NOTES && i == 0) {
+        sp_place(v);
+        return;
+    }
+    if (page == P_NOTES && i == 2) {
+        sp_frac(v);
+        return;
+    }
+    if (page == P_MIXER && i == 1) {            /* PAN: "C", "L12", "R12" */
+        if (v[0] == 'C' && !v[1])
+            sp_cat("center");
+        else {
+            sp_cat(v[0] == 'L' ? "left " : "right ");
+            sp_cat(v + 1);
+        }
+        return;
+    }
+    sp_note(v);
+}
+static void sp_knob(int page, int i, const knob_t *k)   /* "Tempo 120", "Root B flat" */
+{
+    sp_text(k->name);
+    sp_cat(" ");
+    sp_value(page, i, k);
+}
+
+/* the footer's and the encoders' parts in sentences: "KEYS chords|REC write" -> "keys: chords. REC: write." */
+static void sp_parts(const char *s)
+{
+    while (*s) {
+        uint32_t n = 0, c = ctl_len(s), colon = 0;
+        while (s[n] && s[n] != '|')
+            n++;
+        for (uint32_t j = c; j < n; j++)
+            colon |= s[j] == ':';
+        if (c) {
+            for (uint32_t a = 0, j = 0; j <= c; j++)
+                if (j == c || s[j] == '+') {
+                    char w[8];
+                    uint32_t m = j - a < 7u ? j - a : 7u;
+                    for (uint32_t q = 0; q < m; q++)
+                        w[q] = s[a + q];
+                    w[m] = 0;
+                    if (a)
+                        sp_cat(" and ");
+                    sp_cat(sp_same(w, "KEYS") ? "keys" : sp_same(w, "WHITE") ? "white keys" : sp_same(w, "BLACK") ? "black keys"
+                           : sp_same(w, "PRESET") ? "PRESETS" : w);
+                    a = j + 1;
+                }
+            if (!colon)
+                sp_cat(":");
+        }
+        for (uint32_t j = c; j < n && sp_n < ANN_MAX; j++)
+            sp_buf[sp_n++] = s[j];
+        sp_buf[sp_n] = 0;
+        sp_end(". ");
+        s += n;
+        if (*s == '|')
+            s++;
+    }
+}
+
+/* where we are: the page's name ("Progression, page 2 of 2"), whose (the tag: "S1, P3 Verse"), the knobs */
+static void sp_page(void)
+{
+    int g = page_group(ui.page), n = ui.page == P_NOTES ? 1 : group_n(g), d = ui.page - PAGE_BTN[g].first;
+    char t[80];
+    knob_t k[4];
+    int any = 0;
+    sp_cat(PAGE_NAME[ui.page]);
+    if (n > 1) {
+        sp_cat(", page ");
+        sp_int(d + 1);
+        sp_cat(" of ");
+        sp_int(n);
+    } else
+        sp_cat(" page");
+    page_tag(t);
+    if (*t) {
+        sp_cat(". ");
+        sp_text(t);
+    }
+    page_knobs(k);
+    for (int i = 0; i < 4; i++)
+        if (k[i].name) {
+            sp_cat(any++ ? ", " : ": ");
+            sp_knob(ui.page, i, &k[i]);
+        }
+}
+/* the main band, briefly: HOME's section, place and chord; Setup's bank; Status's numbers */
+static void sp_main(void)
+{
+    const song_t *g = csong();
+    if (ui.page == P_HOME) {
+        place_t pl;
+        int slot = sect_slot(arr_sect), next = arr_next_sect, mine = home_place(&pl), alone;
+        alone = pl.loop < 0;
+        sp_cat(SECT_NAME[slot + 1]);
+        if (g->style[slot] < ARR_USER_PATTERNS)
+            sp_cat(" (edited)");
+        if (next >= SEC_INTRO && next <= SEC_FILL) {
+            sp_cat(", next ");
+            sp_cat(SECT_NAME[next]);
+        }
+        if (app.mode == ARR_SONG && g->nrows) {
+            uint32_t r = arr_playing ? arr_row : 0u;
+            if (r < g->nrows) {
+                sp_cat(", section ");
+                sp_int((int)r + 1);
+                sp_cat(" of ");
+                sp_int(g->nrows);
+            }
+        }
+        sp_end(". ");
+        if (app.mode == ARR_FREE && !app.played)
+            sp_cat("Play three keys for a chord");
+        else if (alone || mine || arr_override || arr_playing) {
+            sp_cat("Chord ");
+            sp_chord(arr_chord_unpack(pl.chord));
+        }
+        sp_end(". ");
+        if (app.mode == ARR_SONG && !g->nrows)
+            sp_cat("No sections yet: add them on Song");
+        else if (alone)
+            sp_cat("The band follows your chords");
+        else if (arr_playing && arr_sect == SEC_INTRO)
+            sp_cat("The progression starts after the Intro");
+    } else if (ui.page == P_LOOP || ui.page == P_LOOP2) {
+        const loop_t *l = &sloops.loop[app.loop % ARR_LOOPS];
+        if (!l->bars)
+            sp_cat("Empty");
+        else {
+            sp_int(l->bars);
+            sp_cat(l->bars == 1 ? " bar of " : " bars of ");
+            sp_int(l->beats ? l->beats : 4);
+            sp_cat(" beats");
+        }
+    } else if (song_page()) {
+        sp_int(g->nrows);
+        sp_cat(g->nrows == 1 ? " section" : " sections");
+    } else if (ui.page == P_PATTERN || ui.page == P_PATSET) {
+        int s = pslot();
+        sp_int(app.hdr[s].bars);
+        sp_cat(app.hdr[s].bars == 1 ? " bar" : " bars");
+    } else if (ui.page == P_SETUP) {
+        char t[16];
+        bank_text(t);
+        sp_cat("QY70 styles: ");
+        sp_cat(t);
+    } else if (ui.page == P_PANEL) {
+        sp_cat("CPU ");
+        sp_int((int)plat_cpu_pct());
+        sp_cat(" percent, voices ");
+        sp_int((int)gm_voices);
+        sp_cat(", dropouts ");
+        sp_int((int)plat_xruns());
+        sp_cat(". Polly " GM_VERSION);
+    }
+}
+/* what the header says besides the page: playing or not, recording, the tempo, unsaved */
+static void sp_state(void)
+{
+    sp_cat(arr_playing ? "Playing" : "Stopped");
+    if (arr_recording || ui.rec_chords || ui.take || ui.song_rec)
+        sp_cat(", recording");
+    if (ui.page != P_HOME) {
+        if (arr_ext)
+            sp_cat(", external clock");
+        else {
+            sp_cat(", tempo ");
+            sp_int(csong()->tempo);
+        }
+    }
+    if (unsaved())
+        sp_cat(", unsaved");
+    if (ts.on)
+        sp_cat(", test session");
+}
+/* a list's row and its place: "Tempo 120, 2 of 9" (MORE, a heading, not counted) */
+static void sp_row(void)
+{
+    int k = 0, n = 0, i = lst.sel;
+    const char *v = lst.row[i].val;
+    for (int j = 0; j < lst.n; j++)
+        if (lst.row[j].kind != LK_MORE) {
+            n++;
+            if (j <= i)
+                k = n;
+        }
+    switch (lst.row[i].kind) {
+    case LK_KNOB: {
+        knob_t kb;
+        memset(&kb, 0, sizeof kb);
+        kb.name = lst.row[i].name;
+        cat_s(kb.val, v);
+        sp_knob(lst.row[i].id >> 2, lst.row[i].id & 3, &kb);
+        break;
+    }
+    case LK_NAME: {                             /* "Letters Verse, letter 2 is E" */
+        int e = 8, c = ui.name_cur & 7;
+        sp_text(lst.row[i].name);
+        while (e && (v[e - 1] == ' ' || !v[e - 1]))
+            e--;
+        sp_cat(" ");
+        if (!e)
+            sp_cat("blank");
+        for (int j = 0; j < e && sp_n < ANN_MAX; j++)
+            sp_buf[sp_n++] = v[j];
+        sp_buf[sp_n] = 0;
+        sp_cat(", letter ");
+        sp_int(c + 1);
+        sp_cat(" is ");
+        {
+            char one[2] = {v[c], 0};
+            if (v[c] >= 'a' && v[c] <= 'z')
+                sp_cat("small ");               /* (a name's letters are mixed case: "Verse") */
+            sp_cat(v[c] == ' ' || !v[c] ? "blank" : v[c] == '-' ? "dash" : v[c] == '#' ? "sharp sign" : one);
+        }
+        break;
+    }
+    case LK_SLOT:                               /* "place 3, S1: Groove A (edited)|Funk" */
+        sp_cat("Place ");
+        sp_int(lst.row[i].id + 1);
+        sp_cat(", ");
+        sp_text(lst.row[i].name);
+        break;
+    default: {
+        uint32_t nl = slen(lst.row[i].name), vl = slen(v);
+        sp_text(lst.row[i].name);
+        if (*v && !(vl <= nl && same(lst.row[i].name + nl - vl, v))) {   /* ("PLAY FROM SECTION 3", "3": once) */
+            sp_cat(" ");
+            if (lst.row[i].kind == LK_ACTION && lst.row[i].id == A_QUANT_LEAD_ROW)
+                sp_grid(v);
+            else
+                sp_text(v);
+        }
+        if (lst.row[i].kind == LK_SUB)
+            sp_cat(", a list");
+        else if (lst.row[i].kind == LK_ACTION)
+            sp_cat(", action");
+        break;
+    }
+    }
+    sp_cat(", ");
+    sp_int(k);
+    sp_cat(" of ");
+    sp_int(n);
+}
+static int sp_list(void) { return lst.open && lst.n && !ui.card && !home_shown(); }
+/* what is in front: a question, a help card, HOME held, a list, or the page (all: everything on the screen) */
+static void sp_front(int all)
+{
+    sp_n = 0;
+    sp_buf[0] = 0;
+    if (ui.ask) {                               /* "CLEAR P3? SEL: yes. HOME: no." */
+        sp_text(ui.ask_q);
+        sp_end(". ");
+        sp_parts(ui.ask_foot ? ui.ask_foot : "SEL yes|HOME no");
+    } else if (ui.card) {                       /* "REC button. Write chords. ..." */
+        int c = card_find(ui.card - 1);
+        sp_cat(BTN_LABEL[(ui.card - 1) % NB]);
+        sp_cat(" button");
+        if (c >= 0) {
+            sp_end(". ");
+            sp_cat(CARD[c].title);
+            sp_end(". ");
+            sp_cat(CARD[c].l1);
+            if (CARD[c].l2) {
+                sp_end(". ");
+                sp_cat(CARD[c].l2);
+            }
+        }
+    } else if (home_shown()) {
+        sp_cat("HOME held: white keys pick a progression, black keys 1 to 5 the Intro, Groove A, Groove B, a Fill, the "
+               "Ending. REC: undo. PLAY: redo. SELECT: tempo. PRESETS: song");
+    } else if (sp_list()) {
+        if (lst.slots) {                        /* MEMORY: "Memory list, 9 of 16 used." */
+            int used = 0;
+            for (int i = 0; i < ARR_USER_PATTERNS; i++)
+                used += slot_kind[i] != SLOT_NONE;
+            sp_cat("Memory list, ");
+            sp_int(used);
+            sp_cat(" of 16 used. ");
+        } else {
+            int g = page_group(ui.page);
+            sp_cat(PAGE_NAME[ui.page == P_HOME || ui.page == P_NOTES ? ui.page : PAGE_BTN[g].first]);
+            sp_cat(" list. ");
+        }
+        sp_row();
+        return;                                 /* (a row ends with its place: "4 of 20") */
+    } else {
+        sp_page();
+        if (all) {
+            sp_end(". ");
+            sp_state();
+            sp_end(". ");
+            sp_main();
+        }
+    }
+    sp_end(".");
+    while (sp_n && sp_buf[sp_n - 1] == ' ')
+        sp_n--;
+    sp_buf[sp_n] = 0;
+}
+/* WHERE's details: the progression's chords ("P3 Verse: bar 1 C major, bar 2 beat 3 G seventh"), the song's sections
+ * ("Section 1: P1, A, 2 times"), HOME held's progressions; the rest of the screen, a message of its own */
+static void sp_details(void)
+{
+    const song_t *g = csong();
+    char t[24];
+    int lp = -1;
+    sp_n = 0;
+    sp_buf[0] = 0;
+    if (ui.ask || ui.card || sp_list())
+        return;
+    if (home_shown()) {
+        int empty = 0;
+        sp_cat("Progressions: ");
+        for (int i = 0; i < ARR_LOOPS; i++)
+            if (sloops.loop[i].bars) {
+                loop_label(i, t);
+                sp_text(t);
+                sp_cat(", ");
+            } else
+                empty++;
+        sp_int(empty);
+        sp_cat(" empty.");
+        return;
+    }
+    if (ui.page == P_SETUP) {                   /* what each knob does, as the page says it once one is turned */
+        for (int k = 0; k < 4; k++) {
+            const char *nm, *what;
+            setup_says(k, &nm, &what);
+            sp_cat(nm);
+            sp_cat(": ");
+            sp_cat(what);
+            sp_cat(" ");
+        }
+        return;
+    }
+    if (ui.page == P_LOOP || ui.page == P_LOOP2 || (ui.page == P_HOME && app.mode == ARR_LOOP))
+        lp = app.loop % ARR_LOOPS;
+    if (lp >= 0) {
+        const loop_t *l = &sloops.loop[lp];
+        int bpb = l->beats ? l->beats : 4, len = loop_len(l), any = 0, xp = xpose_now();
+        loop_label(lp, t);
+        sp_text(t);
+        sp_cat(": ");
+        for (int b = 0; b < len && b < ARR_LOOP_BEATS && sp_n < ANN_MAX; b++)
+            if (l->ch[b] != LC_SAME) {
+                if (any++)
+                    sp_cat(", ");
+                sp_cat("bar ");
+                sp_int(b / bpb + 1);
+                if (b % bpb) {
+                    sp_cat(" beat ");
+                    sp_int(b % bpb + 1);
+                }
+                sp_cat(" ");
+                sp_chord(chord_shift(lc_unpack(l->ch[b]), xp));
+            }
+        if (!any)
+            sp_cat("no chords yet");
+        sp_cat(".");
+        return;
+    }
+    if (song_page() || (ui.page == P_HOME && app.mode == ARR_SONG)) {
+        if (!g->nrows) {
+            sp_cat("No sections yet.");
+            return;
+        }
+        for (int r = 0; r < g->nrows && r < ARR_ROWS && sp_n < ANN_MAX; r++) {
+            const row_t *w = &g->row[r];
+            sp_cat("Section ");
+            sp_int(r + 1);
+            sp_cat(": ");
+            loop_label(w->loop % ARR_LOOPS, t);
+            sp_text(t);
+            sp_cat(", ");
+            sp_text(ROW_SECT_NAME[w->sect % ROW_NSECT]);
+            if (w->rep > 1) {
+                sp_cat(", ");
+                sp_int(w->rep);
+                sp_cat(" times");
+            }
+            sp_cat(". ");
+        }
+        while (sp_n && sp_buf[sp_n - 1] == ' ')
+            sp_n--;
+        sp_buf[sp_n] = 0;
+    }
+}
+/* WHERE's last part: what the keys and the encoders do here (the footer, the encoders' line) */
+static void sp_controls(void)
+{
+    char t[64];
+    sp_n = 0;
+    sp_buf[0] = 0;
+    if (ui.ask || ui.card || home_shown())
+        return;
+    page_footer(t);
+    sp_parts(t);
+    if (!sp_list()) {
+        enc_line(t);
+        sp_parts(t);
+    }
+    while (sp_n && sp_buf[sp_n - 1] == ' ')
+        sp_n--;
+    sp_buf[sp_n] = 0;
+}
+
+static uint32_t sp_hash_s(uint32_t h, const char *s)
+{
+    while (s && *s)
+        h = hash(h, (uint8_t)*s++);
+    return h;
+}
+static uint32_t sp_page_sig(void)               /* what is in front: the page, a list, a card, a question, HOME held */
+{
+    uint32_t h = hash(2166136261u, ui.page);
+    h = hash(h, (uint32_t)sp_list() | (uint32_t)lst.slots << 1 | (uint32_t)home_shown() << 2 | (uint32_t)ui.card << 3 |
+                    (uint32_t)ui.ask << 8);
+    return ui.ask ? sp_hash_s(h, ui.ask_q) : h;
+}
+static uint32_t sp_trk_sig(void)                /* the instrument, on the pages that show it */
+{
+    return ui.page >= P_PATTERN && ui.page <= P_TONE ? hash(hash(2166136261u, (uint32_t)sel_trk()), app.lead) : 0u;
+}
+static uint32_t sp_knob_sig(const knob_t *k)
+{
+    return k->name ? sp_hash_s(sp_hash_s(2166136261u, k->name), k->val) : 0u;
+}
+static uint32_t sp_row_sig(void)
+{
+    if (!sp_list())
+        return 0;
+    return sp_hash_s(sp_hash_s(hash(2166136261u, lst.sel | (uint32_t)ui.name_cur << 8), lst.row[lst.sel].name),
+                     lst.row[lst.sel].val);
+}
+static void sp_snap(void)
+{
+    knob_t k[4];
+    page_knobs(k);
+    for (int i = 0; i < 4; i++)
+        sp.kh[i] = sp_knob_sig(&k[i]);
+    if (lst.open)
+        list_build();
+    sp.lh = sp_row_sig();
+    sp.lsel = lst.sel;
+    sp.page = sp_page_sig();
+    sp.trk = sp_trk_sig();
+    sp.tempo = (int16_t)csong()->tempo;
+}
+
+/* the knobs whose value changed since the last frame, into sp_buf ("Bar 2, Root A"): those a recent input (or the
+ * knob's own turn) changed; what changed by itself while playing is not news. 1: something to say */
+static int sp_knobs_changed(int input)
+{
+    knob_t k[4];
+    uint32_t now = plat_ms();
+    int any = 0;
+    page_knobs(k);
+    sp_n = 0;
+    sp_buf[0] = 0;
+    for (int i = 0; i < 4; i++) {
+        uint32_t h = sp_knob_sig(&k[i]);
+        if (h == sp.kh[i])
+            continue;
+        sp.kh[i] = h;
+        if (!k[i].name || !(input || (ui.touched == i && (int32_t)(ui.touch_until - now) > 0)))
+            continue;
+        if (any++)
+            sp_cat(", ");
+        sp_knob(ui.page, i, &k[i]);
+    }
+    return any;
+}
+static void speak(void)
+{
+    uint32_t now = plat_ms(), pg, tr;
+    int where = ann_where(), said = sp_said, input = now - sp_in_t < SP_IN_MS;
+    sp_said = 0;
+    if (!ann_on()) {
+        sp.started = 0;
+        sp.step = 0;
+        return;
+    }
+    if (!sp.started || where) {                 /* everything on the screen; then its details and the controls */
+        sp.started = 1;
+        sp.playing = (int8_t)arr_playing;
+        sp_snap();
+        sp_front(1);
+        ann_say(sp_buf, 0, ANN_NOW);
+        sp.step = 1;
+        return;
+    }
+    if (sp.step) {                              /* (a frame apart: the queue sends each whole) */
+        if (sp.step == 1)
+            sp_details();
+        else
+            sp_controls();
+        sp.step = sp.step == 1 ? 2 : 0;
+        if (sp_n)
+            ann_say(sp_buf, 0, 0);
+    }
+    if (arr_playing != sp.playing) {            /* play, stop (after a message the button said: in turn) */
+        sp.playing = (int8_t)arr_playing;
+        ann_say(arr_playing ? (count_beats() ? "Play, count-in" : "Play") : "Stop", 0, said ? 0 : ANN_NOW);
+    }
+    pg = sp_page_sig();
+    tr = sp_trk_sig();
+    if (said) {                                 /* a message said what happened: then the page, if it changed, or the
+                                                 * knobs the input changed ("EDITING A COPY", then "Low F sharp 3") */
+        if (pg != sp.page && !ui.ask) {
+            sp_front(0);
+            ann_later(sp_buf, 0, 200u, now);
+        } else if (pg == sp.page && tr == sp.trk && !ui.ask && !ui.card && !home_shown() && !sp_list() && input &&
+                   sp_knobs_changed(0))
+            ann_later(sp_buf, 0, 120u, now);
+        sp_snap();
+        return;
+    }
+    if (pg != sp.page || tr != sp.trk) {        /* a new page, list, card, question: said when it settles (a question,
+                                                 * a card: at once) */
+        int at_once = (ui.ask || ui.card) && pg != sp.page;
+        sp_snap();
+        sp_front(0);
+        if (at_once)
+            ann_say(sp_buf, 0, ANN_NOW);
+        else
+            ann_later(sp_buf, ANN_NOW, 200u, now);
+        sp.step = 0;
+        return;
+    }
+    if (ui.ask || ui.card)
+        return;
+    if (home_shown()) {                         /* HOME + SELECT: the tempo */
+        if (csong()->tempo != sp.tempo) {
+            sp.tempo = (int16_t)csong()->tempo;
+            sp_n = 0;
+            sp_cat("Tempo ");
+            sp_int(sp.tempo);
+            ann_later(sp_buf, ANN_NOW, 120u, now);
+        }
+        return;
+    }
+    sp.tempo = (int16_t)csong()->tempo;
+    if (sp_list()) {                            /* a row moved to, or its value changed */
+        uint32_t h;
+        list_build();
+        h = sp_row_sig();
+        if (h != sp.lh) {
+            sp.lh = h;
+            sp.lsel = lst.sel;
+            sp_n = 0;
+            sp_buf[0] = 0;
+            sp_row();
+            ann_later(sp_buf, ANN_NOW, 120u, now);
+        }
+        return;
+    }
+    if (sp_knobs_changed(input))                /* a knob (or what an encoder, a key changed on the page): "Tempo 121" */
+        ann_later(sp_buf, ANN_NOW, 120u, now);
+}
+
+#ifdef GM_HOST
+/* every page, knob value, list row, help card, chord and HOME held as a screen reader gets them (the "speakdump"
+ * command): KIND <tab> the text sent (fm1-reader/tools/audit.mjs puts it in words with web/words/ and checks it) */
+static void sp_print(const char *kind, const char *t) { printf("%s\t%s\n", kind, t); }
+static project_t sd_proj;
+static songs_t sd_songs;
+static loops_part_t sd_loops;
+static void sd_keep(int back)
+{
+    static uint8_t keep_app[sizeof app], keep_ui[sizeof ui], keep_lst[sizeof lst];
+    if (!back) {
+        sd_proj = proj, sd_songs = songs, sd_loops = sloops;
+        memcpy(keep_app, &app, sizeof app);
+        memcpy(keep_ui, &ui, sizeof ui);
+        memcpy(keep_lst, &lst, sizeof lst);
+    } else {
+        proj = sd_proj, songs = sd_songs, sloops = sd_loops;
+        memcpy(&app, keep_app, sizeof app);
+        memcpy(&ui, keep_ui, sizeof ui);
+        memcpy(&lst, keep_lst, sizeof lst);
+    }
+}
+static void sd_pages(void)                      /* each page: SCREEN, WHERE, its knobs turned both ways, its list */
+{
+    for (int p = 0; p < NPAGES; p++) {
+        knob_t k[4];
+        if (p == P_SONG3)
+            continue;                           /* (no longer shown) */
+        ui.page = (uint8_t)p;
+        lst.open = 0;
+        sp_front(0);
+        sp_print("SCREEN", sp_buf);
+        sp_front(1);
+        sp_print("WHERE", sp_buf);
+        sp_details();
+        if (sp_n)
+            sp_print("WHERE", sp_buf);
+        sp_controls();
+        if (sp_n)
+            sp_print("WHERE", sp_buf);
+        for (int i = 0; i < 4; i++)
+            for (int d = -1; d <= 1; d += 2) {
+                char last[ANN_MAX + 1] = "";
+                sd_keep(0);
+                for (int n = 0; n < 140; n++) {
+                    page_knobs(k);
+                    if (!k[i].name)
+                        break;
+                    sp_n = 0;
+                    sp_knob(p, i, &k[i]);
+                    if (!same(sp_buf, last)) {
+                        sp_print("KNOB", sp_buf);
+                        cat_s(last, sp_buf);
+                    } else if (n > 2)
+                        break;
+                    accel_off = 1;
+                    knob(i, d);
+                    edits_flush();
+                }
+                sd_keep(1);
+            }
+        list_open();
+        for (int r = 0; lst.open && r < lst.n; r++) {
+            if (lst.row[r].kind == LK_MORE)
+                continue;
+            lst.sel = (uint8_t)r;
+            sp_front(0);
+            sp_print("ROW", sp_buf);
+            if (lst.row[r].kind == LK_PICK) {   /* its choices */
+                sd_keep(0);
+                for (int n = 0; n < 18; n++) {
+                    list_change(1);
+                    list_build();
+                    sp_n = 0;
+                    sp_row();
+                    sp_print("ROW", sp_buf);
+                }
+                sd_keep(1);
+            }
+        }
+        lst.open = 0;
+        for (int b = 0; b < NB; b++) {          /* the help cards (a melody's too) */
+            uint8_t lead = app.lead;
+            for (int ld = 0; ld <= 1; ld++) {
+                app.lead = (uint8_t)ld;
+                ui.card = (uint8_t)(b + 1);
+                sp_front(0);
+                sp_print("HELP", sp_buf);
+            }
+            app.lead = lead;
+        }
+        ui.card = 0;
+    }
+}
+static void speak_dump(void)
+{
+    ui.touched = -1;
+    sd_pages();
+    app.lead = 1;                               /* the melody's pages */
+    sd_pages();
+    app.lead = 0;
+    lst.open = 0;
+    ui.page = P_HOME;                           /* HOME held */
+    ui.btn |= 1u << B_HOME;
+    ui.btn_t[B_HOME] = plat_ms() - 1000u;
+    sp_front(1);
+    sp_print("SCREEN", sp_buf);
+    sp_details();
+    sp_print("WHERE", sp_buf);
+    ui.btn &= ~(1u << B_HOME);
+    lst.slots = 1;                              /* MEMORY */
+    lst.open = 1;
+    slots_scan();
+    list_build();
+    for (int r = 0; r < lst.n; r++) {
+        lst.sel = (uint8_t)r;
+        sp_front(0);
+        sp_print("ROW", sp_buf);
+    }
+    lst.open = lst.slots = 0;
+    for (int r = 0; r < 12; r++)                /* every chord */
+        for (int t = 0; t < CH_NTYPES; t++) {
+            chord_t c = {(uint8_t)r, (uint8_t)t, (uint8_t)(t == CH_MIN7 ? (r + 5) % 12 : CH_NOBASS)};
+            sp_n = 0;
+            sp_chord(c);
+            sp_print("CHORD", sp_buf);
+        }
+    {   /* questions and messages the scenarios may not reach, and main_fm1.c's (not in the simulator) */
+        static const char *const Q[] = {"ERASE ALL SONGS AND MEMORY?", "PLAY THIS BASS AS WRITTEN?", "CLEAR P3?",
+                                        "KEEP YOUR 2 EDITED GROOVES?"};
+        static const char *const MSG[][2] = {{"UPDATE MODE IN", "3.."}, {"UPDATE MODE", "CANCELLED"},
+                                             {"RESTORE FROM USB", "RESTORED"}, {"RESTORE FROM USB", "NOT RESTORED"},
+                                             {"STOP FIRST", "then restore"}, {"QY70 STYLES", "NOT WRITTEN"}};
+        for (uint32_t i = 0; i < sizeof Q / sizeof Q[0]; i++) {
+            cat_s(ui.ask_q, Q[i]);
+            ui.ask = 1;
+            ui.ask_foot = i == 3 ? "SEL keep|HOME use Pop's" : 0;
+            sp_front(0);
+            sp_print("ASK", sp_buf);
+        }
+        ui.ask = 0;
+        ui.ask_foot = 0;
+        for (uint32_t i = 0; i < sizeof MSG / sizeof MSG[0]; i++) {
+            char t[64];
+            uint32_t n = 0;
+            for (const char *s = MSG[i][0]; *s; s++)
+                t[n++] = *s;
+            t[n++] = ' ';
+            for (const char *s = MSG[i][1]; *s; s++)
+                t[n++] = *s;
+            while (t[n - 1] == '.')
+                n--;
+            t[n] = 0;
+            sp_n = 0;
+            sp_text(t);
+            sp_print("MSG", sp_buf);
+        }
+    }
+}
+#endif
+
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
@@ -4681,6 +5690,8 @@ void ui_frame(void)
     }
     draw_footer();                               /* (the encoders' line and the footer: one band) */
     leds();
+    speak();                                     /* the screen reader: what changed (announce.c) */
+    ann_tick(plat_ms());
     ui.frame++;
 }
 

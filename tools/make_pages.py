@@ -15,6 +15,8 @@
   emu/                           Polly in the browser (build/emu, from web/emu/build.sh; GPL code only: the QY70 bank
                                  is built in the visitor's browser from their own ROM; web/emu/check_published.py
                                  checks the directory). Left out with --no-emu
+  words/                         the screen reader's words files (web/words, from firmware/words.tsv: every one ever
+                                 made, for the FM-1s that point at them; fm1-reader)
   firmware/polly-VERSION.fwsc    the package the installer writes; also the download
 
 Every page gets Polly's header (the name, home; School, Manual, Install, Mirror, Backup, Emulator). The
@@ -577,6 +579,9 @@ def main(argv):
                            capture_output=True, text=True)
         if r.returncode:
             raise SystemExit("emu/: " + r.stdout + r.stderr)
+
+    # the screen reader's words files (fm1-reader): every one ever made, for the devices that point at them
+    shutil.copytree(SRC / "web" / "words", out / "words")
 
     # the manual
     body, heads, title = render("MANUAL.md", "manual", "manual/index.html")
