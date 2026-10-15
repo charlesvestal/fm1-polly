@@ -7,7 +7,8 @@
                                  lesson; NNN-name.html (docs/course/NNN-name.md); img/ (docs/course/img)
   manual/index.html              the manual (MANUAL.md), with its contents beside it
   img/                           the manual's pictures (docs/img)
-  video/                         the lessons' videos and posters (docs/video)
+  video/                         the lessons' videos and posters (docs/video), and their captions: NNN.vtt, timed from
+                                 tools/video/NNN.story by tools/polly_video.py (needs Pillow), also a transcript under each
   install/index.html             the web installer (web/polly_installer.html, with fm1pkg.js, fm1ota.js and the
                                  package's metadata inlined)
   mirror/index.html              the screen mirror (web/mirror/index.html)
@@ -19,7 +20,8 @@
                                  made, for the FM-1s that point at them; fm1-reader)
   firmware/polly-VERSION.fwsc    the package the installer writes; also the download
 
-Every page gets Polly's header (the name, home; School, Manual, Install, Mirror, Backup, Emulator). The
+Every page gets Polly's header (a skip link to its <main>, the name, home; School, Manual, Install, Mirror, Backup,
+Emulator). The pages follow fm1-reader's PAGES.md (screen readers, the keyboard; tools/a11y/check.mjs). The
 docs are rendered as they are at the time (tools/site_md.py) and their links rewritten to the site: the docs to their
 pages (anchors kept, GitHub's), the web pages to theirs, other files of the repository to GitHub.
 
@@ -74,25 +76,33 @@ LOGO = ('<svg class="pl-logo" viewBox="0 0 32 32" width="28" height="28" aria-hi
 
 # the header's own look: its own variables, so it sits the same on every page (the installer's, the mirror's...)
 HEADER_CSS = """
-:root { --pl-ground: #faf4e8; --pl-ink: #48392f; --pl-muted: #8a7764; --pl-rule: #e6dccb; --pl-accent: #e0683a; --pl-teal: #26a69a; --pl-card: #fffaf1; }
+:root { --pl-ground: #faf4e8; --pl-ink: #48392f; --pl-muted: #725f4c; --pl-rule: #e6dccb; --pl-accent: #e0683a; --pl-accent-ink: #b4481c;
+        --pl-on-accent: #2a140a; --pl-teal: #1f8a80; --pl-card: #fffaf1; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
+  :root:not([data-theme="light"]) { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a;
+                                    --pl-accent-ink: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
 }
-:root[data-theme="dark"] { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
+:root[data-theme="dark"] { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a;
+                           --pl-accent-ink: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
 div.pl-site { max-width: 1100px; margin: 0 auto 1.6rem; padding: 0 0 .7rem; border-bottom: 1px solid var(--pl-rule);
               display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.4rem; box-sizing: border-box;
               font: 400 16px/1.4 "Barlow", "Helvetica Neue", Arial, sans-serif; text-align: left; }
 div.pl-site a.pl-home { display: inline-flex; align-items: center; gap: .45rem; color: var(--pl-ink); text-decoration: none;
                         font: 700 1.45rem/1 "Barlow Semi Condensed", "Barlow", sans-serif; letter-spacing: .01em; }
-div.pl-site a.pl-home:hover { color: var(--pl-accent); }
+div.pl-site a.pl-home:hover { color: var(--pl-accent-ink); }
 div.pl-site .pl-logo { display: block; flex: none; }
 div.pl-site nav { display: flex; flex-wrap: wrap; gap: .2rem .25rem; margin: 0 0 0 auto; padding: 0; }
 div.pl-site nav a { color: var(--pl-ink); text-decoration: none; padding: .28rem .6rem; border-radius: 999px; font-size: .98rem;
                     font-weight: 600; white-space: nowrap; }
 div.pl-site nav a:hover { background: var(--pl-card); box-shadow: inset 0 0 0 1px var(--pl-rule); }
-div.pl-site nav a[aria-current="page"] { background: var(--pl-accent); color: #fff; box-shadow: none; }
+div.pl-site nav a[aria-current="page"] { background: var(--pl-accent); color: var(--pl-on-accent); box-shadow: none; }
 div.pl-site a:focus-visible { outline: 2px solid var(--pl-teal); outline-offset: 2px; }
 div.pl-site.pl-pad { padding: 16px 16px .7rem; }
+a.pl-skip { position: absolute; left: 16px; top: -100px; z-index: 50; padding: .5rem .9rem; border-radius: 8px; background: var(--pl-card);
+            color: var(--pl-ink); font: 600 16px "Barlow", "Helvetica Neue", Arial, sans-serif; box-shadow: 0 0 0 2px var(--pl-teal); }
+a.pl-skip:focus { top: 12px; }
+.pl-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 @media (max-width: 720px) {
   div.pl-site { gap: .4rem; }
   div.pl-site nav { margin: 0; width: 100%; gap: .2rem .1rem; }
@@ -101,14 +111,14 @@ div.pl-site.pl-pad { padding: 16px 16px .7rem; }
 """
 
 CSS = """
-:root { --ground: #faf4e8; --ink: #48392f; --muted: #8a7764; --rule: #e6dccb; --accent: #e0683a; --teal: #26a69a; --card: #fffaf1;
-        --accent-t: #f8dccd; --teal-t: #d5ece8; color-scheme: light; }
+:root { --ground: #faf4e8; --ink: #48392f; --muted: #725f4c; --rule: #e6dccb; --accent: #e0683a; --teal: #1f8a80; --card: #fffaf1;
+        --accent-t: #f8dccd; --teal-t: #d5ece8; --accent-ink: #b4481c; --on-accent: #2a140a; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
-                                    --accent-t: #4a2d20; --teal-t: #1e3a36; color-scheme: dark; }
+                                    --accent-t: #4a2d20; --teal-t: #1e3a36; --accent-ink: #f28a5a; color-scheme: dark; }
 }
 :root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
-                           --accent-t: #4a2d20; --teal-t: #1e3a36; color-scheme: dark; }
+                           --accent-t: #4a2d20; --teal-t: #1e3a36; --accent-ink: #f28a5a; color-scheme: dark; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { background: var(--ground); color: var(--ink); margin: 0; padding: 20px 16px 64px;
@@ -126,8 +136,8 @@ li > ul, li > ol { margin: .2rem 0 .3rem; }
 li::marker { color: var(--accent); }
 strong { font-weight: 600; }
 a { color: var(--ink); text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-a:hover { color: var(--accent); }
-a:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 2px; }
+a:hover { color: var(--accent-ink); }
+a:focus-visible, summary:focus-visible, video:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 2px; }
 code, pre, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; }
 code { background: var(--card); border: 1px solid var(--rule); padding: .05em .35em; border-radius: 4px; }
 pre { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 16px; overflow-x: auto; line-height: 1.45; margin: 0 0 1.2rem; }
@@ -146,6 +156,11 @@ p.shot img[src$=".svg"] { width: 100%; background: #fffaf1; border-radius: 10px;
 figure.video { margin: .4rem 0 1.6rem; }
 figure.video video { display: block; width: 100%; height: auto; background: #111; border-radius: 12px; }
 figure.video figcaption { color: var(--muted); font-size: .9rem; margin-top: .4rem; }
+details.transcript { margin: -1rem 0 1.6rem; font-size: .95rem; }
+details.transcript summary { cursor: pointer; color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent);
+                             text-underline-offset: 3px; width: fit-content; }
+details.transcript ol { list-style: none; padding: 0; margin: .5rem 0 0; }
+details.transcript .t { font-variant-numeric: tabular-nums; color: var(--muted); display: inline-block; min-width: 2.6rem; }
 p.web-alt { background: var(--teal-t); border-radius: 10px; padding: .6rem .9rem; margin: .4rem 0 .9rem; }
 table.steps p.web-alt { margin: .8rem 0 .6rem; }
 .doc > p:has(> em:only-child) { color: var(--muted); }
@@ -158,7 +173,7 @@ table.steps td { vertical-align: top; padding: 14px 16px; background: var(--card
 table.steps td:first-child { border-left: 1px solid var(--rule); border-radius: 12px 0 0 12px; }
 table.steps td:last-child { border-right: 1px solid var(--rule); border-radius: 0 12px 12px 0; padding-left: 0; }
 table.steps td[colspan] { border-radius: 12px; padding-left: 16px; }
-table.steps td h3 { margin: 0 0 .4rem; font-size: 1.2rem; }
+table.steps td h2 { margin: 0 0 .4rem; padding: 0; border: 0; font-size: 1.2rem; font-weight: 600; }
 table.steps td img { display: block; width: 100%; border-radius: 8px; }
 table.steps td pre { margin: 0; font-size: .8rem; }
 @media (max-width: 700px) {
@@ -205,7 +220,7 @@ nav.pager .next { grid-column: 2; text-align: right; }
 .toc-side a.on { background: var(--accent-t); font-weight: 600; }
 .toc-side ol.sub { display: none; margin: .1rem 0 .4rem .7rem; padding-left: .5rem; border-left: 2px solid var(--rule); }
 .toc-side li.open > ol.sub { display: block; }
-.toc-side ol.sub a { font-size: .88rem; padding: .16rem .55rem; color: var(--muted); }
+.toc-side ol.sub a { font-size: .88rem; padding: .25rem .55rem; color: var(--muted); }
 .toc-side li.open > a { font-weight: 600; }
 .toc-side ol.sub a.on { color: var(--ink); }
 .toc-drop { position: sticky; top: 0; z-index: 4; margin: 0 -16px 1rem; padding: .5rem 16px; background: var(--ground); border-bottom: 1px solid var(--rule); }
@@ -221,17 +236,17 @@ nav.pager .next { grid-column: 2; text-align: right; }
 /* the landing page */
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.6rem 2.4rem; align-items: center; margin: .6rem 0 2rem; }
 .hero h1 { font-size: 3.4rem; margin: 0 0 .1rem; }
-.hero .sub { font: 600 1.2rem "Barlow Semi Condensed", "Barlow", sans-serif; color: var(--accent); margin: 0 0 1rem; }
+.hero .sub { font: 600 1.2rem "Barlow Semi Condensed", "Barlow", sans-serif; color: var(--accent-ink); margin: 0 0 1rem; }
 .hero .lede { font-size: 1.12rem; margin: 0 0 1.3rem; }
 .hero img { width: 300px; image-rendering: pixelated; border-radius: 10px; background: #000; box-shadow: 0 0 0 10px #17181a, 0 0 0 11px var(--rule); margin: 11px; }
 .buttons { display: flex; flex-wrap: wrap; gap: .6rem; }
 a.btn { display: inline-flex; flex-direction: column; text-decoration: none; padding: .55rem 1.2rem; border-radius: 14px; border: 1px solid var(--rule); background: var(--card); }
 a.btn strong { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; }
 a.btn span { font-size: .85rem; color: var(--muted); }
-a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-a.btn.primary span { color: #fff3ec; }
+a.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #2a140a); }
+a.btn.primary span { color: var(--on-accent, #2a140a); }
 a.btn:hover { border-color: var(--accent); color: inherit; }
-a.btn.primary:hover { color: #fff; filter: brightness(1.05); }
+a.btn.primary:hover { color: var(--on-accent, #2a140a); filter: brightness(1.05); }
 .ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 12px; margin: 0 0 1rem; }
 .ways a { display: block; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); text-decoration: none; }
 .ways a:hover { border-color: var(--accent); color: inherit; }
@@ -270,6 +285,26 @@ TOC_JS = """<script>
   document.querySelectorAll(".toc-drop a").forEach((a) => a.addEventListener("click", () => a.closest("details").open = false));
 })();
 </script>"""
+
+SCROLL_JS = """<script>
+(() => {                                   // a code block or table wider than the page: the keyboard can scroll it
+  const fit = () => document.querySelectorAll("main pre, main .table-wrap").forEach((e) => {
+    if (e.scrollWidth > e.clientWidth + 1) {
+      if (e.hasAttribute("tabindex")) return;
+      let h = e.previousElementSibling;
+      while (h && !/^H[1-6]$/.test(h.tagName)) h = h.previousElementSibling;
+      e.tabIndex = 0;
+      e.setAttribute("role", "region");
+      e.setAttribute("aria-label", (e.tagName === "PRE" ? "Code" : "Table") + (h ? ": " + h.textContent.trim() : ""));
+    } else if (e.getAttribute("role") === "region") {
+      e.removeAttribute("tabindex"); e.removeAttribute("role"); e.removeAttribute("aria-label");
+    }
+  });
+  fit();
+  addEventListener("resize", fit);
+})();
+</script>
+"""
 
 LESSONS_JS = """<script>
 document.addEventListener("click", (e) => {               // the lessons menu closes on a click outside it
@@ -373,9 +408,70 @@ def link_files(text):
     return re.sub(r"\b(this repository|Polly's repository|the repository)\b", rf'<a href="{REPO}">\1</a>', text)
 
 
+# ------------------------------------------------------------------------------------- the videos' words ---
+# The lessons' videos have no speech: the sound is Polly playing, the words are the captions drawn on the video.
+# Those captions, timed as the video draws them (tools/polly_video.py's storyboard expansion, tools/video/NNN.story),
+# become a captions track (video/NNN.vtt) and a transcript under the player, for those who can't see the video.
+
+def ms_clock(ms, vtt=True):
+    s, ms = divmod(int(ms), 1000)
+    m, s = divmod(s, 60)
+    return f"{m // 60:02d}:{m % 60:02d}:{s:02d}.{ms:03d}" if vtt else f"{m}:{s:02d}"
+
+
+def video_words(stem):
+    """the captions of video stem (docs/video/STEM.mp4) from tools/video/STEM.story: ([(start ms, end ms, title, detail)],
+    length ms), or None without a storyboard"""
+    story = SRC / "tools" / "video" / f"{stem}.story"
+    if not story.exists():
+        return None
+    import polly_video                                  # (the storyboard language; it needs Pillow to import)
+    step = 100                                          # the videos are made at its default, 10 frames a second
+    x = polly_video.expand(str(story), step, "song.wav")
+    end = x.frame * step
+    caps = [(t, e[0], e[1] if isinstance(e[1], str) else " ".join(e[1]))
+            for t, kind, *e in x.events if kind in ("cap", "card") and e[0] != "-"]
+    cues = []
+    for k, (t, title, detail) in enumerate(caps):
+        stop = caps[k + 1][0] if k + 1 < len(caps) else end
+        if stop > t:
+            cues.append((t, stop, title, detail))
+    return cues, end
+
+
+def write_vtt(path, cues):
+    lines = ["WEBVTT", ""]
+    for k, (a, b, title, detail) in enumerate(cues, 1):
+        lines += [str(k), f"{ms_clock(a)} --> {ms_clock(b)}", title.replace("-->", "to")]
+        if detail:
+            lines.append(detail.replace("-->", "to"))
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+VIDEO_WORDS = {}                                        # stem -> (cues, length): filled by main() as it writes the .vtt
+
+
 class SiteHooks(site_md.Hooks):
     def __init__(self, kind):
         self.kind = kind                                # "manual", "lesson", "school", "quickstart"
+
+    def video(self, alt, poster, src):
+        stem = posixpath.splitext(posixpath.basename(src))[0]
+        if stem not in VIDEO_WORDS:
+            return None
+        cues, length = VIDEO_WORDS[stem]
+        name = re.sub(r"^Watch\s+", "", alt)
+        e = lambda t: html.escape(t, quote=True)      # noqa: E731
+        items = "".join(f'<li><span class="t">{ms_clock(a, False)}</span> <strong>{e(t)}</strong>{(". " + e(d)) if d else ""}</li>'
+                        for a, _, t, d in cues)
+        return (f'<figure class="video"><video controls preload="none" playsinline poster="{e(poster)}" src="{e(src)}" '
+                f'aria-label="Video: {e(name)}">'
+                f'<track kind="captions" srclang="en" label="English" src="{e(posixpath.splitext(src)[0])}.vtt"></video>'
+                f'<figcaption>{e(alt)}. It has no speech: you hear Polly playing, and captions show each step.</figcaption></figure>'
+                f'<details class="transcript"><summary>Transcript of the video</summary>'
+                f'<p>The video shows the FM-1 from the front, with the keys and buttons lighting as they are pressed. '
+                f'Its captions, with the time each one appears ({ms_clock(length, False)} in all):</p><ol>{items}</ol></details>')
 
     def code_span(self, code):
         if code in PAGE_MENTIONS:
@@ -393,7 +489,10 @@ class SiteHooks(site_md.Hooks):
         return ""
 
     def raw(self, block):
-        block = re.sub(r"<table(?=[\s>])(?![^>]*class=)", '<table class="steps"', block)
+        if re.match(r"\s*<table(?=[\s>])(?![^>]*class=)", block):
+            # a lesson's steps: a layout table (role presentation), its step titles the page's second level (h1, then h2)
+            block = re.sub(r"<table(?=[\s>])(?![^>]*class=)", '<table class="steps" role="presentation"', block)
+            block = re.sub(r"<(/?)h3\b", r"<\1h2", block)
         block = mention_pages(block)
         return block
 
@@ -411,8 +510,18 @@ def header(page, current, emu=True, pad=False):
             continue
         cur = ' aria-current="page"' if key == current else ""
         items.append(f'<a href="{rel(target, page)}"{cur}>{label}</a>')
-    return (f'<div class="pl-site{" pl-pad" if pad else ""}" role="banner"><a class="pl-home" href="{rel("", page)}" aria-label="Polly, home">{LOGO}'
-            f'<span>Polly</span></a><nav aria-label="Polly">{"".join(items)}</nav></div>')
+    return (f'<a class="pl-skip" href="#content">Skip to content</a>\n'
+            f'<div class="pl-site{" pl-pad" if pad else ""}" role="banner"><a class="pl-home" href="{rel("", page)}" aria-label="Polly, home">{LOGO}'
+            f'<span>Polly</span></a><nav aria-label="Polly\'s pages">{"".join(items)}</nav></div>')
+
+
+def content_id(doc):
+    """the page's <main> is the skip link's target (#content)"""
+    if 'id="content"' in doc:
+        return doc
+    if not re.search(r"<main[\s>]", doc):
+        raise SystemExit("a page without <main>: the skip link has nowhere to go")
+    return re.sub(r"<main(?=[\s>])", '<main id="content"', doc, count=1)
 
 
 def footer(page, version):
@@ -426,15 +535,15 @@ def page_html(title, description, page, current, body, version, emu, extra_head=
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<title>{html.escape(title)}</title>\n<meta name=\"description\" content=\"{html.escape(description)}\">\n"
             "<meta name=\"theme-color\" content=\"#faf4e8\">\n" + FONTS +
-            f"<style>{CSS}{HEADER_CSS}</style>\n{extra_head}</head>\n<body>\n{header(page, current, emu)}\n{body}\n"
-            f"{footer(page, version)}\n{extra_body}</body>\n</html>\n")
+            f"<style>{CSS}{HEADER_CSS}</style>\n{extra_head}</head>\n<body>\n{header(page, current, emu)}\n{content_id(body)}\n"
+            f"{footer(page, version)}\n{SCROLL_JS}{extra_body}</body>\n</html>\n")
 
 
 def inject_header(src_html, page, current, emu, pad=False):
     """another page (the installer, the mirror, the emulator, the backup page) with Polly's header"""
     if not re.search(r"<body[^>]*>", src_html) or "</head>" not in src_html:
         raise SystemExit(f"{page}: no <body> / </head> to put the header in")
-    out = src_html.replace("</head>", f"<style>{HEADER_CSS}</style>\n</head>", 1)
+    out = content_id(src_html.replace("</head>", f"<style>{HEADER_CSS}</style>\n</head>", 1))
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + "\n" + header(page, current, emu, pad), out, count=1)
 
 
@@ -470,9 +579,9 @@ def pager(page, order):
     out = []
     if k > 0:
         out.append(f'<a class="prev" rel="prev" href="{rel(order[k - 1][1], page)}">'
-                   f'<span>← Previous</span><strong>{html.escape(order[k - 1][2])}</strong></a>')
+                   f'<span><span aria-hidden="true">← </span>Previous</span><strong>{html.escape(order[k - 1][2])}</strong></a>')
     if k + 1 < len(order):
-        out.append(f'<a class="next" rel="next" href="{rel(order[k + 1][1], page)}"><span>Next →</span>'
+        out.append(f'<a class="next" rel="next" href="{rel(order[k + 1][1], page)}"><span>Next<span aria-hidden="true"> →</span></span>'
                    f'<strong>{html.escape(order[k + 1][2])}</strong></a>')
     return f'<nav class="pager" aria-label="Lessons">{"".join(out)}</nav>'
 
@@ -545,6 +654,11 @@ def main(argv):
     shutil.copytree(SRC / "docs" / "img", out / "img")
     shutil.copytree(SRC / "docs" / "course" / "img", out / "school" / "img")
     shutil.copytree(SRC / "docs" / "video", out / "video")
+    for mp4 in sorted((SRC / "docs" / "video").glob("*.mp4")):     # the videos' captions and transcripts
+        words = video_words(mp4.stem)
+        if words:
+            VIDEO_WORDS[mp4.stem] = words
+            write_vtt(out / "video" / f"{mp4.stem}.vtt", words[0])
     W = lambda p, s: (out / p).write_text(s, encoding="utf-8")   # noqa: E731
     desc = "Polly is a pocket arranger for the M-VAVE FM-1."
 
@@ -572,7 +686,9 @@ def main(argv):
         page = (out / "emu" / "index.html").read_text(encoding="utf-8")
         page = re.sub(r'<meta name="robots"[^>]*>\n?', "", page)                  # (on its own site: a page like the others)
         page = re.sub(r'<p class="note">Internal test build[^<]*</p>\n?', "", page)
-        page = page.replace("<title>Polly test build</title>", "<title>Polly in the browser</title>")
+        page = page.replace("<title>Polly test build</title>", "<title>Emulator · Polly</title>")
+        if not (out / "emu" / "reader" / "words.js").exists():
+            print("warning: emu/ without fm1-reader's words.js and voice (web/emu/build.sh found no ../fm1-reader)", file=sys.stderr)
         page = page.replace("in your browser: an internal test build.", "in your browser.")
         W("emu/index.html", inject_header(page, "emu/index.html", "emu", emu))
         r = subprocess.run([sys.executable, str(SRC / "web" / "emu" / "check_published.py"), str(out / "emu")],

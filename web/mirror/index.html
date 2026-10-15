@@ -3,17 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Polly Mirror</title>
+<title>Mirror · Polly</title>
 <meta name="description" content="See the screen and panel of an FM-1 running Polly live on your computer. You can also play the panel from here.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
 <style>
-:root { --ground: #faf4e8; --ink: #48392f; --muted: #8a7764; --rule: #e6dccb; --accent: #e0683a; --teal: #26a69a; --card: #fffaf1; color-scheme: light; }
+:root { --ground: #faf4e8; --ink: #48392f; --muted: #725f4c; --rule: #e6dccb; --accent: #e0683a; --teal: #1f8a80; --card: #fffaf1;
+        --accent-ink: #b4481c; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b; color-scheme: dark; }
+  :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                                    --accent-ink: #f28a5a; color-scheme: dark; }
 }
-:root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b; color-scheme: dark; }
+:root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                           --accent-ink: #f28a5a; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { background: var(--ground); color: var(--ink); margin: 0; padding-inline: 16px; padding-block: 24px 48px;
        font: 400 16px/1.55 "Barlow", "Helvetica Neue", Arial, sans-serif; }
@@ -21,7 +24,12 @@ main { max-width: 1040px; margin: 0 auto; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.2rem; margin: 0 0 .8rem; }
 h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
 header p { margin: 0; color: var(--muted); }
-a { color: var(--accent); }
+a { color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.device svg g[tabindex]:focus-visible { outline: none; }
+.device svg g[tabindex]:focus-visible .btnface, .device svg g[tabindex]:focus-visible .keyface,
+.device svg g[tabindex]:focus-visible .knobface { stroke: #f6b48e; stroke-width: 5; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .bar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: 0 0 1rem; padding: .6rem .8rem;
        background: var(--card); border: 1px solid var(--rule); border-radius: 12px; font-size: .95rem; }
 .bar label { color: var(--muted); display: inline-flex; gap: .4rem; align-items: center; }
@@ -34,7 +42,7 @@ a { color: var(--accent); }
 .dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--rule); display: inline-block; flex: none; }
 .dot.on { background: var(--teal); }
 .dot.wait { background: #e2a63c; }
-#status { flex: 1 1 14rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#status { flex: 1 1 14rem; min-width: 0; }
 .nums { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; min-width: 19ch; text-align: right; }
 .stage { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-start; justify-content: center; }
 .big { flex: none; max-width: 100%; }
@@ -62,11 +70,12 @@ a { color: var(--accent); }
 .delta { opacity: 0; font: 700 22px "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif; fill: #f6b48e; }
 .delta.show { animation: rise .9s ease-out; }
 @keyframes rise { 0% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.needs { margin: 0 0 .8rem; color: var(--muted); max-width: 70ch; }
 .help { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; margin: 1.6rem 0 0; }
 .help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
 .help p, .help ol { margin: 0; color: var(--muted); max-width: 60ch; }
 .help ol { padding-left: 1.1rem; }
-.err { color: var(--accent); }
+.err { color: var(--accent-ink); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .ring.pulse, .delta.show { animation-duration: .01s; } }
 </style>
 </head>
@@ -76,6 +85,8 @@ a { color: var(--accent); }
   <h1>Polly Mirror</h1>
   <p>See the FM-1's screen and panel live on your computer.</p>
 </header>
+<p class="needs">You need Chrome or Edge, and the FM-1 running Polly plugged in with a USB cable. When you press Connect, the browser
+  asks for permission to use MIDI devices: allow it.</p>
 
 <div class="bar" role="group" aria-label="Connection">
   <span class="dot" id="dot" aria-hidden="true"></span>
@@ -84,20 +95,22 @@ a { color: var(--accent); }
   <label>In <select id="inSel" aria-label="MIDI input (from the FM-1)"></select></label>
   <label>Out <select id="outSel" aria-label="MIDI output (to the FM-1)"></select></label>
   <span class="zoom" role="group" aria-label="Screen size">
-    <button type="button" data-zoom="2" aria-pressed="true">&times;2</button>
-    <button type="button" data-zoom="3" aria-pressed="false">&times;3</button>
+    <button type="button" data-zoom="2" aria-pressed="true"><span aria-hidden="true">&times;2</span><span class="sr">2 times</span></button>
+    <button type="button" data-zoom="3" aria-pressed="false"><span aria-hidden="true">&times;3</span><span class="sr">3 times</span></button>
   </span>
   <button id="refresh" type="button" title="Ask for the whole screen again">Refresh</button>
   <button id="png" type="button" title="Save the screen as a PNG">Save PNG</button>
   <button id="control" type="button" aria-pressed="false" disabled
-          title="Play the panel from here. Click buttons and keys, and they stay pressed while you hold the mouse. Scroll over a knob to turn it.">Control</button>
+          title="Play the panel from here. Click buttons and keys, and they stay pressed while you hold the mouse. Scroll over a knob to turn it."
+          aria-describedby="controlHow">Control</button>
   <span class="nums" id="nums"></span>
 </div>
 
 <div class="stage">
-  <div class="big"><canvas id="screen" width="240" height="240" aria-label="The FM-1's screen"></canvas></div>
+  <div class="big"><canvas id="screen" width="240" height="240" role="img"
+       aria-label="The FM-1's screen, as Polly draws it. The picture is visual only: to hear the screen, use the FM-1 Screen Reader page (see Screen reader, below)."></canvas></div>
   <div class="device">
-    <svg id="panel" viewBox="0 0 1000 640" aria-label="The FM-1's panel: lit buttons and keys, held ones outlined, knobs as turned"></svg>
+    <svg id="panel" viewBox="0 0 1000 640" role="group" aria-label="The FM-1's panel: lit buttons and keys, held ones outlined, knobs as turned"></svg>
     <canvas id="small" width="240" height="240" aria-hidden="true"></canvas>
   </div>
 </div>
@@ -118,9 +131,16 @@ a { color: var(--accent); }
   </div>
   <div>
     <h2>Control (for testing)</h2>
-    <p>Turn on <b>Control</b> to play the FM-1 from this page. Click a button or key, and it stays pressed while you hold
-      the mouse. Scroll over a knob to turn it. When you turn Control off, close the page or unplug the cable, Polly lets
+    <p id="controlHow">Turn on <b>Control</b> to play the FM-1 from this page. Click a button or key, and it stays pressed while you hold
+      the mouse. Scroll over a knob to turn it. With the keyboard, Tab to a button or key on the panel and hold Space or Enter
+      to hold it; on a knob, the arrow keys turn it. When you turn Control off, close the page or unplug the cable, Polly lets
       go of everything. Scripts can do the same with tools/polly_remote.py.</p>
+  </div>
+  <div>
+    <h2>Screen reader</h2>
+    <p>This page shows the screen as a picture. To hear what it says, open the
+      <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a> in another tab: it reads Polly's screen
+      with your own screen reader or its own voice, and it can run beside this page.</p>
   </div>
   <div>
     <h2>Speed</h2>
@@ -267,11 +287,11 @@ function knob(x, y, r, label, role) {
   const g = el("g", {});
   el("circle", { cx: x, cy: y, r: r + 5, fill: TRAY }, g);
   const ring = el("circle", { cx: x, cy: y, r: r + 9, class: "ring" }, g);
-  el("circle", { cx: x, cy: y, r, fill: KNOB, stroke: "#44474c", "stroke-width": 2 }, g);
+  el("circle", { cx: x, cy: y, r, fill: KNOB, stroke: "#44474c", "stroke-width": 2, class: "knobface" }, g);
   const ind = el("line", { x1: x, y1: y - r + 5, x2: x, y2: y - r + 15, stroke: LABEL, "stroke-width": 3, "stroke-linecap": "round" }, g);
   text(g, x, y - r - 12, label, 17);
   const delta = el("text", { x: x + r + 14, y: y + 8, class: "delta", "text-anchor": "start" }, g);
-  const k = { g, ind, ring, delta, x, y, angle: 0, sum: 0, t: 0 };
+  const k = { g, ind, ring, delta, x, y, angle: 0, sum: 0, t: 0, label };
   knobs[label] = k;
   if (role !== undefined) byRole[role] = k;
   return k;
@@ -287,7 +307,7 @@ function button(x, y, w, h, label, two) {
   el("rect", { x, y, width: w, height: h, rx: 9, fill: BTNC, stroke: "#4a4d52", "stroke-width": 1.5, class: "btnface" }, g);
   if (two) { text(g, x + w / 2, y + h / 2 - 1, label, 12); text(g, x + w / 2, y + h / 2 + 12, two, 12); }
   else text(g, x + w / 2, y + h / 2 + 5, label, 15);
-  buttons[BTN[label]] = { g };
+  buttons[BTN[label]] = { g, label: two ? `${label} ${two}` : label };
 }
 el("rect", { x: 58, y: 258, width: 210, height: 58, rx: 14, fill: TRAY });
 button(72, 268, 82, 38, "OCT-"); button(170, 268, 82, 38, "OCT+");
@@ -305,12 +325,12 @@ const keys = [];
   for (let i = 0; i < 16; i++) {
     const g = el("g", {});
     el("rect", { x: x0 + 12 + i * pitch + (pitch - kw) / 2, y: y0 + h * 0.43, width: kw, height: h * 0.52, rx: kw / 2, fill: KEY_W, class: "keyface white" }, g);
-    keys[WHITE_K[i]] = { g };
+    keys[WHITE_K[i]] = { g, label: `white key ${i + 1}` };
   }
   BLACK_AFTER.forEach((a, k) => {
     const g = el("g", {});
     el("rect", { x: x0 + 12 + (a + 1) * pitch - kw / 2, y: y0 + h * 0.06, width: kw, height: h * 0.33, rx: kw / 2, fill: KEY_B, class: "keyface black" }, g);
-    keys[BLACK_K[k]] = { g };
+    keys[BLACK_K[k]] = { g, label: `black key ${k + 1}` };
   });
 })(36, 340, 928, 270);
 
@@ -329,11 +349,13 @@ let lastMaster = -1;
 function showInput(s) {
   buttons.forEach((b, i) => {
     b.g.classList.toggle("held", !!(s.buttons & (1 << i)));
+    if (control) b.g.setAttribute("aria-pressed", s.buttons & (1 << i) ? "true" : "false");
     b.g.classList.toggle("lit", !!(s.litButtons & (1 << i)));
     if (i === BTN.PLAY) b.g.classList.toggle("green", !s.playRed);
   });
   keys.forEach((k, i) => {
     k.g.classList.toggle("held", !!(s.keys & (1 << i)));
+    if (control) k.g.setAttribute("aria-pressed", s.keys & (1 << i) ? "true" : "false");
     k.g.classList.toggle("lit", !!(s.litKeys & (1 << i)));
   });
   s.enc.forEach((n, r) => { if (n && byRole[r]) turned(byRole[r], n); });
@@ -402,7 +424,7 @@ const statusEl = document.getElementById("status"), dot = document.getElementByI
 const inSel = document.getElementById("inSel"), outSel = document.getElementById("outSel"), connectBtn = document.getElementById("connect");
 let access = null, inPort = null, outPort = null, lastHeard = 0, heardHello = false, lastAsk = 0;
 function say(t, state) {
-  statusEl.textContent = t;
+  if (statusEl.textContent !== t) statusEl.textContent = t;     // (the same words again would be read again)
   statusEl.classList.toggle("err", state === "err");
   dot.className = "dot" + (state === "on" ? " on" : state === "wait" ? " wait" : "");
 }
@@ -497,6 +519,41 @@ function remoteAnswer(r) {
   if (!r.ok) { rq = []; say("Polly refused the input. Is mirroring off?", "wait"); return; }
   rpump();
 }
+const SVG_A = (g, a) => { for (const [k, v] of Object.entries(a)) v == null ? g.removeAttribute(k) : g.setAttribute(k, v); };
+function panelKeys(on) {
+  const order = [...["SELECT", "PRESETS", "ALGORITHM", "KNOB1", "KNOB2", "KNOB3", "KNOB4"].map((n) => [knobs[n], "knob"]),
+                 ...[12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => [buttons[i], "button"]),
+                 ...keys.map((k) => [k, "key"])];
+  for (const [c, kind] of order) {
+    SVG_A(c.g, on ? { tabindex: "0", role: "button", "aria-label": c.label,
+                      "aria-description": kind === "knob" ? "Turn with the arrow keys" : "Hold Space or Enter to hold it down" }
+                  : { tabindex: null, role: null, "aria-label": null, "aria-description": null, "aria-pressed": null });
+    if (on && kind !== "knob") c.g.setAttribute("aria-pressed", c.g.classList.contains("held") ? "true" : "false");
+  }
+  // (in tab order: the knobs, the buttons, the keys; SVG keeps document order, so they move to the end in it)
+  if (on) for (const [c] of order) svg.appendChild(c.g);
+}
+function keyHold(g, op, id) {
+  let down = false;
+  g.addEventListener("keydown", (e) => {
+    if (!control || (e.key !== " " && e.key !== "Enter")) return;
+    e.preventDefault();
+    if (!down && !e.repeat) { down = true; rsend(op, id, 1); }
+  });
+  const up = (e) => { if (down && (!e || e.key === " " || e.key === "Enter")) { down = false; rsend(op, id, 0); } };
+  g.addEventListener("keyup", up);
+  g.release = () => up();             // on leaving it (a focus listener on an SVG element would make Chrome focus it always)
+}
+document.addEventListener("focusout", (e) => e.target.release?.());
+buttons.forEach((b, i) => keyHold(b.g, 1, i));
+keys.forEach((k, i) => keyHold(k.g, 2, i));
+byRole.forEach((k, r) => k.g.addEventListener("keydown", (e) => {
+  if (!control) return;
+  const n = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
+  if (!n) return;
+  e.preventDefault();
+  for (let i = 0; i < Math.abs(n); i++) rsend(3, r, n > 0 ? 1 : 255);
+}));
 function setControl(on) {
   rq = [];
   if (rbusy) { clearTimeout(rbusy.t); rbusy = null; }
@@ -505,6 +562,7 @@ function setControl(on) {
     try { outPort?.send(mrRemote(rseq, 0)); } catch { /* gone: Polly lets go by itself */ }
   }
   control = on;
+  panelKeys(on);
   controlBtn.setAttribute("aria-pressed", String(on));
   document.body.classList.toggle("controlling", on);
 }

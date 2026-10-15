@@ -7,59 +7,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Polly installer</title>
+<title>Install · Polly</title>
 <style>
-  :root { --bg: #faf4e8; --fg: #48392f; --dim: #8a7764; --accent: #e0683a; }
+  /* --dim: 4.5:1 on the ground; --on-accent: the text on a coral button (white on coral is 3.4:1) */
+  :root { --bg: #faf4e8; --fg: #48392f; --dim: #725f4c; --accent: #e0683a; --on-accent: #2a140a; --err: #a8361a; --focus: #1f8a80;
+          color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; }
+    :root:not([data-theme="light"]) { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; --err: #ff9b7a; --focus: #4cc3b6;
+                                      color-scheme: dark; }
   }
-  :root[data-theme="dark"] { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; }
+  :root[data-theme="dark"] { --bg: #1c1814; --fg: #f2e8d8; --dim: #b3a28e; --accent: #f28a5a; --err: #ff9b7a; --focus: #4cc3b6; color-scheme: dark; }
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 520px; margin: 0 auto; padding: 48px 16px; }
   h1 { font-size: 24px; font-weight: 600; margin: 0 0 24px; }
-  .lang { float: right; font-size: 13px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none; padding: 0; color: var(--dim); }
+  .lang { float: right; font-size: 14px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none; padding: 2px 4px; min-height: 24px; }
   p { margin: 0 0 16px; }
-  button { font: inherit; background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 8px 22px; cursor: pointer; }
-  button:disabled { opacity: .3; cursor: default; }
+  button { font: inherit; background: var(--accent); color: var(--on-accent); font-weight: 600; border: 0; border-radius: 999px; padding: 8px 22px; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  a { color: inherit; }
+  .err { color: var(--err); font-weight: 600; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
   #status { margin-top: 16px; min-height: 1.6em; }
-  .small { color: var(--dim); font-size: 13px; }
+  .small { color: var(--dim); font-size: 14px; }
   progress { width: 100%; height: 4px; margin-top: 16px; }
   pre { color: var(--dim); font-size: 12px; white-space: pre-wrap; margin-top: 16px; }
   h2 { font-size: 18px; font-weight: 600; margin: 40px 0 12px; }
   ol { margin: 0 0 16px; padding-left: 20px; }
-  input[type=file] { font: inherit; font-size: 13px; color: var(--dim); max-width: 100%; }
+  input[type=file] { font: inherit; font-size: 14px; color: var(--dim); max-width: 100%; }
+  label { display: block; }
 </style>
 </head>
 <body>
 <main>
-  <button class="lang" id="lang"></button>
+  <button class="lang" id="lang" type="button"></button>
   <h1>Install Polly</h1>
   <p data-t="intro"></p>
   <p data-t="warn"></p>
   <p class="small" data-t="direct"></p>
   <p class="small" data-t="beta"></p>
   <p class="small"><span data-t="brick"></span>
-    <a href="https://github.com/charlesvestal/fm1-polly/blob/main/BUILDING.md#install" style="color:inherit" data-t="bricklink"></a></p>
+    <a href="https://github.com/charlesvestal/fm1-polly/blob/main/BUILDING.md#install" data-t="bricklink"></a></p>
   <p class="small" data-t="back"></p>
-  <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">www.m-vave.com/download</a></p>
-  <p><button id="go" disabled data-t="install"></button></p>
-  <progress id="bar" max="100" value="0"></progress>
-  <p id="status"></p>
+  <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener">www.m-vave.com/download<span class="sr" data-t="newtab"></span></a></p>
+  <p><button id="go" type="button" disabled data-t="install"></button></p>
+  <progress id="bar" max="100" value="0" aria-labelledby="barname"></progress><span id="barname" class="sr" data-t="progress"></span>
+  <!-- the step in words for a screen reader (role status: polite; a failure goes to the alert) -->
+  <p id="status" role="status"></p>
+  <p id="alert" role="alert" class="err"></p>
   <pre id="log"></pre>
   <h2 data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
-    <li><span data-t="stock1"></span> <a id="stocklink" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" style="color:inherit">FM-1.fwsc</a></li>
-    <li><span data-t="stock2"></span><br><input type="file" id="stockfile" accept=".fwsc"></li>
+    <li><span data-t="stock1"></span> <a id="stocklink" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc">FM-1.fwsc</a></li>
+    <li><label for="stockfile" data-t="stock2"></label><input type="file" id="stockfile" accept=".fwsc" aria-describedby="stockmsg stockerr">
+      <span id="stockmsg" role="status"></span><span id="stockerr" role="alert" class="err"></span></li>
     <li data-t="stock3"></li>
   </ol>
-  <p><button id="stockgo" disabled data-t="stockinstall"></button></p>
-  <p><a href="../" style="color:inherit" data-t="manual"></a></p>
-  <p class="small">Polly is built on Felucca by Leo Kuroshita (@kurogedelic) of <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments</a>.
+  <p><button id="stockgo" type="button" disabled data-t="stockinstall"></button></p>
+  <p><a href="../" data-t="manual"></a></p>
+  <p class="small">Polly is built on Felucca by Leo Kuroshita (@kurogedelic) of <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments<span class="sr" data-t="newtab"></span></a>.
     It came by way of X0X and FoMni.<br>
     Fonts: Barlow Semi Condensed (SIL OFL 1.1). M-VAVE and FM-1 are trademarks of their respective owners.<br>
-    <span data-t="license"></span> <a href="https://github.com/charlesvestal/fm1-polly" target="_blank" rel="noopener" style="color:inherit">github.com/charlesvestal/fm1-polly</a></p>
+    <span data-t="license"></span> <a href="https://github.com/charlesvestal/fm1-polly" target="_blank" rel="noopener">github.com/charlesvestal/fm1-polly<span class="sr" data-t="newtab"></span></a></p>
 </main>
 <script type="module">
 /*LIB*/
@@ -98,6 +109,8 @@ const TEXT = {
     badpkg: "インストールするファイルが壊れています。ページを再読み込みしてください。",
     leave: "書き込み中です。ページを閉じないでください。",
     license: "GPL-3.0、無保証。ソース:",
+    newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合", pct: "%",
+    otherlabel: "Switch the page to English",
   },
   en: {
     intro: "Connect the FM-1 to this computer with a USB cable. This page works in Chrome or Edge.",
@@ -132,6 +145,8 @@ const TEXT = {
     badpkg: "The file to install is damaged. Reload the page.",
     leave: "Writing. Don't close the page.",
     license: "GPL-3.0, no warranty. Source:",
+    newtab: " (opens in a new tab)", progress: "Install progress", pct: " percent",
+    otherlabel: "このページを日本語で表示",
   },
 };
 let lang = "en";                                 /* English first; 日本語 is a click away */
@@ -141,12 +156,30 @@ function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((e) => { e.textContent = t(e.dataset.t); });
   $("lang").textContent = t("other");
-  if (lastKey) $("status").textContent = t(lastKey) + lastArg;
+  $("lang").lang = lang === "ja" ? "en" : "ja";            /* the switch names the other language, in it */
+  $("lang").setAttribute("aria-label", t("otherlabel"));
+  if (lastKey) show();
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
 applyLang();
-const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textContent = t(k) + arg; };
-const say = (txt) => { lastKey = null; $("status").textContent = txt; };
+/* the status in words: the step, and while writing its percent at most every 10 percent or 2 s (a screen reader
+   reads each change); a failure goes to the alert (read at once), and the status is cleared */
+const FAILS = new Set(["nomidi", "loadfail", "stopped", "error", "denied", "notfound", "model", "lost", "noloader", "noreturn",
+                       "mismatch", "badpkg", "stockbad"]);
+let pct = null, saidPct = -100, saidAt = 0;
+function show() {
+  const txt = t(lastKey) + lastArg;
+  if (FAILS.has(lastKey)) { $("status").textContent = ""; $("alert").textContent = txt; return; }
+  $("alert").textContent = "";
+  $("status").textContent = txt + (pct != null && lastKey !== "done" && lastKey !== "stockdone" ? `, ${pct}${t("pct")}` : "");
+}
+const sayK = (k, arg = "") => { const same = k === lastKey; lastKey = k; lastArg = arg; if (!same) pct = null; show(); };
+const say = (txt) => { lastKey = null; pct = null; $("alert").textContent = ""; $("status").textContent = txt; };
+function setBar(v) {
+  $("bar").value = v;
+  const p = Math.floor(v), now = performance.now();
+  if (p - saidPct >= 10 || (now - saidAt >= 2000 && p !== saidPct)) { saidPct = p; saidAt = now; pct = p; show(); }
+}
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
 const meta = /*META*/;
@@ -171,19 +204,24 @@ window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault
    download) and checked against its SHA-256 before anything is written */
 const STOCK_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a";
 let stock = null;
+function stockMsg(k, arg = "") {                 /* next to the file control: fine in the status, wrong in the alert */
+  $("stockmsg").textContent = k === "stockok" ? t(k) : "";
+  $("stockerr").textContent = k === "stockok" ? "" : t(k) + arg;
+}
 $("stockfile").addEventListener("change", async (e) => {
   stock = null;
+  $("stockmsg").textContent = $("stockerr").textContent = "";
   $("stockgo").disabled = true;
   const f = e.target.files && e.target.files[0];
   if (!f) return;
   try {
     const raw = new Uint8Array(await f.arrayBuffer());
     const hex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))].map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (hex !== STOCK_SHA256) { sayK("stockbad"); return; }
+    if (hex !== STOCK_SHA256) { stockMsg("stockbad"); return; }
     stock = { image: logicalImage(raw), product: productOf(raw) };
     $("stockgo").disabled = writing;
-    sayK("stockok");
-  } catch (err) { sayK("error", err && err.message); }
+    stockMsg("stockok");
+  } catch (err) { stockMsg("error", err && err.message); }
 });
 
 async function run(img, product, isStock) {
@@ -191,6 +229,7 @@ async function run(img, product, isStock) {
   try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
   catch (e) { sayK("denied"); return; }
   writing = true;
+  saidPct = -100;
   $("go").disabled = $("stockgo").disabled = true;
   try {
     const up = new Updater(midi, log);
@@ -198,9 +237,9 @@ async function run(img, product, isStock) {
     const step = (k, a) => {
       log(`${k} ${a ?? ""}`);
       if (k === "start") sayK("start");
-      if (k === "verify") { sayK("verify"); $("bar").value = (a / total) * 100; }
+      if (k === "verify") { sayK("verify"); setBar((a / total) * 100); }
       if (k === "loader") sayK("loader");
-      if (k === "write") { sayK("write"); $("bar").value = ((74 + a) / total) * 100; }
+      if (k === "write") { sayK("write"); setBar(((74 + a) / total) * 100); }
       if (k === "reboot") sayK("reboot");
       if (k === "done") { $("bar").value = 100; sayK(isStock ? "stockdone" : "done"); }
     };

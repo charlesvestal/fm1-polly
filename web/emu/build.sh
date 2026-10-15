@@ -22,7 +22,7 @@ rest = ui[ui.index("*/") + 2:]                       # the comment after the lic
 head = rest[rest.index("/*") + 2:rest.index("*/")] if "/*" in rest and "*/" in rest else ""
 lines = [re.sub(r"^ \* ?", "", l) for l in head.splitlines()]
 table = lines[lines.index("") + 1:] if "" in lines else []
-block = ('<pre class="controls">' + html.escape("\n".join(l.rstrip() for l in table)) + "</pre>") if table else \
+block = ('<pre class="controls" tabindex="0" aria-label="The controls, from the firmware">' + html.escape("\n".join(l.rstrip() for l in table)) + "</pre>") if table else \
         "<p>The firmware's controls list is in firmware/src/app/ui.c.</p>"
 page = open("web/emu/index.html").read()
 assert "<!--CONTROLS-->" in page
@@ -31,4 +31,15 @@ PY
 mkdir -p build/emu/py
 cp web/emu/worklet.js web/emu/qybank_worker.js build/emu/
 cp web/emu/qy_build.py tools/qy70_import.py tools/qy70_bank.py tools/qy70_codec.py build/emu/py/
+# the screen reader's words and voice (fm1-reader's web/: words.js, tts.js and its worker, eSpeak NG; GPL-3.0), from
+# a checkout beside this one (FM1_READER: elsewhere). Without it the page reads the screen's text as it is, with no voice
+R="${FM1_READER:-../fm1-reader}/web"
+rm -rf build/emu/reader
+if [ -f "$R/words.js" ] && [ -f "$R/espeak/espeak.wasm" ]; then
+    mkdir -p build/emu/reader/espeak
+    cp "$R/words.js" "$R/tts.js" "$R/tts_worker.js" build/emu/reader/
+    cp "$R/espeak/espeak.js" "$R/espeak/espeak.wasm" "$R/espeak/LICENSE" "$R/espeak/README.md" build/emu/reader/espeak/
+else
+    echo "emu: no fm1-reader at $R (set FM1_READER): the page's screen reader has no words.js and no voice" >&2
+fi
 echo "emu: build/emu ($(wc -c < build/emu/polly.wasm) B wasm)"

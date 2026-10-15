@@ -49,6 +49,9 @@ class Hooks:
     def paragraph(self, text_md):         # a paragraph's Markdown -> False to leave it out
         return True
 
+    def video(self, alt, poster, src):    # a linked poster's player -> HTML, or None for the plain one
+        return None
+
 
 def inline(t, hooks):
     codes = []
@@ -162,7 +165,8 @@ class Doc:
             m = re.match(r"^\s*\[!\[([^\]]*)\]\(([^)\s]+)\)\]\(([^)\s]+\.(?:mp4|webm|mov))\)\s*$", ln)
             if m:                                         # a poster linked to a video: a player
                 alt, poster, video = m.groups()
-                out.append(f'<figure class="video"><video controls preload="none" playsinline poster="{html.escape(poster)}" '
+                out.append(self.hooks.video(plain(alt), poster, video) or
+                           f'<figure class="video"><video controls preload="none" playsinline poster="{html.escape(poster)}" '
                            f'src="{html.escape(video)}" aria-label="{html.escape(plain(alt))}"></video>'
                            f'<figcaption>{html.escape(plain(alt))}</figcaption></figure>')
                 i += 1

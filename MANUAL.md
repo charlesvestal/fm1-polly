@@ -172,7 +172,7 @@ than one thing. For every page and its knobs, see [Page by page](#page-by-page).
 
 ### Pages and dots
 
-![Home on a new FM-1, stopped, with the band following your chords](docs/img/manual/home.png)
+![Home on song S1: Groove A, "Play three keys for a chord", the band follows your chords. Knobs: Style Pop, Tempo 105, Transpose C, Prog follow](docs/img/manual/home.png)
 
 A page button stays lit while you're on one of its pages, and pressing it opens its first page. (On the Band
 pages, **SEQ** opens Notes instead.) Some
@@ -361,7 +361,7 @@ Hold **HOME** and press a black key:
 | 4 | Fill |
 | 5 | Ending |
 
-![Holding HOME: the grooves and extras, and the progressions](docs/img/manual/home_held.png)
+![Holding HOME: black keys 1 to 5 are Intro, Groove A, Groove B, Fill and Ending; white keys P1 to P8 are Pop, Ballad, Fifties, ii-V-I, Blues, Minor, Flamenco and Canon; P9 to P16 are empty](docs/img/manual/home_held.png)
 
 While you hold **HOME**, the screen lists these five, each under its black key's number. Below them are the
 progressions that have chords, and the empty ones share a line underneath, such as "P9–P16
@@ -405,7 +405,7 @@ from 40 to 240 BPM, and you'll see it at the top right of the screen. When Polly
 
 ### The Style page (ENV)
 
-![The Style page](docs/img/manual/style.png)
+![The Style page for Funk: Intro, Groove A (edited), Groove B, Fill AB, Fill BA and Ending. Knobs: Intro Funk, Groove A Funk (edited), Groove B Funk, Style Funk (edited)](docs/img/manual/style.png)
 
 On the Style page, you choose which style plays each of the song's grooves and extras. For example, you can
 play Funk's Groove A with Rock's fills.
@@ -489,7 +489,7 @@ Polly knows 16 ready-made progressions in all, and you can copy any of them into
 Press **SEL** on Home or the Progression page, choose LOAD PROGRESSION, and turn **ALGORITHM** to pick one.
 They come in this order:
 
-| | | | |
+| 1 to 4 | 5 to 8 | 9 to 12 | 13 to 16 |
 | --- | --- | --- | --- |
 | 1 Pop (I–V–vi–IV) | 5 Blues (12 bars) | 9 Canon | 13 Jazz (I–VI7–ii–V) |
 | 2 Ballad (vi–IV–I–V) | 6 MinBlues (minor blues) | 10 Flamenco (Andalusian) | 14 Vamp (ii–V) |
@@ -508,7 +508,7 @@ They come in this order:
 
 ### The Progression page (ARP)
 
-![The Progression page](docs/img/manual/progression.png)
+![The Progression page for P9: C on bar 1 beat 1, F on bar 2 beat 1. Knobs: Bar 2, Beat 1, Root F, Type maj](docs/img/manual/progression.png)
 
 The Progression page shows a progression's bars, with one cell for each beat. Short progressions get taller
 cells. The cursor is a thick coral ring, and its bar and beat numbers are coral too. While the band plays, the
@@ -601,7 +601,7 @@ groove, and playing the whole song. For a walk-through, see the lesson
 
 ### The Song page (HOME, HOME again)
 
-![The Song page: three sections, the cursor on END](docs/img/manual/song.png)
+![The Song page: sections 1 P9, 2 P3 Fifties and 3 P9, each Groove A once, then END, where the cursor is](docs/img/manual/song.png)
 
 On Home, press **HOME** to open the Song page. Press **HOME** again to go back to Home.
 
@@ -740,7 +740,7 @@ the band follows your chords again, and Polly says "NO SECTIONS FOLLOWING YOU". 
 You can record your own notes into any instrument of a groove. Polly records into the selected instrument
 of the groove or extra that's playing, while it loops.
 
-![Recording into C1](docs/img/manual/recording.png)
+![The Band page recording C1, pass 2, adding: groove bar 1 of 2, progression bar 3 of 4. Knobs: Grid 16, Bar 2, Beat 3, Muted in 1 no](docs/img/manual/recording.png)
 
 1. Press **SEQ** to open the Band page.
 2. Turn **ALGORITHM** to pick the instrument. The keys now play its sound.
@@ -757,7 +757,7 @@ of the groove or extra that's playing, while it loops.
 
 ### The Band page
 
-![The Band page, with D1 muted](docs/img/manual/band.png)
+![The Band page with a help card, D1 muted in section 3: the eight instruments' notes in Groove A (edited) at bar 2.3. Knobs: Grid 16, Bar 2, Beat 3, Muted in 3 yes](docs/img/manual/band.png)
 
 The Band page shows the eight instruments of the groove that's playing, with their notes in ink.
 
@@ -821,7 +821,7 @@ Groove length page.
 
 ### Edited grooves
 
-![EDITING A COPY · GROOVE A](docs/img/manual/edited.png)
+![The message Editing a copy, Groove A, over the Sound page for C1: the Chromatic family, Celesta chosen](docs/img/manual/edited.png)
 
 The styles themselves never change. The first time you record into a style's groove or extra, or change its
 sound, mixer or length, Polly copies it into a free place in [memory](#memory), and you edit the copy. Polly
@@ -841,7 +841,7 @@ holds another groove, Polly asks first. A place that holds melodies or progressi
 
 ### Groove length (SEQ, SELECT)
 
-![Groove length](docs/img/manual/groove_length.png)
+![The Groove length page: Groove A (edited) is 2 bars of 4 beats, named FUNK, the cursor on the F. Knobs: Bars 2, Beats 4, Place 1, Letter F](docs/img/manual/groove_length.png)
 
 This page sets the groove's length and its name. Each bar is a cell, with its number at the top and its beats
 along the bottom, and the bars you could still add, up to 16, are drawn as outlines. The name sits underneath.
@@ -926,7 +926,7 @@ three parts.
   PLAY FROM SECTION and a punch-in start. While the song plays, it shows the bar and beat in teal, such as "Chorus
   bar 3.2". While recording, it shows in coral where your next note will land.
 
-![A melody recording along the song](docs/img/manual/melody.png)
+![Recording melody M1 along the song: song bar 2, P9 bar 2.1, grid 16, over the sections P9, Fifties and P9. Knobs: Sound Choir Aahs, Channel 7, Velocity 100](docs/img/manual/melody.png)
 
 ### More about melodies
 
@@ -971,7 +971,7 @@ To open Notes, press **SEQ** for Band, then press **SEQ** again. In Notes, **SEQ
 and any other page button leaves it. As on every page, **ALGORITHM** picks whose notes you're editing: D1 to
 C4, M1 or M2.
 
-![Notes with a melody: E4 made F4, longer and softer](docs/img/manual/notes.png)
+![The Notes page with melody M1: song bar 1, Verse bar 1.1, F4 chosen. Knobs: Place 1.1.2, Pitch F4, Length 1 1/2, Velocity 80](docs/img/manual/notes.png)
 
 ### The Notes page
 
@@ -1035,7 +1035,7 @@ WRITTEN?".
   you "PLAYS AS WRITTEN". One undo takes it back.
 - Press **HOME** for no, and the bass keeps playing the root on chord changes.
 
-![Notes with the drums: a hit's sound named](docs/img/manual/notes_band.png)
+![Notes with the drums: D1's hit at bar 1.1 is the Pedal hat. Knobs: Place 1.1, Pitch Pedal hat, Length 1/4, Velocity 94](docs/img/manual/notes_band.png)
 
 ## Sound
 
@@ -1044,7 +1044,7 @@ instrument.
 
 ### Sound (EDIT)
 
-![The Sound page](docs/img/manual/sound.png)
+![The Sound page for C1: the Chromatic family, Celesta chosen, then Glockenspiel, Music Box, Vibraphone, Marimba, Xylophone, Tubular Bells and Dulcimer. Knobs: Sound Celesta, Type Chord 1, Low Bb3, High Bb5](docs/img/manual/sound.png)
 
 The Sound page works like a browser. At the top is the sound's General MIDI family of eight, such as
 "Chromatic". Below it, the family's sounds are listed in two columns of four, from Celesta to Dulcimer. A coral
@@ -1083,7 +1083,7 @@ sounds, a bar across the whole MIDI keyboard shows the instrument's range, which
 
 ### Mixer (LFO)
 
-![The Mixer](docs/img/manual/mixer.png)
+![The Mixer: a level for each of D1, D2, PC, BA, C1 to C4, M1 and M2, with C1 chosen at 78. Knobs: Volume 78, Pan L24, Reverb 20, Chorus 0](docs/img/manual/mixer.png)
 
 The Mixer has ten strips: the eight instruments, and then the melodies M1 and M2 in plum. Each strip shows its
 volume and pan. The selected strip is darker, with an outline, and its volume is shown in large numbers under
@@ -1099,7 +1099,7 @@ settings, and D1, D2 and PC are all on channel 10.
 
 ### Mixer tone (LFO, SELECT)
 
-![Mixer tone](docs/img/manual/mixer_tone.png)
+![Mixer tone: brightness and resonance for each instrument, C1 chosen at 64 and 64. Knobs: Bright 64, Reso 64](docs/img/manual/mixer_tone.png)
 
 For the selected instrument, **KNOB 1** (Bright) sets the filter's cutoff, shown by the strip's dark bar, and
 **KNOB 2** (Reso) sets the resonance, shown by the grey bar. Both values appear in large numbers under the
@@ -1108,7 +1108,7 @@ sound darker, and higher Reso makes it more pronounced.
 
 ### Effects (FX)
 
-![Effects](docs/img/manual/effects.png)
+![Effects: each instrument's reverb and chorus sends in Groove A. Knobs: Reverb Hall, Level 90, Chorus 1, Level 80](docs/img/manual/effects.png)
 
 On the Effects page, you set the effects that every instrument shares, in every song.
 
@@ -1193,7 +1193,7 @@ or a factory reset. Whatever undo brings back is saved like any other change.
 
 ### Memory
 
-![Memory](docs/img/manual/memory.png)
+![Memory: 1 of 16 places used, by S1's Groove A (edited) in Funk; places 2 to 10 free](docs/img/manual/memory.png)
 
 Memory has 16 places, shared by all four songs. They hold your own grooves and the songs' melodies.
 
@@ -1274,7 +1274,7 @@ tells you so, and nothing changes.
 
 Press **GLO** for Setup, where you set the clock, MIDI out, the lights and the click.
 
-![Setup](docs/img/manual/setup.png)
+![Setup: Clock MIDI, MIDI out on, Lights on, Click rec; QY70 styles none](docs/img/manual/setup.png)
 
 When you open Setup, it lists the four knobs, one per line: Clock, MIDI out, Lights and Click. When you turn
 a knob, the page explains the setting in words, for example "Click" and "A click on every beat.". The last

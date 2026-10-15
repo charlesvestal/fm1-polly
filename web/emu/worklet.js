@@ -57,6 +57,12 @@ class Polly extends AudioWorkletProcessor {
       this.ex.web_enc(m.role, m.n | 0);
     } else if (m.type === "master") {
       this.ex.web_master(m.value | 0);
+    } else if (m.type === "reader") {                  // the screen reader: on / off (web_reader), or a SysEx to it
+      if (m.sysex) {
+        const b = new Uint8Array(m.sysex).subarray(0, 64);
+        new Uint8Array(this.mem.buffer, this.ex.web_sysex_buf(), b.length).set(b);
+        this.ex.web_sysex(b.length);
+      } else this.ex.web_reader(m.on ? 1 : 0);
     } else if (m.type === "bank") {                    // built (or forgotten, image null) while running
       this.port.postMessage({ type: "bank", bank: this.putBank(m.image) });
     }
@@ -79,6 +85,12 @@ class Polly extends AudioWorkletProcessor {
       this.busy = this.frames = 0;
     }
     const transfer = [];
+    const said = ex.web_said_len();                    // what Polly told the screen reader: whole F0..F7 frames
+    if (said) {
+      msg.said = new Uint8Array(this.mem.buffer, ex.web_said_buf(), said).slice();
+      ex.web_said_clear();
+      transfer.push(msg.said.buffer);
+    }
     if (blits !== this.sentBlits) {
       this.sentBlits = blits;
       msg.fb = new Uint16Array(this.mem.buffer, ex.web_fb(), 240 * 240).slice();

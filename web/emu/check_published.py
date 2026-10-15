@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Nothing of Yamaha's goes on the site: the published emulator directory holds exactly the files listed below
-(the page, the wasm, the worklet, the bank builder's worker and its Python: GPL code), and, given your ROM, none
+(the page, the wasm, the worklet, the bank builder's worker and its Python, and fm1-reader's words and voice: GPL code), and, given your ROM, none
 of them contains the ROM's style names or any 48 bytes of the ROM or of the bank image built from it.
 
     python3 web/emu/check_published.py DIR [qy70main.bin]
@@ -13,6 +13,9 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ALLOWED = {"index.html", "worklet.js", "polly.wasm", "qybank_worker.js",
            "py/qy_build.py", "py/qy70_import.py", "py/qy70_bank.py", "py/qy70_codec.py"}
+# the screen reader's words and voice (fm1-reader's web/, GPL-3.0): allowed, not required
+OPTIONAL = {"reader/words.js", "reader/tts.js", "reader/tts_worker.js", "reader/espeak/espeak.js", "reader/espeak/espeak.wasm",
+            "reader/espeak/LICENSE", "reader/espeak/README.md"}
 CHUNK = 32
 
 
@@ -48,7 +51,7 @@ def scan(data, table):
 def main(argv):
     d = argv[0]
     fs = files(d)
-    bad = sorted(set(fs) - ALLOWED)
+    bad = sorted(set(fs) - ALLOWED - OPTIONAL)
     missing = sorted(ALLOWED - set(fs))
     if bad:
         print("not allowed on the site: " + ", ".join(bad))

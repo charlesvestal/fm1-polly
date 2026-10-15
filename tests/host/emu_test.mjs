@@ -22,4 +22,22 @@ for (let i = 0; i < 400; i++) {
   for (const v of l) peak = Math.max(peak, Math.abs(v));
 }
 console.log("peak", peak.toFixed(3), "blits", ex.web_blits());
-process.exit(peak > 0.05 && peak < 1 ? 0 : 1);
+// the page's screen reader (web_reader, web_said_buf): HELLO answered with the words file's link, then the screen in
+// words; a WHERE (web_sysex) says it again; off, nothing more
+const said = () => { const b = new Uint8Array(mem.buffer, ex.web_said_buf(), ex.web_said_len()).slice(); ex.web_said_clear(); return b; };
+const frames = (b) => { const out = []; for (let i = 0; i < b.length; i++) if (b[i] === 0xF0) { let j = i; while (b[j] !== 0xF7) j++; out.push(b.subarray(i, j + 1)); i = j; } return out; };
+const text = (f) => String.fromCharCode(...f.subarray(6, f.length - 1));
+ex.web_reader(1);
+for (let i = 0; i < 400; i++) ex.web_render(128);                       // ~1.2 s
+let fs1 = frames(said());
+const hello = fs1.find((f) => f[4] === 1), says = fs1.filter((f) => f[4] === 16).map(text);
+const link = hello ? text(hello).split("\0")[1] : "";
+new Uint8Array(mem.buffer, ex.web_sysex_buf(), 4).set([0x7D, 0x53, 0x52, 3]); ex.web_sysex(4);
+for (let i = 0; i < 400; i++) ex.web_render(128);
+const again = frames(said()).filter((f) => f[4] === 16).length;
+ex.web_reader(0);
+for (let i = 0; i < 400; i++) ex.web_render(128);
+const after = frames(said()).length;
+console.log("reader: link", link, "|", says.length, "said, first:", says[0], "| WHERE:", again, "| off:", after);
+const readerOk = /^https:\/\/\S+\/words\/\w+\.json$/.test(link) && says.length > 0 && /page/.test(says.join(" ")) && again > 0 && after === 0;
+process.exit(peak > 0.05 && peak < 1 && readerOk ? 0 : 1);
