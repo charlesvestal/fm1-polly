@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 452" width="760" height="452" font-family="Barlow Semi Condensed, Barlow, Helvetica, Arial, sans-serif">
+  <title>Polly's words: a song holds sections, progressions, melodies and a style; a section plays a progression with a groove; a style's grooves and extras are played by its instruments</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#968876"/>
+    </marker>
+  </defs>
+  <rect width="760" height="452" rx="14" fill="#FAF4E8"/>
+
+  <!-- the song -->
+  <rect x="270" y="20" width="220" height="56" rx="10" fill="#483A30"/>
+  <text x="380" y="46" text-anchor="middle" font-size="22" font-weight="700" fill="#FAF4E8">Song</text>
+  <text x="380" y="66" text-anchor="middle" font-size="14" fill="#ECE4D4">S1–S4 · tempo · transpose</text>
+
+  <!-- its four parts -->
+  <g stroke="#D8CDBA" stroke-width="2" fill="none">
+    <path d="M380 76 V96 H95 V114"/>
+    <path d="M380 96 H285 V114"/>
+    <path d="M380 96 H475 V114"/>
+    <path d="M380 96 H665 V114"/>
+  </g>
+
+  <rect x="20" y="114" width="150" height="112" rx="10" fill="#ECE4D4"/>
+  <text x="95" y="140" text-anchor="middle" font-size="19" font-weight="700" fill="#483A30">Sections</text>
+  <text x="95" y="162" text-anchor="middle" font-size="14" fill="#483A30">top to bottom, each:</text>
+  <text x="95" y="181" text-anchor="middle" font-size="14" fill="#483A30">a progression</text>
+  <text x="95" y="199" text-anchor="middle" font-size="14" fill="#483A30">+ a groove × repeat</text>
+  <text x="95" y="217" text-anchor="middle" font-size="13" fill="#968876">(+ mutes, transpose)</text>
+
+  <rect x="200" y="114" width="170" height="112" rx="10" fill="#C4E6DE"/>
+  <text x="285" y="140" text-anchor="middle" font-size="19" font-weight="700" fill="#483A30">Progressions</text>
+  <text x="285" y="162" text-anchor="middle" font-size="14" fill="#483A30">P1–P16: your chords,</text>
+  <text x="285" y="181" text-anchor="middle" font-size="14" fill="#483A30">1–16 bars, going round</text>
+  <text x="285" y="199" text-anchor="middle" font-size="13" fill="#968876">P1–P8 ready-made,</text>
+  <text x="285" y="217" text-anchor="middle" font-size="13" fill="#968876">P9–P16 yours</text>
+
+  <rect x="400" y="114" width="150" height="112" rx="10" fill="#E6DBEC"/>
+  <text x="475" y="140" text-anchor="middle" font-size="19" font-weight="700" fill="#483A30">Melodies</text>
+  <text x="475" y="162" text-anchor="middle" font-size="14" fill="#483A30">M1, M2: your lines</text>
+  <text x="475" y="181" text-anchor="middle" font-size="14" fill="#483A30">along the sections</text>
+
+  <rect x="580" y="114" width="160" height="112" rx="10" fill="#F9D9CB"/>
+  <text x="660" y="140" text-anchor="middle" font-size="19" font-weight="700" fill="#483A30">Style</text>
+  <text x="660" y="162" text-anchor="middle" font-size="14" fill="#483A30">the band's way</text>
+  <text x="660" y="181" text-anchor="middle" font-size="14" fill="#483A30">of playing: Pop, Funk…</text>
+  <text x="660" y="199" text-anchor="middle" font-size="13" fill="#968876">one per song</text>
+
+  <!-- the style's grooves and extras -->
+  <path d="M660 226 V250" stroke="#D8CDBA" stroke-width="2" fill="none"/>
+  <rect x="300" y="250" width="440" height="96" rx="10" fill="#ECE4D4"/>
+  <rect x="314" y="262" width="96" height="26" rx="7" fill="#26A69A"/>
+  <text x="362" y="281" text-anchor="middle" font-size="15" font-weight="700" fill="#FAF4E8">Groove A</text>
+  <rect x="418" y="262" width="96" height="26" rx="7" fill="#F27848"/>
+  <text x="466" y="281" text-anchor="middle" font-size="15" font-weight="700" fill="#FAF4E8">Groove B</text>
+  <rect x="530" y="262" width="62" height="26" rx="7" fill="#9670AA"/>
+  <text x="561" y="281" text-anchor="middle" font-size="15" font-weight="700" fill="#FAF4E8">Intro</text>
+  <rect x="598" y="262" width="58" height="26" rx="7" fill="#E2A63C"/>
+  <text x="627" y="281" text-anchor="middle" font-size="15" font-weight="700" fill="#FAF4E8">Fills</text>
+  <rect x="662" y="262" width="66" height="26" rx="7" fill="#5476A8"/>
+  <text x="695" y="281" text-anchor="middle" font-size="15" font-weight="700" fill="#FAF4E8">Ending</text>
+  <text x="414" y="310" text-anchor="middle" font-size="13" fill="#483A30">grooves: A calmer, B busier</text>
+  <text x="629" y="310" text-anchor="middle" font-size="13" fill="#483A30">extras: they play by themselves</text>
+  <text x="520" y="333" text-anchor="middle" font-size="13" fill="#968876">a groove you change plays your own copy: "(yours)"</text>
+
+  <!-- the instruments -->
+  <path d="M520 346 V366" stroke="#D8CDBA" stroke-width="2" fill="none"/>
+  <rect x="300" y="366" width="440" height="68" rx="10" fill="#483A30"/>
+  <text x="520" y="388" text-anchor="middle" font-size="17" font-weight="700" fill="#FAF4E8">Instruments</text>
+  <text x="520" y="407" text-anchor="middle" font-size="14" fill="#ECE4D4">D1, D2 drums · PC percussion · BA bass · C1–C4 chords, riffs, pads</text>
+  <text x="520" y="425" text-anchor="middle" font-size="14" fill="#ECE4D4">each a sound and its notes</text>
+
+  <!-- a section uses a progression and a groove -->
+  <g stroke="#968876" stroke-width="1.6" stroke-dasharray="5 4" fill="none">
+    <path d="M150 226 C 170 250, 200 252, 230 228" marker-end="url(#arrow)"/>
+    <path d="M95 226 V290 H296" marker-end="url(#arrow)"/>
+  </g>
+  <text x="168" y="262" font-size="13" fill="#968876">plays</text>
+  <text x="104" y="282" font-size="13" fill="#968876">with</text>
+
+  <text x="20" y="384" font-size="13" fill="#968876">Also the song's: tempo, transpose,</text>
+  <text x="20" y="402" font-size="13" fill="#968876">mutes. Shared by all songs: memory,</text>
+  <text x="20" y="420" font-size="13" fill="#968876">effects, setup.</text>
+</svg>
