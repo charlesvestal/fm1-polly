@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Play Polly's panel from the computer, for testing: buttons, keys, knobs and MASTER sent over USB-MIDI while the
-screen is mirrored (firmware/src/mirror.c, cmd 0x54), the screen saved as PNGs. The FM-1 takes them as if pressed on
+screen is mirrored (base/device/mirror.c, cmd 0x54), the screen saved as PNGs. The FM-1 takes them as if pressed on
 its panel, only while this tool mirrors it; quit (or 6 s of silence) and everything is let go.
 
     python3 tools/polly_remote.py tap HOME                 one action (names as in the scenarios)
@@ -14,7 +14,7 @@ its panel, only while this tool mirrors it; quit (or 6 s of silence) and everyth
     python3 tools/polly_remote.py run SCENARIO --fresh     the same in a test session: the FM-1 as a fresh blank one
                                                            (as the simulator starts: the scenarios assume it), the
                                                            flash not written while it lasts; the user's own back after
-    ... --sim                                              the simulator (build/host/polly_host --serve) instead
+    ... --sim                                              the simulator (app/build/host/polly_host --serve) instead
 
 Actions: tap BTN | press BTN | release BTN | key K down|up | tapkey K | turn ENC N [MS] | spin ENC N | master N |
 wait MS | shot FILE.png | leds | fresh | fresh_end.   BTN: FX SEL ENV LFO EDIT GLO HOME SAVE ARP SEQ PLAY REC OCT- OCT+;
@@ -25,7 +25,7 @@ As a library:
     with connect() as r:            # (connect(sim=True): the simulator)
         r.tap("HOME"); r.turn("K1", 2); r.wait(300); r.shot("home.png"); print(r.lit("PLAY"))
 
-A test session (fresh; firmware/src/mirror.c op 5, Polly's mirror version 3): stopped only (refused while playing or
+A test session (fresh; base/device/mirror.c op 5, Polly's mirror version 3): stopped only (refused while playing or
 recording); the user's unsaved changes are saved first, then Polly runs as at the power-on of a blank FM-1 from RAM:
 nothing it saves (SAVE, the autosave) reaches the flash, and the header shows TEST. fresh again: blank again. It ends
 with fresh_end, when mirroring stops (this tool quits, or 6 s of silence) or at a reboot: the user's own is loaded again.
@@ -43,6 +43,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(HERE, "..", "base", "tools"))   # fm1-base's (fm1_install)
 import fm1_install as I  # noqa: E402
 import polly_backup as B  # noqa: E402
 import polly_mirror as M  # noqa: E402
@@ -387,10 +388,10 @@ class Remote:
 
 # -------------------------------------------------------------------- the simulator
 class SimLink:
-    """build/host/polly_host --serve: the simulated FM-1 on a cable; its time runs only while read() waits"""
+    """app/build/host/polly_host --serve: the simulated FM-1 on a cable; its time runs only while read() waits"""
 
     def __init__(self, host=None, outdir=None):
-        host = host or os.path.join(HERE, "..", "build", "host", "polly_host")
+        host = host or os.path.join(HERE, "..", "app", "build", "host", "polly_host")
         outdir = outdir or tempfile.mkdtemp(prefix="polly_sim_")   # (its MIDI log)
         self.p = subprocess.Popen([host, "--serve", outdir], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   text=True, bufsize=1)
@@ -494,7 +495,7 @@ def main(argv=None, backend=None, out=sys.stdout):
     ap.add_argument("words", nargs="+", help="actions, or: run SCENARIO.polly")
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name; default: Polly's)")
     ap.add_argument("--out", metavar="DIR", default=".", help="where shots go (default: here)")
-    ap.add_argument("--sim", action="store_true", help="the simulator (build/host/polly_host --serve), not the FM-1")
+    ap.add_argument("--sim", action="store_true", help="the simulator (app/build/host/polly_host --serve), not the FM-1")
     ap.add_argument("--fresh", action="store_true", help="run: in a test session (a blank FM-1, the flash untouched; "
                                                           "the user's own back after)")
     a = ap.parse_args(argv)

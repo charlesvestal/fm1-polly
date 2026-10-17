@@ -1,7 +1,7 @@
-# POLLY, the screen and panel mirrored over USB (firmware/src/mirror.c): a viewer asks, the screen streams at USB's
+# POLLY, the screen and panel mirrored over USB (base/device/mirror.c): a viewer asks, the screen streams at USB's
 # pace, playing; a slow link drops frames, the rows come back by themselves once there is room; the input reports;
 # off by request, by the viewer gone quiet, by the cable. tests/host/mirror_test.mjs decodes stream.syx through the
-# viewer's own decoder (web/mirror/index.html) and compares it with the screens dumped here; tests/host/mirror_test.c
+# viewer's own decoder (base/web/mirror/index.html) and compares it with the screens dumped here; base/tests/mirror_test.c
 # codes the dumps again (compression, round trip).
 wait 300
 expect mirror_on 0

@@ -1,45 +1,30 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# Polly in the browser: the host simulator compiled to WebAssembly (Emscripten), plus its page.
-#   [GM_VERSION=0.1] web/emu/build.sh  ->  build/emu/{index.html, worklet.js, polly.wasm, qybank_worker.js, py/*.py}
-# Same sources and flags as host/build_host.sh (-ffp-contract=off, like the device).
+# Polly in the browser: fm1-base's emulator build (./build.sh --web: the simulator in WebAssembly, app.wasm, with
+# Polly's page and worklet from app/web/emu/), then Polly's additions: the controls list taken from the firmware's own
+# (app/ui.c's header comment), so it stays current, and the QY70 bank builder (its worker and Polly's tools, run by
+# Pyodide: no Yamaha data, the tester's own ROM is read in their browser).
+#   [PYTHON=python3] web/emu/build.sh [--release X.Y]  ->  app/build/emu/{index.html, worklet.js, app.wasm,
+#                                                           qybank_worker.js, py/*.py, reader/}
 set -e
 cd "$(dirname "$0")/../.."
-mkdir -p build/gen build/emu
-[ -f build/gen/felucca_font.h ] || python3 tools/gen_font.py build/gen/felucca_font.h >/dev/null
-python3 tools/gen_words.py firmware/words.tsv web/words build/gen/ann_words.h >/dev/null
-emcc -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable \
-    -DGM_HOST -DGM_WEB "-DGM_VERSION=\"$(printf %s "${GM_VERSION:-DEV}" | tr a-z A-Z)\"" -Ifirmware/src -Ifirmware/src/dsp -Ifirmware/src/dsp/eas -Ibuild/gen \
-    --no-entry -sSTANDALONE_WASM -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=33554432 -sFILESYSTEM=0 \
-    -o build/emu/polly.wasm web/emu/polly_web.c firmware/src/dsp/gm.c firmware/src/dsp/chords.c firmware/src/dsp/xpose.c firmware/src/dsp/arr.c firmware/src/dsp/loops.c firmware/src/dsp/leads.c firmware/src/dsp/notes.c firmware/src/dsp/qybank.c firmware/src/dsp/qydec.c firmware/src/dsp/templates.c $(ls firmware/src/dsp/eas/*.c | grep -v "wt_22khz\|wt_200k_samples")
-# the page, with the controls list taken from the firmware's own (ui.c's header comment), so it stays current;
-# the QY70 bank builder: the worker, its entry point and Polly's tools (GPL code, no Yamaha data: the tester's
-# own ROM is read in their browser)
-python3 - <<'PY'
+PY="${PYTHON:-python3}"
+sh build.sh --web "$@"
+E=app/build/emu
+"$PY" - <<'PY'
 import html, re
-ui = open("firmware/src/app/ui.c").read()
-rest = ui[ui.index("*/") + 2:]                       # the comment after the licence line
+ui = open("app/ui.c").read()
+rest = ui[ui.index("*/") + 2:]                       # the comment after the licence lines
 head = rest[rest.index("/*") + 2:rest.index("*/")] if "/*" in rest and "*/" in rest else ""
 lines = [re.sub(r"^ \* ?", "", l) for l in head.splitlines()]
 table = lines[lines.index("") + 1:] if "" in lines else []
 block = ('<pre class="controls" tabindex="0" aria-label="The controls, from the firmware">' + html.escape("\n".join(l.rstrip() for l in table)) + "</pre>") if table else \
-        "<p>The firmware's controls list is in firmware/src/app/ui.c.</p>"
-page = open("web/emu/index.html").read()
+        "<p>The firmware's controls list is in app/ui.c.</p>"
+page = open("app/web/emu/index.html").read()
 assert "<!--CONTROLS-->" in page
-open("build/emu/index.html", "w").write(page.replace("<!--CONTROLS-->", block))
+open("app/build/emu/index.html", "w").write(page.replace("<!--CONTROLS-->", block))
 PY
-mkdir -p build/emu/py
-cp web/emu/worklet.js web/emu/qybank_worker.js build/emu/
-cp web/emu/qy_build.py tools/qy70_import.py tools/qy70_bank.py tools/qy70_codec.py build/emu/py/
-# the screen reader's words and voice (fm1-reader's web/: words.js, tts.js and its worker, eSpeak NG; GPL-3.0), from
-# a checkout beside this one (FM1_READER: elsewhere). Without it the page reads the screen's text as it is, with no voice
-R="${FM1_READER:-../fm1-reader}/web"
-rm -rf build/emu/reader
-if [ -f "$R/words.js" ] && [ -f "$R/espeak/espeak.wasm" ]; then
-    mkdir -p build/emu/reader/espeak
-    cp "$R/words.js" "$R/tts.js" "$R/tts_worker.js" build/emu/reader/
-    cp "$R/espeak/espeak.js" "$R/espeak/espeak.wasm" "$R/espeak/LICENSE" "$R/espeak/README.md" build/emu/reader/espeak/
-else
-    echo "emu: no fm1-reader at $R (set FM1_READER): the page's screen reader has no words.js and no voice" >&2
-fi
-echo "emu: build/emu ($(wc -c < build/emu/polly.wasm) B wasm)"
+mkdir -p $E/py
+cp app/web/emu/qybank_worker.js $E/
+cp app/web/emu/qy_build.py tools/qy70_import.py tools/qy70_bank.py tools/qy70_codec.py $E/py/
+echo "emu: $E ($(wc -c < $E/app.wasm) B wasm)"

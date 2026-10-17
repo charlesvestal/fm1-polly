@@ -9,7 +9,7 @@
 #   sh tools/render_styles.sh [NN ...]        (default: every style)
 set -e
 cd "$(dirname "$0")/.."
-[ -x build/host/polly_host ] || sh host/build_host.sh >/dev/null 2>&1
+[ -x app/build/host/polly_host ] || sh host/build_host.sh >/dev/null 2>&1
 mkdir -p build/styles
 if [ $# -eq 0 ]; then set -- $(ls styles/[0-9][0-9]-*.sty | sed 's|styles/\([0-9]*\)-.*|\1|'); fi
 for nn in "$@"; do
@@ -70,7 +70,7 @@ for nn in "$@"; do
         done
         echo "wavstop"
     } > "$s"
-    build/host/polly_host "$s" build/styles > build/styles/$nn.log || { cat build/styles/$nn.log; exit 1; }
+    app/build/host/polly_host "$s" build/styles > build/styles/$nn.log || { cat build/styles/$nn.log; exit 1; }
     python3 - "build/styles/$nn.wav" <<'PY'
 import math, struct, sys, wave
 w = wave.open(sys.argv[1]); n = w.getnframes(); d = struct.unpack("<%dh" % (2 * n), w.readframes(n))

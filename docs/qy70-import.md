@@ -36,14 +36,14 @@ CC 71 resonance), as the range-coded bank below (254,406 bytes from the ROM we h
 patterns pages) goes on through the bank's styles by name ("QY Bossa A" on the page); Setup shows the bank
 (none, 128 styles, damaged, old format).
 
-**The flash** (`firmware/src/dsp/qybank.h`): 0x93000-0x96FFF, 0xB9000-0xDBFFF (the 8 user-pattern slots given
+**The flash** (`app/dsp/qybank.h`): 0x93000-0x96FFF, 0xB9000-0xDBFFF (the 8 user-pattern slots given
 up: Polly keeps 16, 0x99000-0xB8FFF), 0xDE000-0xDFFFF and 0xE5000-0xFBFFF, 64 sectors; the app's flash driver may
 write exactly these (`FL_BANK_OK`). 0xDE000 is the directory: magic, version, the codec's magic, per style its
 name, tempo, beats, place, sizes and CRC-32, then a CRC-32 of the directory. The other 63 sectors are one logical
 stream that steps over bytes 0xF00-0xF07 of every sector (kept 0xFF, so no sector looks like an update record to
 the loader): 257,544 bytes, 3.1 KB to spare. The priors first, then each style's record (its header, its stream).
 
-**Writing it** (`firmware/src/bank_rx.c`): the update's SysEx protocol. The host asks (cmd 0x40: the image's size
+**Writing it** (`app/bank_rx.c`): the update's SysEx protocol. The host asks (cmd 0x40: the image's size
 and CRC-32); the FM-1 stops playing and asks for the image piece by piece (cmd 0x30, 512 bytes, each frame
 checksummed); it checks the directory before erasing anything, erases the old directory, writes and erases all 63
 data sectors, reads them back (a CRC-32 of the data as received and as read, and of the whole image against the
@@ -171,7 +171,7 @@ Channels: BA 2, C1..C4 3..6 (Polly's defaults), drums 10; a drum track playing a
 - **Chord 2 voicings**: Polly moves each note near the one before, the QY70 the whole voicing; a wide voicing
   closes up, and two notes can land on one pitch.
 
-`--selftest` plays every phrase, as stored, through Polly's transposer (`firmware/src/dsp/xpose.c`, compiled
+`--selftest` plays every phrase, as stored, through Polly's transposer (`app/dsp/xpose.c`, compiled
 with `cc`) over its own source chord: Chord 1 and Bass must give the ROM's notes back exactly, Chord 2 and
 Parallel their pitch classes (all but 65 of 64,000 notes: leading tones over triads, which Polly's tables play
 as the root). `tests/run_tests.sh` runs it when `QY70_ROM` names a ROM.
@@ -237,8 +237,9 @@ decoding each phrase into RAM at a section change (then LZ / zlib apply).
 
 ## The flash map
 
-The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map, with the bank (`firmware/src/storage.c`,
-`firmware/src/dsp/qybank.h`, `firmware/hal/fm1_flash.h`, `firmware/loader/ldr_core.c`, `firmware/src/ota.c`):
+The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map, with the bank (`app/app.h` APP_STORE_MAP,
+`app/dsp/qybank.h`; fm1-base's `include/plat.h` data windows, felucca-bsp's `chip/fm1_flash.h`, `loader/ldr_core.c`,
+`chip/ota.c`):
 
 | Range | Size | Holds |
 |---|---|---|
@@ -256,10 +257,9 @@ The FM-1's flash is 1 MB (JEDEC 0x856014). Polly's map, with the bank (`firmware
 | 0xFC000-0xFDFFF | 8 KB | the project (Felucca's globals area) |
 | 0xFE000-0xFFFFF | 8 KB | rest of Felucca's globals area; the last sector is past the image's declared flash size |
 
-The app's flash driver may erase and write the store, the staging area and the bank's regions (`FL_RANGE_OK`,
-`FL_BANK_OK`), nothing else. The data from 0x93000 up could be read as a plain (unencrypted) XIP window
-(`fl_plain_window_init`), but Polly does not set it up: the bank is read through the flash driver (`st_read`,
-256-byte reads with interrupts off between them), a style's record into RAM when it is picked. A firmware update writes only
+The bank is erased and written through fm1-base's data windows (`plat_data_erase`, `plat_data_write`: the data area
+0x97000-0xDFFFF and its two more windows, 0x93000-0x96FFF and 0xE5000-0xFBFFF), nothing else, and read in place through
+the plain (unencrypted) XIP window from 0x93000 up (`plat_data`), a style's record into RAM when it is picked. A firmware update writes only
 the app area; but at the end of an update the loader erases every sector in 0x93000-0xFBFFF whose last 256 bytes
 hold a valid update record (bytes 6-7 "AT", CRC-16 at 0), so the bank writer keeps bytes 0xF00-0xF07 of each 4 KB
 sector at 0xFF (the logical stream steps over them), and no sector can look like a record to the loader or the
@@ -280,10 +280,10 @@ the velocity, a bar repeat a mask test and a copy from the bars before: some 30-
 last four bars of each playing phrase decoded, 5 bytes a note: 8 KB for 8 tracks at 50 notes a bar (99% of
 phrases), 19 KB at the ROM's busiest bar (121 notes); repeats only one or two bars back (95% of them) halve that.
 
-## The runtime-decoded bank (`tools/qy70_codec.py`, `firmware/src/dsp/qydec.c`)
+## The runtime-decoded bank (`tools/qy70_codec.py`, `app/dsp/qydec.c`)
 
 The bank the device would use: each style is one range-coded stream, decoded into RAM in one go when the style
-is picked (`qy_decode_style`, `firmware/src/dsp/qydec.c`, pure C99). The same Python function codes and decodes
+is picked (`qy_decode_style`, `app/dsp/qydec.c`, pure C99). The same Python function codes and decodes
 (`code_phrase`), and the C decoder follows it line for line; `--ctest` checks the two agree on all 4,166 phrases,
 `--test` that the decode gives the importer's events back (times, keys and gates exact; velocity within 4).
 

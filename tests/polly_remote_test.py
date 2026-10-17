@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""tools/polly_remote.py against the simulator on a simulated cable (build/host/polly_host --serve: the firmware's
+"""tools/polly_remote.py against the simulator on a simulated cable (app/build/host/polly_host --serve: the firmware's
 mirror.c and UI, the requests taken as main_fm1.c takes them). Checked: the screen as mirrored equals the simulator's;
 a tap, a held button, keys, turns (exact and accelerated), MASTER go through the plat_* calls into the UI; the panel
 reports' LEDs; let go when the tool stops and when it goes silent (6 s); refused while not mirroring; an older Polly

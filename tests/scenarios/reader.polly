@@ -46,6 +46,7 @@ wait 300
 said Progression, page 1 of 2. S1, P1 Pop: Bar 1, Beat 1, Root C, Type major.
 said_none
 where
+wait 40
 wait 100
 said P1 Pop: bar 1 C major, bar 2 G major, bar 3 A minor, bar 4 F major.
 # SELECT: the button's next page
@@ -141,8 +142,10 @@ wait 300
 said Pan right 22
 # WHERE: everything again, then the controls
 where
+wait 40
 said Mixer, page 1 of 2. S1, Pop, Groove A, C2 Clean Guitar: Volume 70, Pan right 22, Reverb 50, Chorus 40. Stopped, tempo 106, unsaved.
 where
+wait 40
 said black keys: instrument. SELECT: page. ALGO: instrument.
 # the Song page: a white key adds a section (its message); while the song plays, its sections and bars go by unsaid
 tap HOME
@@ -156,6 +159,7 @@ wait 300
 said Section 2 added: P2 Ballad, A
 # WHERE on Song: the sections, a message of their own
 where
+wait 40
 said Section 1: P1 Pop, A. Section 2: P2 Ballad, A.
 tap PLAY
 wait 50
@@ -171,6 +175,7 @@ said Home page. S1: Style Pop, Tempo 106, Transpose C, Prog Song.
 wait 3000
 said_none
 where
+wait 40
 said Playing, unsaved. Groove A, section 1 of 2. Chord
 tap PLAY
 wait 50

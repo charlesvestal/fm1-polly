@@ -8,8 +8,8 @@
  * in-memory object table (no real flash). */
 #include <stdio.h>
 #include <string.h>
-#include "../../firmware/src/app/app.h"
-#include "../../firmware/src/app/project.c"
+#include "../../app/app.h"
+#include "../../app/project.c"
 #include "leads.h"
 
 static uint8_t obj[OBJ_NOBJ][4096];
@@ -21,10 +21,11 @@ int plat_store_load(uint32_t o, void *dst, uint32_t max)
     if (o >= OBJ_NOBJ || len[o] <= 0)
         return -1;
     if ((n = (uint32_t)len[o]) > max)
-        return -1;                                   /* (as storage.c: the whole object, never cut short) */
+        n = max;                                     /* (as fm1-base's storage.c: cut short; project.c refuses it) */
     memcpy(dst, obj[o], n);
     return (int)n;
 }
+int plat_store_size(uint32_t o) { return o >= OBJ_NOBJ || len[o] <= 0 ? -1 : len[o]; }
 int plat_store_head(uint32_t o, void *dst, uint32_t n)
 {
     if (o >= OBJ_NOBJ || len[o] <= 0 || (uint32_t)len[o] < n)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Polly's factory styles: .sty text files (styles/README.md) compiled into firmware/src/dsp/styles.h.
+"""Polly's factory styles: .sty text files (styles/README.md) compiled into app/dsp/styles.h.
 
-    python3 tools/make_styles.py styles/*.sty > firmware/src/dsp/styles.h
+    python3 tools/make_styles.py styles/*.sty > app/dsp/styles.h
     python3 tools/make_styles.py --check styles/*.sty        # "16 styles, 96 patterns ok", or the errors
     python3 tools/make_styles.py --dump styles/01-pop.sty    # the style back as text (drums expanded)
     python3 tools/make_styles.py --roundtrip styles/*.sty    # dump -> parse -> the same tables
@@ -20,8 +20,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def arr_define(name):
-    """a #define of firmware/src/dsp/arr.h, so the tool's limits are the engine's"""
-    with open(os.path.join(HERE, "..", "firmware", "src", "dsp", "arr.h")) as f:
+    """a #define of app/dsp/arr.h, so the tool's limits are the engine's"""
+    with open(os.path.join(HERE, "..", "app", "dsp", "arr.h")) as f:
         m = re.search(r"^#define\s+%s\s+(\d+)" % name, f.read(), re.M)
     if not m:
         raise SystemExit("make_styles: no %s in arr.h" % name)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """A video of Polly from the host simulator: a storyboard (the scenario language plus captions and bar-timed
 chords, tools/video/*.story) expanded into a plain scenario with a screen dump every 1/FPS s of simulated time,
-run on build/host/polly_host (the audio into a WAV), then each frame drawn (the screen 3x, the FM-1's panel with
+run on app/build/host/polly_host (the audio into a WAV), then each frame drawn (the screen 3x, the FM-1's panel with
 the buttons and keys held and the knobs turned, a caption) and muxed with ffmpeg. Nothing is played.
 
   python3 tools/polly_video.py tools/video/song.story OUT.mp4 [--work DIR] [--fps 10] [--frames-only]
@@ -44,7 +44,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-HOST = os.path.join(ROOT, "build", "host", "polly_host")
+HOST = os.path.join(ROOT, "app", "build", "host", "polly_host")
 FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 
 

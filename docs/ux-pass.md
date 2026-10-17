@@ -1,7 +1,7 @@
 # Polly: a UI / UX flow pass (2026-10-09)
 
 The main flows walked as a new user would, on the simulator's screenshots: `tests/scenarios/tour.polly`
-(`sh tests/run_tests.sh`, or `build/host/polly_host tests/scenarios/tour.polly build/scenarios/tour`). The
+(`sh tests/run_tests.sh`, or `app/build/host/polly_host tests/scenarios/tour.polly build/scenarios/tour`). The
 screenshots named below are in `build/scenarios/tour/` (after this pass); the firmware before it, run
 through the same flow (without the new checks), gave `build/scenarios/tour_before/` (kept locally, not in the
 repo).

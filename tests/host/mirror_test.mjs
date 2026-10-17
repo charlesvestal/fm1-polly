@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// The mirror viewer's decoder (web/mirror/index.html, the part between its "decoder" markers) on the device's own SysEx
-// stream, as the simulator mirrored it (tests/scenarios/mirror.polly): the screen it rebuilds against the simulator's
-// screen, and the panel's reports (a button and keys held, knobs turned, MASTER, the lights).
+// The mirror viewer's decoder (fm1-base's web/mirror/index.html, which Polly's site publishes: the part between its
+// "decoder" markers) on Polly's own SysEx stream, as the simulator mirrored it (tests/scenarios/mirror.polly): the
+// screen it rebuilds against the simulator's screen, and the panel's reports (a button and keys held, knobs turned,
+// MASTER, the lights). (fm1-base's tests/mirror_test.mjs: the same decoder on device/mirror.c's own session.)
 //   node tests/host/mirror_test.mjs build/scenarios/mirror
 import fs from "fs";
 import path from "path";
@@ -9,9 +10,9 @@ import { fileURLToPath } from "url";
 
 const dir = process.argv[2] || "build/scenarios/mirror";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const html = fs.readFileSync(path.join(root, "web/mirror/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, "base/web/mirror/index.html"), "utf8");
 const m = /\/\/ --- decoder: begin[^\n]*\n([\s\S]*?)\/\/ --- decoder: end/.exec(html);
-if (!m) { console.log("FAIL no decoder markers in web/mirror/index.html"); process.exit(1); }
+if (!m) { console.log("FAIL no decoder markers in base/web/mirror/index.html"); process.exit(1); }
 const { createMirror, mrRequest, mrRemote, mrUnpack7 } =
   new Function(`"use strict";\n${m[1]}\nreturn { createMirror, mrRequest, mrRemote, mrUnpack7 };`)();
 

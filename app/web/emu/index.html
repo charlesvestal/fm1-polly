@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polly test build</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Polly is a pocket arranger for the M-VAVE FM-1 that plays Sonivox EAS's General MIDI sounds. Try it in your browser: an internal test build.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+:root { --ground: #faf4e8; --ink: #48392f; --muted: #725f4c; --rule: #e6dccb; --accent: #e0683a; --teal: #1f8a80; --card: #fffaf1;
+        --accent-ink: #b4481c; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                                    --accent-ink: #f28a5a; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                           --accent-ink: #f28a5a; color-scheme: dark; }
+body { background: var(--ground); color: var(--ink); margin: 0; padding-inline: 16px; padding-block: 28px 48px;
+       font: 400 16px/1.55 "Barlow", "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 1040px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1.2rem; margin: 0 0 1rem; }
+h1 { font: 700 2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0; }
+header p { margin: 0; color: var(--muted); }
+header nav { margin-left: auto; display: flex; gap: 1rem; }
+a { color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+a.skip { position: absolute; left: -9999px; }
+a.skip:focus { position: static; display: inline-block; margin: 0 0 .5rem; }
+.hits { position: absolute; inset: 0; pointer-events: none; }
+.hits .hit { pointer-events: auto; }
+/* at phone width the drawn panel keeps its controls 24 px or more (WCAG 2.5.8): it keeps a minimum width and
+   scrolls sideways in its own box, not the page */
+.devicebox { overflow-x: auto; overscroll-behavior-x: contain; }
+.device { position: relative; width: 100%; min-width: 560px; aspect-ratio: 1000 / 640; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+.device svg { pointer-events: none; }
+.hit { position: absolute; touch-action: none; cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: 12px; }
+.hit.knob { cursor: ns-resize; border-radius: 50%; }
+.hit:focus-visible { outline: 3px solid #f28a5a; outline-offset: 2px; box-shadow: 0 0 0 5px #111214; }
+.device:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; }
+.device svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.device canvas { position: absolute; left: 31.8%; top: 9.6875%; width: 20%; height: 31.25%; image-rendering: pixelated; background: #000; border-radius: 2px; }
+.ctl { cursor: pointer; }
+.ctl.knob { cursor: ns-resize; }
+.btnface { transition: fill .06s; }
+.lit .btnface { fill: #f28a5a; }
+.lit text.btn { fill: #2a140a; }
+.held .btnface, .held .keyface { stroke: #f28a5a; stroke-width: 3; }
+.latched .btnface { stroke: #6fc3ff; stroke-width: 3; }
+.keyface { transition: fill .06s; }
+.lit .keyface.white { fill: #f6b48e; }
+.lit .keyface.black { fill: #4cc3b6; }
+.start { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 11, 13, .55); border-radius: 4.4% / 6.9%; }
+.start button { font: 600 1.25rem "Barlow Semi Condensed", "Barlow", sans-serif; letter-spacing: .04em; padding: .7em 1.6em;
+                border-radius: 999px; border: 0; background: #f28a5a; color: #2a140a; cursor: pointer; }
+.start[hidden] { display: none; }
+.turn { display: none; margin: 0 0 .8rem; color: var(--muted); font-size: .92rem; }
+@media (orientation: portrait) and (max-width: 700px) { .turn { display: block; } }
+.start button:disabled { opacity: .6; cursor: progress; }
+.bar { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; align-items: center; margin: .9rem 0 0; color: var(--muted); font-size: .92rem; }
+.bar button { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: .3em .8em; cursor: pointer; }
+.bar button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.bar label { display: inline-flex; gap: .4rem; align-items: center; color: var(--ink); }
+.reader { margin: 1.2rem 0 0; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.reader h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; }
+.reader p { margin: 0 0 .6rem; color: var(--muted); }
+.reader fieldset { border: 0; padding: 0; margin: 0 0 .6rem; }
+.reader legend { font-weight: 600; padding: 0; margin: 0 0 .2rem; }
+.reader fieldset label { display: flex; gap: .5rem; align-items: center; margin: .15rem 0; }
+.reader input[type=radio], .bar input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--teal); }
+.reader .row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.reader button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 8px; padding: .3em .8em; cursor: pointer; }
+.reader button:disabled { opacity: .5; cursor: default; }
+.reader p.said { color: var(--ink); font-size: 1.15rem; min-height: 1.6em; margin: .2rem 0 .6rem; overflow-wrap: anywhere; }
+.bar .cpu { font-variant-numeric: tabular-nums; }
+.help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.help { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem; margin: 1.6rem 0 0; }
+.help h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.help p, .help ul { margin: 0; color: var(--muted); max-width: 60ch; }
+.help ul, .help ol { padding-left: 1.1rem; }
+.help ol.steps { margin: .3rem 0 .6rem; color: var(--muted); max-width: 70ch; }
+.help ol.steps li { margin: 0 0 .25rem; }
+.knobs p + p, .knobs ol + p { margin-top: .5rem; }
+.knobs h2:not(:first-child) { margin-top: 1rem; }
+.help .knobs { grid-column: 1 / -1; }
+.knobs .pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .8rem 2rem; margin-top: .4rem; }
+.knobs h3 { font: 600 1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; color: var(--ink); }
+.knobs h3 span { color: var(--muted); font-weight: 400; }
+.knobs dl { margin: 0; color: var(--muted); }
+.knobs dt { color: var(--ink); font-weight: 600; }
+.knobs dd { margin: 0 0 .45rem; }
+.note { margin: 0 0 1rem; padding: .5rem .8rem; border-left: 3px solid var(--teal); background: var(--card); color: var(--muted); font-size: .92rem; }
+.qy { margin: 1.2rem 0 0; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.qy h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; }
+.qy p { margin: 0 0 .6rem; color: var(--muted); }
+.qy.drag { border-color: var(--accent); border-style: dashed; }
+.qy .row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.qy label.load, .qy button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 8px; padding: .3em .8em; cursor: pointer; }
+.qy label.load { border-color: var(--accent); }
+.qy label.load:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qy input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.qy [hidden] { display: none; }
+.qy #qyState { color: var(--ink); }
+.qy #qyState.err { color: var(--accent-ink); font-weight: 600; }
+.help pre.controls { margin: .4rem 0 0; padding: .6rem .8rem; background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+                     overflow-x: auto; font: .82rem/1.5 ui-monospace, Menlo, monospace; color: var(--ink); }
+kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 0 .3em; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Polly in the browser</h1>
+  <p>Polly is a pocket arranger for the FM-1. This page runs the same code as the FM-1, so you can try it here.</p>
+</header>
+
+<p class="turn">Turn your phone sideways for bigger controls.</p>
+<a class="skip" href="#reader">Skip past the panel</a>
+<!-- the FM-1: a drawing (aria-hidden) with an HTML control over each knob, button and key (.hits, inert until on) -->
+<div class="devicebox">
+<div class="device" id="device" role="group" aria-label="The FM-1" aria-describedby="panelHow" tabindex="-1">
+  <svg id="panel" viewBox="0 0 1000 640" aria-hidden="true" focusable="false"></svg>
+  <canvas id="screen" width="240" height="240" role="img" aria-label="The FM-1's screen. The screen reader, below the panel, reads it."></canvas>
+  <div class="hits" id="hits" inert></div>
+  <div class="start" id="start"><button id="go" type="button">Switch on</button></div>
+</div>
+</div>
+<p id="panelHow" class="sr">Tab through the knobs, buttons and keys. The arrow keys turn a knob, and Page Up and Page Down turn it faster.
+  Hold Space or Enter to hold a button or key. Shift and Enter keeps a button held until you press it again.</p>
+
+<div class="bar">
+  <span id="status" role="status">Off. Sound starts when you switch it on.</span>
+  <span class="cpu" id="cpu"></span>
+  <button id="mute" type="button" aria-pressed="false" disabled>Mute</button>
+  <label><input type="checkbox" id="kbd" checked> Computer keys play the panel</label>
+  <button id="reset" type="button" title="Forget your saved settings and start again from the factory settings">Factory reset</button>
+</div>
+
+<section class="reader" id="reader" aria-labelledby="readerTitle" tabindex="-1">
+  <h2 id="readerTitle">Screen reader</h2>
+  <p>Polly says what its screen shows, the same words it sends to the <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>:
+    pages, knobs as you turn them, messages and help cards.</p>
+  <fieldset>
+    <legend>Who reads the screen</legend>
+    <label><input type="radio" name="readMode" value="sr" checked> My own screen reader (VoiceOver, NVDA, JAWS, TalkBack)</label>
+    <label><input type="radio" name="readMode" value="voice"> This page's voice</label>
+    <label><input type="radio" name="readMode" value="off"> Nobody</label>
+  </fieldset>
+  <p class="said" id="said" aria-hidden="true"></p>
+  <div class="row">
+    <button id="where" type="button" disabled>Read the whole screen</button>
+    <button id="again" type="button" disabled>Say it again</button>
+    <span id="readerNote"></span>
+  </div>
+</section>
+<!-- for the computer's screen reader: what Polly says, as it says it -->
+<div id="liveNow" class="sr" aria-live="assertive" aria-atomic="true"></div>
+<div id="liveLater" class="sr" aria-live="polite" aria-atomic="true"></div>
+
+<section class="qy" id="qy" aria-labelledby="qyTitle">
+  <h2 id="qyTitle">QY70 styles</h2>
+  <p>If you own a QY70, pick or drop its main ROM here (MAME calls it <kbd>qy70main.bin</kbd>). Polly builds the QY70's
+    128 preset styles in your browser, and they come after Polly's own 16 on the Style knob. The ROM never leaves your
+    computer, and this browser keeps the styles for your next visit.</p>
+  <div class="row">
+    <label class="load" title="Your QY70's main ROM file (qy70main.bin). It's read here and never uploaded.">Load QY70 ROM<input type="file" id="qyFile"></label>
+    <button id="qyForget" type="button" hidden title="Remove the QY70 styles from this browser. Polly keeps its own 16.">Forget QY70 styles</button>
+    <span id="qyState" role="status" aria-live="polite">Checking this browser...</span>
+  </div>
+</section>
+
+<section class="help">
+  <div class="knobs">
+    <h2>Getting started</h2>
+    <p>Polly plays a style. A band of eight instruments follows the chords you play. Press <b>Switch on</b> above, and try these steps.</p>
+    <ol class="steps">
+      <li>Turn <b>KNOB 1</b> on the Home page to pick a style.</li>
+      <li>Press <b>PLAY</b>. Groove A starts.</li>
+      <li>Play a chord with three keys or more. The band follows it, and keeps it after you let go.</li>
+      <li>Hold <b>HOME</b> and press black key 3 for Groove B. On this page, <kbd>Shift</kbd>-click HOME to hold it (or press
+        <kbd>Shift</kbd>+<kbd>Enter</kbd> on it). The screen shows what each key does while you hold HOME.</li>
+      <li>Hold <b>HOME</b> and press a white key. The band plays that key's progression over and over.</li>
+      <li>Press <b>HOME</b> again for the Song page. Each white key adds a section that plays that progression.</li>
+      <li><b>SAVE</b> is lit when something isn't saved. When Polly is stopped, it also saves by itself after a few seconds.</li>
+    </ol>
+    <p>The ten short lessons in <a href="../school/">School</a> work here too.</p>
+    <p>For your QY70 styles, press <b>Load QY70 ROM</b> above. They come after Polly's own 16 on the Style knob. To put them
+      on an FM-1 running Polly, run <kbd>python3 tools/qy70_install.py qy70main.bin</kbd>.</p>
+    <p>MIDI from your computer plays all 16 channels, like a General MIDI sound module.</p>
+    <h2>The controls</h2>
+<!--CONTROLS-->
+  </div>
+  <div>
+    <h2>Mouse and touch</h2>
+    <ul>
+      <li>Drag a knob up or down, or use the scroll wheel over it.</li>
+      <li>Click or touch buttons and keys. Several fingers at once work on a touch screen.</li>
+      <li>To hold a button down, <kbd>Shift</kbd>-click or right-click it. Click it again to let go.</li>
+      <li>Hover over a control to see what it does.</li>
+    </ul>
+  </div>
+  <div>
+    <h2>Keyboard</h2>
+    <ul>
+      <li><kbd>Tab</kbd> moves through the knobs, buttons and keys on the panel. The arrow keys turn the knob you're on, and
+        <kbd>Page Up</kbd> and <kbd>Page Down</kbd> turn it faster. Hold <kbd>Space</kbd> or <kbd>Enter</kbd> to hold a button or key, and
+        press <kbd>Shift</kbd>+<kbd>Enter</kbd> to keep a button held until you press it again.</li>
+      <li>While the panel has focus (click it, or Tab into it), the computer's keys play it too: white keys 1&ndash;8 are
+        <kbd>Q</kbd> to <kbd>I</kbd>, and 9&ndash;16 are <kbd>A</kbd> to <kbd>K</kbd>. Black keys 1&ndash;11 are <kbd>1</kbd> to <kbd>0</kbd> and <kbd>-</kbd>.</li>
+      <li><kbd>Space</kbd> is PLAY (on a knob, or on the panel itself), <kbd>Esc</kbd> is HOME, and <kbd>Z</kbd> and <kbd>X</kbd> are OCT&minus; and OCT+.
+        The up and down arrow keys turn PRESETS, and left and right turn ALGORITHM, unless you're on a knob.</li>
+      <li>To keep these keys for your screen reader, turn off <b>Computer keys play the panel</b>.</li>
+    </ul>
+  </div>
+  <div>
+    <h2>Saving</h2>
+    <p>SAVE keeps your songs, grooves and settings in this browser. <b>Factory reset</b> clears them but keeps the QY70
+      styles. To remove those, press <b>Forget QY70 styles</b>. What you hear is Polly itself running, not a recording.</p>
+  </div>
+  <div>
+    <h2>Credits</h2>
+    <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is
+      <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Polly's own drum
+      grooves come from the <a href="https://magenta.tensorflow.org/datasets/groove">Groove MIDI Dataset</a> (CC BY 4.0,
+      &copy; Google LLC). <a href="https://pyodide.org/">Pyodide</a> (MPL-2.0) runs Polly's tools to build the QY70 styles from your own ROM.
+      The styles are &copy; Yamaha, and nothing of Yamaha's is on this site. The idea of running FM-1 firmware in the
+      browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator. The screen reader's words and its voice,
+      <a href="https://github.com/espeak-ng/espeak-ng">eSpeak NG</a> (GPL-3.0), come from the
+      <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>.</p>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const BTN = { FX: 0, SEL: 1, ENV: 2, LFO: 3, EDIT: 4, GLO: 5, HOME: 6, SAVE: 7, ARP: 8, SEQ: 9, PLAY: 10, REC: 11, "OCT-": 12, "OCT+": 13 };
+const ENC = { SELECT: 0, ALGORITHM: 1, PRESETS: 2, KNOB1: 3, KNOB2: 4, KNOB3: 5, KNOB4: 6 };
+const WHITE_K = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26];
+const BLACK_K = [1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25];
+const BLACK_AFTER = [0, 1, 2, 4, 5, 7, 8, 9, 11, 12, 14];
+const BODY = "#3a3d42", TRAY = "#26282c", KEY_W = "#d9dadc", KEY_B = "#c9cacd", KNOB = "#1f2124", BTNC = "#2e3135", LABEL = "#e8e8ea";
+const STORE_KEY = "polly-emu-store";
+
+const svg = document.getElementById("panel");
+function el(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function text(parent, x, y, s, size, fill = LABEL, weight = 600) {
+  const t = el("text", { x, y, "text-anchor": "middle", "font-family": "'Barlow Semi Condensed', 'Arial Narrow', Arial, sans-serif",
+                         "font-size": size, "font-weight": weight, fill, "letter-spacing": ".05em", class: "btn", "pointer-events": "none" }, parent);
+  t.textContent = s;
+  return t;
+}
+
+// ---------------------------------------------------------------- the panel
+el("rect", { x: 4, y: 4, width: 992, height: 632, rx: 44, fill: BODY });
+const knobs = {};
+function knob(x, y, r, label, role) {
+  const g = el("g", role === "master"
+    ? { class: "ctl knob", tabindex: 0, role: "slider", "aria-label": label, "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": 68 }
+    : { class: "ctl knob", tabindex: 0, role: "button", "aria-label": label });
+  el("circle", { cx: x, cy: y, r: r + 5, fill: TRAY }, g);
+  el("circle", { cx: x, cy: y, r, fill: KNOB, stroke: "#44474c", "stroke-width": 2 }, g);
+  const ind = el("line", { x1: x, y1: y - r + 5, x2: x, y2: y - r + 15, stroke: LABEL, "stroke-width": 3, "stroke-linecap": "round" }, g);
+  text(g, x, y - r - 12, label, 17);
+  el("circle", { cx: x, cy: y, r: r + 14, fill: "transparent" }, g);
+  knobs[label] = { g, ind, x, y, angle: 0, role };
+  return knobs[label];
+}
+knob(105, 100, 24, "MASTER", "master");
+knob(215, 100, 24, "SELECT", ENC.SELECT);
+knob(105, 205, 24, "PRESETS", ENC.PRESETS);
+knob(215, 205, 24, "ALGORITHM", ENC.ALGORITHM);
+for (let i = 0; i < 4; i++) knob(610 + i * 104, 100, 22, `KNOB${i + 1}`, ENC[`KNOB${i + 1}`]);
+
+const buttons = {};
+function button(x, y, w, h, label, two) {
+  const g = el("g", { class: "ctl", role: "button", tabindex: 0, "aria-label": label });
+  el("rect", { x, y, width: w, height: h, rx: 9, fill: BTNC, stroke: "#4a4d52", "stroke-width": 1.5, class: "btnface" }, g);
+  if (two) { text(g, x + w / 2, y + h / 2 - 1, label, 12); text(g, x + w / 2, y + h / 2 + 12, two, 12); }
+  else text(g, x + w / 2, y + h / 2 + 5, label, 15);
+  buttons[label] = { g, bit: BTN[label], label };
+}
+el("rect", { x: 58, y: 258, width: 210, height: 58, rx: 14, fill: TRAY });
+button(72, 268, 82, 38, "OCT-"); button(170, 268, 82, 38, "OCT+");
+el("rect", { x: 300, y: 44, width: 236, height: 236, rx: 26, fill: "#111214" });
+el("rect", { x: 568, y: 160, width: 400, height: 140, rx: 18, fill: TRAY });
+const ROW1 = ["FX", "SEL", "ENV", "LFO", "EDIT", "GLO"], ROW2 = ["HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
+for (let i = 0; i < 6; i++) {
+  button(582 + i * 63, 174, 54, 48, ROW1[i]);
+  if (ROW2[i] === "PLAY") button(582 + i * 63, 236, 54, 48, "PLAY", "STOP"); else button(582 + i * 63, 236, 54, 48, ROW2[i]);
+}
+
+const keys = [];
+(function keybed(x0, y0, w, h) {
+  el("rect", { x: x0, y: y0, width: w, height: h, rx: 18, fill: TRAY });
+  const pitch = (w - 24) / 16, kw = pitch * 0.78;
+  for (let i = 0; i < 16; i++) {
+    const g = el("g", { class: "ctl", role: "button", tabindex: 0, "aria-label": `white key ${i + 1}` });
+    el("rect", { x: x0 + 12 + i * pitch + (pitch - kw) / 2, y: y0 + h * 0.43, width: kw, height: h * 0.52, rx: kw / 2, fill: KEY_W, class: "keyface white" }, g);
+    keys[WHITE_K[i]] = { g, label: `white key ${i + 1}` };
+  }
+  BLACK_AFTER.forEach((a, k) => {
+    const g = el("g", { class: "ctl", role: "button", tabindex: 0, "aria-label": `black key ${k + 1}` });
+    el("rect", { x: x0 + 12 + (a + 1) * pitch - kw / 2, y: y0 + h * 0.06, width: kw, height: h * 0.33, rx: kw / 2, fill: KEY_B, class: "keyface black" }, g);
+    keys[BLACK_K[k]] = { g, label: `black key ${k + 1}` };
+  });
+})(36, 340, 928, 270);
+
+// ---------------------------------------------------------------- touch targets
+// The drawing is only a picture (pointer-events: none). Each control gets an invisible HTML target
+// over it: browsers (iOS Safari above all) honour touch-action and touchstart on HTML elements but
+// not on SVG ones, so the controls keep their touches while a finger anywhere else on the device
+// scrolls the page natively.
+const device = document.getElementById("device"), hits = document.getElementById("hits");
+function hit(c, cls) {
+  const b = c.g.getBBox(), d = document.createElement("div");
+  d.className = "hit" + (cls ? " " + cls : "");
+  Object.assign(d.style, { left: `${b.x / 10}%`, top: `${b.y / 6.4}%`, width: `${b.width / 10}%`, height: `${b.height / 6.4}%` });
+  for (const a of ["role", "aria-label", "tabindex", "aria-valuemin", "aria-valuemax", "aria-valuenow"])
+    if (c.g.hasAttribute(a)) { d.setAttribute(a, c.g.getAttribute(a)); c.g.removeAttribute(a); }
+  const tip = c.g.getAttribute("aria-description") || "";
+  if (tip) d.title = tip;
+  // how to work it from the keyboard, after what it does
+  const how = d.getAttribute("role") === "slider" ? "" : cls === "knob" ? "Turn with the arrow keys." :
+              c.bit !== undefined ? "Hold Space or Enter to hold it. Shift and Enter keeps it held." : "Hold Space or Enter to play it.";
+  if (tip || how) d.setAttribute("aria-description", [tip, how].filter(Boolean).join(tip.endsWith(".") ? " " : ". "));
+  c.g.setAttribute("aria-hidden", "true");
+  d.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  // a click puts the focus on the panel (the computer keys play it, Space is PLAY), not on the control
+  d.addEventListener("pointerdown", () => device.focus({ preventScroll: true }));
+  hits.appendChild(d);
+  c.hit = d;
+}
+// what each control does, on hover (the Buttons list below says the same)
+// (from the firmware's controls list; the full list is under the device)
+const TIP = { PLAY: "Starts and stops. On the Song page, it plays the song.", REC: "Records what the keys play here",
+  SEL: "Shows this page as a list with its actions. In a question, it means yes.", HOME: "Home, then the Song pages. Hold it for the shortcuts.",
+  SEQ: "The Band page, with the groove's notes", EDIT: "The Sound page for the instrument", FX: "Effects", LFO: "Mixer pages",
+  ENV: "Style pages", ARP: "Progression pages", GLO: "Setup pages", SAVE: "Saves. Hold it and press a white key to copy here.",
+  "OCT-": "Octave down", "OCT+": "Octave up", SELECT: "Turns the page. Hold HOME to set the tempo.", ALGORITHM: "Picks the instrument",
+  PRESETS: "Depends on the page. Hold HOME to pick the song.", MASTER: "Volume",
+  KNOB1: "Sets what the page shows", KNOB2: "Sets what the page shows", KNOB3: "Sets what the page shows", KNOB4: "Sets what the page shows" };
+for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);
+for (const k of Object.values(knobs)) hit(k, "knob");
+for (const n of ["OCT-", "OCT+", ...ROW1, ...ROW2]) hit(buttons[n]);
+keys.forEach((k) => hit(k));
+
+// ---------------------------------------------------------------- state and input
+let node = null, btnMask = 0, keyMask = 0, latched = 0, master = 2800;
+const btnHeldBy = new Map(), keyHeldBy = new Map();      // pointer / key id -> bit
+function send(m) { if (node) node.port.postMessage(m); }
+function syncButtons() {
+  let m = latched;
+  for (const b of btnHeldBy.values()) m |= 1 << b;
+  if (m !== btnMask) { btnMask = m; send({ type: "buttons", mask: m }); }
+  for (const b of Object.values(buttons)) {
+    b.g.classList.toggle("held", !!(m & (1 << b.bit)));
+    b.g.classList.toggle("latched", !!(latched & (1 << b.bit)));
+    b.hit.classList.toggle("latched", !!(latched & (1 << b.bit)));
+    b.hit.setAttribute("aria-pressed", m & (1 << b.bit) ? "true" : "false");
+  }
+}
+function named(c, lit) {                               // a lit LED, said with the name (only when it changes)
+  if (c.lit === lit) return;
+  c.lit = lit;
+  c.hit.setAttribute("aria-label", c.label + (lit ? ", lit" : ""));
+}
+function syncKeys() {
+  let m = 0;
+  for (const k of keyHeldBy.values()) m |= 1 << k;
+  if (m !== keyMask) { keyMask = m; send({ type: "keys", mask: m }); }
+  keys.forEach((k, i) => { k.g.classList.toggle("held", !!(m & (1 << i))); k.hit.setAttribute("aria-pressed", m & (1 << i) ? "true" : "false"); });
+}
+
+for (const b of Object.values(buttons)) {
+  b.hit.addEventListener("contextmenu", (e) => e.preventDefault());
+  b.hit.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (e.shiftKey || e.button === 2) { latched ^= 1 << b.bit; syncButtons(); return; }
+    if (latched & (1 << b.bit)) { latched &= ~(1 << b.bit); syncButtons(); return; }
+    b.hit.setPointerCapture(e.pointerId);
+    btnHeldBy.set("p" + e.pointerId, b.bit);
+    syncButtons();
+  });
+}
+for (const b of Object.values(buttons)) {
+  b.hit.addEventListener("keydown", (e) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.repeat) return;
+    if (e.key === "Enter" && e.shiftKey) { latched ^= 1 << b.bit; syncButtons(); return; }
+    if (latched & (1 << b.bit)) { latched &= ~(1 << b.bit); syncButtons(); return; }
+    btnHeldBy.set("f" + e.key, b.bit); syncButtons();
+  });
+  b.hit.addEventListener("keyup", (e) => { if (btnHeldBy.delete("f" + e.key)) syncButtons(); });
+  b.hit.addEventListener("blur", () => { if (btnHeldBy.delete("f ") | btnHeldBy.delete("fEnter")) syncButtons(); });
+}
+keys.forEach((k, i) => {
+  k.hit.addEventListener("keydown", (e) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    e.preventDefault(); e.stopPropagation();
+    if (!e.repeat) { keyHeldBy.set("f" + e.key, i); syncKeys(); }
+  });
+  k.hit.addEventListener("keyup", (e) => { if (keyHeldBy.delete("f" + e.key)) syncKeys(); });
+  k.hit.addEventListener("blur", () => { if (keyHeldBy.delete("f ") | keyHeldBy.delete("fEnter")) syncKeys(); });
+  k.hit.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    k.hit.setPointerCapture(e.pointerId);
+    keyHeldBy.set("p" + e.pointerId, i);
+    syncKeys();
+  });
+});
+function pointerUp(e) {
+  const id = "p" + e.pointerId;
+  if (btnHeldBy.delete(id)) syncButtons();
+  if (keyHeldBy.delete(id)) syncKeys();
+}
+device.addEventListener("pointerup", pointerUp);
+device.addEventListener("pointercancel", pointerUp);
+device.addEventListener("lostpointercapture", pointerUp);
+
+function drawKnob(k) {
+  k.ind.setAttribute("transform", `rotate(${k.angle} ${k.x} ${k.y})`);
+}
+function turn(k, n) {
+  if (!n) return;
+  if (k.role === "master") {
+    master = Math.max(0, Math.min(4096, master + n * 64));
+    k.angle = -135 + 270 * master / 4096;
+    send({ type: "master", value: master });
+    showMaster();
+  } else {
+    k.angle = (k.angle + n * 18) % 360;
+    send({ type: "enc", role: k.role, n });
+  }
+  drawKnob(k);
+}
+function showMaster() {                              // MASTER: a slider, its value in percent
+  const h = knobs.MASTER.hit, pc = Math.round(100 * master / 4096);
+  h.setAttribute("aria-valuenow", pc);
+  h.setAttribute("aria-valuetext", `${pc} percent`);
+}
+for (const k of Object.values(knobs)) {
+  if (k.role === "master") { k.angle = -135 + 270 * master / 4096; drawKnob(k); showMaster(); }
+  let drag = null, wheel = 0;
+  k.hit.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    k.hit.setPointerCapture(e.pointerId);
+    drag = { y: e.clientY, acc: 0 };
+  });
+  k.hit.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    drag.acc += drag.y - e.clientY;
+    drag.y = e.clientY;
+    const step = k.role === "master" ? 3 : 7;
+    const n = Math.trunc(drag.acc / step);
+    if (n) { drag.acc -= n * step; turn(k, n); }
+  });
+  const end = () => { drag = null; };
+  k.hit.addEventListener("pointerup", end);
+  k.hit.addEventListener("pointercancel", end);
+  k.hit.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    if (Math.abs(dy) >= 50) { turn(k, dy < 0 ? 1 : -1); wheel = 0; return; }   // a mouse wheel notch: one detent
+    wheel -= dy;                                                                   // a trackpad: by distance
+    const n = Math.trunc(wheel / 25);
+    if (n) { wheel -= n * 25; turn(k, n); }
+  }, { passive: false });
+  k.hit.addEventListener("keydown", (e) => {
+    const n = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key] ??
+              (k.role === "master" ? { Home: -64, End: 64 }[e.key] : undefined);
+    if (n) { turn(k, n); e.preventDefault(); e.stopPropagation(); }
+  });
+}
+
+const KEYMAP = {};
+"qwertyui".split("").forEach((c, i) => KEYMAP["Key" + c.toUpperCase()] = { key: WHITE_K[i] });
+"asdfghjk".split("").forEach((c, i) => KEYMAP["Key" + c.toUpperCase()] = { key: WHITE_K[8 + i] });
+"1234567890".split("").forEach((c, i) => KEYMAP["Digit" + c] = { key: BLACK_K[i] });
+KEYMAP.Minus = { key: BLACK_K[10] };
+Object.assign(KEYMAP, { Space: { btn: BTN.PLAY }, Escape: { btn: BTN.HOME },
+                        KeyZ: { btn: BTN["OCT-"] }, KeyX: { btn: BTN["OCT+"] } });
+const kbd = document.getElementById("kbd");
+try { if (localStorage.getItem("polly-emu-kbd") === "0") kbd.checked = false; } catch {}
+kbd.addEventListener("change", () => { try { localStorage.setItem("polly-emu-kbd", kbd.checked ? "1" : "0"); } catch {} });
+addEventListener("keydown", (e) => {
+  if (!node || !kbd.checked || !device.contains(document.activeElement) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === "ArrowUp" || e.code === "ArrowDown") { turn(knobs.PRESETS, e.code === "ArrowUp" ? -1 : 1); e.preventDefault(); return; }
+  if (e.code === "ArrowLeft" || e.code === "ArrowRight") { turn(knobs.ALGORITHM, e.code === "ArrowRight" ? 1 : -1); e.preventDefault(); return; }
+  const m = KEYMAP[e.code];
+  if (!m) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  if (m.key !== undefined) { keyHeldBy.set("k" + e.code, m.key); syncKeys(); }
+  else { btnHeldBy.set("k" + e.code, m.btn); syncButtons(); }
+});
+addEventListener("keyup", (e) => {
+  const id = "k" + e.code;
+  if (keyHeldBy.delete(id)) syncKeys();
+  if (btnHeldBy.delete(id)) syncButtons();
+});
+addEventListener("blur", () => {
+  for (const id of [...btnHeldBy.keys()]) if (id[0] === "k") btnHeldBy.delete(id);
+  for (const id of [...keyHeldBy.keys()]) if (id[0] === "k") keyHeldBy.delete(id);
+  syncButtons(); syncKeys();
+});
+
+// ---------------------------------------------------------------- screen and lights
+const ctx = document.getElementById("screen").getContext("2d");
+const img = ctx.createImageData(240, 240);
+function drawScreen(fb) {
+  const d = img.data;
+  for (let i = 0; i < 240 * 240; i++) {
+    const v = fb[i], p = ((v >> 8) | (v << 8)) & 0xFFFF;
+    d[i * 4] = ((p >> 11) & 31) * 255 / 31;
+    d[i * 4 + 1] = ((p >> 5) & 63) * 255 / 63;
+    d[i * 4 + 2] = (p & 31) * 255 / 31;
+    d[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+function drawLights(b, k) {
+  for (const x of Object.values(buttons)) { x.g.classList.toggle("lit", !!(b & (1 << x.bit))); named(x, !!(b & (1 << x.bit))); }
+  keys.forEach((x, i) => { x.g.classList.toggle("lit", !!(k & (1 << i))); named(x, !!(k & (1 << i))); });
+}
+
+// ---------------------------------------------------------------- storage
+function loadStore() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"), out = {};
+    for (const [o, b64] of Object.entries(raw)) out[o] = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer;
+    return out;
+  } catch { return {}; }
+}
+function saveStore(store) {
+  try {
+    const raw = {};
+    for (const [o, u8] of Object.entries(store)) { let s = ""; for (const c of u8) s += String.fromCharCode(c); raw[o] = btoa(s); }
+    localStorage.setItem(STORE_KEY, JSON.stringify(raw));
+  } catch { /* storage unavailable: this session only */ }
+}
+
+// ---------------------------------------------------------------- the QY70 bank
+// Built from the tester's ROM in a worker (qybank_worker.js: Pyodide running Polly's own tools), kept in this
+// browser's IndexedDB (the bank image only, never the ROM), given to the emulator at switch-on or at once.
+const IDB = { db: "polly-emu", store: "files", key: "qy70-bank" };
+function idb(mode, fn) {
+  return new Promise((res, rej) => {
+    let rq;
+    try { rq = indexedDB.open(IDB.db, 1); } catch (e) { rej(e); return; }
+    rq.onupgradeneeded = () => rq.result.createObjectStore(IDB.store);
+    rq.onerror = () => rej(rq.error);
+    rq.onsuccess = () => {
+      const tx = rq.result.transaction(IDB.store, mode), r = fn(tx.objectStore(IDB.store));
+      tx.oncomplete = () => { rq.result.close(); res(r && r.result); };
+      tx.onerror = tx.onabort = () => { rq.result.close(); rej(tx.error); };
+    };
+  });
+}
+const bankGet = () => idb("readonly", (s) => s.get(IDB.key)).catch(() => null);
+const bankPut = (v) => idb("readwrite", (s) => s.put(v, IDB.key));
+const bankDel = () => idb("readwrite", (s) => s.delete(IDB.key)).catch(() => {});
+
+const qy = document.getElementById("qy"), qyFile = document.getElementById("qyFile"),
+      qyForget = document.getElementById("qyForget"), qyState = document.getElementById("qyState");
+let bank = null, building = false, worker = null;   // bank: { image: ArrayBuffer, styles, built }
+function qySay(text, err) { qyState.textContent = text; qyState.classList.toggle("err", !!err); }
+function bankShown(n) {                              // n: the emulator's mount (styles, 0 none, -1 damaged, -2 old)
+  qyForget.hidden = !bank;
+  if (!bank) qySay("None loaded. Polly plays its own 16 styles.");
+  else if (n === -2) qySay("The kept QY70 styles are from an older Polly. Load your ROM again to rebuild them.", true);
+  else if (n !== undefined && n <= 0) qySay("The kept QY70 styles didn't load. Load your ROM again.", true);
+  else qySay(`This browser keeps ${bank.styles} QY70 styles.${node ? "" : " They play once Polly is on."}`);
+}
+function toEmu(image) {
+  if (!node) return Promise.resolve(undefined);
+  return new Promise((res) => {
+    const prev = node.port.onmessage;
+    node.port.onmessage = (e) => { if (e.data.type === "bank") { node.port.onmessage = prev; res(e.data.bank); } else prev(e); };
+    const copy = image ? image.slice(0) : null;
+    node.port.postMessage({ type: "bank", image: copy }, copy ? [copy] : []);
+  });
+}
+async function buildFrom(file) {
+  if (building || !file) return;
+  building = true;
+  qyFile.disabled = true;
+  const t0 = performance.now();
+  let msg = "Starting...";
+  const show = () => qySay(`${msg} ${Math.round((performance.now() - t0) / 1000)} s`);
+  const tick = setInterval(show, 500);
+  try {
+    if (file.size < 65536 || file.size > 16 << 20) throw new Error(`${file.name} is ${file.size} bytes, but the QY70's main ROM (qy70main.bin) is 2 MB.`);
+    const rom = await file.arrayBuffer();
+    worker ??= new Worker("qybank_worker.js", { type: "module" });
+    const r = await new Promise((res) => {
+      worker.onmessage = (e) => { if (e.data.type === "progress") { msg = e.data.text; show(); } else res(e.data); };
+      worker.onerror = (e) => res({ type: "error", text: "The bank builder could not start: " + (e.message || "worker error") });
+      worker.postMessage({ rom }, [rom]);
+    });
+    if (r.type !== "done") throw new Error(r.text);
+    const styles = +(/(\d+) styles/.exec(r.text) || [0, 0])[1];
+    bank = { image: r.image, styles, built: Date.now(), ms: r.ms };
+    try { await bankPut(bank); } catch { /* private window: this visit only */ }
+    clearInterval(tick);
+    const n = await toEmu(bank.image);
+    bankShown(n);
+    if (n === undefined || n > 0) qySay(qyState.textContent + ` Built in ${(r.ms / 1000).toFixed(1)} s.`);
+  } catch (err) {
+    clearInterval(tick);
+    qySay(err && err.message || String(err), true);
+    if (bank) qyForget.hidden = false;
+  } finally {
+    building = false;
+    qyFile.disabled = false;
+    qyFile.value = "";
+  }
+}
+qyFile.addEventListener("change", () => buildFrom(qyFile.files[0]));
+for (const t of ["dragenter", "dragover"]) qy.addEventListener(t, (e) => { e.preventDefault(); qy.classList.add("drag"); });
+for (const t of ["dragleave", "drop"]) qy.addEventListener(t, () => qy.classList.remove("drag"));
+qy.addEventListener("drop", (e) => { e.preventDefault(); buildFrom(e.dataTransfer.files[0]); });
+qyForget.addEventListener("click", async () => {
+  bank = null;
+  await bankDel();
+  bankShown(await toEmu(null));
+});
+const bankLoaded = bankGet().then((b) => { bank = b && b.image ? b : null; bankShown(); });
+
+// ---------------------------------------------------------------- switching on
+const status = document.getElementById("status"), cpu = document.getElementById("cpu");
+async function switchOn() {
+  const go = document.getElementById("go");
+  if (READ.mode === "voice") voice().then((t) => t && t.unlock());   // (in the click: browsers start audio only from one)
+  go.disabled = true;
+  go.textContent = "Starting...";
+  try {
+    const ac = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
+    const [wasm] = await Promise.all([fetch("app.wasm").then((r) => { if (!r.ok) throw new Error(`app.wasm: ${r.status}`); return r.arrayBuffer(); }),
+                                      ac.audioWorklet.addModule("worklet.js")]);
+    node = new AudioWorkletNode(ac, "polly", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+    gain = ac.createGain();
+    node.connect(gain).connect(ac.destination);
+    const ready = new Promise((res) => {
+      node.port.onmessage = (e) => {
+        const m = e.data;
+        if (m.type === "ready") res(m.bank);
+        else if (m.type === "frame") {
+          if (m.said) heard(m.said);
+          if (m.fb) drawScreen(m.fb);
+          drawLights(m.buttons, m.keys);
+          window.pollyLast = m;
+          if (m.load !== undefined) cpu.textContent = `Polly uses ${m.load}% of this computer's time`;
+          if (m.store) saveStore(m.store);
+        }
+      };
+    });
+    await bankLoaded;
+    const image = bank ? bank.image.slice(0) : null;
+    node.port.postMessage({ type: "load", wasm, store: loadStore(), master, bank: image }, image ? [wasm, image] : [wasm]);
+    const mounted = await ready;
+    if (!building) bankShown(bank ? mounted : undefined);
+    await ac.resume();
+    document.getElementById("start").hidden = true;
+    hits.inert = false;
+    muteBtn.disabled = false;
+    status.textContent = ac.sampleRate === 44100 ? "On." : `On (the browser runs audio at ${ac.sampleRate} Hz).`;
+    syncButtons(); syncKeys();
+    readerOn();
+    device.focus({ preventScroll: true });            // (the button that had the focus is gone: the panel has it)
+  } catch (err) {
+    go.disabled = false;
+    go.textContent = "Switch on";
+    status.textContent = "Could not start: " + (err && err.message || err) + ". Chrome, Edge, Firefox and Safari should all work.";
+  }
+}
+document.getElementById("go").addEventListener("click", switchOn);
+// a visible mute: the sound off, Polly running on
+let gain = null;
+const muteBtn = document.getElementById("mute");
+muteBtn.addEventListener("click", () => {
+  const on = muteBtn.getAttribute("aria-pressed") !== "true";
+  muteBtn.setAttribute("aria-pressed", String(on));
+  if (gain) gain.gain.value = on ? 0 : 1;
+});
+
+// ---------------------------------------------------------------- the screen reader
+// Polly's own announcements (firmware/src/announce.c, fm1-reader's protocol) from the emulated device
+// (emu_web.c web_reader / web_said_buf, through the worklet), in the words of its words file (fm1-reader's
+// words.js, and the file its HELLO links: the copy on this site first), to the visitor's screen reader (live
+// regions) or to this page's voice (fm1-reader's tts.js, eSpeak NG). reader/ is fm1-reader's web/, copied in by
+// web/emu/build.sh; without it the screen's text is read as it is, with no voice.
+const READ = { mode: "sr", words: [], spoken: (t) => t, tts: null, ttsLoad: null, last: "", lastNow: false, lastKeep: false, flip: false, keeping: 0 };
+const $r = (id) => document.getElementById(id);
+const libs = Promise.all([import("./reader/words.js"), import("./reader/tts.js")]).then(([w, t]) => {
+  READ.spoken = w.spoken; READ.wordsOf = w.wordsOf; READ.createTTS = t.createTTS; return true;
+}).catch(() => { $r("readerNote").textContent = "This copy of the page has no voice: the screen's text is read as it is.";
+                 document.querySelector('input[name="readMode"][value="voice"]').disabled = true; return false; });
+try { const m = localStorage.getItem("polly-emu-read"); if (m) document.querySelector(`input[name="readMode"][value="${m}"]`).checked = true; } catch {}
+READ.mode = document.querySelector('input[name="readMode"]:checked').value;
+async function loadWords(url) {                       // the words file named in the HELLO: this site's copy, else the link
+  if (!(await libs) || !url) return;
+  const name = url.split("/").pop();
+  for (const u of [`../words/${name}`, url]) {
+    try {
+      const r = await fetch(u);
+      if (r.ok) { READ.words = READ.wordsOf(await r.json()); return; }
+    } catch { /* the next */ }
+  }
+}
+function voice() {
+  if (!READ.ttsLoad) READ.ttsLoad = libs.then((ok) => ok ? READ.createTTS(new URL("reader/", location.href).href) : null)
+    .then((t) => (READ.tts = t)).catch(() => { $r("readerNote").textContent = "This browser couldn't start the page's voice."; return null; });
+  return READ.ttsLoad;
+}
+function readerOn() {
+  const on = READ.mode !== "off";
+  send({ type: "reader", on });
+  $r("where").disabled = $r("again").disabled = !on || !node;
+  if (!on) $r("said").textContent = "";
+}
+function speak(text, now, keep) {
+  READ.last = text; READ.lastNow = now; READ.lastKeep = keep;
+  $r("said").textContent = text;
+  if (READ.mode === "voice") {
+    if (!READ.tts) return;
+    const p = READ.tts.speak(text, { rate: 260, interrupt: now && !READ.keeping });
+    if (keep) { READ.keeping++; p.then(() => READ.keeping--); }
+  } else if (READ.mode === "sr") {
+    // the same words twice in a row are not read again by some screen readers: alternate the text
+    READ.flip = !READ.flip;
+    (now || keep ? $r("liveNow") : $r("liveLater")).textContent = text + (READ.flip ? "" : " ");
+  }
+}
+let wordsReady = Promise.resolve();
+function heard(bytes) {                               // whole F0..F7 frames: F0 7D 53 52 cmd flags text F7
+  const says = [];
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] !== 0xF0) continue;
+    let j = i + 1;
+    while (j < bytes.length && bytes[j] !== 0xF7) j++;
+    const d = bytes.subarray(i, j + 1);
+    i = j;
+    if (d.length < 6 || d[1] !== 0x7D || d[2] !== 0x53 || d[3] !== 0x52) continue;
+    const text = String.fromCharCode(...d.subarray(6, d.length - 1));
+    if (d[4] === 1) {                                 // HELLO: its name, and its words file's link
+      const link = text.split("\0")[1] || "";
+      if (link !== READ.link) { READ.link = link; wordsReady = loadWords(link); }
+    } else if (d[4] === 16 && READ.mode !== "off") {
+      says.push({ text: text.replace(/\0/g, ""), now: !!(d[5] & 1), keep: !!(d[5] & 2) });
+    }
+  }
+  // what came together (a 30th of a second): one cut off by a later "now" one would not be heard, so it isn't said
+  // (a live region would read them all, one after another); warnings always are
+  says.forEach((m, k) => {
+    if (!m.keep && says.slice(k + 1).some((o) => o.now)) return;
+    wordsReady = wordsReady.then(() => speak(READ.spoken(m.text, READ.words), m.now, m.keep));
+  });
+}
+document.querySelectorAll('input[name="readMode"]').forEach((r) => r.addEventListener("change", () => {
+  READ.mode = r.value;
+  try { localStorage.setItem("polly-emu-read", r.value); } catch {}
+  if (READ.mode === "voice") voice().then((t) => { if (t) { t.unlock(); t.speak("Voice on"); } });
+  else if (READ.tts) READ.tts.stop();
+  if (node) readerOn();
+}));
+if (READ.mode === "voice") voice();
+$r("where").addEventListener("click", () => send({ type: "reader", sysex: [0x7D, 0x53, 0x52, 3] }));
+$r("again").addEventListener("click", () => { if (READ.last) speak(READ.last, true, READ.lastKeep); });
+document.getElementById("reset").addEventListener("click", () => {
+  if (document.getElementById("reset").dataset.armed) {
+    try { localStorage.removeItem(STORE_KEY); } catch {}
+    location.reload();
+  } else {
+    document.getElementById("reset").dataset.armed = "1";
+    document.getElementById("reset").textContent = "Click again to forget everything";
+  }
+});
+</script>
+</body>
+</html>

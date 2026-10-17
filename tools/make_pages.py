@@ -9,14 +9,15 @@
   img/                           the manual's pictures (docs/img)
   video/                         the lessons' videos and posters (docs/video), and their captions: NNN.vtt, timed from
                                  tools/video/NNN.story by tools/polly_video.py (needs Pillow), also a transcript under each
-  install/index.html             the web installer (web/polly_installer.html, with fm1pkg.js, fm1ota.js and the
+  install/index.html             the web installer (fm1-base's web/installer.html, with fm1pkg.js, fm1ota.js and the
                                  package's metadata inlined)
-  mirror/index.html              the screen mirror (web/mirror/index.html)
-  backup/index.html              backup and restore in the browser (web/backup/index.html)
+  mirror/index.html              the screen mirror (fm1-base's web/mirror/index.html, filled in by its make_site.py)
+  backup/index.html              backup and restore in the browser (fm1-base's web/backup/index.html: Polly's .plb
+                                 files, what they hold, the QY70 styles' note)
   emu/                           Polly in the browser (build/emu, from web/emu/build.sh; GPL code only: the QY70 bank
                                  is built in the visitor's browser from their own ROM; web/emu/check_published.py
                                  checks the directory). Left out with --no-emu
-  words/                         the screen reader's words files (web/words, from firmware/words.tsv: every one ever
+  words/                         the screen reader's words files (app/web/words, from app/words.tsv: every one ever
                                  made, for the FM-1s that point at them; fm1-reader)
   firmware/polly-VERSION.fwsc    the package the installer writes; also the download
 
@@ -40,10 +41,13 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SRC / "web"))
 sys.path.insert(0, str(SRC / "tools"))
-from make_site import product_of, strip_module  # noqa: E402  (Felucca's: the package format)
+sys.path.insert(0, str(SRC / "base" / "tools"))
 import site_md  # noqa: E402
+import make_site as base_site  # noqa: E402  (fm1-base's: the installer, the mirror and backup pages, the package format)
+product_of, strip_module = base_site.product_of, base_site.strip_module
+BACKUP_PAGE = {"EXT": "plb", "HOLDS": "the four songs and their progressions, your grooves and melodies, and the settings",
+               "EXTRA": "\n  <li>Nor does it hold the QY70 styles. Install them again from your ROM.</li>"}
 
 REPO = "https://github.com/charlesvestal/fm1-polly"
 SITE = "https://charlesvestal.github.io/fm1-polly/"
@@ -53,10 +57,10 @@ ROUTES = {
     "MANUAL.md": "manual/",
     "docs/course/README.md": "school/",
     "README.md": "",
-    "web/polly_installer.html": "install/",
-    "web/mirror/index.html": "mirror/",
-    "web/backup/index.html": "backup/",
-    "web/emu/index.html": "emu/",
+    "base/web/installer.html": "install/",
+    "base/web/mirror/index.html": "mirror/",
+    "base/web/backup/index.html": "backup/",
+    "app/web/emu/index.html": "emu/",
 }
 PREFIXES = [("docs/course/img/", "school/img/"), ("docs/img/", "img/"), ("docs/video/", "video/")]
 
@@ -372,8 +376,8 @@ def rewrite_links(doc, md_path, page):
 
 # ------------------------------------------------------------------------------------------ the doc hooks ---
 
-PAGE_MENTIONS = {"web/polly_installer.html": "the Install page", "web/mirror/index.html": "the Mirror page",
-                 "web/backup/index.html": "the Backup page"}
+PAGE_MENTIONS = {"base/web/installer.html": "the Install page", "base/web/mirror/index.html": "the Mirror page",
+                 "base/web/backup/index.html": "the Backup page"}
 
 
 def outside_links(frag, fn):
@@ -663,26 +667,31 @@ def main(argv):
     desc = "Polly is a pocket arranger for the M-VAVE FM-1."
 
     # the installer
-    inst = (SRC / "web" / "polly_installer.html").read_text(encoding="utf-8")
-    lib = strip_module((SRC / "web" / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
-        strip_module((SRC / "web" / "fm1ota.js").read_text(encoding="utf-8"))
+    inst = (SRC / "base" / "web" / "installer.html").read_text(encoding="utf-8")
+    lib = strip_module((SRC / "base" / "web" / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
+        strip_module((SRC / "base" / "web" / "fm1ota.js").read_text(encoding="utf-8"))
     meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/" + name})
     for mark in ("/*LIB*/", "/*META*/"):
         if inst.count(mark) != 1:
-            raise SystemExit(f"polly_installer.html must contain {mark} once")
+            raise SystemExit(f"base/web/installer.html must contain {mark} once")
+    conf = base_site.read_conf(SRC / "app" / "fm1.toml")
+    credits = conf.get("credits", "").replace("Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton "
+                                              "Instruments). ", "")        # (the page says that part itself)
+    for key, val in (("NAME", "Polly"), ("REPO", REPO), ("REPO_SHORT", REPO.replace("https://", "")),
+                     ("LICENSE", conf.get("licence", "GPL-3.0-only")), ("CREDITS", " " + credits if credits else "")):
+        inst = inst.replace("{{" + key + "}}", val)
     inst = inst.replace("/*LIB*/", lib).replace("/*META*/", meta)
     W("install/index.html", inject_header(inst, "install/index.html", "install", emu, pad=True))  # (its body has no padding)
     # the mirror, the backup page
-    W("mirror/index.html", inject_header((SRC / "web" / "mirror" / "index.html").read_text(encoding="utf-8"),
-                                         "mirror/index.html", "mirror", emu))
-    W("backup/index.html", inject_header((SRC / "web" / "backup" / "index.html").read_text(encoding="utf-8"),
-                                         "backup/index.html", "backup", emu))
+    tools = base_site.tool_pages(SRC / "app", values=BACKUP_PAGE)
+    W("mirror/index.html", inject_header(tools["mirror/index.html"], "mirror/index.html", "mirror", emu))
+    W("backup/index.html", inject_header(tools["backup/index.html"], "backup/index.html", "backup", emu))
     # the emulator
     if emu:
-        e = SRC / "build" / "emu"
-        if not (e / "polly.wasm").exists():
-            raise SystemExit("no build/emu/polly.wasm: run web/emu/build.sh (needs Emscripten), or pass --no-emu")
-        shutil.copytree(e, out / "emu", ignore=shutil.ignore_patterns("__pycache__", ".*"))
+        e = SRC / "app" / "build" / "emu"
+        if not (e / "app.wasm").exists():
+            raise SystemExit("no app/build/emu/app.wasm: run web/emu/build.sh (needs Emscripten), or pass --no-emu")
+        shutil.copytree(e, out / "emu", ignore=shutil.ignore_patterns("__pycache__", ".*", "o2", "*.o"))
         page = (out / "emu" / "index.html").read_text(encoding="utf-8")
         page = re.sub(r'<meta name="robots"[^>]*>\n?', "", page)                  # (on its own site: a page like the others)
         page = re.sub(r'<p class="note">Internal test build[^<]*</p>\n?', "", page)
@@ -697,7 +706,7 @@ def main(argv):
             raise SystemExit("emu/: " + r.stdout + r.stderr)
 
     # the screen reader's words files (fm1-reader): every one ever made, for the devices that point at them
-    shutil.copytree(SRC / "web" / "words", out / "words")
+    shutil.copytree(SRC / "app" / "web" / "words", out / "words")
 
     # the manual
     body, heads, title = render("MANUAL.md", "manual", "manual/index.html")

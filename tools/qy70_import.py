@@ -526,14 +526,14 @@ XT = {"bypass": 0, "parallel": 1, "chord1": 2, "chord2": 3, "bass": 4}
 
 def selftest(rom):
     """every phrase that transposes, stored over C M7 as the importer stores it, played back by Polly's own
-    transposer (firmware/src/dsp/xpose.c, compiled here with cc) over the phrase's source chord: Chord 1 and
+    transposer (app/dsp/xpose.c, compiled here with cc) over the phrase's source chord: Chord 1 and
     Bass must give back the ROM's notes exactly, Chord 2 and Parallel their pitch classes (Polly's Chord 2
     picks octaves by voice leading; Parallel keeps its octave near C). Up to 1% may differ: the chromatic notes
     Polly's degree tables can't keep (a leading tone over a triad, whose 7th is the octave: Polly plays the
     root). 0 = pass."""
     import subprocess
     import tempfile
-    dsp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "firmware", "src", "dsp")
+    dsp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "dsp")
     with tempfile.TemporaryDirectory() as tmp:
         src, exe = os.path.join(tmp, "h.c"), os.path.join(tmp, "h")
         with open(src, "w") as f:

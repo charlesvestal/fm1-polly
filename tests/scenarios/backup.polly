@@ -1,5 +1,5 @@
 # POLLY, backup and restore over USB (tools/polly_backup.py; the device's side, a cut cable, a power cut and the
-# question: tests/backup_test.c): a backup of a known set (song 1's progressions packed in the songs, song 2's too
+# question: base/tests/backup_test.c): a backup of a known set (song 1's progressions packed in the songs, song 2's too
 # many for them: in a place of memory); the set changed (by hand and in the flash: the songs as new, so the place
 # song 2's held is let go at start); the backup put back as the device does once SEL answers RESTORE FROM USB?:
 # everything as it was, at once and after a reboot. Refused while playing (STOP FIRST) and when the file is damaged:

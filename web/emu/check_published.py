@@ -11,11 +11,11 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ALLOWED = {"index.html", "worklet.js", "polly.wasm", "qybank_worker.js",
+ALLOWED = {"index.html", "worklet.js", "app.wasm", "qybank_worker.js",
            "py/qy_build.py", "py/qy70_import.py", "py/qy70_bank.py", "py/qy70_codec.py"}
 # the screen reader's words and voice (fm1-reader's web/, GPL-3.0): allowed, not required
 OPTIONAL = {"reader/words.js", "reader/tts.js", "reader/tts_worker.js", "reader/espeak/espeak.js", "reader/espeak/espeak.wasm",
-            "reader/espeak/LICENSE", "reader/espeak/README.md"}
+            "reader/espeak/LICENSE", "reader/espeak/README.md", "reader/FROM.txt"}
 CHUNK = 32
 
 

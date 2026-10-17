@@ -1,0 +1,29 @@
+# Polly's build settings (fm1-base's tools/build.py: ./build.sh)
+name = "Polly"                 # the build's files: polly.fwsc, polly-X.Y.fwsc
+id_prefix = "FM-1_3"           # package identity: dev FM-1_300, releases FM-1_3XXYYZZ (as Polly 0.4)
+usb_manufacturer = "Polly"
+usb_product = "Polly FM-1"
+ble = false                    # Polly never uses the radio
+usb_audio_in = true            # the music recordable over USB (Setup's USB AUDIO: follows the knob, or full)
+usb_audio_out = false
+mirror = true                  # the screen and panel in a browser (web/mirror), the panel played from it (tools/polly_remote.py)
+backup = true                  # the songs backed up and restored over USB (tools/fm1_backup.py, web/backup)
+words = "words.tsv"
+font_full = ["L"]              # chord names and page names in the big face, lower case too
+include = ["dsp", "dsp/eas"]
+device_include = ["dsp/eas/fm1inc"]   # the C library headers EAS wants, for the firmware (the host has its own)
+vendored = ["dsp/eas/"]        # Sonivox EAS (Apache-2.0): the register check skips it
+# the instrument and the arranger, at -O2
+o2 = ["dsp/gm.c", "dsp/chords.c", "dsp/xpose.c", "dsp/arr.c", "dsp/loops.c", "dsp/leads.c", "dsp/notes.c",
+      "dsp/templates.c", "dsp/qydec.c", "dsp/qybank.c",
+      "dsp/eas/eas_chorus.c", "dsp/eas/eas_chorusdata.c", "dsp/eas/eas_config.c", "dsp/eas/eas_data.c",
+      "dsp/eas/eas_filter.c", "dsp/eas/eas_host_fm1.c", "dsp/eas/eas_math.c", "dsp/eas/eas_midi.c",
+      "dsp/eas/eas_mididata.c", "dsp/eas/eas_mixbuf.c", "dsp/eas/eas_mixer.c", "dsp/eas/eas_pan.c", "dsp/eas/eas_pcm.c",
+      "dsp/eas/eas_pcmdata.c", "dsp/eas/eas_public.c", "dsp/eas/eas_reverb.c", "dsp/eas/eas_reverbdata.c",
+      "dsp/eas/eas_smf.c", "dsp/eas/eas_smfdata.c", "dsp/eas/eas_sndlibmgt.c", "dsp/eas/eas_voicemgt.c",
+      "dsp/eas/eas_wtengine.c", "dsp/eas/eas_wtsynth.c", "dsp/eas/wt_200k_G.c"]
+# the site
+tagline = "A pocket arranger for the FM-1"
+repo = "https://github.com/charlesvestal/fm1-polly"
+licence = "GPL-3.0-only"
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). GM sounds: Sonivox EAS (Apache-2.0). Drums: the Groove MIDI Dataset (CC BY 4.0)."

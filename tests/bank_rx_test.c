@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Host test of the QY70 bank's writer (firmware/src/bank_rx.c) against a simulated NOR flash (erase -> 0xFF, a
+/* Host test of the QY70 bank's writer (app/bank_rx.c) against a simulated NOR flash (erase -> 0xFF, a
  * program only clears bits, a page never wraps) and a host serving a bank image (tools/qy70_codec.py --image):
  * written, mounted, every style decoded; nothing outside the bank's sectors touched, every sector's guard bytes
  * 0xFF; the cable cut midway, a byte changed in transit, a damaged directory, a failed program: no half bank is
@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "qybank.h"
-#define EN_POOL
+#define PLAT_POOL
 
 static uint8_t nor[0x100000], before[0x100000];
 static uint8_t *img;
@@ -74,7 +74,7 @@ static int begins;
 static void bk_begin(void) { begins++; }
 static void bk_show(uint32_t pct) { (void)pct; }
 static void bk_done(int code, int begun) { done_code = code; (void)begun; }
-#include "../firmware/src/bank_rx.c"
+#include "../app/bank_rx.c"
 
 static int check(const char *what, int ok)
 {

@@ -3,7 +3,9 @@
 Polly is a pocket arranger for the M-VAVE FM-1. It's inspired by the Yamaha QY70. A style plays a band of eight
 instruments, and the chords you play steer it. The sounds come from the General MIDI set of
 [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox). MIDI in plays them too, so Polly also works as a
-General MIDI sound module. Polly is built on the platform layer of [Felucca](https://github.com/hugelton/Felucca).
+General MIDI sound module. Polly is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
+[felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
+(Hügelton Instruments).
 
 Install it, learn it or try it in the browser on [Polly's site](https://charlesvestal.github.io/fm1-polly/).
 
@@ -65,9 +67,10 @@ play and stop, and every message, with chord and note names in full ("B flat maj
 ## Building
 
 ```sh
-./build.sh                                  # build/polly.fwsc (identity FM-1_300)
+git submodule update --init --recursive     # fm1-base in base/, felucca-bsp in base/bsp/
+./build.sh                                  # app/build/polly.fwsc (identity FM-1_300)
 sh tests/run_tests.sh                       # host tests, the app in the simulator, the web build
-python3 tools/fm1_install.py build/polly.fwsc --yes
+python3 base/tools/fm1_install.py app/build/polly.fwsc --yes
 web/emu/publish.sh                          # the emulator at charles.pizza/qy/ ([QY70_ROM=...] only for its checks)
 ```
 

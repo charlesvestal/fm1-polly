@@ -1365,8 +1365,8 @@ The QY70's styles are © Yamaha Corporation. Don't share the bank, or anything b
 
 ## Updating and safety
 
-These features come from Felucca, which Polly is built on, and work as they do in the other FM-1
-firmwares.
+These features come from fm1-base and felucca-bsp, from Felucca, which Polly is built on, and work as they do in
+the other FM-1 firmwares.
 
 - **Update mode.** Hold **OCT−** and **OCT+** for 5 seconds. The screen counts down, and the FM-1 restarts,
   ready for an update. Let go before the end to cancel.
@@ -1457,7 +1457,8 @@ Polly sends nothing until the page asks for it, so a DAW on the same cable never
 
 ## Credits
 
-- Polly is built on **Felucca** by Leo Kuroshita of Hügelton Instruments (GPL-3.0), by way of X0X and FoMni.
+- Polly is built on **fm1-base** and **felucca-bsp** (MPL-2.0), from **Felucca** by Leo Kuroshita of Hügelton
+  Instruments. <https://github.com/charlesvestal/fm1-base>, <https://github.com/hugelton/felucca-bsp>,
   <https://github.com/hugelton/Felucca>
 - The synth and its General MIDI sounds are **Sonivox EAS** by Sonic Network and the Android Open Source
   Project (Apache-2.0). <https://github.com/EmbeddedSynth/sonivox>

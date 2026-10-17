@@ -1,20 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* firmware/src/app/teststore.c: a test session's objects in RAM. Saved objects load back byte for byte (random,
+/* app/teststore.c: a test session's objects in RAM. Saved objects load back byte for byte (random,
  * zeros, runs, every length around the code's run and literal limits); a save replaces the object's old one, the
  * others kept; a load longer than max refused, a head read its first bytes; an empty object is none; a full pool refuses a save and keeps the old one; the
  * calibration (OBJ_PANEL) and everything with the session off go to the flash; starting or ending drops it all.
- *   cc -std=c99 -Ifirmware/src -o teststore_test tests/host/teststore_test.c && ./teststore_test */
+ *   cc -std=c99 -Iapp -Ibase/include -o teststore_test tests/host/teststore_test.c && ./teststore_test */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "app/plat.h"
+#include "plat.h"
+enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /* (app.h's) */
 
 static int flash_loads, flash_saves;
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { (void)obj; (void)dst; (void)max; flash_loads++; return -1; }
 int plat_store_head(uint32_t obj, void *dst, uint32_t n) { (void)obj; (void)dst; (void)n; flash_loads++; return -1; }
 int plat_store_save(uint32_t obj, const void *src, uint32_t len) { (void)obj; (void)src; (void)len; flash_saves++; return 0; }
 
-#include "app/teststore.c"
+#include "teststore.c"
 static int obj_load(uint32_t obj, void *dst, uint32_t max)
 {
     return ts.on && obj != OBJ_PANEL ? ts_load(obj, dst, max) : plat_store_load(obj, dst, max);

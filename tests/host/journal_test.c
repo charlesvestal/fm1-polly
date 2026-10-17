@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The undo journal (firmware/src/app/journal.c): steps over several regions, undo and redo by swapping, a step's
+/* The undo journal (app/journal.c): steps over several regions, undo and redo by swapping, a step's
  * edits grouped (one commit), the ring dropping the oldest (by count and by size), redo gone after a new edit, an
  * entry too big for the pool, a region swapped through a copy (as ui.c does a pattern's). */
 #include <stdio.h>
 #include <string.h>
 #define UJ_POOL 4096u
-#include "../../firmware/src/app/journal.c"
+#include "../../app/journal.c"
 
 static int fails;
 #define CHECK(c)                                                                                                      \

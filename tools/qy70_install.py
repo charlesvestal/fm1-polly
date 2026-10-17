@@ -10,7 +10,7 @@ The bank is built here (tools/qy70_codec.py: the styles' phrases, range-coded, w
 about 235 KB) and written to the FM-1 over USB-MIDI, the way an update is: the FM-1 asks for the image piece by
 piece (SysEx read requests, each checksummed), writes it into the flash Polly keeps for it, reads it back and
 checks it (CRC-32), and only then writes its directory, so a cut-off write leaves no bank, never half of one
-(firmware/src/bank_rx.c). It takes some 30 seconds; the FM-1 stops playing meanwhile. Nothing of Yamaha's is
+(app/bank_rx.c). It takes some 30 seconds; the FM-1 stops playing meanwhile. Nothing of Yamaha's is
 in this file or in Polly: what it writes is Yamaha's music, for your own use.
 
 Needs mido with python-rtmidi (as tools/fm1_install.py). Exit codes: 0 written, 1 cancelled or failed, 2 bad
@@ -25,6 +25,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(HERE, "..", "base", "tools"))   # fm1-base's (fm1_install)
 import fm1_install as I  # noqa: E402
 
 BK_REQ = 0x40
@@ -32,7 +33,7 @@ OK_ADDR, FAIL_ADDR = 0xB0000000, 0xBF000000
 ERRORS = {1: "the image's size", 2: "the transfer (a read request unanswered)", 3: "the bank's directory",
           4: "a flash erase", 5: "a flash write", 6: "the image's CRC (a byte changed on the way)",
           7: "the read-back (the flash does not hold what was written)", 8: "mounting it"}
-POLLY = "FM-1_3"                  # Polly's package identity (firmware/src/main.c FELUCCA_ID)
+POLLY = "FM-1_3"                  # Polly's package identity (app/fm1.toml id_prefix)
 DELAY = {"start": 0.0, "poll": 1.0, "idle": 30.0, "reply": 0.0}   # (the FM-1 asks for the directory at once)
 
 

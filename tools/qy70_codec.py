@@ -5,7 +5,7 @@
     python3 tools/qy70_codec.py qy70main.bin --out bank.qyb      # the bank (for your own use: Yamaha's music)
     python3 tools/qy70_codec.py qy70main.bin --sizes             # bytes per style, all, and what fits where
     python3 tools/qy70_codec.py qy70main.bin --test              # Python decode == the importer's events
-    python3 tools/qy70_codec.py qy70main.bin --ctest             # the device's C decoder (firmware/src/dsp/qydec.c)
+    python3 tools/qy70_codec.py qy70main.bin --ctest             # the device's C decoder (app/dsp/qydec.c)
                                                                  # == this one
     python3 tools/qy70_codec.py qy70main.bin --image FILE        # the bank as the FM-1 stores it (qybank.h)
     python3 tools/qy70_codec.py --synthetic --image FILE         # a test bank from Polly's own styles (no ROM)
@@ -40,7 +40,7 @@ NKINDS = len(qb.KINDS)
 MAGIC = b"QYB3"                  # 3: CC 74 and 71 kept (kinds 5, 6)
 
 # ---------------------------------------------------------------- the model's probability layout (the C decoder
-# mirrors it: firmware/src/dsp/qydec.h)
+# mirrors it: app/dsp/qydec.h)
 UK = 18                          # unary prefix of an unsigned code (up to 2^17 - 2)
 UM = 2                           # mantissa bits with their own probabilities (the rest: fixed 1/2)
 USZ = UK + 1 + 16 * UM           # probabilities an unsigned-code context uses
@@ -604,10 +604,10 @@ def dump(dec, f):
 
 
 def ctest(blob):
-    """compile the device's decoder (firmware/src/dsp/qydec.c) for the host, decode the bank, compare with this
+    """compile the device's decoder (app/dsp/qydec.c) for the host, decode the bank, compare with this
     decoder"""
     here = os.path.dirname(os.path.abspath(__file__))
-    dsp = os.path.join(here, "..", "firmware", "src", "dsp")
+    dsp = os.path.join(here, "..", "app", "dsp")
     with tempfile.TemporaryDirectory() as tmp:
         bank, exe = os.path.join(tmp, "bank.qyb"), os.path.join(tmp, "qydec_test")
         with open(bank, "wb") as f:
@@ -627,7 +627,7 @@ def ctest(blob):
         return 0 if same else 1
 
 
-# ---------------------------------------------------------------- the bank on the FM-1 (firmware/src/dsp/qybank.h)
+# ---------------------------------------------------------------- the bank on the FM-1 (app/dsp/qybank.h)
 
 # the data's logical bytes (qybank.h QB_CAPACITY: 63 sectors of 4088, the guard bytes stepped over; the FM-1 maps
 # them to flash as it writes them)

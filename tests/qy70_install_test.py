@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """tools/qy70_install.py against a simulated Polly (no hardware, no mido, no ROM: a bank image given): the
 request it sends (ota.c framing, checked as the firmware checks it), the image served piece by piece as the FM-1
-asks (firmware/src/bank_rx.c's order), the FM-1's result (written / an error code), a device that is not Polly,
+asks (app/bank_rx.c's order), the FM-1's result (written / an error code), a device that is not Polly,
 one that stops answering. Run from the repo root:  python3 tests/qy70_install_test.py IMAGE"""
 import io
 import queue
@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(1, str(ROOT / "base" / "tools"))   # fm1-base's (fm1_install)
 import fm1_install as I  # noqa: E402
 import qy70_install as Q  # noqa: E402
 
