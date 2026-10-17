@@ -55,7 +55,9 @@ class Expander:
         self.step = step            # ms between frames
         self.next_shot = 0
         self.frame = 0
-        self.out = []
+        # MASTER where the videos were made: fm1-base's simulator renders at MASTER's position squared (2896: gain
+        # 2048, the old simulator's default); its 40 ms come before frame 0, so every time in the video is as it was
+        self.out = ["master 2896"]
         self.events = []            # [t, kind, name, value]
         self.anchors = {}
         self.barms = 2000.0
