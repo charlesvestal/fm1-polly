@@ -3412,7 +3412,7 @@ static void test_section_decisions(void)
     CHECK(arr_ended == 1, "the Ending's stop says so (arr_ended: the app's SONG cursor goes back to row 1)");
     arr_clock(ARR_CLK_CONTINUE);
     run_blocks(1);
-    CHECK(arr_playing == 1 && arr_sect == SEC_A && arr_ticks >= 0u, "Continue after the Ending: Main A, from its start (%d)",
+    CHECK(arr_playing == 1 && arr_sect == SEC_A, "Continue after the Ending: Main A, from its start (%d)",
           arr_sect);
     arr_clock(ARR_CLK_TICK);
     run_blocks(1);

@@ -45,10 +45,13 @@ static int chord1(const xtrack_t *t, int note, chord_t c)
 int xpose(const xtrack_t *t, xstate_t *s, int note, chord_t c)
 {
     int out;
+    xtrack_t plain;                               /* (here, not a compound literal in the if: that one ends with it) */
     if (t->type == XT_BYPASS)
         return note;                              /* drums: as written, no limits */
-    if (c.type == CH_NONE)                        /* "---", no chord: every type only moves to the root */
-        t = &(const xtrack_t){XT_PARALLEL, t->lo, t->hi, XT_NOKEY};
+    if (c.type == CH_NONE) {                      /* "---", no chord: every type only moves to the root */
+        plain = (xtrack_t){XT_PARALLEL, t->lo, t->hi, XT_NOKEY};
+        t = &plain;
+    }
     switch (t->type) {
     case XT_PARALLEL: out = note + c.root; break;
     case XT_CHORD2:
