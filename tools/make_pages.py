@@ -30,6 +30,7 @@ pages (anchors kept, GitHub's), the web pages to theirs, other files of the repo
 
 The package must be a release build (./build.sh --release X.Y): its identity, FM-1_3XXYYZZ, is what the installer
 checks the download against and what the FM-1 reports after the install."""
+import hashlib
 import html
 import json
 import os
@@ -670,8 +671,15 @@ def main(argv):
     inst = (SRC / "base" / "web" / "installer.html").read_text(encoding="utf-8")
     lib = strip_module((SRC / "base" / "web" / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((SRC / "base" / "web" / "fm1ota.js").read_text(encoding="utf-8"))
-    meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/" + name})
-    for mark in ("/*LIB*/", "/*META*/"):
+    # m-bootloader (MIT), which the installer offers to install after Polly, with its licence (as fm1-base's make_site)
+    boot = SRC / "base" / "web" / "m-bootloader" / f"fm1-uboot-{base_site.MBOOT_VERSION}.fwsc"
+    boot_name = f"m-bootloader-{base_site.MBOOT_VERSION}.fwsc"
+    shutil.copy(boot, out / "firmware" / boot_name)
+    shutil.copy(SRC / "base" / "web" / "m-bootloader" / "LICENSE", out / "firmware" / "m-bootloader-LICENSE.txt")
+    meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/" + name, "backup": True,
+                       "boot": {"pkg": "../firmware/" + boot_name, "version": base_site.MBOOT_VERSION,
+                                "sha256": hashlib.sha256(boot.read_bytes()).hexdigest()}})
+    for mark in ("/*LIB*/", "/*META*/", "/*APP*/"):
         if inst.count(mark) != 1:
             raise SystemExit(f"base/web/installer.html must contain {mark} once")
     conf = base_site.read_conf(SRC / "app" / "fm1.toml")
@@ -680,7 +688,9 @@ def main(argv):
     for key, val in (("NAME", "Polly"), ("REPO", REPO), ("REPO_SHORT", REPO.replace("https://", "")),
                      ("LICENSE", conf.get("licence", "GPL-3.0-only")), ("CREDITS", " " + credits if credits else "")):
         inst = inst.replace("{{" + key + "}}", val)
-    inst = inst.replace("/*LIB*/", lib).replace("/*META*/", meta)
+    # the firmware's own steps around an install (fm1.toml install_app; web/installer.html APP): Polly has none
+    app_js = (SRC / "app" / conf["install_app"]).read_text(encoding="utf-8") if conf.get("install_app") else "null"
+    inst = inst.replace("/*LIB*/", lib).replace("/*META*/", meta).replace("/*APP*/", app_js)
     W("install/index.html", inject_header(inst, "install/index.html", "install", emu, pad=True))  # (its body has no padding)
     # the mirror, the backup page
     tools = base_site.tool_pages(SRC / "app", values=BACKUP_PAGE)
