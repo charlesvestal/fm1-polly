@@ -11,6 +11,8 @@
  *   bank_damage N                a byte of the bank's style N changed in the flash
  *   style NAME                   the song's six sections from the style named NAME ("_" for a space; "qy:NAME": the
  *                                QY70 bank's only), as the Style knob sets them
+ *   battery N | battery off      the battery read as N (plat_battery: -1 not read, 0..3 bars, 4 USB power); off: the
+ *                                simulator's own (full)
  *   hitreset                     restart the tracks' note-on counts (expect track_hitsN), notes_out and heard_chN
  *   expect loop_nameN TEXT       progression N's name, exactly
  *   poke_*                       host-only debug: objects written straight into storage (see each) */
@@ -31,7 +33,9 @@ static loops_part_t dbg_loops;
 int app_expect(const char *what, int *got_out)
 {
     int got;
-    if (!strcmp(what, "voices"))                  /* the synth's voices sounding */
+    if (!strcmp(what, "battery"))                 /* the battery as shown (plat_battery, or "battery N") */
+        got = batt();
+    else if (!strcmp(what, "voices"))             /* the synth's voices sounding */
         got = gm_voices;
     else if (!strcmp(what, "clicks_out"))         /* the click's note-ons out (channel 16) since hitreset */
         got = (int)click_count;
@@ -581,6 +585,10 @@ int app_host_cmd(const char *cmd, const char *a0, const char *b, const char *c, 
         ok = !strcmp(nm, val);
         printf("%s loop_name%d == \"%s\" (got \"%s\")\n", ok ? "  ok" : "FAIL", atoi(what + 9), val, nm);
         host_fails += !ok;
+        return 1;
+    }
+    if (!strcmp(cmd, "battery")) {                  /* battery N: plat_battery as N (-1..4); "battery off": its own */
+        batt_host = (int8_t)(strcmp(a, "off") ? atoi(a) : -2);
         return 1;
     }
     if (!strcmp(cmd, "bank")) {                     /* bank FILE: an image into the bank's flash, as the device writes it */

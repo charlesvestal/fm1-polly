@@ -617,6 +617,39 @@ static void alert_box(int kind)
     } else
         text_c(bx + 8, cap_y(by, 16, &FONT_B), &FONT_B, kind == AL_ASK ? "?" : kind == AL_NO ? "!" : "i", mark);
 }
+/* the battery (plat_battery): 0 (low) .. 3 bars, 4 a USB host powers the FM-1, -1 not read yet. The simulator's
+ * "battery N" (host.c) stands in for it */
+#ifdef PLAT_HOST
+static int8_t batt_host = -2;                        /* -2: plat_battery's */
+static int batt(void) { return batt_host > -2 ? batt_host : plat_battery(); }
+#else
+#define batt() plat_battery()
+#endif
+#define BATT_W 20                                    /* the body 18 wide and its nub */
+/* lying down at the header's right, its middle on REC's dot's: three ink bars, coral at one or none; a bolt instead on
+ * USB power; nothing until it is read */
+static void draw_batt(int32_t x, int b)
+{
+    static const int8_t BOLT[7][2] = {{10, 2}, {9, 2}, {8, 2}, {7, 5}, {9, 2}, {8, 2}, {7, 2}};
+    uint16_t c = b <= 1 ? K_ACCENT : K_DIM;
+    cv_round(x, 8, 18, 10, 2, c);
+    cv_rect(x + 1, 9, 16, 8, K_BG);
+    cv_rect(x + 18, 11, 2, 4, c);
+    if (b == 4) {
+        for (int i = 0; i < 7; i++)
+            cv_rect(x + BOLT[i][0], 9 + i, BOLT[i][1], 1, K_TEXT);
+        return;
+    }
+    for (int i = 0; i < b && i < 3; i++)
+        cv_rect(x + 2 + i * 5, 10, 4, 6, b <= 1 ? K_ACCENT : K_TEXT);
+}
+static const char *batt_words(int b)                 /* the screen reader's (sp_state) */
+{
+    static const char *const W[5] = {"battery low", "battery one third", "battery two thirds", "battery full",
+                                     "on USB power"};
+    return b >= 0 && b <= 4 ? W[b] : 0;
+}
+
 static const char *const BTN_LABEL[NB];
 static void draw_header(void)
 {
@@ -630,7 +663,7 @@ static void draw_header(void)
                                        (uint32_t)ext << 12 | (uint32_t)sel << 13 | (uint32_t)ask << 14 |
                                        (uint32_t)csong()->tempo << 16);
     h = hash(h, (uint32_t)proj.song | (uint32_t)slots << 24 | (uint32_t)nfree << 25 | (uint32_t)ts.on << 30);
-    h = hash(h, (uint32_t)cnt);
+    h = hash(h, (uint32_t)cnt | (uint32_t)(batt() + 1) << 8);
     if (msg)
         h = hash(h, ui.msg_until ^ (uint32_t)ui.msg_no << 31);
     for (const char *c = ui.ask_q; ask && *c; c++)
@@ -667,7 +700,12 @@ static void draw_header(void)
         cat_s(itoa_u((uint32_t)used, t), " of 16 used");
         cv_text(x + ARR_USER_PATTERNS * 5 + 6, 4, &FONT_S, t, nfree ? K_DIM : K_ACCENT);
     } else {
-        int32_t r = 232;
+        int32_t r = 232, l = 8;                      /* (l: where the left side ends) */
+        if (batt() >= 0) {                           /* the battery, at the far right */
+            r -= BATT_W;
+            draw_batt(r, batt());
+            r -= 8;
+        }
         if (ts.on) {                                 /* a test session (polly_remote.py --fresh): nothing is saved */
             int32_t w = text_w(&FONT_XS, "TEST") + 10;
             r -= w;
@@ -677,6 +715,7 @@ static void draw_header(void)
         }
         if (sel) {                                   /* HOME held: what it does with the keys, the song's */
             itoa_u(proj.song + 1u, cat_s(t, "HOME + a key|S"));
+            l = 8 + segs_w(&FONT_B, t);
             segs(8, 4, &FONT_B, t, K_TEXT);
         } else {
             int32_t x = 8;
@@ -691,8 +730,9 @@ static void draw_header(void)
             x = cv_text(x, 4, &FONT_B, PAGE_NAME[ui.page], K_TEXT);
             if (ui.page == P_HOME) {                 /* "Home S1" (the tag starts there too) */
                 itoa_u(proj.song + 1u, cat_s(t, " S"));
-                cv_text(x, 4, &FONT_B, t, K_TEXT);
+                x = cv_text(x, 4, &FONT_B, t, K_TEXT);
             }
+            l = x;
         }
         if (ui.page != P_HOME && !sel) {             /* the tempo (HOME: its KNOB 2) */
             if (ext)
@@ -708,7 +748,7 @@ static void draw_header(void)
             cv_round(r, 8, 9, 9, 4, K_REC);
             r -= 6;
         }
-        if (un)
+        if (un && r - text_w(&FONT_XS, "unsaved") >= l + 6)   /* (where it clears the page's name) */
             cv_text(r - text_w(&FONT_XS, "unsaved"), 5, &FONT_XS, "unsaved", K_DIM);
     }
     cv_blit(0, 0);

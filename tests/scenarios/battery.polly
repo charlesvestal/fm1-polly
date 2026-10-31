@@ -1,0 +1,40 @@
+# the battery at the header's far right (plat_battery): three ink bars, coral at one or none, a bolt on USB power,
+# nothing until it is read; a screen reader hears it at the end of the header's state (WHERE)
+wait 300
+expect battery 3
+shot home_full.png
+tap GLO
+wait 200
+shot setup_full.png
+battery 2
+wait 100
+shot setup_two.png
+battery 1
+wait 100
+shot setup_one.png
+battery 0
+wait 100
+shot setup_low.png
+battery 4
+wait 100
+shot setup_usb.png
+battery -1
+wait 100
+shot setup_unread.png
+# a long page name, recording and unsaved beside it
+battery 1
+tap ARP
+wait 200
+shot progression_one.png
+listen
+wait 200
+said battery one third
+battery 4
+where
+said on USB power
+battery -1
+where
+unsaid battery
+unsaid USB
+battery off
+expect battery 3

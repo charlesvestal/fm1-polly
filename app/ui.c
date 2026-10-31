@@ -5022,7 +5022,7 @@ static void sp_main(void)
         sp_cat(". Polly " GM_VERSION);
     }
 }
-/* what the header says besides the page: playing or not, recording, the tempo, unsaved */
+/* what the header says besides the page: playing or not, recording, the tempo, unsaved, the battery */
 static void sp_state(void)
 {
     sp_cat(arr_playing ? "Playing" : "Stopped");
@@ -5040,6 +5040,10 @@ static void sp_state(void)
         sp_cat(", unsaved");
     if (ts.on)
         sp_cat(", test session");
+    if (batt_words(batt())) {
+        sp_cat(", ");
+        sp_cat(batt_words(batt()));
+    }
 }
 /* a list's row and its place: "Tempo 120, 2 of 9" (MORE, a heading, not counted) */
 static void sp_row(void)
@@ -5530,6 +5534,13 @@ static void speak_dump(void)
     sd_pages();
     app.lead = 0;
     lst.open = 0;
+    ui.page = P_SETUP;                          /* the battery, each level (WHERE's state) */
+    for (int b = -1; b <= 4; b++) {
+        batt_host = (int8_t)b;
+        sp_front(1);
+        sp_print("WHERE", sp_buf);
+    }
+    batt_host = -2;
     ui.page = P_HOME;                           /* HOME held */
     ui.btn |= 1u << B_HOME;
     ui.btn_t[B_HOME] = plat_ms() - 1000u;

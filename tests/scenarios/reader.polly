@@ -5,7 +5,7 @@
 wait 300
 listen
 wait 100
-said Home page. S1, follow: Style Pop, Tempo 105, Transpose C, Prog follow. Stopped. Groove A. Play three keys for a chord. The band follows your chords.
+said Home page. S1, follow: Style Pop, Tempo 105, Transpose C, Prog follow. Stopped, battery full. Groove A. Play three keys for a chord. The band follows your chords.
 # a chord from the keys: its name, at once
 key 7 down
 key 11 down
@@ -143,7 +143,7 @@ said Pan right 22
 # WHERE: everything again, then the controls
 where
 wait 40
-said Mixer, page 1 of 2. S1, Pop, Groove A, C2 Clean Guitar: Volume 70, Pan right 22, Reverb 50, Chorus 40. Stopped, tempo 106, unsaved.
+said Mixer, page 1 of 2. S1, Pop, Groove A, C2 Clean Guitar: Volume 70, Pan right 22, Reverb 50, Chorus 40. Stopped, tempo 106, unsaved, battery full.
 where
 wait 40
 said black keys: instrument. SELECT: page. ALGO: instrument.
@@ -176,7 +176,7 @@ wait 3000
 said_none
 where
 wait 40
-said Playing, unsaved. Groove A, section 1 of 2. Chord
+said Playing, unsaved, battery full. Groove A, section 1 of 2. Chord
 tap PLAY
 wait 50
 said Stop

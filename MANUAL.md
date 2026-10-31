@@ -191,7 +191,9 @@ From top to bottom, the screen has five parts.
   On Home it shows the song instead, such as "Home S1", and while you hold **HOME** it reads "HOME + a key ·
   S1". The tempo sits at the right, except on Home, where **KNOB 2** shows it. If MIDI clock is setting the
   tempo, you'll see "ext" there. A coral dot means Polly is recording, and "unsaved" means you have changes
-  to save.
+  to save. At the far right is the battery: three bars when it's full, fewer as it runs down. At one bar or
+  none it turns coral: time to charge. Plugged into a computer, it shows a lightning bolt instead. While it
+  charges from a wall charger, the bars read high.
 - **The middle** is the page itself.
 - **The tag line**, just above the knobs, tells you where you are, from the song down. On Band, Sound and
   Mixer it reads something like "S1 › Pop › Groove A › C1 Acoustic Grand". On the Progression page it's
@@ -1453,8 +1455,8 @@ Chords and notes are said in full, such as "F sharp minor seven flat five" or "B
 chord your keys play, a list's row and where it is in the list, the help card when you hold a button, each
 question with how to answer it, play and stop, and every message on the screen. While a song plays, the bars,
 sections and chords going by aren't read out, so you can listen to the music. Press **Read the whole screen**
-on the page, or the W key, to hear everything: the page, the progression's chords or the song's sections, and
-what the keys and encoders do here.
+on the page, or the W key, to hear everything: the page, the battery, the progression's chords or the song's
+sections, and what the keys and encoders do here.
 
 Polly sends nothing until the page asks for it, so a DAW on the same cable never sees a thing.
 
