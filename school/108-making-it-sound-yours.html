@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polly · 108 Making it sound yours</title>
+<meta name="description" content="108 Making it sound yours is a lesson in Polly School. Polly is a pocket arranger for the M-VAVE FM-1.">
+<meta name="theme-color" content="#faf4e8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;1,400&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+:root { --ground: #faf4e8; --ink: #48392f; --muted: #725f4c; --rule: #e6dccb; --accent: #e0683a; --teal: #1f8a80; --card: #fffaf1;
+        --accent-t: #f8dccd; --teal-t: #d5ece8; --accent-ink: #b4481c; --on-accent: #2a140a; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                                    --accent-t: #4a2d20; --teal-t: #1e3a36; --accent-ink: #f28a5a; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --ground: #1c1814; --ink: #f2e8d8; --muted: #b3a28e; --rule: #3a322a; --accent: #f28a5a; --teal: #4cc3b6; --card: #26201b;
+                           --accent-t: #4a2d20; --teal-t: #1e3a36; --accent-ink: #f28a5a; color-scheme: dark; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--ground); color: var(--ink); margin: 0; padding: 20px 16px 64px;
+       font: 400 17px/1.6 "Barlow", "Helvetica Neue", Arial, sans-serif; overflow-wrap: break-word; }
+main { max-width: 46rem; margin: 0 auto; }
+h1, h2, h3, h4 { font-family: "Barlow Semi Condensed", "Barlow", sans-serif; line-height: 1.15; text-wrap: balance; scroll-margin-top: 4rem; }
+h1 { font-size: 2.4rem; font-weight: 700; margin: 0 0 .8rem; }
+h2 { font-size: 1.65rem; font-weight: 700; margin: 2.6rem 0 .7rem; padding-top: .9rem; border-top: 2px solid var(--rule); }
+h3 { font-size: 1.25rem; font-weight: 600; margin: 1.9rem 0 .5rem; }
+h4 { font-size: 1.05rem; font-weight: 600; margin: 1.4rem 0 .4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin: .25rem 0; }
+li > ul, li > ol { margin: .2rem 0 .3rem; }
+li::marker { color: var(--accent); }
+strong { font-weight: 600; }
+a { color: var(--ink); text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { color: var(--accent-ink); }
+a:focus-visible, summary:focus-visible, video:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 2px; }
+code, pre, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; }
+code { background: var(--card); border: 1px solid var(--rule); padding: .05em .35em; border-radius: 4px; }
+pre { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 16px; overflow-x: auto; line-height: 1.45; margin: 0 0 1.2rem; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
+blockquote { margin: 0 0 1.2rem; padding: .7rem 1rem; border-left: 4px solid var(--teal); background: var(--card); border-radius: 0 10px 10px 0; }
+blockquote p:last-child { margin: 0; }
+.table-wrap { overflow-x: auto; margin: 0 0 1.4rem; }
+table.md { border-collapse: collapse; width: 100%; font-size: .95rem; }
+table.md th, table.md td { text-align: left; vertical-align: top; padding: .45rem .7rem .45rem 0; border-bottom: 1px solid var(--rule); }
+table.md th { font: 600 .82rem "Barlow", sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 2px solid var(--rule); }
+img { max-width: 100%; height: auto; }
+p.shot { margin: .4rem 0 1.4rem; }
+p.shot img[src$=".png"] { width: 360px; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 1px var(--rule); background: #000; }
+p.shot img[src$=".svg"] { width: 100%; background: #fffaf1; border-radius: 10px; padding: 6px; }
+figure.video { margin: .4rem 0 1.6rem; }
+figure.video video { display: block; width: 100%; height: auto; background: #111; border-radius: 12px; }
+figure.video figcaption { color: var(--muted); font-size: .9rem; margin-top: .4rem; }
+details.transcript { margin: -1rem 0 1.6rem; font-size: .95rem; }
+details.transcript summary { cursor: pointer; color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent);
+                             text-underline-offset: 3px; width: fit-content; }
+details.transcript ol { list-style: none; padding: 0; margin: .5rem 0 0; }
+details.transcript .t { font-variant-numeric: tabular-nums; color: var(--muted); display: inline-block; min-width: 2.6rem; }
+p.web-alt { background: var(--teal-t); border-radius: 10px; padding: .6rem .9rem; margin: .4rem 0 .9rem; }
+table.steps p.web-alt { margin: .8rem 0 .6rem; }
+.doc > p:has(> em:only-child) { color: var(--muted); }
+footer.pl-foot { max-width: 46rem; margin: 3.5rem auto 0; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .9rem; }
+footer.pl-foot a { color: inherit; }
+
+/* the course: steps as a table, text left, picture right; stacked on a phone */
+table.steps { border-collapse: separate; border-spacing: 0 14px; width: 100%; margin: 0 0 1rem; }
+table.steps td { vertical-align: top; padding: 14px 16px; background: var(--card); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+table.steps td:first-child { border-left: 1px solid var(--rule); border-radius: 12px 0 0 12px; }
+table.steps td:last-child { border-right: 1px solid var(--rule); border-radius: 0 12px 12px 0; padding-left: 0; }
+table.steps td[colspan] { border-radius: 12px; padding-left: 16px; }
+table.steps td h2 { margin: 0 0 .4rem; padding: 0; border: 0; font-size: 1.2rem; font-weight: 600; }
+table.steps td img { display: block; width: 100%; border-radius: 8px; }
+table.steps td pre { margin: 0; font-size: .8rem; }
+@media (max-width: 700px) {
+  table.steps, table.steps tbody, table.steps tr, table.steps td { display: block; width: auto !important; }
+  table.steps { border-spacing: 0; }
+  table.steps tr { margin: 0 0 14px; background: var(--card); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+  table.steps td, table.steps td:first-child, table.steps td:last-child { border: 0; border-radius: 0; padding: 12px 14px; background: none; }
+  table.steps td + td { padding-top: 0; }
+}
+main.wide { max-width: 64rem; }
+
+/* School: the lessons menu, previous / next */
+.lessons { position: relative; margin: 0 0 1.4rem; }
+.lessons summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .9rem;
+                   border: 1px solid var(--rule); border-radius: 999px; background: var(--card); font-weight: 600; }
+.lessons summary::-webkit-details-marker { display: none; }
+.lessons summary::after { content: ""; width: .45rem; height: .45rem; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+                          transform: translateY(-2px) rotate(45deg); }
+.lessons[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+.lessons summary .here { color: var(--muted); font-weight: 400; }
+.lessons ol { position: absolute; z-index: 5; left: 0; top: calc(100% + 6px); min-width: min(22rem, calc(100vw - 32px)); list-style: none; margin: 0;
+              padding: .4rem; background: var(--card); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 10px 30px rgba(40, 25, 10, .18); }
+.lessons li { margin: 0; }
+.lessons li a { display: block; padding: .35rem .7rem; border-radius: 8px; text-decoration: none; }
+.lessons li a:hover { background: var(--ground); color: var(--ink); }
+.lessons li a[aria-current="page"] { background: var(--accent-t); font-weight: 600; }
+.lessons li a[aria-current="page"]::after { content: "  ·  you are here"; font-weight: 400; color: var(--muted); }
+.lessons li.all { border-top: 1px solid var(--rule); margin-top: .3rem; padding-top: .3rem; }
+nav.pager { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 2.6rem 0 0; }
+nav.pager a { display: block; padding: .8rem 1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); text-decoration: none; }
+nav.pager a:hover { border-color: var(--accent); color: var(--ink); }
+nav.pager span { display: block; color: var(--muted); font-size: .85rem; }
+nav.pager strong { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; }
+nav.pager .next { grid-column: 2; text-align: right; }
+
+/* the manual: the contents beside it on a wide screen, a menu at the top on a narrow one */
+.toc-side { display: none; }
+.toc-side nav { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding: .2rem 0; }
+.toc-side h2, .toc-drop summary { font: 600 .82rem "Barlow", sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 0; margin: 0 0 .4rem; padding: 0; }
+.toc-side ol, .toc-drop ol { list-style: none; padding: 0; margin: 0; }
+.toc-side li, .toc-drop li { margin: 0; }
+.toc-side a, .toc-drop a { display: block; padding: .22rem .6rem; border-radius: 8px; text-decoration: none; font-size: .95rem; line-height: 1.3; }
+.toc-side a:hover, .toc-drop a:hover { background: var(--card); color: var(--ink); }
+.toc-side a.on { background: var(--accent-t); font-weight: 600; }
+.toc-side ol.sub { display: none; margin: .1rem 0 .4rem .7rem; padding-left: .5rem; border-left: 2px solid var(--rule); }
+.toc-side li.open > ol.sub { display: block; }
+.toc-side ol.sub a { font-size: .88rem; padding: .25rem .55rem; color: var(--muted); }
+.toc-side li.open > a { font-weight: 600; }
+.toc-side ol.sub a.on { color: var(--ink); }
+.toc-drop { position: sticky; top: 0; z-index: 4; margin: 0 -16px 1rem; padding: .5rem 16px; background: var(--ground); border-bottom: 1px solid var(--rule); }
+.toc-drop summary { cursor: pointer; margin: 0; padding: .2rem 0; color: var(--ink); }
+.toc-drop ol { max-height: 60vh; overflow-y: auto; padding: .4rem 0 .2rem; }
+@media (min-width: 1100px) {
+  .manual { display: grid; grid-template-columns: 15rem minmax(0, 46rem); justify-content: center; gap: 0 3rem; }
+  .manual > main { margin: 0; }
+  .toc-side { display: block; }
+  .toc-drop { display: none; }
+}
+
+/* the landing page */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.6rem 2.4rem; align-items: center; margin: .6rem 0 2rem; }
+.hero h1 { font-size: 3.4rem; margin: 0 0 .1rem; }
+.hero .sub { font: 600 1.2rem "Barlow Semi Condensed", "Barlow", sans-serif; color: var(--accent-ink); margin: 0 0 1rem; }
+.hero .lede { font-size: 1.12rem; margin: 0 0 1.3rem; }
+.hero img { width: 300px; image-rendering: pixelated; border-radius: 10px; background: #000; box-shadow: 0 0 0 10px #17181a, 0 0 0 11px var(--rule); margin: 11px; }
+.buttons { display: flex; flex-wrap: wrap; gap: .6rem; }
+a.btn { display: inline-flex; flex-direction: column; text-decoration: none; padding: .55rem 1.2rem; border-radius: 14px; border: 1px solid var(--rule); background: var(--card); }
+a.btn strong { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; }
+a.btn span { font-size: .85rem; color: var(--muted); }
+a.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #2a140a); }
+a.btn.primary span { color: var(--on-accent, #2a140a); }
+a.btn:hover { border-color: var(--accent); color: inherit; }
+a.btn.primary:hover { color: var(--on-accent, #2a140a); filter: brightness(1.05); }
+.ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 12px; margin: 0 0 1rem; }
+.ways a { display: block; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); text-decoration: none; }
+.ways a:hover { border-color: var(--accent); color: inherit; }
+.ways strong { display: block; font: 600 1.2rem "Barlow Semi Condensed", "Barlow", sans-serif; }
+.ways span { color: var(--muted); font-size: .95rem; }
+p.small, ul.small { color: var(--muted); font-size: .92rem; }
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 2.8rem; }
+  .hero img { width: min(300px, calc(100vw - 54px)); }
+  .hero figure { justify-self: center; margin: 0; }
+}
+
+:root { --pl-ground: #faf4e8; --pl-ink: #48392f; --pl-muted: #725f4c; --pl-rule: #e6dccb; --pl-accent: #e0683a; --pl-accent-ink: #b4481c;
+        --pl-on-accent: #2a140a; --pl-teal: #1f8a80; --pl-card: #fffaf1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a;
+                                    --pl-accent-ink: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
+}
+:root[data-theme="dark"] { --pl-ground: #1c1814; --pl-ink: #f2e8d8; --pl-muted: #b3a28e; --pl-rule: #3a322a; --pl-accent: #f28a5a;
+                           --pl-accent-ink: #f28a5a; --pl-teal: #4cc3b6; --pl-card: #26201b; }
+div.pl-site { max-width: 1100px; margin: 0 auto 1.6rem; padding: 0 0 .7rem; border-bottom: 1px solid var(--pl-rule);
+              display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.4rem; box-sizing: border-box;
+              font: 400 16px/1.4 "Barlow", "Helvetica Neue", Arial, sans-serif; text-align: left; }
+div.pl-site a.pl-home { display: inline-flex; align-items: center; gap: .45rem; color: var(--pl-ink); text-decoration: none;
+                        font: 700 1.45rem/1 "Barlow Semi Condensed", "Barlow", sans-serif; letter-spacing: .01em; }
+div.pl-site a.pl-home:hover { color: var(--pl-accent-ink); }
+div.pl-site .pl-logo { display: block; flex: none; }
+div.pl-site nav { display: flex; flex-wrap: wrap; gap: .2rem .25rem; margin: 0 0 0 auto; padding: 0; }
+div.pl-site nav a { color: var(--pl-ink); text-decoration: none; padding: .28rem .6rem; border-radius: 999px; font-size: .98rem;
+                    font-weight: 600; white-space: nowrap; }
+div.pl-site nav a:hover { background: var(--pl-card); box-shadow: inset 0 0 0 1px var(--pl-rule); }
+div.pl-site nav a[aria-current="page"] { background: var(--pl-accent); color: var(--pl-on-accent); box-shadow: none; }
+div.pl-site a:focus-visible { outline: 2px solid var(--pl-teal); outline-offset: 2px; }
+div.pl-site.pl-pad { padding: 16px 16px .7rem; }
+a.pl-skip { position: absolute; left: 16px; top: -100px; z-index: 50; padding: .5rem .9rem; border-radius: 8px; background: var(--pl-card);
+            color: var(--pl-ink); font: 600 16px "Barlow", "Helvetica Neue", Arial, sans-serif; box-shadow: 0 0 0 2px var(--pl-teal); }
+a.pl-skip:focus { top: 12px; }
+.pl-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+@media (max-width: 720px) {
+  div.pl-site { gap: .4rem; }
+  div.pl-site nav { margin: 0; width: 100%; gap: .2rem .1rem; }
+  div.pl-site nav a { padding: .25rem .5rem; font-size: .95rem; }
+}
+</style>
+</head>
+<body>
+<a class="pl-skip" href="#content">Skip to content</a>
+<div class="pl-site" role="banner"><a class="pl-home" href="../" aria-label="Polly, home"><svg class="pl-logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="9" fill="#e0683a"/><path d="M11 24V8h6.2a5.2 5.2 0 0 1 0 10.4H11" fill="none" stroke="#fffaf1" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22.5" cy="23.5" r="2.4" fill="#26a69a"/></svg><span>Polly</span></a><nav aria-label="Polly's pages"><a href="./" aria-current="page">School</a><a href="../manual/">Manual</a><a href="../install/">Install</a><a href="../mirror/">Mirror</a><a href="../backup/">Backup</a><a href="../emu/">Emulator</a></nav></div>
+<main id="content" class="doc">
+<details class="lessons"><summary>Lessons <span class="here">· 108 Making it sound yours</span></summary><ol><li><a href="101-playing-live.html">101 Playing live</a></li><li><a href="102-your-own-progressions.html">102 Your own progressions</a></li><li><a href="103-your-song.html">103 Your song</a></li><li><a href="104-changing-styles.html">104 Changing styles</a></li><li><a href="105-recording-a-melody.html">105 Recording a melody</a></li><li><a href="106-your-own-grooves.html">106 Your own grooves</a></li><li><a href="107-fixing-notes.html">107 Fixing notes</a></li><li><a href="108-making-it-sound-yours.html" aria-current="page">108 Making it sound yours</a></li><li><a href="109-keeping-your-work.html">109 Keeping your work</a></li><li><a href="110-with-other-gear.html">110 With other gear</a></li><li class="all"><a href="./">All lessons</a></li></ol></details>
+<h1 id="108-making-it-sound-yours">108 Making it sound yours</h1>
+<p>Change an instrument's sound, mix it, set the effects and move the key.</p>
+<p>Picks up where <a href="107-fixing-notes.html">107</a> left off, with Polly stopped in Notes, Funk as the style and Groove A yours.</p>
+<figure class="video"><video controls preload="none" playsinline poster="../video/108.jpg" src="../video/108.mp4" aria-label="Video: 108 Making it sound yours (1 minute)"><track kind="captions" srclang="en" label="English" src="../video/108.vtt"></video><figcaption>Watch 108 Making it sound yours (1 minute). It has no speech: you hear Polly playing, and captions show each step.</figcaption></figure><details class="transcript"><summary>Transcript of the video</summary><p>The video shows the FM-1 from the front, with the keys and buttons lighting as they are pressed. Its captions, with the time each one appears (1:16 in all):</p><ol><li><span class="t">0:00</span> <strong>Making it sound yours</strong>. Change an instrument&#x27;s sound, mix it, set the effects and move the key.</li><li><span class="t">0:03</span> <strong>1. Open the Sound page</strong>. Press HOME for the Home page, then PLAY. Press EDIT for the Sound page. It opens on BA, which you picked in 107.</li><li><span class="t">0:10</span> <strong>1. Open the Sound page</strong>. Turn ALGORITHM one step to C1. In Funk, C1 plays a clavinet.</li><li><span class="t">0:15</span> <strong>2. Pick a sound</strong>. Turn KNOB 1 (Sound) up to Rock Organ. The clavinet part now plays on an organ.</li><li><span class="t">0:22</span> <strong>3. Mix it</strong>. Press LFO to open the Mixer on C1. KNOB 1 sets its volume, and KNOB 2 its pan.</li><li><span class="t">0:35</span> <strong>4. Add space</strong>. KNOB 3 sets how much it sends to the reverb, and KNOB 4 how much to the chorus.</li><li><span class="t">0:46</span> <strong>5. Set the effects</strong>. Press FX for the Effects page. KNOB 1 picks the reverb, and KNOB 2 sets its level.</li><li><span class="t">0:55</span> <strong>6. Move the key</strong>. Press HOME for the Home page, then turn KNOB 3 (Transpose) to D.</li><li><span class="t">1:01</span> <strong>6. Move the key</strong>. Play a C chord, and the band plays D.</li><li><span class="t">1:08</span> <strong>6. Move the key</strong>. Press PLAY to stop.</li><li><span class="t">1:12</span> <strong>Next: 109</strong>. Keeping your work.</li></ol></details>
+<table class="steps" role="presentation">
+<tr><td width="38%" valign="top"><h2>1. Open the Sound page</h2>Press <b>HOME</b> for the Home page, then <b>PLAY</b>. Press <b>EDIT</b> for the Sound page. It opens on BA, which you picked in 107.<br><br>Turn <b>ALGORITHM</b> one step to C1. In Funk, C1 plays a clavinet.</td><td><img src="img/108/1-instrument.jpg" alt="The Sound page on C1, Clavinet" width="100%"></td></tr>
+<tr><td width="38%" valign="top"><h2>2. Pick a sound</h2>Turn <b>KNOB 1</b> (Sound) up to Rock Organ. The clavinet part now plays on an organ.<br><br>The line above the knobs says Groove A (edited). Your note edits in 107 made an edited copy of the groove, so the new sound goes into that copy.</td><td><img src="img/108/2-sound.jpg" alt="KNOB 1 (Sound) turned to Rock Organ, Groove A (edited)" width="100%"></td></tr>
+<tr><td width="38%" valign="top"><h2>3. Mix it</h2>Press <b>LFO</b> to open the Mixer on C1. Turn <b>KNOB 1</b> (Volume) to 100, and <b>KNOB 2</b> (Pan) to R10.</td><td><img src="img/108/3-mix.jpg" alt="The Mixer on C1: volume 100, pan R10" width="100%"></td></tr>
+<tr><td width="38%" valign="top"><h2>4. Add space</h2>Turn <b>KNOB 3</b> (Reverb) to 70 and <b>KNOB 4</b> (Chorus) to 40. These set how much of C1 goes to the reverb and the chorus.</td><td><img src="img/108/4-sends.jpg" alt="C1's sends: reverb 70, chorus 40" width="100%"></td></tr>
+<tr><td width="38%" valign="top"><h2>5. Set the effects</h2>Press <b>FX</b> for the Effects page. Turn <b>KNOB 1</b> (Reverb) to L.hall for a large hall, and <b>KNOB 2</b> (Level) to 80.<br><br>The bars show how much each instrument sends to the effects.</td><td><img src="img/108/5-effects.jpg" alt="Effects: reverb L.hall, level 80" width="100%"></td></tr>
+<tr><td width="38%" valign="top"><h2>6. Move the key</h2>Press <b>HOME</b> for the Home page, then turn <b>KNOB 3</b> (Transpose) to D. Play a C chord, and the band plays D.<br><br>Press <b>PLAY</b> to stop.</td><td><img src="img/108/6-transpose.jpg" alt="Transpose D, a C chord played: the band plays D" width="100%"></td></tr>
+</table>
+<h2 id="more-in-the-manual">More in the manual</h2>
+<p>For Type, Low and High, see <a href="../manual/#sound-edit">Sound (EDIT)</a>. For mutes and Mixer tone, see <a href="../manual/#mixer-lfo">Mixer (LFO)</a>. See also <a href="../manual/#sound">Sound</a>, <a href="../manual/#effects-fx">Effects (FX)</a> and <a href="../manual/#transpose">Transpose</a>.</p>
+<nav class="pager" aria-label="Lessons"><a class="prev" rel="prev" href="107-fixing-notes.html"><span><span aria-hidden="true">← </span>Previous</span><strong>107 Fixing notes</strong></a><a class="next" rel="next" href="109-keeping-your-work.html"><span>Next<span aria-hidden="true"> →</span></span><strong>109 Keeping your work</strong></a></nav>
+</main>
+<footer class="pl-foot">Polly 0.5 for the M-VAVE FM-1 · GPL-3.0 · <a href="https://github.com/charlesvestal/fm1-polly">Source on GitHub</a> · built on <a href="https://github.com/hugelton/Felucca">Felucca</a> by Hügelton Instruments</footer>
+<script>
+(() => {                                   // a code block or table wider than the page: the keyboard can scroll it
+  const fit = () => document.querySelectorAll("main pre, main .table-wrap").forEach((e) => {
+    if (e.scrollWidth > e.clientWidth + 1) {
+      if (e.hasAttribute("tabindex")) return;
+      let h = e.previousElementSibling;
+      while (h && !/^H[1-6]$/.test(h.tagName)) h = h.previousElementSibling;
+      e.tabIndex = 0;
+      e.setAttribute("role", "region");
+      e.setAttribute("aria-label", (e.tagName === "PRE" ? "Code" : "Table") + (h ? ": " + h.textContent.trim() : ""));
+    } else if (e.getAttribute("role") === "region") {
+      e.removeAttribute("tabindex"); e.removeAttribute("role"); e.removeAttribute("aria-label");
+    }
+  });
+  fit();
+  addEventListener("resize", fit);
+})();
+</script>
+<script>
+document.addEventListener("click", (e) => {               // the lessons menu closes on a click outside it
+  for (const d of document.querySelectorAll("details.lessons[open]")) if (!d.contains(e.target)) d.open = false;
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.querySelectorAll("details.lessons[open]").forEach((d) => d.open = false); });
+</script></body>
+</html>
