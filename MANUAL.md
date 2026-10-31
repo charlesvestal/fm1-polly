@@ -1321,9 +1321,12 @@ Polly contains none of Yamaha's music: you bring the ROM, and the bank is for yo
 
 ### Installing on the FM-1
 
-Connect the FM-1 with a USB cable, and run this in a terminal, in this repository:
+Connect the FM-1 with a USB cable, and run this in a terminal. The tool needs the repository with its `base/`
+folder (fm1-base), which GitHub's ZIP download leaves out, so clone it:
 
 ```sh
+git clone --recursive https://github.com/charlesvestal/fm1-polly
+cd fm1-polly
 pip3 install mido python-rtmidi
 python3 tools/qy70_install.py qy70main.bin
 ```

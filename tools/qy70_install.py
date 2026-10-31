@@ -26,7 +26,12 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "base", "tools"))   # fm1-base's (fm1_install)
-import fm1_install as I  # noqa: E402
+try:
+    import fm1_install as I  # noqa: E402
+except ImportError:              # base/ is empty: a ZIP download, or a clone without its submodule
+    sys.exit("base/ (fm1-base) is missing. Clone Polly with it:\n"
+             "    git clone --recursive https://github.com/charlesvestal/fm1-polly\n"
+             "or, in a clone made before:  git submodule update --init --recursive")
 
 BK_REQ = 0x40
 OK_ADDR, FAIL_ADDR = 0xB0000000, 0xBF000000
