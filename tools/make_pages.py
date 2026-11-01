@@ -9,8 +9,8 @@
   img/                           the manual's pictures (docs/img)
   video/                         the lessons' videos and posters (docs/video), and their captions: NNN.vtt, timed from
                                  tools/video/NNN.story by tools/polly_video.py (needs Pillow), also a transcript under each
-  install/index.html             the web installer (fm1-base's web/installer.html, with fm1pkg.js, fm1ota.js and the
-                                 package's metadata inlined)
+  install/index.html             the web installer (fm1-base's web/installer.html, with fm1ports.js, fm1pkg.js, fm1ota.js and
+                                 the package's metadata inlined)
   mirror/index.html              the screen mirror (fm1-base's web/mirror/index.html, filled in by its make_site.py)
   backup/index.html              backup and restore in the browser (fm1-base's web/backup/index.html: Polly's .plb
                                  files, what they hold, the QY70 styles' note)
@@ -671,8 +671,8 @@ def main(argv):
 
     # the installer
     inst = (SRC / "base" / "web" / "installer.html").read_text(encoding="utf-8")
-    lib = strip_module((SRC / "base" / "web" / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
-        strip_module((SRC / "base" / "web" / "fm1ota.js").read_text(encoding="utf-8"))
+    lib = "\n".join(strip_module((SRC / "base" / "web" / f).read_text(encoding="utf-8"))   # (as fm1-base's make_site)
+                     for f in ("fm1ports.js", "fm1pkg.js", "fm1ota.js"))
     # m-bootloader (MIT), which the installer offers to install after Polly, with its licence (as fm1-base's make_site)
     boot = SRC / "base" / "web" / "m-bootloader" / f"fm1-uboot-{base_site.MBOOT_VERSION}.fwsc"
     boot_name = f"m-bootloader-{base_site.MBOOT_VERSION}.fwsc"
