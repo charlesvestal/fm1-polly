@@ -3533,7 +3533,8 @@ static void draw_setup(void)
 {
     int k = ui.touched >= 0 && ui.touched < 4 ? ui.touched : -1;
     uint32_t h = hash(2166136261u, 8192u + proj.clock + ((uint32_t)proj.mout << 2) + ((uint32_t)proj.leds << 8) +
-                                       ((uint32_t)(qb_status() + 8) << 12) + ((uint32_t)proj.click << 24));
+                                       ((uint32_t)(qb_status() + 8) << 12) + ((uint32_t)proj.click << 24) +
+                                       ((uint32_t)arr_styles_there() << 30));
     char t[16];
     h = hash(h, (uint32_t)(k + 1));
     if (h == ui.sig[1])
@@ -3564,8 +3565,12 @@ static void draw_setup(void)
             cv_text(18, top - 2, &FONT_B, nm, K_TEXT);
         wrap(18, top - 2 + (nm ? 21 : 0), 204, &FONT_S, what, nm ? K_TEXT : K_DIM);
     }
-    bank_text(t);
-    setup_row(95, "QY70 styles", t);
+    if (!arr_styles_there())                     /* the factory styles not written after the update: that first */
+        setup_row(95, "Factory styles", "not installed");
+    else {
+        bank_text(t);
+        setup_row(95, "QY70 styles", t);
+    }
     cv_blit(0, MAIN_Y);
 }
 static void draw_panel(void)

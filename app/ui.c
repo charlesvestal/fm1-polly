@@ -2177,6 +2177,14 @@ void app_bank_changed(void)
     song_load();
     undo_reset();
 }
+/* the factory styles came (the installer wrote the resource region) or went: the song's sections that play a style
+ * loaded again (stopped: the write is refused while playing; what is unsaved saved first) */
+void app_styles_changed(void)
+{
+    app_flush();
+    song_load();
+    undo_reset();
+}
 /* a restore over USB (backup.c) wrote the project, the songs and the slots: all of it from the flash again, as at
  * power-on (stopped: the restore is refused while playing) */
 void app_restored(void)
@@ -2270,7 +2278,9 @@ static void style_all(int n)
         if (8 + text_w(&FONT_B, a) + 8 + text_w(&FONT_B, b) > 232)
             cat_s(itoa_u((uint32_t)style_tempo(n), cat_s(b, "(STYLE ")), ")");
         say(a, b);
-    } else
+    } else if (!style_bank(n) && !arr_styles_there())
+        say("STYLES MISSING", "INSTALL AGAIN");  /* (the resource region not written: the name, no notes) */
+    else
         say(style_bank(n) ? "QY70 STYLE" : "STYLE", style_label(n));
     ui.yours_t = grooves_yours() ? plat_ms() + YOURS_ASK_MS : 0u;
 }
@@ -5014,9 +5024,13 @@ static void sp_main(void)
         sp_cat(app.hdr[s].bars == 1 ? " bar" : " bars");
     } else if (ui.page == P_SETUP) {
         char t[16];
-        bank_text(t);
-        sp_cat("QY70 styles: ");
-        sp_cat(t);
+        if (!arr_styles_there())                 /* (as the page's last row) */
+            sp_cat("Factory styles: not installed");
+        else {
+            bank_text(t);
+            sp_cat("QY70 styles: ");
+            sp_cat(t);
+        }
     } else if (ui.page == P_PANEL) {
         sp_cat("CPU ");
         sp_int((int)plat_cpu_pct());

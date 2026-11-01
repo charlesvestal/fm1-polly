@@ -1,0 +1,43 @@
+# POLLY, the factory styles' notes in fm1-base's resource region (tools/gen_res.py; the installer writes it after an
+# update, the simulator has it compiled in):
+#  - not there (res 0, then a power-on: an install without them): STYLES MISSING / INSTALL AGAIN said, Setup's last
+#    row says so, the style knob says it again, the style plays no notes
+#  - then written while it runs (res 1, the installer's RES_REQ: res_written): the song's sections play their notes,
+#    without a restart; Setup shows the QY70 row again
+# (the reboot first: the simulator's engine plays on across a reboot that follows playing)
+expect styles_there 1
+res 0
+reboot
+wait 100
+expect styles_there 0
+expect msg_is_STYLES 1
+expect msgtext_is_STYLES_MISSING_INSTALL_AGAIN 1
+shot missing_boot.png
+hitreset
+tap PLAY
+wait 1500
+tap PLAY
+wait 200
+expect notes_out 0
+tap GLO
+wait 1500
+shot missing_setup.png
+tap HOME
+turn K1 1
+wait 50
+expect msgtext_is_STYLES_MISSING_INSTALL_AGAIN 1
+turn K1 -1
+wait 1500
+# ---- the installer writes them: the song's sections from them again, without a restart
+res 1
+res_written
+wait 100
+expect styles_there 1
+hitreset
+tap PLAY
+wait 1500
+tap PLAY
+expect notes_out_any 1
+tap GLO
+wait 300
+shot written_setup.png

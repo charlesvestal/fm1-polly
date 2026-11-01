@@ -37,6 +37,11 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /
 #define APP_STORE_POOL_OBJN (OBJ_NOBJ - OBJ_SONGS)
 _Static_assert(APP_STORE_POOL_N >= APP_STORE_POOL_OBJN + 2u, "the pool holds every object and keeps two sectors free");
 
+/* the resource region (fm1-base device/res.c; fm1.toml resources, tools/gen_res.py): the factory styles' patterns and
+ * notes (43 KB), written by the installer after an update into sectors the pool freed. 14 sectors: room to spare */
+#define APP_RES_BASE 0xAB000u
+#define APP_RES_SECTORS 14u
+
 /* backup and restore over USB (fm1-base's backup.c; tools/fm1_backup.py): the project, the songs and the 16 slots, in
  * Polly 0.4's image ("PLYB", version 2: its backups restore) */
 #define APP_BACKUP_OBJS {OBJ_PROJ, OBJ_SONGS, OBJ_PAT0, OBJ_PAT0 + 1, OBJ_PAT0 + 2, OBJ_PAT0 + 3, OBJ_PAT0 + 4, \
@@ -175,6 +180,7 @@ void song_style_derive(song_t *g);                     /* g->sty from its sectio
 
 void app_start(void);                  /* at boot, after project_load: the songs and patterns into the arranger */
 void app_bank_changed(void);           /* the QY70 style bank was written: mounted again, the song reloaded */
+void app_styles_changed(void);         /* the factory styles came or went (the resource region): the song reloaded */
 void app_restored(void);               /* a restore over USB was written: everything from the flash again */
 void app_flush(void);                  /* stopped: what is not saved, saved (a backup over USB starts) */
 void app_hold_saves(int on);           /* 1: no autosave (a backup over USB streams), 0: as ever */

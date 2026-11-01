@@ -114,10 +114,43 @@ void app_usb_cmd(const uint8_t *d, uint32_t n)
     }
 }
 
+#if FM1B_RES
+/* ---- Polly's resource region (fm1-base device/res.c, plat_res; tools/gen_res.py, after LOOM-8's): its sections by
+ * tag, read in place. The installer writes it after an update; until it has (an install without it, a torn write,
+ * another build's), every section is absent and the factory styles have no notes (arr_styles_there 0: said at
+ * power-on, on the style knob and on Setup). PRS1: u32 magic, u16 count, u16 0, count x (tag, offset, length) */
+static uint32_t res_rd32(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+static const uint8_t *res_section(uint32_t tag, uint32_t *len)
+{
+    uint32_t n = 0, cnt;
+    const uint8_t *p = plat_res(&n);
+    *len = 0;
+    if (!p || n < 8u || res_rd32(p) != 0x31535250u)   /* "PRS1" */
+        return 0;
+    cnt = (uint32_t)(p[4] | p[5] << 8);
+    if (n < 8u + 12u * cnt)
+        return 0;
+    for (uint32_t i = 0; i < cnt; i++) {
+        const uint8_t *e = p + 8 + 12 * i;
+        uint32_t off = res_rd32(e + 4), l = res_rd32(e + 8);
+        if (res_rd32(e) == tag && off <= n && l <= n - off) {
+            *len = l;
+            return p + off;
+        }
+    }
+    return 0;
+}
+static const uint8_t *res_styles(uint32_t *len) { return res_section(0x31595453u, len); }   /* "STY1": arr.c */
+#endif
+
 /* ---- the contract */
 static uint8_t started;                             /* the songs and patterns given to the arranger (app_start) */
+static uint8_t styles_had;                          /* arr_styles_there() when the songs were last loaded */
 void app_init(void)
 {
+#if FM1B_RES
+    arr_sty_res = res_styles;                       /* the factory styles' notes: the resource region */
+#endif
     gm_init();
     arr_init();
     project_load();                                 /* defaults when nothing (or another format) is saved */
@@ -131,6 +164,13 @@ void app_ui_init(void)                              /* boot; again after an upda
     if (!started) {
         started = 1;
         app_start();
+        styles_had = (uint8_t)arr_styles_there();
+        if (!styles_had)
+            ui_say("STYLES MISSING", "INSTALL AGAIN");   /* (the installer writes them after the firmware) */
+    } else if (arr_styles_there() != styles_had) {   /* the resource region written (or lost) since: the song's sections
+                                                     * from the factory styles again */
+        styles_had = (uint8_t)arr_styles_there();
+        app_styles_changed();
     }
 }
 void app_frame(void)

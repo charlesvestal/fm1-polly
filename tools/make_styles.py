@@ -573,6 +573,9 @@ def emit(styles, files):
          "#define STY_NEV %d" % len(ev), ""]
     o.append("static const char STY_NAME[STY_COUNT][9] = {%s};" % ", ".join(c_str(s["name"]) for s in styles))
     o.append("static const uint8_t STY_TEMPO[STY_COUNT] = {%s};" % ", ".join(str(s["tempo"] or 120) for s in styles))
+    o.append("/* the patterns and their notes: in the image, or (STY_IN_RES, a firmware with fm1-base's resource region) read")
+    o.append(" * from the region instead: tools/gen_res.py writes these tables there, as they are here */")
+    o.append("#if !STY_IN_RES")
     o.append("static const sty_pat_t STY_PAT[STY_COUNT * STY_NSECT] = {")
     for i, (bars, beats, first, trks) in enumerate(pats):
         o.append("    {%d, %d, %d, {   /* %s %s */" % (bars, beats, first, c_comment(styles[i // NSECT]["name"]),
@@ -589,6 +592,7 @@ def emit(styles, files):
     for i in range(0, len(vel), 24):
         o.append("    " + ", ".join(str(x) for x in vel[i:i + 24]) + ",")
     o.append("};")
+    o.append("#endif")
     return "\n".join(o) + "\n"
 
 

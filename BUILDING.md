@@ -68,6 +68,11 @@ python3 base/tools/fm1_install.py app/build/polly.fwsc
 python3 base/tools/fm1_install.py --info     # identity of the connected FM-1
 ```
 
+The installer writes the factory styles after the firmware: they are kept out of the image, in the resource region
+(`app/build/polly-res.bin` beside the package, made by `tools/gen_res.py` from `styles/`). To write them on their own:
+`python3 base/tools/fm1_resources.py app/build/polly-res.bin`. Without them, Polly says STYLES MISSING and the factory
+styles play no notes.
+
 Installing firmware is at your own risk. Charge the FM-1 first, and keep the computer awake and the cable in until
 the install is done: an update cut off by a flat battery is not picked up again. Hold OCT− and OCT+ for 5 seconds for
 the update mode. If the FM-1 no longer starts but reaches the chip's update mode (4C4A:8057 on USB), felucca-bsp's
@@ -82,7 +87,8 @@ A release is built on GitHub from its tag, so anyone can check that the package 
 The builder checks out the tagged commit, installs JieLi's Linux toolchain and the AC79 SDK at its fixed tag, runs
 `./build.sh --release X.Y` (with fm1-base and felucca-bsp at the commits this one links) and `tests/run_tests.sh` (a
 failing test stops the release; the QY70 checks need your own ROM and the emulator's need Emscripten, and are
-skipped there), then signs build provenance for `polly-X.Y.fwsc` and `polly-X.Y-app.bin`. The Firmware Hub shows
+skipped there), then signs build provenance for `polly-X.Y.fwsc` and `polly-X.Y-app.bin`, and adds `polly-X.Y-res.bin` (the factory
+styles, which the installer writes after the firmware) to the release. The Firmware Hub shows
 such packages as built from source.
 
 1. Write the notes first, as a draft: `gh release create vX.Y --draft --title "Polly X.Y" --notes-file NOTES.md`
@@ -91,7 +97,7 @@ such packages as built from source.
    and the signatures against the builder, the tag and the commit, then publishes the draft. A tag with a suffix
    (`v0.6-beta`) is a prerelease. A published release is never rebuilt: a new build needs a new tag. A manual run
    on a branch (Actions, Run workflow) builds and attests a development package, in the run's `packages` artifact.
-3. The site from that package: `gh release download vX.Y --pattern '*.fwsc' --dir app/build --clobber`, then
+3. The site from that package: `gh release download vX.Y --pattern '*.fwsc' --pattern '*-res.bin' --dir app/build --clobber`, then
    `tools/publish_pages.sh X.Y`: it builds the browser emulator and the site (landing page, School, manual, browser
    emulator, web installer, mirror, backup, firmware) with `tools/make_pages.py` from `app/build/polly-X.Y.fwsc`, and
    pushes it to the `gh-pages` branch, which GitHub Pages serves at <https://charlesvestal.github.io/fm1-polly/>.

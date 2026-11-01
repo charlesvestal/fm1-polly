@@ -43,6 +43,10 @@ int app_expect(const char *what, int *got_out)
         got = proj.click;
     else if (!strcmp(what, "notes_out"))          /* note-ons out (MIDI out on: every note played) since hitreset */
         got = (int)note_on_count;
+    else if (!strcmp(what, "notes_out_any"))      /* ... 1 some, 0 none */
+        got = note_on_count != 0;
+    else if (!strcmp(what, "styles_there"))       /* the factory styles' notes: the resource region holds them */
+        got = arr_styles_there();
     else if (!strcmp(what, "level"))              /* the output's peak, percent */
         got = (int)(gm_level * 100.0f);
     else if (!strcmp(what, "ch"))
@@ -587,6 +591,11 @@ int app_host_cmd(const char *cmd, const char *a0, const char *b, const char *c, 
         ok = !strcmp(nm, val);
         printf("%s loop_name%d == \"%s\" (got \"%s\")\n", ok ? "  ok" : "FAIL", atoi(what + 9), val, nm);
         host_fails += !ok;
+        return 1;
+    }
+    if (!strcmp(cmd, "res_written")) {             /* the installer wrote the resource region ("res 1" first): the
+                                                     * platform's screen again after it, as main_fm1.c's RES_REQ */
+        app_ui_init();
         return 1;
     }
     if (!strcmp(cmd, "battery")) {                  /* battery N: plat_battery as N (-1..4); "battery off": its own */

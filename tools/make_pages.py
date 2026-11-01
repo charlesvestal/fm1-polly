@@ -20,6 +20,8 @@
   words/                         the screen reader's words files (app/web/words, from app/words.tsv: every one ever
                                  made, for the FM-1s that point at them; fm1-reader)
   firmware/polly-VERSION.fwsc    the package the installer writes; also the download
+  firmware/polly-VERSION-res.bin the resource region (the factory styles), which the installer writes after it
+                                 (polly-VERSION-res.bin beside the package: ./build.sh --release makes both)
 
 Every page gets Polly's header (a skip link to its <main>, the name, home; School, Manual, Install, Mirror, Backup,
 Emulator). The pages follow fm1-reader's PAGES.md (screen readers, the keyboard; tools/a11y/check.mjs). The
@@ -676,7 +678,19 @@ def main(argv):
     boot_name = f"m-bootloader-{base_site.MBOOT_VERSION}.fwsc"
     shutil.copy(boot, out / "firmware" / boot_name)
     shutil.copy(SRC / "base" / "web" / "m-bootloader" / "LICENSE", out / "firmware" / "m-bootloader-LICENSE.txt")
+    # the resource region beside the package (base/tools/build.py: fm1.toml resources: the factory styles), checked as
+    # the FM-1 checks it; the installer writes it after the firmware
+    res_src, res_name = pkg.with_name(pkg.stem + "-res.bin"), Path(name).stem + "-res.bin"
+    if not res_src.exists():
+        raise SystemExit(f"no {res_src}: Polly's factory styles are in it (./build.sh --release X.Y makes it)")
+    from fm1_resources import ResError, payload_of
+    try:
+        payload_of(res_src.read_bytes())
+    except ResError as e:
+        raise SystemExit(f"{res_src}: {e}")
+    shutil.copy(res_src, out / "firmware" / res_name)
     meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/" + name, "backup": True,
+                       "res": "../firmware/" + res_name,
                        "boot": {"pkg": "../firmware/" + boot_name, "version": base_site.MBOOT_VERSION,
                                 "sha256": hashlib.sha256(boot.read_bytes()).hexdigest()}})
     for mark in ("/*LIB*/", "/*META*/", "/*APP*/"):
@@ -685,7 +699,8 @@ def main(argv):
     conf = base_site.read_conf(SRC / "app" / "fm1.toml")
     credits = conf.get("credits", "").replace("Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton "
                                               "Instruments). ", "")        # (the page says that part itself)
-    for key, val in (("NAME", "Polly"), ("REPO", REPO), ("REPO_SHORT", REPO.replace("https://", "")),
+    for key, val in (("RES", conf.get("resources_what", "Polly's data")), ("RES_JA", conf.get("resources_what_ja", "Polly のデータ")),
+                     ("NAME", "Polly"), ("REPO", REPO), ("REPO_SHORT", REPO.replace("https://", "")),
                      ("LICENSE", conf.get("licence", "GPL-3.0-only")), ("CREDITS", " " + credits if credits else "")):
         inst = inst.replace("{{" + key + "}}", val)
     # the firmware's own steps around an install (fm1.toml install_app; web/installer.html APP): Polly has none

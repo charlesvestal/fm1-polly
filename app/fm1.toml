@@ -8,6 +8,13 @@ usb_audio_in = true            # the music recordable over USB (Setup's USB AUDI
 usb_audio_out = true           # the computer plays through the FM-1 (Setup's COMPUTER AUDIO: off by default, or on)
 mirror = true                  # the screen and panel in a browser (web/mirror), the panel played from it (tools/polly_remote.py)
 backup = true                  # the songs backed up and restored over USB (tools/fm1_backup.py, web/backup)
+# the resource region (tools/gen_res.py: the factory styles' patterns and notes, 43 KB), written by the installer after
+# an update into the sectors the store's pool freed (app.h APP_RES_BASE; fm1-base device/res.c)
+gen = ["../tools/gen_res.py {gen}/res.bin"]
+o2_cflags = ["-DSTY_IN_RES=1"]   # (dsp/arr.c: the styles' tables read from the region, not compiled in)
+resources = "{gen}/res.bin"
+resources_what = "the factory styles"   # (the installer's words: "Writing the factory styles")
+resources_what_ja = "内蔵スタイル"
 words = "words.tsv"
 font_full = ["L"]              # chord names and page names in the big face, lower case too
 include = ["dsp", "dsp/eas"]

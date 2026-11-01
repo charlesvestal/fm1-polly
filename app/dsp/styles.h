@@ -26,6 +26,9 @@ static inline uint32_t sty_len(uint32_t c) { return c < 1020u ? c + 1u : 1020u +
 
 static const char STY_NAME[STY_COUNT][9] = {"Pop", "Funk", "Rock", "Ballad", "Bossa", "Swing", "Shuffle", "Reggae", "Hip hop", "House", "Disco", "Country", "Gospel", "Waltz", "Latin", "Ambient"};
 static const uint8_t STY_TEMPO[STY_COUNT] = {105, 100, 120, 72, 128, 124, 112, 78, 90, 122, 120, 114, 66, 150, 190, 70};
+/* the patterns and their notes: in the image, or (STY_IN_RES, a firmware with fm1-base's resource region) read
+ * from the region instead: tools/gen_res.py writes these tables there, as they are here */
+#if !STY_IN_RES
 static const sty_pat_t STY_PAT[STY_COUNT * STY_NSECT] = {
     {2, 4, 0, {   /* Pop intro */
         {0, 9, 0, 0, 127, 12, 104, 64, 30, 0, 0, 0, 22},
@@ -2054,3 +2057,4 @@ static const uint8_t STY_VEL[STY_NEV] = {
     77, 70, 74, 66, 64, 80, 80, 234, 234, 234, 66, 60, 162, 246, 230, 77, 64, 67, 58, 51, 45, 35, 26, 192,
     192, 221, 221, 221, 192, 192, 192,
 };
+#endif

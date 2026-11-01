@@ -6,7 +6,8 @@
 #include <string.h>
 #include "arr.h"
 #include "gm.h"
-#include "styles.h"
+#include "styles.h"                                /* (STY_IN_RES 1, fm1.toml's o2_cflags: the factory styles' patterns
+                                                    * and notes in fm1-base's resource region, not the image: below) */
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define ARR_HELD 8                                 /* notes held a track */
@@ -2541,6 +2542,29 @@ void arr_init(void)                                /* at boot, before the render
 /* ------------------------------------------------------------ factory styles --- */
 _Static_assert(STY_NSECT == ARR_NSECT, "styles.h: a pattern for each section");
 _Static_assert(STY_COUNT <= ARR_MAX_FACTORY, "the factory styles' pattern numbers end below the bank's");
+#if STY_IN_RES
+/* the factory styles' tables in the resource region (tools/gen_res.py's STY1 section: its counts, then STY_PAT,
+ * STY_EV and STY_VEL as styles.h would have them), from the app (arr_sty_res: the section, read in place); none, or
+ * another build's: no factory style has notes (their names and tempos are in the image: songs keep them). Read a byte
+ * at a time (the host's copy need not be aligned; the main loop expands a pattern now and then) */
+const uint8_t *(*arr_sty_res)(uint32_t *len);
+#define STY_NPAT ((uint32_t)(STY_COUNT * STY_NSECT))
+#define STY_PATB 116u                              /* a sty_pat_t as gen_res.py packs it */
+_Static_assert(sizeof(sty_pat_t) == STY_PATB, "styles.h's pattern row as gen_res.py packs it");
+static uint32_t sty_rd(const uint8_t *p, int n) { uint32_t v = 0; while (n--) v = v << 8 | p[n]; return v; }
+static const uint8_t *sty_tables(void)
+{
+    uint32_t n = 0;
+    const uint8_t *p = arr_sty_res ? arr_sty_res(&n) : 0;
+    if (!p || n != 8u + STY_NPAT * STY_PATB + STY_NEV * 5u || sty_rd(p, 2) != STY_COUNT || sty_rd(p + 2, 2) != STY_NSECT ||
+        sty_rd(p + 4, 4) != STY_NEV)
+        return 0;
+    return p + 8;
+}
+int arr_styles_there(void) { return sty_tables() != 0; }
+#else
+int arr_styles_there(void) { return 1; }
+#endif
 int arr_styles(void) { return STY_COUNT; }
 const char *arr_style_name(int s) { return s >= 0 && s < STY_COUNT ? STY_NAME[s] : ""; }
 int arr_style_tempo(int s) { return s >= 0 && s < STY_COUNT ? STY_TEMPO[s] : 120; }
@@ -2550,10 +2574,28 @@ int arr_factory_pattern(int n, pattern_t *p)
     const sty_pat_t *f;
     uint32_t e;
     int t, i;
+#if STY_IN_RES
+    sty_pat_t row;
+    const uint8_t *tb = sty_tables(), *evb, *velb;
+#define STY_EV_AT(e) sty_rd(evb + 4u * (e), 4)
+#define STY_VEL_AT(e) velb[e]
+#else
+#define STY_EV_AT(e) STY_EV[e]
+#define STY_VEL_AT(e) STY_VEL[e]
+#endif
     n -= ARR_FACTORY0;
     if (n < 0 || n >= STY_COUNT * ARR_NSECT)
         return -1;
+#if STY_IN_RES
+    if (!tb)
+        return -1;                                 /* (the region missing: an empty pattern, the caller's) */
+    memcpy(&row, tb + (uint32_t)n * STY_PATB, sizeof row);   /* (little-endian, as gen_res.py packs it) */
+    evb = tb + STY_NPAT * STY_PATB;
+    velb = evb + STY_NEV * 4u;
+    f = &row;
+#else
     f = &STY_PAT[n];
+#endif
     memset(p, 0, sizeof *p);
     p->format = ARR_PAT_FORMAT;
     for (i = 0; i < 8 && STY_NAME[n / ARR_NSECT][i]; i++)
@@ -2579,10 +2621,11 @@ int arr_factory_pattern(int n, pattern_t *p)
         k->count = s->count;
         for (i = 0; i < s->count && p->nev < ARR_NEV; i++, e++) {
             arr_ev_t *v = &p->ev[p->nev++];
-            v->tick = (uint16_t)(STY_EV[e] & 0x7FFFu);
-            v->note = (uint8_t)(STY_EV[e] >> 15 & 0x7Fu);
-            v->len = (uint16_t)sty_len(STY_EV[e] >> 22 | (uint32_t)(STY_VEL[e] >> 7) << 10);
-            v->vel = (uint8_t)(STY_VEL[e] & 0x7Fu);
+            uint32_t ev = STY_EV_AT(e), vl = STY_VEL_AT(e);
+            v->tick = (uint16_t)(ev & 0x7FFFu);
+            v->note = (uint8_t)(ev >> 15 & 0x7Fu);
+            v->len = (uint16_t)sty_len(ev >> 22 | (vl >> 7) << 10);
+            v->vel = (uint8_t)(vl & 0x7Fu);
         }
         k->count = (uint16_t)(p->nev - k->first);
     }

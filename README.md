@@ -74,7 +74,8 @@ python3 base/tools/fm1_install.py app/build/polly.fwsc --yes
 web/emu/publish.sh                          # the emulator at charles.pizza/qy/ ([QY70_ROM=...] only for its checks)
 ```
 
-The factory styles are text files in `styles/`, and `tools/make_styles.py` compiles them. `styles/README.md`
+The factory styles are text files in `styles/`, and `tools/make_styles.py` compiles them (their notes go into the
+resource region, `app/build/polly-res.bin`, which the installer writes after the firmware: `tools/gen_res.py`). `styles/README.md`
 describes the format. Their drums are performances from Google Magenta's
 [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) (Gillick, Roberts, Engel, Eck,
 Bamman; © Google LLC, CC BY 4.0), excerpted and quantised.

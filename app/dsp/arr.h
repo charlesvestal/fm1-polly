@@ -239,6 +239,11 @@ const char *arr_style_name(int s);               /* "Pop"; "" for none */
 int arr_style_tempo(int s);                      /* its tempo, as written */
 /* factory pattern n (ARR_FACTORY0..) expanded into *p (the app then loads it into a slot); -1 for none */
 int arr_factory_pattern(int n, pattern_t *p);
+/* a firmware with the resource region (STY_IN_RES 1, fm1.toml o2_cflags; fm1-base's FM1B_RES): the factory styles' patterns and notes are read there, through the
+ * app's arr_sty_res (the region's STY1 section and its length; 0 while the FM-1 does not hold it). arr_styles_there:
+ * 1 they are there (always without the region), 0 not (arr_factory_pattern -1: the sections play nothing) */
+extern const uint8_t *(*arr_sty_res)(uint32_t *len);
+int arr_styles_there(void);
 
 static inline uint8_t arr_bright(const arr_trk_t *t) { return (uint8_t)((t->bright ^ 64u) & 127u); }
 static inline uint8_t arr_reso(const arr_trk_t *t) { return (uint8_t)((t->reso ^ 64u) & 127u); }

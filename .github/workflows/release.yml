@@ -68,12 +68,14 @@ jobs:
           version=${GITHUB_REF_NAME#v}
           ./build.sh --release "$version"
           cp "app/build/$pkg-$version.fwsc" build/release-assets/
+          cp "app/build/$pkg-$version-res.bin" build/release-assets/   # (the factory styles: the installer writes them)
           cp "app/build/$pkg.bin" "build/release-assets/$pkg-$version-app.bin"
           # (the tests check the update path against app/build/$pkg.fwsc: there, the release package itself)
           cp "app/build/$pkg-$version.fwsc" "app/build/$pkg.fwsc"
         else
           ./build.sh
           cp "app/build/$pkg.fwsc" build/release-assets/
+          cp "app/build/$pkg-res.bin" build/release-assets/
           cp "app/build/$pkg.bin" "build/release-assets/$pkg-app.bin"
         fi
       test: |

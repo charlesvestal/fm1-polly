@@ -59,6 +59,13 @@ run filter sh -c "$CC -std=c99 -D_DEFAULT_SOURCE -O2 -ffp-contract=off -w -DPLAT
 run styles sh -c "$PY tools/make_styles.py --check styles/*.sty && $PY tools/make_styles.py --roundtrip styles/*.sty && \
     $PY tools/make_styles.py styles/*.sty > $OUT/styles.h && cmp $OUT/styles.h $D/styles.h && \
     sh tests/host/styles_test.sh $OUT"
+# the resource region (tools/gen_res.py): the factory styles read from it expand to exactly what the tables compiled in
+# do (every pattern, byte for byte); absent, cut short, another build's: none
+run res sh -c "$PY tools/gen_res.py $OUT/res.bin >/dev/null && \
+    $CC -std=c99 -Wall -Wextra -Werror -O1 -DSTY_IN_RES=1 -I$D -o $OUT/res_test_in tests/host/res_test.c $ARR tests/host/gm_stub.c -Itests/host && \
+    $CC -std=c99 -Wall -Wextra -Werror -O1 -I$D -o $OUT/res_test_out tests/host/res_test.c $ARR tests/host/gm_stub.c -Itests/host && \
+    $OUT/res_test_in $OUT/res.bin $OUT/res_in.pat && $OUT/res_test_out $OUT/res.bin $OUT/res_out.pat && \
+    cmp $OUT/res_in.pat $OUT/res_out.pat"
 # the styles' chord parts: every Chord 1 / 2 note held an eighth or more is a chord tone or an allowed tension,
 # over the Pop template, the blues, the Andalusian progression and ten chord types (the real engine)
 run style-chords sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -I$D -Itests/host -o $OUT/style_chords_test tests/host/style_chords_test.c tests/host/gm_stub.c $ARR && $OUT/style_chords_test"
