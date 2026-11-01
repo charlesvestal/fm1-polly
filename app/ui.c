@@ -5038,7 +5038,11 @@ static void sp_main(void)
         sp_int((int)gm_voices);
         sp_cat(", dropouts ");
         sp_int((int)plat_xruns());
-        sp_cat(". Polly " GM_VERSION);
+        sp_cat(", synth memory ");                 /* (as the page: KB taken of the pool's) */
+        sp_int((int)((gm_mem_used() + 1023u) / 1024u));
+        sp_cat(" of ");
+        sp_int((int)(gm_mem_size() / 1024u));
+        sp_cat(" kilobytes. Polly " GM_VERSION);
     }
 }
 /* what the header says besides the page: playing or not, recording, the tempo, unsaved, the battery */

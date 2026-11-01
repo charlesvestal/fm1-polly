@@ -7,6 +7,7 @@
 static int msg_too_wide;                 /* ui.c's say(): messages wider than the header (the simulator fails them) */
 static uint32_t note_on_count, click_count;   /* the arranger's MIDI out: note-ons, the click's (host.c) */
 #endif
+static uint8_t gm_ok = 1;                           /* gm_init found the memory it needs (the Status page) */
 #include "project.c"
 #include "pages.c"
 #include "ui.c"
@@ -151,7 +152,7 @@ void app_init(void)
 #if FM1B_RES
     arr_sty_res = res_styles;                       /* the factory styles' notes: the resource region */
 #endif
-    gm_init();
+    gm_ok = gm_init() == 0;                         /* (no: Sonivox's pool too small; Status says so) */
     arr_init();
     project_load();                                 /* defaults when nothing (or another format) is saved */
     project_apply();

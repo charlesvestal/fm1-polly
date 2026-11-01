@@ -11,7 +11,9 @@ backup = true                  # the songs backed up and restored over USB (tool
 # the resource region (tools/gen_res.py: the factory styles' patterns and notes, 43 KB), written by the installer after
 # an update into the sectors the store's pool freed (app.h APP_RES_BASE; fm1-base device/res.c)
 gen = ["../tools/gen_res.py {gen}/res.bin"]
-o2_cflags = ["-DSTY_IN_RES=1"]   # (dsp/arr.c: the styles' tables read from the region, not compiled in)
+# (dsp/arr.c: the styles' tables read from the region, not compiled in; Sonivox's pool: it takes 22 KB at start on the
+# host, all of it then and no more, never on the way; 32 KB, not 96: the pool's 64 KB for Bluetooth. Status shows it)
+o2_cflags = ["-DSTY_IN_RES=1", "-DEAS_POOL_BYTES=32768"]
 resources = "{gen}/res.bin"
 resources_what = "the factory styles"   # (the installer's words: "Writing the factory styles")
 resources_what_ja = "内蔵スタイル"

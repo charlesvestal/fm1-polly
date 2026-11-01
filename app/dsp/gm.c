@@ -176,6 +176,10 @@ void gm_ref_engine(int on)
 }
 #endif
 
+EAS_I32 eas_pool_peak(void);                       /* (eas_host_fm1.c) */
+EAS_I32 eas_pool_size(void);
+uint32_t gm_mem_used(void) { return (uint32_t)eas_pool_peak(); }
+uint32_t gm_mem_size(void) { return (uint32_t)eas_pool_size(); }
 int gm_init(void)
 {
     if (EAS_Init(&eas) != EAS_SUCCESS || EAS_OpenMIDIStream(eas, &stream, NULL) != EAS_SUCCESS)

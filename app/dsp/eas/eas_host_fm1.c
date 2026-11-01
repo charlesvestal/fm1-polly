@@ -17,6 +17,7 @@
 static unsigned long long eas_pool[EAS_POOL_BYTES / 8] EAS_POOL_ATTR;
 static EAS_I32 eas_pool_used;
 EAS_I32 eas_pool_peak(void) { return eas_pool_used; }
+EAS_I32 eas_pool_size(void) { return (EAS_I32)sizeof eas_pool; }
 
 EAS_RESULT EAS_HWInit(EAS_HW_DATA_HANDLE *hwInstData)
 {

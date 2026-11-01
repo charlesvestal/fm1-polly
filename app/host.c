@@ -45,6 +45,10 @@ int app_expect(const char *what, int *got_out)
         got = (int)note_on_count;
     else if (!strcmp(what, "notes_out_any"))      /* ... 1 some, 0 none */
         got = note_on_count != 0;
+    else if (!strcmp(what, "synth_ok"))           /* gm_init found Sonivox the memory it needs */
+        got = gm_ok;
+    else if (!strcmp(what, "eas_pool"))           /* Sonivox's memory taken (bytes: eas_host_fm1.c, its fixed pool) */
+        got = (int)gm_mem_used();
     else if (!strcmp(what, "styles_there"))       /* the factory styles' notes: the resource region holds them */
         got = arr_styles_there();
     else if (!strcmp(what, "level"))              /* the output's peak, percent */

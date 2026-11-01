@@ -32,6 +32,10 @@ void gm_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);   /* the audio I
 
 /* (UI) */
 extern volatile uint8_t gm_voices;         /* voices sounding */
+/* Sonivox's memory (eas_host_fm1.c: one fixed pool, handed out while it starts and never freed): bytes taken, and the
+ * pool's size (EAS_POOL_BYTES); the Status page shows both */
+uint32_t gm_mem_used(void);
+uint32_t gm_mem_size(void);
 extern volatile uint8_t gm_program[GM_NCH];/* each channel's program, as the MIDI set it */
 extern volatile float gm_level;            /* the output's peak, 0..1, decaying */
 #ifdef PLAT_HOST

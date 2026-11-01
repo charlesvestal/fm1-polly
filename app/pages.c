@@ -3595,6 +3595,10 @@ static void draw_panel(void)
     cv_text(18, 92, &FONT_B, "Polly " GM_VERSION, K_TEXT);
     itoa_u(x, cat_s(t, "Xruns "));
     cv_text(222 - text_w(&FONT_XS, t), 76, &FONT_XS, t, K_DIM);
+    /* Sonivox's memory: KB taken (at start: it never asks again) of its pool's; coral when the start found too little
+     * (gm_init failed: no sound) */
+    cat_s(itoa_u(gm_mem_size() / 1024u, cat_s(itoa_u((gm_mem_used() + 1023u) / 1024u, cat_s(t, "Synth ")), "/")), " KB");
+    cv_text(222 - text_w(&FONT_XS, t), 96, &FONT_XS, t, gm_ok ? K_DIM : K_ACCENT);
     cv_blit(0, MAIN_Y);
 }
 

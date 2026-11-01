@@ -229,6 +229,7 @@ expect page 15
 shot setup.png
 turn SELECT 1
 expect page 16
+expect synth_ok 1
 shot panel.png
 # ---- what fills the memory: SEQ, SEL, SELECT to MEMORY (the list's last row), SEL
 tap SEQ
