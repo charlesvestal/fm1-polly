@@ -22,6 +22,20 @@
 enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /* 16: ARR_USER_PATTERNS */
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0x97000u, 0x99000u, 0x9B000u, 0x9D000u, 0x9F000u, 0xA1000u, 0xA3000u, \
                        0xA5000u, 0xA7000u, 0xA9000u, 0xAB000u, 0xAD000u, 0xAF000u, 0xB1000u, 0xB3000u, 0xB5000u, 0xB7000u}
+/* the songs and the 16 slots pooled (fm1-base storage.c, as LOOM-8's projects): they share 20 sectors from 0x97000
+ * instead of a pair each (34 sectors, to 0xB8FFF: the map above, where Polly 0.5 and before kept them, kept for the
+ * move). The A/B pairs' copies move into the pool at the first boot (st_pool_boot: a copy written and read back before
+ * its old sector is erased, so a power cut midway only moves it again); 0xAB000..0xB8FFF (14 sectors) are then free
+ * for the resource region. 20 sectors hold every object at its largest with two to spare: a save always finds room
+ * (no MEMORY FULL from the store; the slots' own MEMORY FULL is a question of slots, not sectors). Going back to 0.5
+ * after this: its songs are not where it looks (a backup restores them) */
+#define APP_STORE_POOL
+#define APP_STORE_POOL_BASE 0x97000u
+#define APP_STORE_POOL_N 20u
+#define APP_STORE_POOL_OLD 34u
+#define APP_STORE_POOL_OBJ0 OBJ_SONGS
+#define APP_STORE_POOL_OBJN (OBJ_NOBJ - OBJ_SONGS)
+_Static_assert(APP_STORE_POOL_N >= APP_STORE_POOL_OBJN + 2u, "the pool holds every object and keeps two sectors free");
 
 /* backup and restore over USB (fm1-base's backup.c; tools/fm1_backup.py): the project, the songs and the 16 slots, in
  * Polly 0.4's image ("PLYB", version 2: its backups restore) */

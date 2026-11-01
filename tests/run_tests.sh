@@ -40,8 +40,14 @@ run project sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -Iapp -I$D -Ibase/incl
 # a test session's objects in RAM (teststore.c): saved and loaded back whole, replaced, cut at max, a full pool
 # refusing, the calibration and the session off on the flash
 run teststore sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O2 -Iapp -Ibase/include -o $OUT/teststore_test tests/host/teststore_test.c && $OUT/teststore_test"
-# the store map: every object and the QY70 bank's sectors inside fm1-base's windows, apart, where Polly 0.4 kept them
+# the store on fm1-base's storage.c and backup.c over a simulated flash: a 0.5 store moved into the pool (every song,
+# pattern, melody and slot intact; the region's sectors freed), a power cut at every write of the move (and a second
+# during the next boot's), never MEMORY FULL, a 0.5 backup restored, a new backup the same image, a restore cut
+run store sh -c "$CC -std=c99 -Wall -Wextra -Werror -Wno-unused-function -O1 -Iapp -I$D -Ibase/include -Itests/host -o $OUT/store_test tests/host/store_test.c tests/host/gm_stub.c $ARR && $OUT/store_test"
+# the store map: the old pairs where Polly 0.4 kept them; the pool, the resource region, the QY70 bank's sectors inside
+# fm1-base's windows, apart
 sed -n '/#define APP_STORE_MAP/,/}/p' app/app.h | sed 's/#define APP_STORE_MAP//; s/\\$//' > $OUT/map_line.h
+grep -E '^#define (APP_STORE_POOL_(BASE|N|OLD|OBJ0|OBJN)|APP_RES_(BASE|SECTORS)) ' app/app.h > $OUT/map_defs.h
 run map sh -c "$CC -std=c99 -Wall -Wextra -Werror -O1 -I$OUT -I$D -Ibase/include -o $OUT/map_test tests/host/map_test.c $D/qybank.c $D/qydec.c && $OUT/map_test"
 # the real synth (gm.c + Sonivox) under the arranger: note-ons on their exact sample, plain MIDI bit-identical
 run timing sh -c "$CC -std=c99 -O2 -ffp-contract=off -w -DPLAT_HOST -I$D -I$D/eas -o $OUT/timing_test tests/host/timing_test.c $D/gm.c $ARR $EAS -lm && $OUT/timing_test"

@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Polly's flash map: every store object (app.h APP_STORE_MAP, two 4 KiB sectors each) and every sector of the QY70
- * bank (dsp/qybank.h) inside fm1-base's data windows (plat.h PLAT_DATA_OK) or the settings pair at 0xFC000, none of
- * them overlapping another, the update's staging (0xE0000..0xE4FFF) untouched, and the objects where Polly 0.4 kept
- * them (an update keeps the songs).
+/* Polly's flash map: every store object (app.h APP_STORE_MAP, two 4 KiB sectors each) where Polly 0.4 and 0.5 kept
+ * them (the pool's move finds them there), the pooled ones' pairs inside the sectors the pool moves from
+ * (APP_STORE_POOL_BASE, _OLD); then the layout now: the objects not pooled (two sectors each), the pool's sectors, the
+ * resource region's (app.h APP_RES_BASE, APP_RES_SECTORS: after the pool, inside what it frees) and every sector of
+ * the QY70 bank (dsp/qybank.h) inside fm1-base's data windows (plat.h PLAT_DATA_OK) or the settings pair at 0xFC000,
+ * none of them overlapping another, the update's staging (0xE0000..0xE4FFF) untouched.
  *   cc -std=c99 -Iapp -Iapp/dsp -Ibase/include -o map_test tests/host/map_test.c app/dsp/qybank.c app/dsp/qydec.c */
 #include <stdio.h>
 #include <string.h>
 #include "plat.h"
 #include "qybank.h"
 enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };
+#include "map_defs.h"                              /* app.h's APP_STORE_POOL_* and APP_RES_* lines (tests/run_tests.sh) */
 /* the map as app.h has it (taken from app.h by tests/run_tests.sh: app.h itself pulls in the whole app) */
 static const uint32_t map[] =
 #include "map_line.h"
@@ -56,14 +59,35 @@ int main(void)
             printf("FAIL slot %u moved from %#x\n", i + 1u, 0x99000u + i * 0x2000u);
             fails++;
         }
+    for (i = APP_STORE_POOL_OBJ0; i < APP_STORE_POOL_OBJ0 + APP_STORE_POOL_OBJN; i++)
+        if (map[i] < APP_STORE_POOL_BASE || map[i] + 8192u > APP_STORE_POOL_BASE + APP_STORE_POOL_OLD * 4096u) {
+            printf("FAIL object %u's old pair at %#x: not where the pool moves from\n", i, map[i]);
+            fails++;
+        }
     for (i = 0; i < OBJ_NOBJ; i++) {
+        if (i >= APP_STORE_POOL_OBJ0 && i < APP_STORE_POOL_OBJ0 + APP_STORE_POOL_OBJN)
+            continue;                              /* (pooled: the map's pair is where it was, moved at boot) */
         take(map[i], (int)i + 1, "an object's copy A");
         take(map[i] + 4096u, (int)i + 1, "an object's copy B");
     }
+    for (i = 0; i < APP_STORE_POOL_N; i++)
+        take(APP_STORE_POOL_BASE + i * 4096u, 90, "a pool sector");
+#ifndef APP_RES_BASE
+#define APP_RES_BASE (APP_STORE_POOL_BASE + APP_STORE_POOL_N * 4096u)
+#define APP_RES_SECTORS 0u
+#endif
+    if (APP_RES_BASE < APP_STORE_POOL_BASE + APP_STORE_POOL_N * 4096u ||
+        APP_RES_BASE + APP_RES_SECTORS * 4096u > APP_STORE_POOL_BASE + APP_STORE_POOL_OLD * 4096u) {
+        printf("FAIL the resource region is not in the sectors the pool frees\n");
+        fails++;
+    }
+    for (i = 0; i < APP_RES_SECTORS; i++)
+        take(APP_RES_BASE + i * 4096u, 91, "a resource sector");
     take(QB_DIR, 100, "the bank's directory");
     for (i = 0; i < QB_NSECT; i++)
         take(qb_sector(i), 100, "a bank sector");
-    printf("%s: %d objects, the bank's %u sectors + its directory\n", fails ? "FAIL" : "ok", OBJ_NOBJ,
-           (unsigned)QB_NSECT);
+    printf("%s: %d objects (%u pooled in %u sectors), the resource region's %u sectors, the bank's %u sectors + its "
+           "directory\n", fails ? "FAIL" : "ok", OBJ_NOBJ, (unsigned)APP_STORE_POOL_OBJN, (unsigned)APP_STORE_POOL_N,
+           (unsigned)APP_RES_SECTORS, (unsigned)QB_NSECT);
     return fails != 0;
 }
