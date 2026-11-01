@@ -136,6 +136,7 @@ void app_ui_init(void)                              /* boot; again after an upda
 void app_frame(void)
 {
     plat_usb_audio_full(proj.usb_full);             /* USB AUDIO: follows the knob, or full */
+    plat_usb_play_gain(proj.pc_audio & 1u ? 4096u : 0u); /* COMPUTER AUDIO: the computer's, as sent, or muted */
     ui_frame();
 }
 void app_input_only(void) { ui_input_only(); }

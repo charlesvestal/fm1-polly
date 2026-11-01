@@ -53,6 +53,8 @@ int app_expect(const char *what, int *got_out)
         got = unsaved();
     else if (!strcmp(what, "usb_full"))           /* Setup's USB AUDIO: 1 full */
         got = proj.usb_full;
+    else if (!strcmp(what, "pc_audio"))           /* Setup's COMPUTER AUDIO: 1 on */
+        got = proj.pc_audio;
     else if (!strncmp(what, "heard_ch", 8)) {     /* heard_chN: the last note-on into the synth on channel N (1..16), -1 none */
         extern int16_t gm_host_heard[16];
         got = gm_host_heard[(atoi(what + 8) - 1) & 15];

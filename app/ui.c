@@ -3439,7 +3439,7 @@ static void action_run(int a)
     case A_CLEAR_LOOP: act_clear_loop(); break;
     case A_CLEAR_CHORD: act_clear_chord(); break;
     case A_STEP: break;
-    case A_USB_AUDIO: break;
+    case A_USB_AUDIO: case A_PC_AUDIO: break;
     case A_PLAY_FROM: song_play_from(app.row); break;
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
@@ -4053,6 +4053,11 @@ static void list_change(int32_t e)
         else if (lst.row[lst.sel].id == A_USB_AUDIO) {   /* USB AUDIO: follows knob, full (main_fm1.c render_block) */
             if (proj.usb_full != (uint8_t)(d > 0)) {
                 proj.usb_full = (uint8_t)(d > 0);
+                mark_dirty();
+            }
+        } else if (lst.row[lst.sel].id == A_PC_AUDIO) {   /* COMPUTER AUDIO: off, on (app_frame: plat_usb_play_gain) */
+            if (proj.pc_audio != (uint8_t)(d > 0)) {
+                proj.pc_audio = (uint8_t)(d > 0);
                 mark_dirty();
             }
         }

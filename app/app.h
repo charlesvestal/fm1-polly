@@ -92,7 +92,9 @@ typedef struct {
     uint8_t click;                       /* the click: ARR_CLICK_OFF, REC (while recording or counting in), ON */
     uint8_t usb_full;                     /* USB audio: 0 follows the MASTER knob, 1 full level (the knob for the speaker
                                           * and headphones only); older projects: 0 */
-    uint8_t rsv[2];
+    uint8_t pc_audio;                     /* COMPUTER AUDIO: 1 the computer plays through the FM-1 over USB (fm1-base's
+                                          * usb_audio_out, plat_usb_play_gain), 0 muted (the default; older projects: 0) */
+    uint8_t rsv[1];
 } project_t;
 
 extern project_t proj;

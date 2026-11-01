@@ -1,0 +1,35 @@
+# POLLY, COMPUTER AUDIO (Setup's SEL list, after USB AUDIO): on, the computer plays through the FM-1 over USB (fm1-base's
+# usb_audio_out at plat_usb_play_gain's unity, times MASTER); off (the default), muted. The USB recording never holds
+# the computer's audio either way (fm1-base's tests/uac_mix_test.c). Kept with the settings; said by a reader
+wait 300
+expect pc_audio 0
+expect usb_play_gain 0
+listen
+tap GLO
+tap SEL
+expect list_open 1
+turn SELECT 2
+wait 300
+said COMPUTER AUDIO off, 7 of 7
+turn ALGO 1
+wait 300
+said COMPUTER AUDIO on
+expect pc_audio 1
+expect dirty 1
+expect usb_play_gain 4096
+expect usb_full 0
+shot computer_audio.png
+turn ALGO -1
+wait 300
+said COMPUTER AUDIO off
+expect pc_audio 0
+expect usb_play_gain 0
+turn ALGO 1
+tap HOME
+tap SAVE
+wait 300
+expect dirty 0
+reboot
+wait 300
+expect pc_audio 1
+expect usb_play_gain 4096

@@ -1305,6 +1305,16 @@ again.
 (the default): USB audio is as loud as the FM-1, MASTER knob and all. **full**: USB audio stays at full level
 whatever the MASTER knob says, so you can record over the cable with the speaker turned down.
 
+**Computer audio.** Polly can play your computer's sound through the FM-1's speaker and headphones. On Setup,
+press **SEL**, turn **SELECT** down to COMPUTER AUDIO, and turn **ALGO**. **off** (the default): the FM-1 plays
+only Polly. **on**: the FM-1 plays what the computer sends to it, mixed with Polly. The MASTER knob sets its
+level along with Polly's, whatever USB AUDIO says. The computer's sound never goes into USB audio, so recording
+Polly over the cable records only Polly, even while the computer plays something back through the FM-1.
+
+On a Mac, macOS may pick the FM-1 as its sound output when you plug it in. With COMPUTER AUDIO off, the
+computer then goes quiet. Pick your usual output in the Sound menu or in System Settings > Sound, or turn
+COMPUTER AUDIO on.
+
 Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, any audio dropouts (Xruns), and the version. It
 has no knobs.
 
