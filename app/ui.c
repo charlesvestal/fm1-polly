@@ -921,6 +921,7 @@ static void copy_to(int n);
 static void list_open(void);
 static void list_sel(void);
 static void ask_end(int yes);
+static void bt_back(void);
 /* ---- writing chords (the spec's REC on HOME and LOOP) into the loop playing (stopped: app.loop, the LOOP screen's).
  * Stopped: at the cursor (app.cbeat), which moves on a STEP when the chord's keys are all up; playing: on the
  * nearest beat of the loop as it plays (arr_loop_beat, the next one past half a beat, round the end), overdubbed.
@@ -2023,6 +2024,8 @@ static void button_up(int b)                     /* a tap: released before it wa
             ask_end(0);
         else if (lst.open && lst.slots)
             slots_back();
+        else if (lst.open && lst.bt)
+            bt_back();
         else if (lst.open)
             lst.open = 0;
         else
@@ -3435,6 +3438,139 @@ static void act_factory_reset(void)
     }
     ask("ERASE ALL SONGS AND MEMORY?", do_factory_reset);
 }
+/* ---- Bluetooth (bt.c): audio on or off, MIDI on or off, the device list's rows; every frame what changed */
+static void bt_keep(void)                        /* the settings into the project (saved as any change) */
+{
+    proj.bt = bt_bits();
+    mark_dirty();
+}
+static void bt_audio_set(int on)                 /* BT AUDIO: on connects the last device; off ends the link */
+{
+    bt.want = (uint8_t)(on != 0);
+    bt_keep();
+    BTA(on)(on);
+    if (on && BTA(known)(0, 0) && !bt_linking(BTA(state)()) && BTA(state)() != PLAT_BTA_STREAMING) {
+        bt.cur = 0;
+        BTA(reconnect)(0);
+    }
+}
+static void bt_midi_set(int on)                  /* BT MIDI: off ends its link and stops advertising once the radio is
+                                                  * up (bt_poll; the audio goes on: the radio stays up for it) */
+{
+    bt.midi = (uint8_t)(on != 0);
+    bt_keep();
+    if (on)
+        plat_ble_enable(1);
+}
+static void bt_open(void)                        /* AUDIO DEVICE, SEL: its list (HOME: back to Setup's) */
+{
+    lst.back_sel = lst.sel;
+    lst.back_top = lst.top;
+    lst.bt = 1;
+    lst.sel = lst.top = 0;
+    ui.pick_bt = 0;
+}
+static void bt_back(void)
+{
+    lst.bt = 0;
+    lst.sel = lst.back_sel;
+    lst.top = lst.back_top;
+}
+static void do_bt_forget(void)
+{
+    int i = ui.pick_bt;
+    char nm[17];
+    if (!BTA(known)(i, nm))
+        return;
+    if (i == bt.cur && BTA(state)() != PLAT_BTA_OFF)
+        BTA(hangup)();                           /* (the device forgotten plays no more) */
+    BTA(forget)(i);
+    bt.cur = (uint8_t)(i < bt.cur ? bt.cur - 1 : i == bt.cur ? 0 : bt.cur);
+    ui.pick_bt = 0;
+    lst.open = 1;                                /* (back in the device list: the question's yes closed it) */
+    say("FORGOTTEN", nm);
+}
+static void bt_row(void)                         /* a device's row, SEL: connect it (BT AUDIO on) */
+{
+    const char *nm = lst.row[lst.sel].name;
+    int j = (int)((nm - bt_nm[0]) / (int)sizeof bt_nm[0]);
+    if (j < 0 || j >= BT_ROWS)
+        return;
+    bt.want = 1;
+    bt_keep();
+    BTA(on)(1);
+    if (bt_ix[j] & 0x80) {
+        bt.cur = (uint8_t)(bt_ix[j] & 0x7F);
+        BTA(reconnect)(bt.cur);
+    } else {
+        bt.cur = 0;                              /* (a new one becomes the last one) */
+        BTA(pick)(bt_ix[j]);
+    }
+    say("CONNECTING", bt_nm[j]);
+}
+static void bt_poll(void)
+{
+    int st, up = lst.open && lst.bt;
+    if (!lst.open)
+        lst.bt = 0;
+    if (bt.boot && plat_ble_state() == BLE_READY) {   /* power-on: the last device again, if audio was on */
+        bt.boot = 0;
+        if (bt.want) {
+            BTA(on)(1);
+            if (BTA(known)(0, 0)) {
+                bt.cur = 0;
+                BTA(reconnect)(0);
+            }
+        }
+    }
+    if (!bt.midi && plat_ble_state() == BLE_READY)   /* Bluetooth MIDI off: once the radio is up (fm1-base starts it
+                                                      * advertising; it reads off after, so this is done once) */
+        plat_ble_enable(0);
+    if (up && !bt.list) {                        /* the device list opened: look (not while a device is linked) */
+        BTA(on)(1);
+        st = BTA(state)();
+        if (!bt_linking(st) && st != PLAT_BTA_STREAMING)
+            BTA(scan)(1);
+    } else if (!up && bt.list) {                 /* and closed: stop looking; audio off again if it was off */
+        if (BTA(state)() == PLAT_BTA_SCANNING)
+            BTA(scan)(0);
+        if (!bt.want)
+            BTA(on)(0);
+    }
+    bt.list = (uint8_t)up;
+    st = BTA(state)();
+    if (st != bt.was) {
+        char nm[17];
+        if (!BTA(known)(bt.cur, nm))
+            nm[0] = 0;
+        if (st == PLAT_BTA_STREAMING)
+            say("BT AUDIO", nm);
+        else if (st == PLAT_BTA_REFUSED)
+            say_no("BT AUDIO", "REFUSED");
+        else if (st == PLAT_BTA_FAILED && (bt_linking(bt.was) || bt.was == PLAT_BTA_STREAMING))
+            say_no("BT AUDIO", bt.was == PLAT_BTA_STREAMING ? "LOST" : "NO ANSWER");
+        bt.was = (uint8_t)st;
+    }
+}
+/* the settings: read from the project at power-on; afterwards the FM-1's as they are, whichever project was loaded
+ * since (a restore, a test session, FACTORY RESET keep them) */
+static void bt_ui_init(void)
+{
+    if (!bt.read) {
+        bt.read = 1;
+        bt.want = (uint8_t)((proj.bt & BT_AUDIO_ON) != 0);
+        bt.midi = (uint8_t)((proj.bt & BT_MIDI_OFF) == 0);
+        bt.boot = (uint8_t)(bt.want != 0);
+#if !FM1B_BT_AUDIO
+        sb.on = 0;                               /* (the stand-in's radio starts off, as the FM-1's at power-on) */
+        sb.st = PLAT_BTA_OFF;
+#endif
+    } else if (proj.bt != bt_bits()) {
+        proj.bt = bt_bits();
+        if (!ts.on)
+            mark_dirty();
+    }
+}
 static void action_run(int a)
 {
     ui.tgt.loop = app.loop;                      /* what it acts on: now (a question's yes: still this) */
@@ -3450,6 +3586,36 @@ static void action_run(int a)
     case A_CLEAR_CHORD: act_clear_chord(); break;
     case A_STEP: break;
     case A_USB_AUDIO: case A_PC_AUDIO: break;
+    case A_BT_AUDIO:                             /* (ALGORITHM or SEL: on or off) */
+        bt_audio_set(!bt.want);
+        say("BT AUDIO", bt.want ? "ON" : "OFF");
+        return;
+    case A_BT_MIDI:
+        bt_midi_set(!bt.midi);
+        say("BT MIDI", bt.midi ? "ON" : "OFF");
+        return;
+    case A_BT_ADEV:
+        bt_open();
+        return;                                  /* (the list stays: the devices in it) */
+    case A_BT_DEV:
+        bt_row();
+        return;                                  /* (the list stays: the row says how it goes) */
+    case A_BT_LOOK:
+        if (bt_linking(BTA(state)()) || BTA(state)() == PLAT_BTA_STREAMING)
+            BTA(hangup)();                       /* (looking ends the link: the radio does one or the other) */
+        BTA(on)(1);
+        BTA(scan)(1);
+        say("LOOKING", "PAIRING MODE ON?");
+        return;
+    case A_BT_FORGET: {
+        char q[32], nm[17];
+        if (!BTA(known)(ui.pick_bt, nm))
+            return;
+        cat_s(cat_s(cat_s(q, "FORGET "), nm), "?");
+        upcase(q);
+        ask(q, do_bt_forget);
+        return;
+    }
     case A_PLAY_FROM: song_play_from(app.row); break;
     case A_INSERT_ROW: act_row(1); break;
     case A_DELETE_ROW: act_row(0); break;
@@ -3977,7 +4143,7 @@ static void presets(int32_t e)
 static void list_open(void)
 {
     int a;
-    lst.slots = 0;
+    lst.slots = lst.bt = 0;
     lst.open = 1;
     lst.sel = lst.top = 0;
     list_build();
@@ -4070,6 +4236,17 @@ static void list_change(int32_t e)
                 proj.pc_audio = (uint8_t)(d > 0);
                 mark_dirty();
             }
+        } else if (lst.row[lst.sel].id == A_BT_AUDIO) {   /* BT AUDIO: off, on */
+            if (bt.want != (uint8_t)(d > 0))
+                bt_audio_set(d > 0);
+        } else if (lst.row[lst.sel].id == A_BT_MIDI) {    /* BT MIDI: off, on */
+            if (bt.midi != (uint8_t)(d > 0))
+                bt_midi_set(d > 0);
+        } else if (lst.row[lst.sel].id == A_BT_FORGET) {  /* FORGET: a remembered device */
+            int n = 0;
+            while (n < 4 && BTA(known)(n, 0))
+                n++;
+            ui.pick_bt = (uint8_t)(n ? (ui.pick_bt + d + n) % n : 0);
         }
         else if (lst.row[lst.sel].id == A_LOAD_PROG)
             ui.pick_prog = (uint8_t)(((ui.pick_prog + e) % NTEMPLATES + NTEMPLATES) % NTEMPLATES);
@@ -5024,6 +5201,7 @@ static void sp_main(void)
         sp_cat(app.hdr[s].bars == 1 ? " bar" : " bars");
     } else if (ui.page == P_SETUP) {
         char t[16];
+        char a[24];
         if (!arr_styles_there())                 /* (as the page's last row) */
             sp_cat("Factory styles: not installed");
         else {
@@ -5031,6 +5209,10 @@ static void sp_main(void)
             sp_cat("QY70 styles: ");
             sp_cat(t);
         }
+        bt_adev_text(a);                         /* (Bluetooth, from Setup's list) */
+        sp_cat(". Bluetooth audio: ");
+        sp_cat(bt.want ? a : "off");
+        sp_cat(bt.midi ? ". Bluetooth MIDI on" : ". Bluetooth MIDI off");
     } else if (ui.page == P_PANEL) {
         sp_cat("CPU ");
         sp_int((int)plat_cpu_pct());
@@ -5166,7 +5348,9 @@ static void sp_front(int all)
         sp_cat("HOME held: white keys pick a progression, black keys 1 to 5 the Intro, Groove A, Groove B, a Fill, the "
                "Ending. REC: undo. PLAY: redo. SELECT: tempo. PRESETS: song");
     } else if (sp_list()) {
-        if (lst.slots) {                        /* MEMORY: "Memory list, 9 of 16 used." */
+        if (lst.bt)                             /* AUDIO DEVICE's: "Audio devices list." */
+            sp_cat("Audio devices list. ");
+        else if (lst.slots) {                   /* MEMORY: "Memory list, 9 of 16 used." */
             int used = 0;
             for (int i = 0; i < ARR_USER_PATTERNS; i++)
                 used += slot_kind[i] != SLOT_NONE;
@@ -5631,6 +5815,7 @@ void ui_init(void)
     ui.centry = -1;
     ui.loop_seen = -1;
     ui.act_t = plat_ms();
+    bt_ui_init();
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
@@ -5681,6 +5866,7 @@ void ui_frame(void)
         say("NO SECTIONS", "following you");             /* another song): a song with nothing to play is Free (REC on Song */
     }                                            /* writing its first sections: still the song) */
     yours_poll();
+    bt_poll();                                   /* (Bluetooth: the device list's look, what changed said) */
     preview_poll();                              /* (Sound's preview: a sound just picked) */
     rec_follow_keys();
     leads_poll();

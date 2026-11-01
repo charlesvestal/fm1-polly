@@ -49,6 +49,21 @@ int app_expect(const char *what, int *got_out)
         got = gm_ok;
     else if (!strcmp(what, "eas_pool"))           /* Sonivox's memory taken (bytes: eas_host_fm1.c, its fixed pool) */
         got = (int)gm_mem_used();
+    else if (!strcmp(what, "bt_audio"))           /* Setup's BT AUDIO: 1 on */
+        got = bt.want;
+    else if (!strcmp(what, "bt_midi"))            /* Setup's BT MIDI: 1 on */
+        got = bt.midi;
+    else if (!strcmp(what, "bt_saved"))           /* the project's proj.bt (BT_AUDIO_ON, BT_MIDI_OFF) */
+        got = proj.bt;
+    else if (!strcmp(what, "bta_state"))          /* the audio's PLAT_BTA_* (7 streaming) */
+        got = BTA(state)();
+    else if (!strcmp(what, "bta_known"))          /* audio devices remembered */
+        for (got = 0; got < 4 && BTA(known)(got, 0); got++)
+            ;
+    else if (!strcmp(what, "ble_state"))          /* Bluetooth MIDI's BLE_* (0 off, 2 ready) */
+        got = plat_ble_state();
+    else if (!strcmp(what, "list_bt"))            /* AUDIO DEVICE's list on screen */
+        got = lst.open && lst.bt;
     else if (!strcmp(what, "styles_there"))       /* the factory styles' notes: the resource region holds them */
         got = arr_styles_there();
     else if (!strcmp(what, "level"))              /* the output's peak, percent */
@@ -805,6 +820,7 @@ void app_host_reboot(void)                          /* RAM cleared: a test sessi
     ts_set(0);
     memset(&proj, 0, sizeof proj);
     started = 0;
+    bt.read = 0;                                 /* (Bluetooth's settings read from the project again) */
 }
 int app_host_fails(void) { return msg_too_wide + host_fails; }
 void app_host_ms(void)                              /* the tracks' note-ons: arr_track_hit moves at each one */

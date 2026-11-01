@@ -1293,7 +1293,8 @@ The click uses MIDI channel 16, so it goes out over MIDI too. It sits a little b
 muting instruments doesn't silence it. The click always counts you in before a recording, even when Click is
 off. If the band is already playing, it clicks the beats until a recording starts at the next bar line.
 
-The last line shows the state of the QY70 bank: none, the number of styles, "damaged" or "old format".
+The last line shows the state of the QY70 bank: none, the number of styles, "damaged" or "old format". If it
+says "Factory styles: not installed", see [Updating and safety](#updating-and-safety).
 
 **Factory reset.** Stop first. On Setup, press **SEL** and choose FACTORY RESET. Polly asks "ERASE ALL SONGS
 AND MEMORY?". Press **SEL** to erase, or **HOME** to keep everything. Afterwards, Polly is as it was new: the
@@ -1315,8 +1316,28 @@ On a Mac, macOS may pick the FM-1 as its sound output when you plug it in. With 
 computer then goes quiet. Pick your usual output in the Sound menu or in System Settings > Sound, or turn
 COMPUTER AUDIO on.
 
-Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, any audio dropouts (Xruns), and the version. It
-has no knobs.
+**Bluetooth audio.** Polly can play through Bluetooth headphones or a Bluetooth speaker. On Setup, press **SEL**,
+turn **SELECT** down to AUDIO DEVICE, and press **SEL**. Put the headphones or speaker in pairing mode. Polly looks
+for devices, and new ones appear in the list as it finds them. Turn **SELECT** to yours and press **SEL**. The row
+says "connecting", then "playing", and Polly says "BT AUDIO" and the device's name. Press **HOME** to go back.
+
+- BT AUDIO turns Bluetooth audio on or off (**ALGO**, or **SEL**). Turning it on connects the last device.
+- Polly remembers four devices, the last one first. With BT AUDIO on, it connects the last one again when you
+  switch the FM-1 on.
+- While Polly plays through Bluetooth, the FM-1's own speaker and headphone output are silent.
+- The sound reaches your ears 150 to 300 ms after you play, because the headphones or speaker keep a buffer.
+  That's fine for listening, but too late for playing in time with the band: use the FM-1's own output for that.
+- When the radio starts, Polly is silent for a moment while it sets itself up.
+- LOOK AGAIN looks for devices again. FORGET (turn **ALGO** to pick one, then press **SEL**) asks first, then
+  forgets a device. A device that just let go may not answer for a minute or two.
+
+**Bluetooth MIDI.** The FM-1 shows up as a Bluetooth MIDI device on a computer, phone or tablet, as "FM-1" and four
+characters. MIDI that comes in over Bluetooth plays Polly's sounds and clock, like [MIDI in](#setup-and-midi) over
+USB. Polly's MIDI out stays on USB. BT MIDI is on by default; turn it off on Setup's list (**SEL**, BT MIDI,
+**ALGO**). With BT AUDIO and BT MIDI both off, the radio stays off.
+
+Turn **SELECT** for Status. It shows the processor's load, how many voices are sounding, any audio dropouts
+(Xruns), the version, and how much of its memory the synth uses ("Synth 22/32 KB"). It has no knobs.
 
 **MIDI in.** MIDI coming in over USB or the TRS jack plays Polly's sounds on all 16 channels, like a General
 MIDI sound module, with drums on channel 10. It plays alongside the arranger and isn't transposed. Controller
@@ -1392,8 +1413,14 @@ the other FM-1 firmwares.
 - **Button calibration.** If buttons do the wrong thing, hold **OCT−** and **OCT+** while you switch on, and
   follow the screen.
 
+**The factory styles.** The installer writes Polly's 16 styles into the FM-1's memory just after the firmware. If
+that step didn't finish, Polly says "STYLES MISSING" and "INSTALL AGAIN" when you switch it on, the last line of
+Setup says "Factory styles: not installed", and the styles play no notes. Your songs, grooves and melodies still
+work. Install Polly again with the web installer to put the styles back.
+
 Your songs and grooves survive a Polly update. Putting M-VAVE's firmware back can wipe them, so make a
-[backup](#backup) first.
+[backup](#backup) first. Polly 0.6 keeps your songs in a new way, so going back to Polly 0.5 or older can't find
+them: make a backup first, and restore it after going back.
 
 ## Page by page
 

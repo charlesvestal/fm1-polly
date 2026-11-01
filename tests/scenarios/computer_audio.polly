@@ -10,7 +10,7 @@ tap SEL
 expect list_open 1
 turn SELECT 2
 wait 300
-said COMPUTER AUDIO off, 7 of 7
+said COMPUTER AUDIO off, 7 of 10
 turn ALGO 1
 wait 300
 said COMPUTER AUDIO on

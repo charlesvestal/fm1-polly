@@ -1,0 +1,87 @@
+# POLLY, Bluetooth (Setup's SEL list, after COMPUTER AUDIO; app/bt.c, after LOOM-8's): BT AUDIO off by default, BT
+# MIDI on. AUDIO DEVICE opens the devices (the simulator's stand-in finds "Speaker" half a second into a look); SEL
+# connects one, its row says how it goes, streaming is said; HOME back to Setup's list; kept with the settings; at
+# power-on the last device connected again once the radio is up; FORGET asks first; BT MIDI off and on
+wait 1200
+expect bt_audio 0
+expect bt_midi 1
+expect ble_state 2
+listen
+tap GLO
+tap SEL
+expect list_open 1
+expect list_has_BT_AUDIO 1
+expect list_has_AUDIO_DEVICE 1
+expect list_has_BT_MIDI 1
+turn SELECT 3
+wait 300
+said BT AUDIO off, 8 of 10
+turn SELECT 1
+wait 300
+said AUDIO DEVICE choose, a list, 9 of 10
+shot setup_list.png
+tap SEL
+expect list_bt 1
+wait 700
+expect list_has_Speaker 1
+expect list_has_LOOK_AGAIN 1
+shot devices.png
+tap SEL
+wait 50
+expect msgtext_is_CONNECTING_SPEAKER 1
+wait 400
+expect bta_state 7
+expect bt_audio 1
+expect msgtext_is_BT_AUDIO_SPEAKER 1
+expect dirty 1
+shot streaming.png
+tap HOME
+expect list_bt 0
+expect list_open 1
+wait 2000
+shot setup_list_on.png
+tap HOME
+tap SAVE
+wait 300
+expect dirty 0
+expect bt_saved 1
+# ---- power-on: the radio up, then the last device again
+reboot
+wait 300
+expect bt_audio 1
+expect bta_known 1
+wait 1500
+expect bta_state 7
+# ---- FORGET: asks, then forgotten (the link ended)
+tap GLO
+tap SEL
+turn SELECT 4
+tap SEL
+expect list_bt 1
+turn SELECT 2
+expect list_has_FORGET 1
+tap SEL
+expect asking 1
+tap SEL
+wait 50
+expect msgtext_is_FORGOTTEN_SPEAKER 1
+expect bta_known 0
+expect list_bt 1
+tap HOME
+expect list_bt 0
+expect list_open 1
+# ---- BT AUDIO off; BT MIDI off: the radio's MIDI stops; on again
+turn SELECT -1
+turn ALGO -1
+expect bt_audio 0
+turn SELECT 2
+turn ALGO -1
+wait 100
+expect bt_midi 0
+expect ble_state 0
+expect bt_saved 2
+turn ALGO 1
+wait 1200
+expect bt_midi 1
+expect ble_state 2
+tap HOME
