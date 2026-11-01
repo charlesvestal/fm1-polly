@@ -395,7 +395,8 @@ static void test_move(void)
 static void test_cuts(void)
 {
     static uint8_t start[sizeof nor];
-    int total, bad = 0, bad2 = 0, n2 = 0;
+    int total;
+    volatile int bad = 0, bad2 = 0, n2 = 0;          /* (changed between setjmp and a cut's longjmp) */
     lay_old();
     memcpy(start, nor, sizeof nor);
     ops = 0;
@@ -436,7 +437,7 @@ static void test_cuts(void)
             cut_at = 1 << 30;
             st_pool_boot();
             t2 = ops;
-            for (int j = 0; j < t2; j += 3) {
+            for (volatile int j = 0; j < t2; j += 3) {
                 memcpy(nor, mid, sizeof nor);
                 st_pool_scan = APP_STORE_POOL_OLD;
                 ops = 0;
