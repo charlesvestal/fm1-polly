@@ -3,7 +3,12 @@ name = "Polly"                 # the build's files: polly.fwsc, polly-X.Y.fwsc
 id_prefix = "FM-1_3"           # package identity: dev FM-1_300, releases FM-1_3XXYYZZ (as Polly 0.4)
 usb_manufacturer = "Polly"
 usb_product = "Polly FM-1"
-ble = false                    # Polly never uses the radio
+# Bluetooth on fm1-base's own stack (Optimist's, bt/: nothing of JieLi's linked): Bluetooth MIDI in from a computer or a
+# phone (on by default, as the stock firmware and LOOM-8; Setup's BT MIDI), and audio out to headphones and speakers
+# (A2DP; Setup's BT AUDIO, AUDIO DEVICE). The radio starts at power-on unless both are off (app.h APP_BLE_AT_BOOT)
+ble = true
+ble_stack = "own"
+bt_audio = true
 usb_audio_in = true            # the music recordable over USB (Setup's USB AUDIO: follows the knob, or full)
 usb_audio_out = true           # the computer plays through the FM-1 (Setup's COMPUTER AUDIO: off by default, or on)
 mirror = true                  # the screen and panel in a browser (web/mirror), the panel played from it (tools/polly_remote.py)

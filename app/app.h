@@ -19,9 +19,10 @@
  * the panel calibration at 0xDC000, the songs at 0x97000 and the 16 shared slots from 0x99000 to 0xB9000, two sectors
  * each. The QY70 style bank (dsp/qybank.h) has the rest of the data area and both of plat.h's windows: 0x93000..
  * 0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF and 0xE5000..0xFBFFF */
-enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /* 16: ARR_USER_PATTERNS */
+enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_BLE = OBJ_PAT0 + 16, OBJ_NOBJ };   /* 16: ARR_USER_PATTERNS */
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0x97000u, 0x99000u, 0x9B000u, 0x9D000u, 0x9F000u, 0xA1000u, 0xA3000u, \
-                       0xA5000u, 0xA7000u, 0xA9000u, 0xAB000u, 0xAD000u, 0xAF000u, 0xB1000u, 0xB3000u, 0xB5000u, 0xB7000u}
+                       0xA5000u, 0xA7000u, 0xA9000u, 0xAB000u, 0xAD000u, 0xAF000u, 0xB1000u, 0xB3000u, 0xB5000u, 0xB7000u, \
+                       0x97000u /* OBJ_BLE: pooled (the map's entry unused) */}
 /* the songs and the 16 slots pooled (fm1-base storage.c, as LOOM-8's projects): they share 20 sectors from 0x97000
  * instead of a pair each (34 sectors, to 0xB8FFF: the map above, where Polly 0.5 and before kept them, kept for the
  * move). The A/B pairs' copies move into the pool at the first boot (st_pool_boot: a copy written and read back before
@@ -34,8 +35,18 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };   /
 #define APP_STORE_POOL_N 20u
 #define APP_STORE_POOL_OLD 34u
 #define APP_STORE_POOL_OBJ0 OBJ_SONGS
+/* (the pooled: the songs, the 16 slots and OBJ_BLE, the radio's address and the Bluetooth audio devices with their keys:
+ * fm1-base bt_own.c; not in a backup, and a restore keeps it) */
 #define APP_STORE_POOL_OBJN (OBJ_NOBJ - OBJ_SONGS)
 _Static_assert(APP_STORE_POOL_N >= APP_STORE_POOL_OBJN + 2u, "the pool holds every object and keeps two sectors free");
+
+/* Bluetooth (fm1.toml ble, bt_audio): its settings in the project's proj.bt (BT_*). The radio starts at power-on unless
+ * both Bluetooth MIDI and audio are off (no advertising, no calibration's moment of silence); the audio packets'
+ * queue (13 KB) in the pool, not RAM */
+#define BT_AUDIO_ON 1u                   /* proj.bt: Bluetooth audio on (the last device connected at power-on) */
+#define BT_MIDI_OFF 2u                   /* proj.bt: Bluetooth MIDI off (no advertising, no links) */
+#define APP_BLE_AT_BOOT ((proj.bt & (BT_AUDIO_ON | BT_MIDI_OFF)) != BT_MIDI_OFF)
+#define BP_MQ_ATTR PLAT_POOL
 
 /* the resource region (fm1-base device/res.c; fm1.toml resources, tools/gen_res.py): the factory styles' patterns and
  * notes (43 KB), written by the installer after an update into sectors the pool freed. 14 sectors: room to spare */
@@ -113,7 +124,8 @@ typedef struct {
                                           * and headphones only); older projects: 0 */
     uint8_t pc_audio;                     /* COMPUTER AUDIO: 1 the computer plays through the FM-1 over USB (fm1-base's
                                           * usb_audio_out, plat_usb_play_gain), 0 muted (the default; older projects: 0) */
-    uint8_t rsv[1];
+    uint8_t bt;                          /* Bluetooth: BT_AUDIO_ON, BT_MIDI_OFF (older projects: 0, audio off, MIDI on;
+                                          * was rsv[0]: no format change) */
 } project_t;
 
 extern project_t proj;

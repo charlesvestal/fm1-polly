@@ -487,17 +487,22 @@ static void test_backup(void)
     static uint8_t start[sizeof nor];
     static set_t other;
     int bad = 0, total;
-    /* a 0.5 FM-1's own backup (the fixture's objects), restored into the pooled store after the move */
+    /* a 0.5 FM-1's own backup (the fixture's objects), restored into the pooled store after the move; the radio's
+     * keys (OBJ_BLE, pooled, not in a backup) kept */
     lay_old();
     st_pool_boot();
     img_n = encode(&want, img);
-    for (uint32_t o = OBJ_SONGS; o < OBJ_NOBJ; o++) {  /* the FM-1 holds other songs now */
+    memset(other.d[OBJ_BLE], 0xB1, 200);
+    st_save(OBJ_BLE, other.d[OBJ_BLE], 200);
+    for (uint32_t o = OBJ_SONGS; o < OBJ_PAT0 + 16u; o++) {   /* the FM-1 holds other songs now */
         memset(other.d[o], (int)o, 1000);
         st_save(o, other.d[o], 1000);
     }
     reloads = 0;
     CHECK(restore_rx(img_n, bu_crc(0, img, img_n), 0) == 0 && reloads == 1, "a 0.5 backup restored into the pool");
     snap(&now);
+    CHECK(now.n[OBJ_BLE] == 200 && !memcmp(now.d[OBJ_BLE], other.d[OBJ_BLE], 200), "... the Bluetooth keys kept");
+    now.n[OBJ_BLE] = -1;
     CHECK(same(&now, &want) && polly_loads(), "... every object as backed up; Polly loads it (slot 3 absent again)");
     /* a backup of the pooled store: the same image as 0.5 made of the same objects */
     got_n = 0;
@@ -506,9 +511,10 @@ static void test_backup(void)
         frames_this_pass = 0;
         bu_step();
     }
-    CHECK(got_n == img_n && !memcmp(got, img, img_n), "a backup of the pooled store: 0.5's image, byte for byte");
+    CHECK(got_n == img_n && !memcmp(got, img, img_n), "a backup of the pooled store: 0.5's image, byte for byte "
+          "(the keys not in it)");
     /* a power cut at every write of a restore (over other songs), then the boot: each object whole; again: the backup */
-    for (uint32_t o = OBJ_SONGS; o < OBJ_NOBJ; o++)
+    for (uint32_t o = OBJ_SONGS; o < OBJ_PAT0 + 16u; o++)
         st_save(o, other.d[o], 1000);
     memcpy(start, nor, sizeof nor);
     ops = 0;
@@ -529,11 +535,13 @@ static void test_backup(void)
         st_pool_scan = APP_STORE_POOL_OLD;
         st_pool_boot();
         snap(&now);
-        for (uint32_t o = OBJ_SONGS; o < OBJ_NOBJ; o++)
+        bad += now.n[OBJ_BLE] != 200;                 /* (the keys: never touched) */
+        for (uint32_t o = OBJ_SONGS; o < OBJ_PAT0 + 16u; o++)
             bad += !(now.n[o] < 0 || (now.n[o] == want.n[o] && !memcmp(now.d[o], want.d[o], (size_t)now.n[o])) ||
                      (now.n[o] == 1000 && !memcmp(now.d[o], other.d[o], 1000)));
         bad += restore_rx(img_n, bu_crc(0, img, img_n), 0) != 0;
         snap(&now);
+        now.n[OBJ_BLE] = -1;
         bad += !same(&now, &want);
     }
     cut_at = -1;

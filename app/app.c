@@ -12,7 +12,7 @@ static uint8_t gm_ok = 1;                           /* gm_init found the memory 
 #include "pages.c"
 #include "ui.c"
 
-_Static_assert(OBJ_NOBJ == 19 && OBJ_PAT0 == 3, "the store map lists every object (APP_STORE_MAP)");
+_Static_assert(OBJ_NOBJ == 20 && OBJ_PAT0 == 3, "the store map lists every object (APP_STORE_MAP)");
 
 /* the arranger's MIDI out (from the render): a USB-MIDI packet, cable 0, CIN = the status's high nibble; the room it
  * keeps for the note-offs it owes; a new connection (its sounds told again) */

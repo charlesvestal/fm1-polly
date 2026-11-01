@@ -10,7 +10,7 @@
 #include <string.h>
 #include "plat.h"
 #include "qybank.h"
-enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_NOBJ = OBJ_PAT0 + 16 };
+enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_BLE = OBJ_PAT0 + 16, OBJ_NOBJ };
 #include "map_defs.h"                              /* app.h's APP_STORE_POOL_* and APP_RES_* lines (tests/run_tests.sh) */
 /* the map as app.h has it (taken from app.h by tests/run_tests.sh: app.h itself pulls in the whole app) */
 static const uint32_t map[] =
