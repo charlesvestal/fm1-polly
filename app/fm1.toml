@@ -28,7 +28,7 @@ include = ["dsp", "dsp/eas"]
 device_include = ["dsp/eas/fm1inc"]   # the C library headers EAS wants, for the firmware (the host has its own)
 vendored = ["dsp/eas/"]        # Sonivox EAS (Apache-2.0): the register check skips it
 # room in the image: .ram_text and .data LZMA-packed, unpacked at boot (Melodee's: ~2 KB); the UI and the platform at
-# -Oz (16.5 KB); the main-loop o2 units for size (tools/size_units.py: ~5.7 KB). The sequencer and EAS stay -O2
+# -Oz (16.5 KB); the main-loop o2 units and the sequencer for size (tools/size_units.py: ~13 KB). EAS stays -O2
 boot_pack = true
 unity_opt = "z"
 ir_pass = "../tools/size_units.py"
