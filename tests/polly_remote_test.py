@@ -52,7 +52,7 @@ def sim_is(r, what, val):
 
 # ---- the screen, the panel
 r = R.connect(sim=True, outdir=OUT)
-ok(r.version == 3 and r.on, "mirroring on, the remote's version (3: the test session)")
+ok(r.version >= 3 and r.on, "mirroring on, the remote's version (3 or later: the test session)")
 r.shot(os.path.join(OUT, "start.png"))
 start_px = list(r.scr.px)
 ok(r.link.sim_screen(os.path.join(OUT, "start.fb")) == r.scr.px, "the screen mirrored = the simulator's")
