@@ -12,4 +12,7 @@ export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 PY="${PYTHON:-python3}"
 [ -f base/tools/build.py ] || { echo "build.sh: no fm1-base in base/ (git submodule update --init --recursive)"; exit 1; }
 "$PY" -c 'import PIL' 2>/dev/null || { echo "build.sh: $PY has no Pillow (pip3 install Pillow)"; exit 1; }
+case " $* " in
+    *" --web "*) exec sh web/emu/build.sh "$@";;   # the emulator: fm1-base's page with Polly's bits (web/emu/build.sh)
+esac
 exec "$PY" base/tools/build.py app "$@"

@@ -14,6 +14,7 @@ PKG="app/build/polly-$V.fwsc"
 if [ -z "${NO_EMU:-}" ]; then
     PYTHON="$PY" sh web/emu/build.sh --release "$V"
     node tests/host/emu_test.mjs app/build/emu/app.wasm
+    node tests/host/emu_page_test.mjs app/build/emu
     "$PY" tools/make_pages.py "$PKG" "$V" build/pages      # (checks emu/ with web/emu/check_published.py)
 else
     "$PY" tools/make_pages.py "$PKG" "$V" build/pages --no-emu

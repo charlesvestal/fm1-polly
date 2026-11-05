@@ -1,0 +1,128 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Polly's bits of the emulator's page: fm1-base's page (base/web/emu/index.html) with these put in by
+     tools/emu_page.py (./build.sh --web); web/emu/build.sh then fills in the controls list (CONTROLS, from app/ui.c).
+     What runs on it is app.js (when switched on) and qy.js (the QY70 styles, at once) beside this file. -->
+<!-- emu-page: description -->
+Polly is a pocket arranger for the M-VAVE FM-1 that plays Sonivox EAS's General MIDI sounds. Try it in your browser: an internal test build.
+<!-- emu-page: head -->
+<meta name="robots" content="noindex, nofollow">
+<style>
+/* Polly's own: its link and warning colour (the coral as text), the QY70 styles box, the getting-started steps, the
+   controls list, the skip link */
+:root { --accent-ink: #b4481c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --accent-ink: #f28a5a; } }
+:root[data-theme="dark"] { --accent-ink: #f28a5a; }
+a { color: var(--accent-ink); }
+.help p, .help ul { color: var(--muted); }
+a.skip { position: absolute; left: -9999px; }
+a.skip:focus { position: static; display: inline-block; margin: 0 0 .5rem; }
+.help ul, .help ol { padding-left: 1.1rem; }
+.help ol.steps { margin: .3rem 0 .6rem; color: var(--muted); max-width: 70ch; }
+.help ol.steps li { margin: 0 0 .25rem; }
+.knobs p + p, .knobs ol + p { margin-top: .5rem; }
+.knobs h2:not(:first-child) { margin-top: 1rem; }
+.help .knobs { grid-column: 1 / -1; }
+.knobs .pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .8rem 2rem; margin-top: .4rem; }
+.knobs h3 { font: 600 1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; color: var(--ink); }
+.knobs h3 span { color: var(--muted); font-weight: 400; }
+.knobs dl { margin: 0; color: var(--muted); }
+.knobs dt { color: var(--ink); font-weight: 600; }
+.knobs dd { margin: 0 0 .45rem; }
+.note { margin: 0 0 1rem; padding: .5rem .8rem; border-left: 3px solid var(--teal); background: var(--card); color: var(--muted); font-size: .92rem; }
+.qy { margin: 1.2rem 0 0; padding: .9rem 1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.qy h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .2rem; }
+.qy p { margin: 0 0 .6rem; color: var(--muted); }
+.qy.drag { border-color: var(--accent); border-style: dashed; }
+.qy .row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.qy label.load, .qy button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); border-radius: 8px; padding: .3em .8em; cursor: pointer; }
+.qy label.load { border-color: var(--accent); }
+.qy label.load:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qy input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.qy [hidden] { display: none; }
+.qy #qyState { color: var(--ink); }
+.qy #qyState.err { color: var(--accent-ink); font-weight: 600; }
+.help pre.controls { margin: .4rem 0 0; padding: .6rem .8rem; background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+                     overflow-x: auto; font: .82rem/1.5 ui-monospace, Menlo, monospace; color: var(--ink); }
+</style>
+<!-- emu-page: header -->
+<!-- emu-page: top -->
+<!-- (in the main part: the site's own header is the page's banner, tools/make_pages.py inject_header) -->
+<header>
+  <h1>Polly in the browser</h1>
+  <p>Polly is a pocket arranger for the FM-1. This page runs the same code as the FM-1, so you can try it here.</p>
+  <a class="skip" href="#speak">Skip past the panel</a>
+</header>
+<!-- emu-page: reader -->
+<section class="qy" id="qy" aria-labelledby="qyTitle">
+  <h2 id="qyTitle">QY70 styles</h2>
+  <p>If you own a QY70, pick or drop its main ROM here (MAME calls it <kbd>qy70main.bin</kbd>). Polly builds the QY70's
+    128 preset styles in your browser, and they come after Polly's own 16 on the Style knob. The ROM never leaves your
+    computer, and this browser keeps the styles for your next visit.</p>
+  <div class="row">
+    <label class="load" title="Your QY70's main ROM file (qy70main.bin). It's read here and never uploaded.">Load QY70 ROM<input type="file" id="qyFile"></label>
+    <button id="qyForget" type="button" hidden title="Remove the QY70 styles from this browser. Polly keeps its own 16.">Forget QY70 styles</button>
+    <span id="qyState" role="status" aria-live="polite">Checking this browser...</span>
+  </div>
+</section>
+<script type="module" src="qy.js"></script>
+<!-- emu-page: end -->
+<section class="help">
+  <div class="knobs">
+    <h2>Getting started</h2>
+    <p>Polly plays a style. A band of eight instruments follows the chords you play. Press <b>Switch on</b> above, and try these steps.</p>
+    <ol class="steps">
+      <li>Turn <b>KNOB 1</b> on the Home page to pick a style.</li>
+      <li>Press <b>PLAY</b>. Groove A starts.</li>
+      <li>Play a chord with three keys or more. The band follows it, and keeps it after you let go.</li>
+      <li>Hold <b>HOME</b> and press black key 3 for Groove B. On this page, <kbd>Shift</kbd>-click HOME to hold it (or press
+        <kbd>Shift</kbd>+<kbd>Enter</kbd> on it). The screen shows what each key does while you hold HOME.</li>
+      <li>Hold <b>HOME</b> and press a white key. The band plays that key's progression over and over.</li>
+      <li>Press <b>HOME</b> again for the Song page. Each white key adds a section that plays that progression.</li>
+      <li><b>SAVE</b> is lit when something isn't saved. When Polly is stopped, it also saves by itself after a few seconds.</li>
+    </ol>
+    <p>The ten short lessons in <a href="../school/">School</a> work here too.</p>
+    <p>For your QY70 styles, press <b>Load QY70 ROM</b> above. They come after Polly's own 16 on the Style knob. To put them
+      on an FM-1 running Polly, run <kbd>python3 tools/qy70_install.py qy70main.bin</kbd>.</p>
+    <p>MIDI from your computer plays all 16 channels, like a General MIDI sound module.</p>
+    <h2>The controls</h2>
+<!--CONTROLS-->
+  </div>
+  <div>
+    <h2>Mouse and touch</h2>
+    <ul>
+      <li>Drag a knob up or down, or use the scroll wheel over it.</li>
+      <li>Click or touch buttons and keys. Several fingers at once work on a touch screen.</li>
+      <li>To hold a button down, <kbd>Shift</kbd>-click or right-click it. Click it again to let go.</li>
+      <li>Hover over a control to see what it does.</li>
+    </ul>
+  </div>
+  <div>
+    <h2>Keyboard</h2>
+    <ul>
+      <li><kbd>Tab</kbd> moves through the knobs, buttons and keys on the panel. The arrow keys turn the knob you're on, and
+        <kbd>Page Up</kbd> and <kbd>Page Down</kbd> turn it faster. Hold <kbd>Space</kbd> or <kbd>Enter</kbd> to hold a button or key, and
+        press <kbd>Shift</kbd>+<kbd>Enter</kbd> to keep a button held until you press it again.</li>
+      <li>While the panel has focus (click it, or Tab into it), the computer's keys play it too: white keys 1&ndash;8 are
+        <kbd>Q</kbd> to <kbd>I</kbd>, and 9&ndash;16 are <kbd>A</kbd> to <kbd>K</kbd>. Black keys 1&ndash;11 are <kbd>1</kbd> to <kbd>0</kbd> and <kbd>-</kbd>.</li>
+      <li><kbd>Space</kbd> is PLAY (on a knob, or on the panel itself), <kbd>Esc</kbd> is HOME, and <kbd>Z</kbd> and <kbd>X</kbd> are OCT&minus; and OCT+.
+        The up and down arrow keys turn PRESETS, and left and right turn ALGORITHM, unless you're on a knob.</li>
+      <li>To keep these keys for your screen reader, turn off <b>Keyboard shortcuts</b>.</li>
+    </ul>
+  </div>
+  <div>
+    <h2>Saving</h2>
+    <p>SAVE keeps your songs, grooves and settings in this browser. <b>Factory reset</b> clears them but keeps the QY70
+      styles. To remove those, press <b>Forget QY70 styles</b>. What you hear is Polly itself running, not a recording.</p>
+  </div>
+  <div>
+    <h2>Credits</h2>
+    <p>The synth is <a href="https://github.com/EmbeddedSynth/sonivox">Sonivox EAS</a> (Apache-2.0). The platform is
+      <a href="https://github.com/hugelton/Felucca">Felucca</a> by H&uuml;gelton Instruments (GPL-3.0). Polly's own drum
+      grooves come from the <a href="https://magenta.tensorflow.org/datasets/groove">Groove MIDI Dataset</a> (CC BY 4.0,
+      &copy; Google LLC). <a href="https://pyodide.org/">Pyodide</a> (MPL-2.0) runs Polly's tools to build the QY70 styles from your own ROM.
+      The styles are &copy; Yamaha, and nothing of Yamaha's is on this site. The idea of running FM-1 firmware in the
+      browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator. The screen reader's words and its voice,
+      <a href="https://github.com/espeak-ng/espeak-ng">eSpeak NG</a> (GPL-3.0), come from the
+      <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>.</p>
+  </div>
+</section>

@@ -1,27 +1,38 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Nothing of Yamaha's goes on the site: the published emulator directory holds exactly the files listed below
-(the page, the wasm, the worklet, the bank builder's worker and its Python, and fm1-reader's words and voice: GPL code), and, given your ROM, none
+(the page, the wasm, the worklet, Polly's own part of each, fm1-base's emulator parts (MPL-2.0), the QY70 box's script, the
+bank builder's worker and its Python, and fm1-reader's words and voice: GPL code), and, given your ROM, none
 of them contains the ROM's style names or any 48 bytes of the ROM or of the bank image built from it.
 
     python3 web/emu/check_published.py DIR [qy70main.bin]
+
+The build's objects (o2/, web/: the emulator's compiled units) are not looked at: they are never published.
 """
 import os
 import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ALLOWED = {"index.html", "worklet.js", "app.wasm", "qybank_worker.js",
+ALLOWED = {"index.html", "worklet.js", "app.wasm", "qybank_worker.js", "qy.js",
+           "app.js", "app_own.js", "app_worklet.js", "app_own_worklet.js",
+           "parts/parts.js", "parts/parts_worklet.js", "parts/resample_worklet.js",
            "py/qy_build.py", "py/qy70_import.py", "py/qy70_bank.py", "py/qy70_codec.py"}
 # the screen reader's words and voice (fm1-reader's web/, GPL-3.0): allowed, not required
 OPTIONAL = {"reader/words.js", "reader/tts.js", "reader/tts_worker.js", "reader/espeak/espeak.js", "reader/espeak/espeak.wasm",
             "reader/espeak/LICENSE", "reader/espeak/README.md", "reader/FROM.txt"}
+# fm1-base's other emulator parts (base/web/emu/parts, fm1.toml emu = [...]): allowed, not required
+PARTS = os.path.join(HERE, "../../base/web/emu/parts")
+OPTIONAL |= {"parts/" + n for n in (os.listdir(PARTS) if os.path.isdir(PARTS) else []) if n.endswith(".js")}
+BUILD_ONLY = {"o2", "web"}
 CHUNK = 32
 
 
 def files(d):
     out = {}
-    for root, _, names in os.walk(d):
+    for root, dirs, names in os.walk(d):
+        if root == d:
+            dirs[:] = [x for x in dirs if x not in BUILD_ONLY]
         for n in names:
             p = os.path.join(root, n)
             out[os.path.relpath(p, d).replace(os.sep, "/")] = p

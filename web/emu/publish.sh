@@ -13,12 +13,15 @@ DEST=qy
 [ -d "$SITE/.git" ] || { echo "no site checkout at $SITE (set SITE)"; exit 1; }
 PYTHON="${PYTHON:-python3}" sh web/emu/build.sh
 node tests/host/emu_test.mjs app/build/emu/app.wasm
+node tests/host/emu_page_test.mjs app/build/emu
 node tests/host/emu_bank_test.mjs app/build/emu/app.wasm
 python3 web/emu/check_published.py app/build/emu ${QY70_ROM:+"$QY70_ROM"}
 git -C "$SITE" pull -q --ff-only
 rm -rf "${SITE:?}/$DEST"
-mkdir -p "$SITE/$DEST/py"
-cp app/build/emu/index.html app/build/emu/worklet.js app/build/emu/app.wasm app/build/emu/qybank_worker.js "$SITE/$DEST/"
+mkdir -p "$SITE/$DEST/py" "$SITE/$DEST/parts"
+cp app/build/emu/index.html app/build/emu/worklet.js app/build/emu/app.wasm app/build/emu/qybank_worker.js app/build/emu/qy.js \
+   app/build/emu/app.js app/build/emu/app_own.js app/build/emu/app_worklet.js app/build/emu/app_own_worklet.js "$SITE/$DEST/"
+cp app/build/emu/parts/*.js "$SITE/$DEST/parts/"
 cp app/build/emu/py/*.py "$SITE/$DEST/py/"
 python3 web/emu/check_published.py "$SITE/$DEST" ${QY70_ROM:+"$QY70_ROM"}
 # robots.txt: keep its entries, add the Disallow under "User-agent: *" once

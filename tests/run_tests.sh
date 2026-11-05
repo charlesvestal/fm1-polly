@@ -111,6 +111,8 @@ run host-build sh build.sh --host
 run polly-remote $PY tests/polly_remote_test.py
 if command -v emcc >/dev/null 2>&1; then
     run emu sh -c "PYTHON=$PY sh web/emu/build.sh >/dev/null && node tests/host/emu_test.mjs $B/emu/app.wasm"
+    # fm1-base's page with Polly's bits, its worklet with the part resample (in time at 48 kHz), the QY70 bank's way in
+    run emu-page node tests/host/emu_page_test.mjs $B/emu
     if [ -n "${QY70_ROM:-}" ] && [ -f "$QY70_ROM" ]; then
         run emu-bank node tests/host/emu_bank_test.mjs $B/emu/app.wasm
     fi

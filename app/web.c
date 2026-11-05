@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Polly's own exports for its browser page (app/web/emu/index.html), beside fm1-base's (base/web/emu/emu_web.c, which
- * includes this: app.h APP_WEB).
+/* Polly's own exports for its browser page (fm1-base's, with app/web/emu/: app_worklet.js puts the bank in), beside
+ * fm1-base's (base/web/emu/emu_web.c, which includes this: app.h APP_WEB).
  *
  * The QY70 style bank (bring your own ROM): the page builds the image from the tester's ROM (web/emu/qy_build.py, the
  * codec's --image) and keeps it in its browser; here it goes into the emulated flash as the simulator's `bank FILE`

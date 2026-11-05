@@ -36,7 +36,7 @@ On Linux x86-64 the toolchain runs natively and no container is needed.
 ./build.sh                    # app/build/polly.fwsc (identity FM-1_300)
 ./build.sh --release 0.5      # app/build/polly-0.5.fwsc (identity FM-1_3000500)
 ./build.sh --host             # the simulator: app/build/host/polly_host
-web/emu/build.sh              # the browser emulator: app/build/emu/ (fm1-base's --web, and Polly's page and bank builder)
+web/emu/build.sh              # the browser emulator: app/build/emu/ (fm1-base's page and parts, Polly's bits: app/web/emu/; ./build.sh --web too)
 ```
 
 `JIELI_TOOLCHAIN` and `AC79_SDK` override the default locations (`~/.jieli/toolchain`, `~/fw-AC79_AIoT_SDK`).

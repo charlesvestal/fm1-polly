@@ -63,7 +63,8 @@ ROUTES = {
     "base/web/installer.html": "install/",
     "base/web/mirror/index.html": "mirror/",
     "base/web/backup/index.html": "backup/",
-    "app/web/emu/index.html": "emu/",
+    "base/web/emu/index.html": "emu/",
+    "app/web/emu/page.html": "emu/",
 }
 PREFIXES = [("docs/course/img/", "school/img/"), ("docs/img/", "img/"), ("docs/video/", "video/")]
 
@@ -720,7 +721,7 @@ def main(argv):
         page = (out / "emu" / "index.html").read_text(encoding="utf-8")
         page = re.sub(r'<meta name="robots"[^>]*>\n?', "", page)                  # (on its own site: a page like the others)
         page = re.sub(r'<p class="note">Internal test build[^<]*</p>\n?', "", page)
-        page = page.replace("<title>Polly test build</title>", "<title>Emulator · Polly</title>")
+        page = page.replace("<title>Polly in the browser</title>", "<title>Emulator · Polly</title>")
         if not (out / "emu" / "reader" / "words.js").exists():
             print("warning: emu/ without fm1-reader's words.js and voice (web/emu/build.sh found no ../fm1-reader)", file=sys.stderr)
         page = page.replace("in your browser: an internal test build.", "in your browser.")
