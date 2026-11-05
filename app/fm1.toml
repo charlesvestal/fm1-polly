@@ -46,3 +46,11 @@ tagline = "A pocket arranger for the FM-1"
 repo = "https://github.com/charlesvestal/fm1-polly"
 licence = "GPL-3.0-only"
 credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). GM sounds: Sonivox EAS (Apache-2.0). Drums: the Groove MIDI Dataset (CC BY 4.0)."
+
+# firmware.json, for firmware hubs (fm1-base docs/FIRMWARE-JSON.md)
+author = "Charles Vestal"
+description = "Polly is a pocket arranger for the M-VAVE FM-1, inspired by the Yamaha QY70. A style plays a band of eight instruments, and the chords you play steer it. Songs are made of sections, each playing a chord progression, with two melodies running along them. The sounds come from the General MIDI set of Sonivox EAS, and MIDI in plays them too, so Polly also works as a General MIDI sound module."
+tags = ["arranger", "chords", "sequencer", "general-midi", "midi"]
+install = "https://charlesvestal.github.io/fm1-polly/install/"
+site = "https://charlesvestal.github.io/fm1-polly/"
+screenshot = "docs/img/manual/home.png"
