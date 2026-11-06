@@ -1,0 +1,26 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.500
+With other gear
+Send Polly's band to a computer, follow its clock, play from a keyboard and mirror the screen.
+
+2
+00:00:03.500 --> 00:00:09.360
+1. Send MIDI out
+Press GLO for Setup. KNOB 2 (MIDI out) is on. Turn it, and the screen says what it does.
+
+3
+00:00:09.360 --> 00:00:13.360
+1. Send MIDI out
+Every instrument goes out over USB on its own channel, with the clock.
+
+4
+00:00:13.360 --> 00:00:17.940
+2. Follow MIDI clock
+KNOB 1 (Clock) is on MIDI. Turn it, and the screen says what it does.
+
+5
+00:00:17.940 --> 00:00:22.000
+2. Follow MIDI clock
+When clock comes in, Polly follows its tempo, start and stop.
