@@ -635,8 +635,8 @@ def landing(version, pkg_name, emu):
 </ul>
 <p class="small">Polly {html.escape(version)} is free software under the GPL-3.0. It comes with no warranty. The <a href="{REPO}">source is on GitHub</a>.
 Polly is inspired by the Yamaha QY70 and is not affiliated with Yamaha or M-VAVE. It contains none of Yamaha's data.
-M-VAVE and FM-1 are trademarks of their owners. To go back to the official firmware, use the installer's
-"Back to the stock firmware".</p>
+M-VAVE and FM-1 are trademarks of their owners. To go back to the official firmware, use "Back to the stock
+firmware" in the installer.</p>
 </main>"""
     return body
 
