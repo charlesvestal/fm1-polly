@@ -259,6 +259,8 @@ static void ne_key_up(void)
     for (int k = 0; k < NKEYS; k++)
         if (ui.kmode[k] == KM_PLAY)
             return;
+    if (ext_any())
+        return;                                  /* (a controller's notes held too: the same chord) */
     if (!ne.entering)
         return;
     ne.entering = 0;

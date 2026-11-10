@@ -4285,10 +4285,38 @@ static void list_sel(void)
     }
 }
 
+/* a controller's notes where the keys play the selected track (SEQ, EDIT, Notes): as the keys, any channel, with its
+ * velocity; recorded when recording. Each such note's release goes the same way, wherever the page is by then */
+static uint32_t ext_held[4];                     /* the notes held on a controller, played as the track */
+static int ext_any(void) { return (ext_held[0] | ext_held[1] | ext_held[2] | ext_held[3]) != 0; }
+static void ne_key(int note);
+static void ne_key_up(void);
+static int ext_note(uint32_t t, uint32_t n, uint32_t v)
+{
+    uint32_t w = n >> 5, m = 1u << (n & 31u);
+    if (t == 0x90u && v) {
+        if (key_role() != KR_TRACK)
+            return 0;
+        if (ext_held[w] & m)
+            arr_key((int)n, 0, 0);               /* (on again before its release: the first one ends) */
+        ext_held[w] |= m;
+        arr_key((int)n, 1, (int)v);
+        if (ui.page == P_NOTES && !arr_recording && !ui.rec_want)
+            ne_key((int)n);
+        return 1;
+    }
+    if (!(ext_held[w] & m))
+        return 0;
+    ext_held[w] &= ~m;
+    arr_key((int)n, 0, 0);
+    ne_key_up();
+    return 1;
+}
+
 static void midi_in(void)
 {
     uint32_t pkt;
-    while (plat_midi_in(&pkt, 0)) {             /* (USB, the TRS jack: the same) */
+    while (plat_midi_in(&pkt, 0)) {             /* (USB, the TRS jack, Bluetooth: the same) */
         uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu, t = st & 0xF0u;
         if (st >= 0xF8u && !proj.clock)
             continue;                            /* internal clock: the clock in ignored */
@@ -4302,6 +4330,8 @@ static void midi_in(void)
             arr_clock(ARR_CLK_STOP);
         if (st < 0x80u || st >= 0xF0u)
             continue;                            /* sysex and the rest: not for the synth */
+        if ((t == 0x90u || t == 0x80u) && ext_note(t, d1, d2))
+            continue;
         gm_midi(st, d1, d2);                     /* all 16 channels, as the GM module */
         if (t == 0xC0u && (st & 15u) != 9u)
             proj.program[st & 15u] = (uint8_t)d1;

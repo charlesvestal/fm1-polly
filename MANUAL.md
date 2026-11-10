@@ -756,6 +756,10 @@ of the groove or extra that's playing, and keeps looping it while you play.
    and, if a progression is playing, the progression's bar: "groove bar 1 / 2 · prog bar 3 / 4".
 6. Press **REC** again to stop recording. The groove keeps playing.
 
+You can also play and record from a MIDI keyboard. On the Band, Sound and Notes pages, MIDI notes coming in on
+any channel play the selected instrument, as the FM-1's keys do, and Polly records them with the velocity you
+played. See [MIDI in](#setup-and-midi).
+
 ### The Band page
 
 ![The Band page with a help card, D1 muted in section 3: the eight instruments' notes in Groove A (edited) at bar 2.3. Knobs: Grid 16, Bar 2, Beat 3, Muted in 3 yes](docs/img/manual/band.png)
@@ -1348,7 +1352,9 @@ Turn **SELECT** for Status. It shows the processor's load, how many voices are s
 
 **MIDI in** lets you play Polly's sounds from another instrument or a computer. MIDI coming in over USB or the
 TRS jack plays Polly's sounds on all 16 channels, like a General MIDI sound module, with drums on channel 10.
-It plays alongside the arranger and isn't transposed. Controller 74 changes each channel's filter brightness
+It plays alongside the arranger and isn't transposed. On the Band, Sound and Notes pages, notes on any channel
+play the selected instrument instead, like the FM-1's keys, and **REC** records them with their velocity. Other
+messages still play the channels. Controller 74 changes each channel's filter brightness
 and controller 71 its resonance, as on the Mixer tone page.
 
 **USB** connects Polly to a computer as a class-compliant MIDI device called "Polly FM-1". The FM-1 has no MIDI

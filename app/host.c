@@ -389,11 +389,12 @@ int app_expect(const char *what, int *got_out)
     else if (!strncmp(what, "slot", 4) && strstr(what, "_bank"))    /* slotN_bank: 1 plays a QY70 style's section */
         got = app.slot_buf[atoi(what + 4) % ARR_NSECT] >= 0;
     else if (!strncmp(what, "slot", 4) && strstr(what, "_trk") && (strstr(what, "_note") || strstr(what, "_tick") ||
-                                                                strstr(what, "_count") || strstr(what, "_xtype"))) {
-        /* slotS_trkT_noteI / _tickI: the arranger's slot S's track T (1..8), its event I (0..): pitch, tick (-1 none);
+                                                                strstr(what, "_vel") || strstr(what, "_count") || strstr(what, "_xtype"))) {
+        /* slotS_trkT_noteI / _tickI / _velI: the arranger's slot S's track T (1..8), its event I (0..): pitch, tick,
+         * velocity (-1 none);
          * slotS_trkT_count: its notes */
         const char *q = strstr(what, "_trk") + 4, *f = strchr(q, '_');
-        int t = (atoi(q) - 1) & 7, i = f ? atoi(f + 5) : 0;
+        int t = (atoi(q) - 1) & 7, i = f ? atoi(f + (f[1] == 'v' ? 4 : 5)) : 0;
         const arr_trk_t *tr;
         arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         tr = &dbg_pat.trk[t];
@@ -404,7 +405,8 @@ int app_expect(const char *what, int *got_out)
         else if (i < 0 || i >= tr->count)
             got = -1;
         else
-            got = f && !strncmp(f, "_note", 5) ? dbg_pat.ev[tr->first + i].note : dbg_pat.ev[tr->first + i].tick;
+            got = f && !strncmp(f, "_note", 5) ? dbg_pat.ev[tr->first + i].note
+                : f && !strncmp(f, "_vel", 4) ? dbg_pat.ev[tr->first + i].vel : dbg_pat.ev[tr->first + i].tick;
     } else if (!strncmp(what, "slot", 4) && strstr(what, "_nev")) {   /* slotN_nev: the arranger's slot N's notes (0 Intro, 1 Main A, ..) */
         arr_pattern_copy(atoi(what + 4) % ARR_NSECT, &dbg_pat);
         got = dbg_pat.nev;

@@ -1,0 +1,58 @@
+# POLLY, a controller's notes recorded: on SEQ, MIDI notes in (any channel) play the selected track as the keys do and
+# are recorded with their own velocity. On HOME they play the GM synth on their channel, as before, and record nothing.
+# A note held while the page changes ends on the track it started on. At 120 BPM a bar is 2 s.
+wait 300
+spin K2 15
+expect tempo 120
+# LOOP L1 (HOME + white key 1), SEQ: C1, erased (ERASE TRACK, as record.polly)
+press HOME
+tapkey w0
+release HOME
+tap SEQ
+expect page 6
+expect track 5
+tap SEL
+spin SELECT 20
+spin SELECT -3
+wait 159
+tap SEL
+expect asking 1
+tap SEL
+wait 100
+expect slot1_trk5_count 0
+# REC armed, stopped; PLAY: a bar's count-in, then bar 1 (C)
+tap REC
+wait 50
+expect recording 1
+tap PLAY
+wait 2300
+expect rec_wait 0
+# E5 on channel 1 at velocity 40, G4 on channel 10 at 110 (both C1's, as the keys play it)
+midi 90 4C 28
+wait 300
+midi 80 4C 00
+wait 200
+midi 99 43 6E
+wait 300
+midi 99 43 00
+wait 400
+tap REC
+wait 50
+expect recording 0
+tap PLAY
+wait 100
+expect slot1_trk5_count 2
+expect slot1_trk5_note0 76
+expect slot1_trk5_vel0 40
+expect slot1_trk5_note1 67
+expect slot1_trk5_vel1 110
+# held across a page change: its release still ends it on C1 (no stuck note), and a note on HOME records nothing
+midi 90 3C 64
+tap HOME
+expect page 0
+midi 80 3C 00
+midi 90 3C 64
+wait 100
+midi 80 3C 00
+wait 100
+expect slot1_trk5_count 2
