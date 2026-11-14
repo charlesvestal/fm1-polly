@@ -81,3 +81,5 @@ describes the format. Their drums are performances from Google Magenta's
 Bamman; © Google LLC, CC BY 4.0), excerpted and quantised.
 
 See LICENSING.md.
+
+You can also try Polly in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
