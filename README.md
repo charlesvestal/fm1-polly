@@ -3,7 +3,8 @@
 Polly is a pocket arranger for the M-VAVE FM-1. It's inspired by the Yamaha QY70. A style plays a band of eight
 instruments, and the chords you play steer it. The sounds come from the General MIDI set of
 [Sonivox EAS](https://github.com/EmbeddedSynth/sonivox). MIDI in plays them too, so Polly also works as a
-General MIDI sound module. Polly is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
+General MIDI sound module. Its 16 styles are Pop, Funk, Rock, Ballad, Bossa, Swing, Shuffle, Reggae, Hip hop, House,
+Disco, Country, Gospel, Waltz, Latin and Ambient. Polly is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
 [felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita
 (Hügelton Instruments).
 
