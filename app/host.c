@@ -624,7 +624,7 @@ int app_host_cmd(const char *cmd, const char *a0, const char *b, const char *c, 
         return 1;
     }
     if (!strcmp(cmd, "bank")) {                     /* bank FILE: an image into the bank's flash, as the device writes it */
-        static uint8_t img[320u * 1024u];               /* (a whole bank image: the directory and 63 sectors) */
+        static uint8_t img[320u * 1024u];               /* (a whole bank image: the directory and 60 sectors) */
         FILE *bf;
         long n;
         host_file(out, sizeof out, a);

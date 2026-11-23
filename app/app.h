@@ -17,8 +17,9 @@
 
 /* the store, where Polly 0.4 kept it (an update keeps the songs): the project at 0xFC000 (Felucca's settings pair),
  * the panel calibration at 0xDC000, the songs at 0x97000 and the 16 shared slots from 0x99000 to 0xB9000, two sectors
- * each. The QY70 style bank (dsp/qybank.h) has the rest of the data area and both of plat.h's windows: 0x93000..
- * 0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF and 0xE5000..0xFBFFF */
+ * each. The QY70 style bank (dsp/qybank.h) has the rest of the data area and plat.h's windows: 0x93000..
+ * 0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF, 0xE5000..0xE6FFF and 0xEA000..0xFBFFF (never 0xE7000..0xE9FFF, the
+ * FM-1's own system sectors: plat.h PLAT_SYS) */
 enum { OBJ_PROJ, OBJ_PANEL, OBJ_SONGS, OBJ_PAT0, OBJ_BLE = OBJ_PAT0 + 16, OBJ_NOBJ };   /* 16: ARR_USER_PATTERNS */
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0x97000u, 0x99000u, 0x9B000u, 0x9D000u, 0x9F000u, 0xA1000u, 0xA3000u, \
                        0xA5000u, 0xA7000u, 0xA9000u, 0xAB000u, 0xAD000u, 0xAF000u, 0xB1000u, 0xB3000u, 0xB5000u, 0xB7000u, \

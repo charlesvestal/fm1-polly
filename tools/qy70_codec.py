@@ -629,10 +629,10 @@ def ctest(blob):
 
 # ---------------------------------------------------------------- the bank on the FM-1 (app/dsp/qybank.h)
 
-# the data's logical bytes (qybank.h QB_CAPACITY: 63 sectors of 4088, the guard bytes stepped over; the FM-1 maps
+# the data's logical bytes (qybank.h QB_CAPACITY: 60 sectors of 4088, the guard bytes stepped over; the FM-1 maps
 # them to flash as it writes them)
 QB_SECTOR, QB_GUARD = 4096, 0xF00
-QB_CAPACITY = 63 * (QB_SECTOR - 8)
+QB_CAPACITY = 60 * (QB_SECTOR - 8)
 QB_MAGIC, QB_VERSION, QB_DIR_HEAD, QB_DIR_ENTRY, QB_MAXSTYLES = b"PQB1", 1, 32, 24, 128
 
 

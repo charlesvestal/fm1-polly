@@ -11,7 +11,7 @@
  * the songs' bank sections silent) until it is written again. The directory is checked whole (every style's
  * place and size, the priors') before anything is erased, so a wrong image keeps the old bank; but a transfer
  * garbled after that (a byte changed on the way, the cable cut) costs the old bank: write it again. Only the bank's sectors are erased or written
- * (bk_erase / bk_prog refuse the rest); all 63 data sectors are erased, the ones the bank does not fill too. At the end the device tells the host: a read of 0xB0000000 (written,
+ * (bk_erase / bk_prog refuse the rest); all 60 data sectors are erased, the ones the bank does not fill too. At the end the device tells the host: a read of 0xB0000000 (written,
  * mounted) or 0xBF00xxxx (failed: xxxx the code, BK_E_*).
  *
  * Hooks (main.c on the device, tests/bank_rx_test.c on the host):

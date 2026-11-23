@@ -40,8 +40,9 @@ uint32_t qb_crc32(uint32_t c, const void *p, uint32_t n)   /* zlib CRC-32, 4 bit
 
 uint32_t qb_sector(uint32_t i)
 {
-    static const uint32_t R[4][2] = {{QB_R0_LO, QB_R0_HI}, {QB_R1_LO, QB_R1_HI}, {QB_R2_LO, QB_R2_HI}, {QB_R3_LO, QB_R3_HI}};
-    for (int r = 0; r < 4; r++) {
+    static const uint32_t R[5][2] = {{QB_R0_LO, QB_R0_HI}, {QB_R1_LO, QB_R1_HI}, {QB_R2_LO, QB_R2_HI}, {QB_R3_LO, QB_R3_HI},
+                                     {QB_R4_LO, QB_R4_HI}};
+    for (int r = 0; r < 5; r++) {
         uint32_t lo = R[r][0] == QB_DIR ? QB_DIR + QB_SECTOR : R[r][0], n = (R[r][1] - lo) / QB_SECTOR;
         if (i < n)
             return lo + i * QB_SECTOR;

@@ -84,8 +84,27 @@ int main(void)
     for (i = 0; i < APP_RES_SECTORS; i++)
         take(APP_RES_BASE + i * 4096u, 91, "a resource sector");
     take(QB_DIR, 100, "the bank's directory");
-    for (i = 0; i < QB_NSECT; i++)
-        take(qb_sector(i), 100, "a bank sector");
+    for (i = 0; i < QB_NSECT; i++) {
+        uint32_t s = qb_sector(i);
+        take(s, 100, "a bank sector");
+        if (s >= PLAT_SYS_LO && s < PLAT_SYS_HI) {  /* the FM-1's own system sectors: SDK VM, BTIF */
+            printf("FAIL bank sector %u at %#x lies in the system sectors %#x..%#x\n", i, s, PLAT_SYS_LO, PLAT_SYS_HI - 1u);
+            fails++;
+        }
+        if (!PLAT_DATA_OK(s, QB_SECTOR) || !PLAT_READ_OK(s, QB_SECTOR)) {
+            printf("FAIL bank sector %u at %#x is not inside a plat window (PLAT_DATA_OK / PLAT_READ_OK)\n", i, s);
+            fails++;
+        }
+    }
+    if (!QB_FLASH_OK(0xE5000u, 0x2000u) || !QB_FLASH_OK(0xEA000u, 0x12000u) || QB_FLASH_OK(0xE7000u, 1u) ||
+        QB_FLASH_OK(0xE8000u, 1u) || QB_FLASH_OK(0xE9000u, 1u) || QB_FLASH_OK(0xE6000u, 0x2000u)) {
+        printf("FAIL QB_FLASH_OK does not match the bank's regions around the system sectors\n");
+        fails++;
+    }
+    if (QB_NSECT != 60u || QB_CAPACITY != 60u * 4088u) {
+        printf("FAIL the bank has %u sectors, %u bytes: expected 60, 245,280\n", (unsigned)QB_NSECT, (unsigned)QB_CAPACITY);
+        fails++;
+    }
     printf("%s: %d objects (%u pooled in %u sectors), the resource region's %u sectors, the bank's %u sectors + its "
            "directory\n", fails ? "FAIL" : "ok", OBJ_NOBJ, (unsigned)APP_STORE_POOL_OBJN, (unsigned)APP_STORE_POOL_N,
            (unsigned)APP_RES_SECTORS, (unsigned)QB_NSECT);

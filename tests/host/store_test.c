@@ -293,7 +293,11 @@ static void lay_old(void)
         nor[i] = (uint8_t)(i * 13u);
     for (uint32_t i = 0xB9000u; i < 0xE0000u; i++)   /* the bank, the panel at 0xDC000, the bank's directory */
         nor[i] = (uint8_t)(i * 7u ^ (i >> 9));
-    for (uint32_t i = 0xE5000u; i < 0xFC000u; i++)
+    for (uint32_t i = 0xE5000u; i < 0xE7000u; i++)   /* the bank's two sectors below the system sectors */
+        nor[i] = (uint8_t)(i * 3u);
+    for (uint32_t i = 0xE7000u; i < 0xEA000u; i++)   /* the FM-1's own system sectors: must never change either */
+        nor[i] = (uint8_t)(i * 5u ^ 0x5Au);
+    for (uint32_t i = 0xEA000u; i < 0xFC000u; i++)   /* the bank's 18 sectors above them */
         nor[i] = (uint8_t)(i * 3u);
     for (uint32_t o = 0; o < OBJ_NOBJ; o++) {
         uint32_t n = (uint32_t)want.n[o];
@@ -325,7 +329,9 @@ static int outside_same(void)                     /* the bank, the panel, the st
 {
     return !memcmp(nor + 0x93000u, qy_was + 0x93000u, 0x4000u) &&
            !memcmp(nor + 0xB9000u, qy_was + 0xB9000u, 0xE0000u - 0xB9000u) &&
-           !memcmp(nor + 0xE5000u, qy_was + 0xE5000u, 0xFC000u - 0xE5000u);
+           !memcmp(nor + 0xE5000u, qy_was + 0xE5000u, 0xE7000u - 0xE5000u) &&
+           !memcmp(nor + 0xE7000u, qy_was + 0xE7000u, 0xEA000u - 0xE7000u) &&
+           !memcmp(nor + 0xEA000u, qy_was + 0xEA000u, 0xFC000u - 0xEA000u);
 }
 static int region_erased(void)                    /* past the pool: nothing (the resource region's to take) */
 {

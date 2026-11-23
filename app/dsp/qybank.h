@@ -2,13 +2,16 @@
 /* The QY70 style bank on the FM-1's flash (bring your own ROM: tools/qy70_install.py builds it from your QY70 ROM
  * and writes it over USB; nothing of Yamaha's is in this firmware). docs/qy70-import.md has the format.
  *
- * Where it lives: the flash Polly's firmware, store and the update loader leave free, four regions, 64 sectors:
- *   0x93000..0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF, 0xE5000..0xFBFFF
- * The sector at QB_DIR (0xDE000) is the directory; the other 63 are the data, one logical byte stream in the
+ * Where it lives: the flash Polly's firmware, store and the update loader leave free, five regions, 61 sectors:
+ *   0x93000..0x96FFF, 0xB9000..0xDBFFF, 0xDE000..0xDFFFF, 0xE5000..0xE6FFF, 0xEA000..0xFBFFF
+ * never 0xE7000..0xE9FFF: the FM-1's own system sectors (the SDK VM at 0xE8000, its probable second area, BTIF), which
+ * fm1-base's plat.h keeps read only (PLAT_SYS). A bank written while 0xE5000..0xFBFFF was one range has data in them
+ * (and wrote over them): it must be installed again.
+ * The sector at QB_DIR (0xDE000) is the directory; the other 60 are the data, one logical byte stream in the
  * order above. Bytes 0xF00..0xF07 of every bank sector stay 0xFF: at the end of a firmware update the loader
  * erases a sector whose last 256 bytes look like an update record ("AT" at bytes 6..7): the loaders before the
  * platform update anywhere in 0x93000..0xFBFFF, today's only in the staging and 0xE8000, the stock firmware's
- * record sector, which is a bank sector (firmware/loader/ldr_window.h). So the logical stream steps over them
+ * record sector (no longer a bank sector: the split keeps the bank off it; firmware/loader/ldr_window.h). So the logical stream steps over them
  * (4088 bytes a sector).
  *
  * The directory (little-endian; written last, so a bank cut off while it was written has none):
@@ -37,13 +40,17 @@
 #define QB_R2_LO 0x000DE000u
 #define QB_R2_HI 0x000E0000u
 #define QB_R3_LO 0x000E5000u
-#define QB_R3_HI 0x000FC000u
-#define QB_NSECT ((QB_R0_HI - QB_R0_LO + QB_R1_HI - QB_R1_LO + QB_R2_HI - QB_R2_LO + QB_R3_HI - QB_R3_LO) / QB_SECTOR - 1u)
-#define QB_CAPACITY (QB_NSECT * QB_SECT_DATA)   /* the data's logical bytes: 63 x 4088 = 257,544 */
+#define QB_R3_HI 0x000E7000u
+#define QB_R4_LO 0x000EA000u
+#define QB_R4_HI 0x000FC000u
+#define QB_NSECT ((QB_R0_HI - QB_R0_LO + QB_R1_HI - QB_R1_LO + QB_R2_HI - QB_R2_LO + QB_R3_HI - QB_R3_LO + \
+                   QB_R4_HI - QB_R4_LO) / QB_SECTOR - 1u)
+#define QB_CAPACITY (QB_NSECT * QB_SECT_DATA)   /* the data's logical bytes: 60 x 4088 = 245,280 */
 /* a flash range inside the bank's regions (the directory sector included) */
 #define QB_IN(off, n, lo, hi) ((uint32_t)(off) >= (lo) && (uint32_t)(off) <= (hi) && (uint32_t)(n) <= (hi) - (uint32_t)(off))
 #define QB_FLASH_OK(off, n) (QB_IN(off, n, QB_R0_LO, QB_R0_HI) || QB_IN(off, n, QB_R1_LO, QB_R1_HI) || \
-                             QB_IN(off, n, QB_R2_LO, QB_R2_HI) || QB_IN(off, n, QB_R3_LO, QB_R3_HI))
+                             QB_IN(off, n, QB_R2_LO, QB_R2_HI) || QB_IN(off, n, QB_R3_LO, QB_R3_HI) || \
+                             QB_IN(off, n, QB_R4_LO, QB_R4_HI))
 
 #define QB_MAGIC 0x31425150u             /* "PQB1" */
 #define QB_VERSION 1u
